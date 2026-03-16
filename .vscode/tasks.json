@@ -1,0 +1,109 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Dependencies: install",
+            "type": "shell",
+            "command": "npm",
+            "args": [
+                "install"
+            ],
+            "group": "none"
+        },
+        {
+            "label": "Frontend: validate",
+            "group": "build""check:frontend"
+        ],
+        "group": "test"
+    },
+    {
+        "label": "Rust: format check",
+        "type": "shell",
+        "command": "npm",
+        "args": [
+            "group": "test"
+        },
+        {
+            "label": "Rust: check",
+            "type": "shell",
+            "command": "npm",
+            "args": [
+                "run",
+                "check:rust"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+                "kind": "build",
+            "isDefault": true
+        }
+    },
+    {
+        "label": "Rust: test",
+        "type": "shell",
+        "command": "npm",
+        "args": [
+            "run",
+            "test:rust"
+        ],
+        "group": {
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+                "isDefault": true
+        }
+    },
+    {
+        "label": "Rust: clippy",
+        "type": "shell",
+        "command": "cargo",
+        "args": [
+            "clippy",
+            "--manifest-path",
+            "src-tauri/Cargo.toml",
+            "--all-targets",
+            "--",
+            "-D",
+            "warnings"
+        ],
+        "group": "test"
+    },
+    {
+        "label": "App: verify",
+        "type": "shell",
+        "command": "npm",
+        "args": [
+            "run",
+            "verify"
+        ],
+        "group": "test"
+    },
+    {
+        "label": "Tauri: dev",
+        "type": "shell",
+        "command": "npm",
+        "args": [
+            "run",
+            "dev"
+        ],
+        "isBackground": true,
+        "problemMatcher": []
+    },
+    {
+        "label": "Tauri: build",
+        "type": "shell",
+        "command": "npm",
+        "args": [
+            "run",
+            "build"
+        ],
+        "dependsOn": [
+            "App: verify"
+        ],
+        "dependsOrder": "sequence",
+        "group": "build"
+    }
+]
+}

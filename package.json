@@ -1,0 +1,24 @@
+{
+  "name": "tauri-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "check:frontend": "node ./scripts/validate-frontend.mjs",
+    "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
+    "fmt:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check",
+    "verify": "npm run check:frontend && npm run fmt:rust && npm run check:rust && npm run test:rust"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  },
+  "dependencies": {
+    "highlight.js": "^11.11.1",
+    "marked": "^17.0.4",
+    "mermaid": "^11.13.0"
+  }
+}

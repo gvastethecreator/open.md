@@ -1,0 +1,41 @@
+[
+  {
+    "name": "GitHub",
+    "background": "#ffffff",
+    "foreground": "#24292f",
+    "color_01": "#f6f8fa",
+    "color_02": "#0d1117",
+    "color_03": "#1f2328",
+    "color_04": "#57606a",
+    "color_05": "#0969da",
+    "color_06": "#8250df",
+    "color_07": "#57606a",
+    "color_08": "#d0d7de"
+  },
+  {
+    "name": "Dracula",
+    "background": "#282a36",
+    "foreground": "#f8f8f2",
+    "color_01": "#44475a",
+    "color_02": "#ff79c6",
+    "color_03": "#8be9fd",
+    "color_04": "#50fa7b",
+    "color_05": "#bd93f9",
+    "color_06": "#ffb86c",
+    "color_07": "#6272a4",
+    "color_08": "#44475a"
+  },
+  {
+    "name": "Sepia",
+    "background": "#fbf0d9",
+    "foreground": "#3b3228",
+    "color_01": "#f2e6ce",
+    "color_02": "#3b3228",
+    "color_03": "#5c4b3b",
+    "color_04": "#7c6f64",
+    "color_05": "#8f3f00",
+    "color_06": "#b57614",
+    "color_07": "#7c6f64",
+    "color_08": "#d5c4a1"
+  }
+]
