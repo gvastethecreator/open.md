@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Dependencies: install",
+            "label": "📥 deps",
             "type": "shell",
             "command": "npm",
             "args": [
@@ -11,99 +11,88 @@
             "group": "none"
         },
         {
-            "label": "Frontend: validate",
-            "group": "build""check:frontend"
-        ],
-        "group": "test"
-    },
-    {
-        "label": "Rust: format check",
-        "type": "shell",
-        "command": "npm",
-        "args": [
-            "group": "test"
-        },
-        {
-            "label": "Rust: check",
+            "label": "⚡ web dev",
             "type": "shell",
             "command": "npm",
             "args": [
                 "run",
-                "check:rust"
+                "dev"
+            ],
+            "isBackground": true,
+            "problemMatcher": []
+        },
+        {
+            "label": "🖥️ app dev",
+            "type": "shell",
+            "command": "npm",
+            "args": [
+                "run",
+                "tauri",
+                "dev"
+            ],
+            "isBackground": true,
+            "problemMatcher": []
+        },
+        {
+            "label": "🧪 front",
+            "type": "shell",
+            "command": "npm",
+            "args": [
+                "run",
+                "test:frontend"
+            ],
+            "group": "test"
+        },
+        {
+            "label": "🦀 rust",
+            "type": "shell",
+            "command": "npm",
+            "args": [
+                "run",
+                "test:rust"
+            ],
+            "group": "test"
+        },
+        {
+            "label": "🔎 check",
+            "type": "shell",
+            "command": "npm",
+            "args": [
+                "run",
+                "check:frontend"
+            ],
+            "group": "test"
+        },
+        {
+            "label": "✅ verify",
+            "type": "shell",
+            "command": "npm",
+            "args": [
+                "run",
+                "verify"
             ],
             "group": {
                 "kind": "test",
                 "isDefault": true
             }
-                "kind": "build",
-            "isDefault": true
-        }
-    },
-    {
-        "label": "Rust: test",
-        "type": "shell",
-        "command": "npm",
-        "args": [
-            "run",
-            "test:rust"
-        ],
-        "group": {
+        },
+        {
+            "label": "📦 build",
+            "type": "shell",
+            "command": "npm",
+            "args": [
+                "run",
+                "tauri",
+                "build"
+            ],
+            "dependsOn": [
+                "✅ verify"
+            ],
+            "dependsOrder": "sequence",
             "group": {
                 "kind": "build",
                 "isDefault": true
             }
-                "isDefault": true
         }
-    },
-    {
-        "label": "Rust: clippy",
-        "type": "shell",
-        "command": "cargo",
-        "args": [
-            "clippy",
-            "--manifest-path",
-            "src-tauri/Cargo.toml",
-            "--all-targets",
-            "--",
-            "-D",
-            "warnings"
-        ],
-        "group": "test"
-    },
-    {
-        "label": "App: verify",
-        "type": "shell",
-        "command": "npm",
-        "args": [
-            "run",
-            "verify"
-        ],
-        "group": "test"
-    },
-    {
-        "label": "Tauri: dev",
-        "type": "shell",
-        "command": "npm",
-        "args": [
-            "run",
-            "dev"
-        ],
-        "isBackground": true,
-        "problemMatcher": []
-    },
-    {
-        "label": "Tauri: build",
-        "type": "shell",
-        "command": "npm",
-        "args": [
-            "run",
-            "build"
-        ],
-        "dependsOn": [
-            "App: verify"
-        ],
-        "dependsOrder": "sequence",
-        "group": "build"
-    }
-]
+    ]
 }

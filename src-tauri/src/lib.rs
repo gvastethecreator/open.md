@@ -1,16 +1,22 @@
 use pulldown_cmark::{html, CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use std::env;
 use std::fs;
+use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::OnceLock;
 use syntect::highlighting::ThemeSet;
 use syntect::html::highlighted_html_for_string;
 use syntect::parsing::SyntaxSet;
 use tauri::AppHandle;
 
 static WINDOW_COUNTER: AtomicUsize = AtomicUsize::new(1);
+static SYNTAX_SET: OnceLock<SyntaxSet> = OnceLock::new();
+static THEME_SET: OnceLock<ThemeSet> = OnceLock::new();
+
+const MAX_RENDERABLE_FILE_SIZE_BYTES: u64 = 20 * 1024 * 1024;
 
 #[tauri::command]
-fn get_file_content(path: Option<String>) -> Result<String, String> {
+fn get_file_content(window: tauri::Window, path: Option<String>) -> Result<String, String> {
     // If a path was explicitly passed
     if let Some(file_path) = path {
         if !file_path.is_empty() {
@@ -18,22 +24,23 @@ fn get_file_content(path: Option<String>) -> Result<String, String> {
         }
     }
 
-    // Get command line arguments
-    let args: Vec<String> = env::args().collect();
+    // Only use command line arguments for the main window
+    if window.label() == "main" {
+        // Get command line arguments
+        let args: Vec<String> = env::args().collect();
 
-    // If an argument is provided (the file path to open)
-    if args.len() > 1 {
-        let file_path = &args[1];
+        // If an argument is provided (the file path to open)
+        if args.len() > 1 {
+            let file_path = &args[1];
 
-        // Skip arguments that look like Tauri flags
-        if file_path.starts_with("--") {
-            get_welcome_content()
-        } else {
-            process_file(file_path)
+            // Skip arguments that look like Tauri flags
+            if !file_path.starts_with("--") {
+                return process_file(file_path);
+            }
         }
-    } else {
-        get_welcome_content()
     }
+
+    get_welcome_content()
 }
 
 #[tauri::command]
@@ -52,22 +59,81 @@ fn open_new_window(app: AppHandle, path: String) -> Result<(), String> {
     Ok(())
 }
 
-fn process_file(file_path: &str) -> Result<String, String> {
-    match fs::read_to_string(file_path) {
-        Ok(content) => {
-            if file_path.ends_with(".md") || file_path.ends_with(".markdown") {
-                Ok(render_markdown_with_highlighting(&content))
-            } else if file_path.ends_with(".txt") {
-                // Just wrap txt in pre/code tags
-                Ok(format!(
-                    "<pre><code>{}</code></pre>",
-                    html_escape::encode_text(&content)
-                ))
-            } else {
-                Err(format!("Formato de archivo no soportado: {}", file_path))
-            }
+fn syntax_set() -> &'static SyntaxSet {
+    SYNTAX_SET.get_or_init(SyntaxSet::load_defaults_newlines)
+}
+
+fn theme_set() -> &'static ThemeSet {
+    THEME_SET.get_or_init(ThemeSet::load_defaults)
+}
+
+fn is_supported_extension(file_path: &Path) -> bool {
+    file_path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| {
+            matches!(
+                extension.to_ascii_lowercase().as_str(),
+                "md" | "markdown" | "txt"
+            )
+        })
+        .unwrap_or(false)
+}
+
+fn file_size_label(bytes: u64) -> String {
+    const MIB: f64 = 1024.0 * 1024.0;
+    format!("{:.1} MiB", bytes as f64 / MIB)
+}
+
+fn user_friendly_read_error(error: std::io::Error) -> String {
+    match error.kind() {
+        std::io::ErrorKind::NotFound => "El archivo no existe o ya no está disponible.".to_string(),
+        std::io::ErrorKind::PermissionDenied => {
+            "No hay permisos para leer este archivo.".to_string()
         }
-        Err(e) => Err(format!("Error leyendo el archivo: {}", e)),
+        _ => format!("No se pudo leer el archivo: {}", error),
+    }
+}
+
+fn process_file(file_path: &str) -> Result<String, String> {
+    let canonical_path = fs::canonicalize(file_path).map_err(user_friendly_read_error)?;
+
+    if !is_supported_extension(&canonical_path) {
+        return Err(format!(
+            "Formato de archivo no soportado: {}",
+            canonical_path.display()
+        ));
+    }
+
+    let metadata = fs::metadata(&canonical_path).map_err(user_friendly_read_error)?;
+    if metadata.len() > MAX_RENDERABLE_FILE_SIZE_BYTES {
+        return Err(format!(
+            "El archivo es demasiado grande para una vista instantánea ({}). Límite actual: {}.",
+            file_size_label(metadata.len()),
+            file_size_label(MAX_RENDERABLE_FILE_SIZE_BYTES)
+        ));
+    }
+
+    let bytes = fs::read(&canonical_path).map_err(user_friendly_read_error)?;
+    let content = String::from_utf8(bytes).map_err(|_| {
+        "El archivo no está en UTF-8 y no puede renderizarse correctamente.".to_string()
+    })?;
+
+    match canonical_path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(|extension| extension.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("md") | Some("markdown") => Ok(render_markdown_with_highlighting(&content)),
+        Some("txt") => Ok(format!(
+            "<pre><code>{}</code></pre>",
+            html_escape::encode_text(&content)
+        )),
+        _ => Err(format!(
+            "Formato de archivo no soportado: {}",
+            canonical_path.display()
+        )),
     }
 }
 
@@ -77,9 +143,14 @@ fn get_welcome_content() -> Result<String, String> {
 }
 
 fn render_markdown_with_highlighting(content: &str) -> String {
-    let ps = SyntaxSet::load_defaults_newlines();
-    let ts = ThemeSet::load_defaults();
-    let theme = &ts.themes["base16-ocean.dark"];
+    let ps = syntax_set();
+    let ts = theme_set();
+    let theme = ts.themes.get("base16-ocean.dark").unwrap_or_else(|| {
+        ts.themes
+            .values()
+            .next()
+            .expect("theme set should not be empty")
+    });
 
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
@@ -177,7 +248,11 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{get_welcome_content, render_markdown_with_highlighting};
+    use super::{
+        file_size_label, get_welcome_content, is_supported_extension,
+        render_markdown_with_highlighting,
+    };
+    use std::path::Path;
 
     #[test]
     fn renders_headings_and_paragraphs() {
@@ -202,5 +277,19 @@ mod tests {
         assert!(html.contains("OpenMD"));
         assert!(html.contains(".md"));
         assert!(html.contains(".txt"));
+    }
+
+    #[test]
+    fn supported_extensions_are_case_insensitive() {
+        assert!(is_supported_extension(Path::new("README.md")));
+        assert!(is_supported_extension(Path::new("GUIDE.MARKDOWN")));
+        assert!(is_supported_extension(Path::new("notes.TxT")));
+        assert!(!is_supported_extension(Path::new("archive.zip")));
+    }
+
+    #[test]
+    fn file_size_label_is_human_readable() {
+        assert_eq!(file_size_label(1024 * 1024), "1.0 MiB");
+        assert_eq!(file_size_label(5 * 1024 * 1024), "5.0 MiB");
     }
 }

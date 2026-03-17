@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">OpenMD favicon</title>
+  <desc id="desc">Un bloc de notas minimalista con las letras MD</desc>
+  <defs>
+    <linearGradient id="bg" x1="18" y1="16" x2="110" y2="112" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f6ffda"/>
+      <stop offset="1" stop-color="#d7f37d"/>
+    </linearGradient>
+    <linearGradient id="page" x1="32" y1="24" x2="96" y2="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eef3ff"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="18" y="12" width="92" height="104" rx="24" fill="url(#bg)"/>
+  <rect x="32" y="24" width="64" height="80" rx="12" fill="url(#page)" stroke="#18222f" stroke-width="4"/>
+  <path d="M76 24h8c6.627 0 12 5.373 12 12v8H76z" fill="#d6e4ff" stroke="#18222f" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M46 48h36" stroke="#a7b6cf" stroke-width="4" stroke-linecap="round"/>
+  <path d="M46 60h36" stroke="#a7b6cf" stroke-width="4" stroke-linecap="round"/>
+  <path d="M44 88V72h5.6l7.4 9.9 7.4-9.9H70v16h-4.7V78.7l-8.1 10.4h-.3l-8.1-10.4V88Zm30.5 0V72h7.3c5.3 0 8.9 3.2 8.9 8s-3.6 8-8.9 8Zm4.7-4.3h2.6c2.6 0 4.3-1.4 4.3-3.7 0-2.4-1.7-3.8-4.3-3.8h-2.6Z" fill="#18222f"/>
+</svg>

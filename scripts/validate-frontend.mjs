@@ -3,10 +3,11 @@ import path from 'node:path';
 
 const root = process.cwd();
 const requiredFiles = [
-  'src/index.html',
+  'index.html',
   'src/main.js',
   'src/styles.css',
   'src/themes.json',
+  'src/assets/favicon.svg',
   'src-tauri/tauri.conf.json'
 ];
 
@@ -17,12 +18,15 @@ for (const relativePath of requiredFiles) {
   }
 }
 
-const indexHtml = readFileSync(path.join(root, 'src/index.html'), 'utf8');
-if (!indexHtml.includes('src="/main.js"')) {
-  throw new Error('src/index.html must load /main.js');
+const indexHtml = readFileSync(path.join(root, 'index.html'), 'utf8');
+if (!indexHtml.includes('src="/src/main.js"')) {
+  throw new Error('index.html must load /src/main.js');
 }
-if (!indexHtml.includes('href="styles.css"')) {
-  throw new Error('src/index.html must load styles.css');
+if (!indexHtml.includes('href="/src/styles.css"')) {
+  throw new Error('index.html must load /src/styles.css');
+}
+if (!indexHtml.includes('href="/src/assets/favicon.svg"')) {
+  throw new Error('index.html must load /src/assets/favicon.svg as favicon');
 }
 
 const themesRaw = readFileSync(path.join(root, 'src/themes.json'), 'utf8').trim();
@@ -42,6 +46,7 @@ if (!Array.isArray(themes) || themes.length === 0) {
 }
 
 const requiredThemeKeys = ['name', 'background', 'foreground'];
+const seenThemeNames = new Set();
 for (const [index, theme] of themes.entries()) {
   if (!theme || typeof theme !== 'object' || Array.isArray(theme)) {
     throw new Error(`Theme at index ${index} must be an object`);
@@ -52,15 +57,18 @@ for (const [index, theme] of themes.entries()) {
       throw new Error(`Theme at index ${index} is missing a valid string property: ${key}`);
     }
   }
-}
 
-if (!themes.some((theme) => theme.name === 'GitHub')) {
-  throw new Error('src/themes.json must provide a "GitHub" theme because main.js uses it as preferred default');
+  const normalizedName = theme.name.trim().toLowerCase();
+  if (seenThemeNames.has(normalizedName)) {
+    throw new Error(`Duplicate theme name detected: ${theme.name}`);
+  }
+
+  seenThemeNames.add(normalizedName);
 }
 
 const tauriConfig = JSON.parse(readFileSync(path.join(root, 'src-tauri/tauri.conf.json'), 'utf8'));
-if (tauriConfig?.build?.frontendDist !== '../src') {
-  throw new Error('src-tauri/tauri.conf.json must keep build.frontendDist set to ../src for this static frontend setup');
+if (tauriConfig?.build?.frontendDist !== '../dist') {
+  throw new Error('src-tauri/tauri.conf.json must keep build.frontendDist set to ../dist for Vite build');
 }
 
 console.log(`Frontend validation passed (${themes.length} themes found).`);
