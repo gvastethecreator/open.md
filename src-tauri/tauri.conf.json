@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "identifier": "com.cristian.open-md",
   "build": {
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build",
+    "beforeDevCommand": "bun run dev",
+    "beforeBuildCommand": "bun run build",
     "devUrl": "http://127.0.0.1:5173",
     "frontendDist": "../dist"
   },
@@ -40,14 +40,19 @@
     },
     "fileAssociations": [
       {
-        "ext": ["md", "markdown"],
+        "ext": [
+          "md",
+          "markdown"
+        ],
         "name": "Markdown Document",
         "description": "Markdown Document",
         "role": "Viewer",
         "mimeType": "text/markdown"
       },
       {
-        "ext": ["txt"],
+        "ext": [
+          "txt"
+        ],
         "name": "Text Document",
         "description": "Text Document",
         "role": "Viewer",

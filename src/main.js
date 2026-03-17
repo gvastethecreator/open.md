@@ -25,11 +25,8 @@ const ui = {
   content: null,
   emptyStage: null,
   helpStage: null,
-  themeSelect: null,
-  openFileButton: null,
-  emptyOpenButton: null,
-  statusPill: null,
-  themeCountCopy: null,
+  emptyOpenArea: null,
+  scrollToTop: null,
 };
 
 try {
@@ -42,11 +39,8 @@ function cacheElements() {
   ui.content = document.getElementById('content');
   ui.emptyStage = document.getElementById('empty-stage');
   ui.helpStage = document.getElementById('help-stage');
-  ui.themeSelect = document.getElementById('theme-select');
-  ui.openFileButton = document.getElementById('open-file-button');
-  ui.emptyOpenButton = document.getElementById('empty-open-button');
-  ui.statusPill = document.getElementById('status-pill');
-  ui.themeCountCopy = document.getElementById('theme-count-copy');
+  ui.emptyOpenArea = document.getElementById('empty-open-area');
+  ui.scrollToTop = document.getElementById('scroll-to-top');
 }
 
 export function isSupportedFilePath(filePath) {
@@ -188,31 +182,9 @@ export function getPreferredThemeIndex(themeList, savedThemeName = null) {
   return 0;
 }
 
-function populateThemeSelect() {
-  if (!ui.themeSelect) return;
-
-  ui.themeSelect.innerHTML = themes
-    .map(
-      (theme) => `<option value="${theme.name}">${theme.name}</option>`
-    )
-    .join('');
-
-  if (currentThemeIndex >= 0 && themes[currentThemeIndex]) {
-    ui.themeSelect.value = themes[currentThemeIndex].name;
-  }
-}
-
-function updateThemeCopy() {
-  if (!ui.themeCountCopy) return;
-  ui.themeCountCopy.textContent = `${themes.length} themes listos para usar`;
-}
-
-function updateStatus(filePath = null) {
-  if (!ui.statusPill) return;
-  const label = isHelpVisible ? 'Ayuda' : filePath ? getDisplayName(filePath) : 'Sin archivo';
-  ui.statusPill.textContent = label;
-  ui.statusPill.title = label;
-}
+function populateThemeSelect() {}
+function updateThemeCopy() {}
+function updateStatus(filePath = null) {}
 
 function syncViewportState() {
   const mode = getViewportMode(Boolean(currentFilePath), isHelpVisible);
@@ -291,9 +263,6 @@ function applyTheme(theme, { silent = false } = {}) {
   }
 
   currentThemeIndex = themes.findIndex((item) => item.name === theme.name);
-  if (ui.themeSelect) {
-    ui.themeSelect.value = theme.name;
-  }
 
   localStorage.setItem(THEME_STORAGE_KEY, theme.name);
 
@@ -329,9 +298,9 @@ function showToast(message) {
   }, 2000);
 }
 
-function cycleTheme() {
+function cycleTheme(direction = 1) {
   if (themes.length === 0) return;
-  currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+  currentThemeIndex = (currentThemeIndex + direction + themes.length) % themes.length;
   applyTheme(themes[currentThemeIndex]);
 }
 
@@ -372,6 +341,24 @@ async function loadContent(filePath = null) {
     });
 
     hydrateRelativeImages();
+
+    ui.content.querySelectorAll('pre').forEach((pre) => {
+      const code = pre.querySelector('code');
+      if (!code) return;
+      
+      const btn = document.createElement('button');
+      btn.className = 'copy-code-btn';
+      btn.textContent = 'Copiar';
+      btn.onclick = () => {
+        navigator.clipboard.writeText(code.innerText).then(() => {
+          btn.textContent = '¡Copiado!';
+          setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
+        });
+      };
+      
+      pre.style.position = 'relative';
+      pre.appendChild(btn);
+    });
 
     try {
       const mermaids = ui.content.querySelectorAll('.mermaid');
@@ -448,6 +435,27 @@ function handleZoom(event) {
   }
 }
 
+function handleScroll() {
+  if (!ui.scrollToTop) return;
+  const scrollTop = window.scrollY || document.documentElement.scrollTop;
+  const scrollHeight = document.documentElement.scrollHeight;
+  const clientHeight = document.documentElement.clientHeight;
+  const maxScroll = scrollHeight - clientHeight;
+  
+  if (maxScroll > 0 && scrollTop > maxScroll * 0.5) {
+    ui.scrollToTop.classList.add('show');
+  } else {
+    ui.scrollToTop.classList.remove('show');
+  }
+}
+
+function scrollToTop() {
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  });
+}
+
 function handleKeyboard(event) {
   if (event.key === 'F1') {
     event.preventDefault();
@@ -473,18 +481,17 @@ function handleKeyboard(event) {
   }
 
   const isTypingField = ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target?.tagName);
-  if ((event.key === 't' || event.key === 'T') && !event.ctrlKey && !event.metaKey && !event.altKey && !isTypingField) {
-    cycleTheme();
+  if (!isTypingField && (event.key === 't' || event.key === 'T') && !event.metaKey && !event.altKey) {
+    event.preventDefault();
+    if (event.ctrlKey || event.shiftKey) {
+      cycleTheme(-1);
+    } else {
+      cycleTheme(1);
+    }
   }
 }
 
-function handleThemeSelection(event) {
-  const selectedThemeName = event.target.value;
-  const nextTheme = themes.find((theme) => theme.name === selectedThemeName);
-  if (nextTheme) {
-    applyTheme(nextTheme);
-  }
-}
+function handleThemeSelection(event) {}
 
 async function handleIncomingFiles(filePaths) {
   const supportedFiles = (filePaths || []).filter(isSupportedFilePath);
@@ -565,6 +572,7 @@ async function setupDragAndDrop() {
 function registerEvents() {
   window.addEventListener('wheel', handleZoom, { passive: false });
   window.addEventListener('keydown', handleKeyboard);
+  window.addEventListener('scroll', handleScroll, { passive: true });
   window.addEventListener('beforeunload', () => {
     if (typeof dragDropUnlisten === 'function') {
       dragDropUnlisten();
@@ -574,9 +582,8 @@ function registerEvents() {
   });
   document.addEventListener('click', handleLinkClick);
 
-  ui.themeSelect?.addEventListener('change', handleThemeSelection);
-  ui.openFileButton?.addEventListener('click', openFilePicker);
-  ui.emptyOpenButton?.addEventListener('click', openFilePicker);
+  ui.emptyOpenArea?.addEventListener('click', openFilePicker);
+  ui.scrollToTop?.addEventListener('click', scrollToTop);
 }
 
 function init() {

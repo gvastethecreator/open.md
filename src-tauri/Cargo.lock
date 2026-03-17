@@ -2367,6 +2367,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "open-md"
+version = "0.1.0"
+dependencies = [
+ "html-escape",
+ "pulldown-cmark",
+ "serde",
+ "serde_json",
+ "syntect",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-fs",
+ "tauri-plugin-opener",
+ "tauri-plugin-single-instance",
+ "urlencoding",
+]
+
+[[package]]
 name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3756,24 +3774,6 @@ dependencies = [
  "webview2-com",
  "window-vibrancy",
  "windows",
-]
-
-[[package]]
-name = "tauri-app"
-version = "0.1.0"
-dependencies = [
- "html-escape",
- "pulldown-cmark",
- "serde",
- "serde_json",
- "syntect",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-fs",
- "tauri-plugin-opener",
- "tauri-plugin-single-instance",
- "urlencoding",
 ]
 
 [[package]]

@@ -13,23 +13,23 @@ Visor minimalista de archivos `Markdown` y `TXT` construido con `Tauri v2`, `Rus
 
 ## VS Code tasks y scripts útiles
 
-- `npm run dev`: arranca Vite para desarrollo frontend.
-- `npm run tauri dev`: abre la app Tauri en desarrollo.
-- `npm run build`: genera el frontend de producción.
-- `npm run tauri build`: empaqueta la app nativa.
-- `npm run check:frontend`: valida la integración estática del frontend (HTML, CSS, JS y temas).
-- `npm run check:rust`: compila el backend Rust sin empaquetar.
-- `npm run test:rust`: ejecuta las pruebas unitarias de Rust.
-- `npm run test:frontend`: ejecuta las pruebas de frontend con Vitest.
-- `npm run fmt:rust`: verifica formato Rust.
-- `npm run verify`: corre la validación completa recomendada antes de empaquetar.
+- `bun run dev`: arranca Vite para desarrollo frontend.
+- `bun run tauri dev`: abre la app Tauri en desarrollo.
+- `bun run build`: genera el frontend de producción.
+- `bun run tauri build`: empaqueta la app nativa.
+- `bun run check:frontend`: valida la integración estática del frontend (HTML, CSS, JS y temas).
+- `bun run check:rust`: compila el backend Rust sin empaquetar.
+- `bun run test:rust`: ejecuta las pruebas unitarias de Rust.
+- `bun run test:frontend`: ejecuta las pruebas de frontend con Vitest.
+- `bun run fmt:rust`: verifica formato Rust.
+- `bun run verify`: corre la validación completa recomendada antes de empaquetar.
 
 ## Flujo recomendado
 
-1. `npm install`
-2. `npm run tauri dev`
-3. antes de empaquetar, `npm run verify`
-4. release local: `npm run tauri build`
+1. `bun install`
+2. `bun run tauri dev`
+3. antes de empaquetar, `bun run verify`
+4. release local: `bun run tauri build`
 
 ## Recommended IDE Setup
 

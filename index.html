@@ -11,129 +11,35 @@
 
   <body>
     <div class="app-shell">
-      <header class="app-toolbar">
-        <div class="toolbar-group">
-          <button id="open-file-button" class="control-button" type="button">📂 Abrir</button>
-          <label class="theme-field" for="theme-select">
-            <span>🎨 Theme</span>
-            <select id="theme-select" class="theme-select" aria-label="Seleccionar theme">
-              <option>Cargando themes…</option>
-            </select>
-          </label>
-        </div>
-
-        <div id="status-pill" class="status-pill" title="Estado actual">Sin archivo</div>
-      </header>
-
       <main class="viewport">
         <section id="empty-stage" class="empty-stage" aria-live="polite">
-          <div class="empty-card">
+          <div class="empty-card" id="empty-open-area" style="cursor: pointer;" title="Abrir archivo">
             <img class="empty-logo" src="/src/assets/favicon.svg" alt="OpenMD" />
-            <p class="eyebrow">OpenMD</p>
-            <h1>Arrastra tu Markdown y listo</h1>
-            <p id="empty-copy" class="empty-copy">
-              Visualiza archivos <code>.md</code>, <code>.markdown</code> y <code>.txt</code> con temas,
-              zoom y render de Mermaid, sin abrir un editor gigante para leer dos párrafos.
-            </p>
-
-            <div class="empty-actions">
-              <button id="empty-open-button" class="primary-button" type="button">📂 Abrir archivo</button>
-              <span id="theme-count-copy" class="theme-count-copy">Cargando catálogo de themes…</span>
-            </div>
-
-            <div class="empty-hints" aria-label="Atajos rápidos">
-              <div class="hint-card">
-                <strong>Temas</strong>
-                <span><kbd>T</kbd> para cambiar rápido</span>
-              </div>
-              <div class="hint-card">
-                <strong>Zoom</strong>
-                <span><kbd>Ctrl</kbd> + rueda o <kbd>Ctrl</kbd> + <kbd>+</kbd>/<kbd>-</kbd></span>
-              </div>
-              <div class="hint-card">
-                <strong>Drag & drop</strong>
-                <span>Suelta uno o varios archivos para abrirlos</span>
-              </div>
-              <div class="hint-card">
-                <strong>Ayuda</strong>
-                <span><kbd>F1</kbd> para abrir la guía rápida</span>
-              </div>
-            </div>
+            <h1>Open file</h1>
           </div>
         </section>
 
         <section id="help-stage" class="help-stage hidden" aria-labelledby="help-title">
-          <div class="help-card">
-            <div class="help-header">
-              <p class="eyebrow">Ayuda</p>
-              <h1 id="help-title">Atajos, flujo y trucos útiles</h1>
-              <p class="help-copy">
-                OpenMD está pensado para abrir, leer y cambiar de tema sin fricción. Esta pantalla
-                reemplaza temporalmente la vista principal para tener una guía corta y sin ruido.
-              </p>
-            </div>
-
-            <div class="help-grid" aria-label="Guía rápida de OpenMD">
-              <section class="help-panel">
-                <h2>Atajos</h2>
-                <dl class="help-shortcuts">
-                  <div>
-                    <dt><kbd>F1</kbd></dt>
-                    <dd>Abre o cierra esta pantalla de ayuda.</dd>
-                  </div>
-                  <div>
-                    <dt><kbd>Esc</kbd></dt>
-                    <dd>Vuelve a la vista anterior si la ayuda está abierta.</dd>
-                  </div>
-                  <div>
-                    <dt><kbd>T</kbd></dt>
-                    <dd>Cambia rápidamente al siguiente theme disponible.</dd>
-                  </div>
-                  <div>
-                    <dt><kbd>Ctrl</kbd> + <kbd>+</kbd> / <kbd>-</kbd></dt>
-                    <dd>Ajusta el zoom del contenido.</dd>
-                  </div>
-                  <div>
-                    <dt><kbd>Ctrl</kbd> + <kbd>0</kbd></dt>
-                    <dd>Restablece el zoom al 100%.</dd>
-                  </div>
-                </dl>
-              </section>
-
-              <section class="help-panel">
-                <h2>Cómo usarlo</h2>
-                <ol class="help-list">
-                  <li>Abre un archivo desde el botón <strong>Abrir</strong> o arrástralo a la ventana.</li>
-                  <li>Lee el documento con render Markdown, bloques de código y Mermaid.</li>
-                  <li>Usa enlaces relativos entre archivos para navegar documentación local.</li>
-                  <li>Si sueltas varios archivos, el primero se abre aquí y los demás van a nuevas ventanas.</li>
-                </ol>
-              </section>
-
-              <section class="help-panel">
-                <h2>Qué admite</h2>
-                <ul class="help-list">
-                  <li>Archivos <code>.md</code>, <code>.markdown</code> y <code>.txt</code>.</li>
-                  <li>Imágenes locales relativas dentro del mismo árbol de carpetas.</li>
-                  <li>Temas integrados para lectura clara en fondos claros u oscuros.</li>
-                  <li>Diagramas Mermaid embebidos dentro del Markdown.</li>
-                </ul>
-              </section>
-
-              <section class="help-panel help-panel--tip">
-                <h2>Tips rápidos</h2>
-                <ul class="help-list">
-                  <li>Si vas a revisar documentación local, deja esta ayuda a mano con <kbd>F1</kbd>.</li>
-                  <li>El estado superior te muestra el archivo activo o si estás en modo ayuda.</li>
-                  <li>Los links externos se abren fuera de la app para no romper el contexto de lectura.</li>
-                </ul>
-              </section>
-            </div>
+          <div class="help-card minimal-help">
+            <h1 id="help-title">Guía rápida</h1>
+            <ul class="help-list">
+              <li><kbd>F1</kbd>: Abrir/cerrar ayuda</li>
+              <li><kbd>T</kbd>: Siguiente tema</li>
+              <li><kbd>Ctrl</kbd> + <kbd>T</kbd>: Tema anterior</li>
+              <li><kbd>Ctrl</kbd> + <kbd>+</kbd>/<kbd>-</kbd>: Zoom</li>
+              <li>Arraste un archivo o haga clic para abrir</li>
+            </ul>
           </div>
         </section>
 
         <article id="content" class="markdown-body hidden" aria-live="polite"></article>
       </main>
+      
+      <button id="scroll-to-top" class="scroll-to-top" aria-label="Volver arriba">
+        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>
+      </button>
     </div>
 
     <div id="drop-indicator" class="drop-indicator" aria-hidden="true">
