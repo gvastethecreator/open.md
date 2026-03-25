@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/src/assets/favicon.svg" />
     <link rel="stylesheet" href="/src/styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OpenMD</title>
-    <script type="module" src="/src/main.js" defer></script>
+    <script type="module" src="/src/main.js"></script>
   </head>
 
   <body>
@@ -15,7 +15,23 @@
         <section id="empty-stage" class="empty-stage" aria-live="polite">
           <div class="empty-card" id="empty-open-area" style="cursor: pointer;" title="Abrir archivo">
             <img class="empty-logo" src="/src/assets/favicon.svg" alt="OpenMD" />
-            <h1>Open file</h1>
+            <p class="eyebrow">Visor minimalista</p>
+            <h1>OpenMD</h1>
+            <p class="empty-copy">Abre archivos <code>.md</code>, <code>.markdown</code> o <code>.txt</code> con un doble clic, arrastrándolos aquí, o haciendo clic.</p>
+            <div class="empty-hints">
+              <div class="hint-card">
+                <strong>Drag &amp; Drop</strong>
+                <span>Arrastra archivos directamente</span>
+              </div>
+              <div class="hint-card">
+                <strong>Temas</strong>
+                <span>Pulsa <kbd>T</kbd> para cambiar</span>
+              </div>
+              <div class="hint-card">
+                <strong>Ayuda</strong>
+                <span>Pulsa <kbd>F1</kbd> para ver atajos</span>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -26,8 +42,9 @@
               <li><kbd>F1</kbd>: Abrir/cerrar ayuda</li>
               <li><kbd>T</kbd>: Siguiente tema</li>
               <li><kbd>Ctrl</kbd> + <kbd>T</kbd>: Tema anterior</li>
-              <li><kbd>Ctrl</kbd> + <kbd>+</kbd>/<kbd>-</kbd>: Zoom</li>
-              <li>Arraste un archivo o haga clic para abrir</li>
+              <li><kbd>Ctrl</kbd> + <kbd>+</kbd>/<kbd>-</kbd>/<kbd>0</kbd>: Zoom</li>
+              <li><kbd>Ctrl</kbd> + <kbd>O</kbd>: Abrir archivo</li>
+              <li>Arrastre un archivo o haga clic para abrir</li>
             </ul>
           </div>
         </section>
@@ -41,6 +58,11 @@
         </svg>
       </button>
     </div>
+
+    <nav class="app-toolbar" aria-label="Barra de herramientas">
+      <span id="status-pill" class="status-pill">OpenMD</span>
+      <select id="theme-select" class="theme-select" aria-label="Seleccionar tema"></select>
+    </nav>
 
     <div id="drop-indicator" class="drop-indicator" aria-hidden="true">
       <div class="drop-indicator__box">Suelta tus archivos <code>.md</code>, <code>.markdown</code> o <code>.txt</code></div>

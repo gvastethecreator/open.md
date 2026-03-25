@@ -60,7 +60,7 @@ html {
 
 body {
   margin: 0;
-  padding: 0;
+  padding: 0 0 44px;
   min-height: 100vh;
   transition: font-size 0.2s ease-out, background-color 0.3s ease, color 0.3s ease;
   background:
@@ -355,6 +355,7 @@ body.is-dragging .markdown-body {
 
   .app-toolbar {
     padding: 10px;
+    flex-wrap: wrap;
   }
 
   .theme-field,
@@ -497,7 +498,7 @@ hr {
 /* Toast */
 .toast {
   position: fixed;
-  bottom: 20px;
+  bottom: 56px;
   left: 50%;
   transform: translateX(-50%) translateY(20px);
   background-color: var(--text-color);
@@ -578,7 +579,7 @@ pre:hover .copy-code-btn,
 
 .scroll-to-top {
   position: fixed;
-  bottom: 40px;
+  bottom: 56px;
   right: 40px;
   width: 48px;
   height: 48px;
@@ -618,4 +619,52 @@ pre:hover .copy-code-btn,
 
 .scroll-to-top:hover svg {
   transform: translateY(-2px);
+}
+
+/* Toolbar */
+.app-toolbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: var(--toolbar-bg);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border-color);
+  z-index: 30;
+  gap: 12px;
+  font-size: 0.85rem;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.status-pill {
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 50vw;
+}
+
+.theme-select {
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--panel-bg);
+  color: var(--text-color);
+  font-size: 0.8rem;
+  cursor: pointer;
+  max-width: 200px;
+  transition: border-color 0.2s ease;
+}
+
+.theme-select:hover {
+  border-color: var(--link-color);
+}
+
+.theme-select:focus-visible {
+  outline: 2px solid var(--link-color);
+  outline-offset: 2px;
 }

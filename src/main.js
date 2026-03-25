@@ -17,6 +17,7 @@ let themes = [];
 let currentThemeIndex = -1;
 let dragDropUnlisten = null;
 let toastTimeoutId = null;
+let scrollRafId = null;
 let currentFilePath = null;
 let activeImageUrls = [];
 let isHelpVisible = false;
@@ -182,9 +183,33 @@ export function getPreferredThemeIndex(themeList, savedThemeName = null) {
   return 0;
 }
 
-function populateThemeSelect() {}
-function updateThemeCopy() {}
-function updateStatus(filePath = null) {}
+function populateThemeSelect() {
+  const select = document.getElementById('theme-select');
+  if (!select) return;
+  select.innerHTML = '';
+  for (let i = 0; i < themes.length; i++) {
+    const option = document.createElement('option');
+    option.value = String(i);
+    option.textContent = themes[i].name;
+    if (i === currentThemeIndex) option.selected = true;
+    select.appendChild(option);
+  }
+}
+function updateThemeCopy() {
+  const select = document.getElementById('theme-select');
+  if (select && currentThemeIndex >= 0) {
+    select.value = String(currentThemeIndex);
+  }
+}
+function updateStatus(filePath = null) {
+  const pill = document.getElementById('status-pill');
+  if (!pill) return;
+  if (isHelpVisible) {
+    pill.textContent = 'Ayuda';
+    return;
+  }
+  pill.textContent = filePath ? getDisplayName(filePath) : 'OpenMD';
+}
 
 function syncViewportState() {
   const mode = getViewportMode(Boolean(currentFilePath), isHelpVisible);
@@ -265,6 +290,7 @@ function applyTheme(theme, { silent = false } = {}) {
   currentThemeIndex = themes.findIndex((item) => item.name === theme.name);
 
   localStorage.setItem(THEME_STORAGE_KEY, theme.name);
+  updateThemeCopy();
 
   if (!silent) {
     showToast(`Tema: ${theme.name}`);
@@ -353,6 +379,9 @@ async function loadContent(filePath = null) {
         navigator.clipboard.writeText(code.innerText).then(() => {
           btn.textContent = '¡Copiado!';
           setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
+        }).catch(() => {
+          btn.textContent = 'Error';
+          setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
         });
       };
       
@@ -436,17 +465,21 @@ function handleZoom(event) {
 }
 
 function handleScroll() {
-  if (!ui.scrollToTop) return;
-  const scrollTop = window.scrollY || document.documentElement.scrollTop;
-  const scrollHeight = document.documentElement.scrollHeight;
-  const clientHeight = document.documentElement.clientHeight;
-  const maxScroll = scrollHeight - clientHeight;
-  
-  if (maxScroll > 0 && scrollTop > maxScroll * 0.5) {
-    ui.scrollToTop.classList.add('show');
-  } else {
-    ui.scrollToTop.classList.remove('show');
-  }
+  if (scrollRafId) return;
+  scrollRafId = requestAnimationFrame(() => {
+    scrollRafId = null;
+    if (!ui.scrollToTop) return;
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    const scrollHeight = document.documentElement.scrollHeight;
+    const clientHeight = document.documentElement.clientHeight;
+    const maxScroll = scrollHeight - clientHeight;
+
+    if (maxScroll > 0 && scrollTop > maxScroll * 0.5) {
+      ui.scrollToTop.classList.add('show');
+    } else {
+      ui.scrollToTop.classList.remove('show');
+    }
+  });
 }
 
 function scrollToTop() {
@@ -466,6 +499,12 @@ function handleKeyboard(event) {
   if (event.key === 'Escape' && isHelpVisible) {
     event.preventDefault();
     setHelpVisible(false);
+    return;
+  }
+
+  if (event.ctrlKey && event.key.toLowerCase() === 'o') {
+    event.preventDefault();
+    openFilePicker();
     return;
   }
 
@@ -491,7 +530,12 @@ function handleKeyboard(event) {
   }
 }
 
-function handleThemeSelection(event) {}
+function handleThemeSelection(event) {
+  const index = parseInt(event.target.value, 10);
+  if (!isNaN(index) && index >= 0 && index < themes.length) {
+    applyTheme(themes[index]);
+  }
+}
 
 async function handleIncomingFiles(filePaths) {
   const supportedFiles = (filePaths || []).filter(isSupportedFilePath);
@@ -584,6 +628,7 @@ function registerEvents() {
 
   ui.emptyOpenArea?.addEventListener('click', openFilePicker);
   ui.scrollToTop?.addEventListener('click', scrollToTop);
+  document.getElementById('theme-select')?.addEventListener('change', handleThemeSelection);
 }
 
 function init() {
