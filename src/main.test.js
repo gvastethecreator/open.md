@@ -45,7 +45,7 @@ describe('Frontend Logic Tests', () => {
 
     it('extracts a friendly display name from Windows paths', () => {
       expect(getDisplayName('C:\\docs\\guide.md')).toBe('guide.md');
-      expect(getDisplayName('')).toBe('Sin archivo');
+      expect(getDisplayName('')).toBe('No file');
     });
 
     it('resolves relative markdown links from the current document', () => {

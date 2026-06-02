@@ -50,7 +50,7 @@ export function isSupportedFilePath(filePath) {
 
 export function getDisplayName(filePath) {
   if (typeof filePath !== 'string' || filePath.trim() === '') {
-    return 'Sin archivo';
+    return 'No file';
   }
 
   const normalizedPath = filePath.replace(/\\/g, '/');
@@ -106,7 +106,7 @@ export function getViewportMode(hasFilePath, helpVisible) {
 
 function updateWindowTitle(filePath = null) {
   if (isHelpVisible) {
-    document.title = 'OpenMD — Ayuda';
+    document.title = 'OpenMD — Help';
     return;
   }
 
@@ -150,7 +150,7 @@ function hydrateRelativeImages() {
     try {
       image.src = convertFileSrc(resolvedPath);
     } catch (error) {
-      console.warn('No se pudo resolver una imagen relativa:', error);
+      console.warn('Could not resolve a relative image:', error);
     }
   });
 }
@@ -205,7 +205,7 @@ function updateStatus(filePath = null) {
   const pill = document.getElementById('status-pill');
   if (!pill) return;
   if (isHelpVisible) {
-    pill.textContent = 'Ayuda';
+    pill.textContent = 'Help';
     return;
   }
   pill.textContent = filePath ? getDisplayName(filePath) : 'OpenMD';
@@ -257,7 +257,7 @@ async function initThemes() {
     }
   } catch (error) {
     console.error('Failed to initialize themes:', error);
-    showToast('No se pudieron cargar los themes');
+    showToast('Could not load themes');
   }
 }
 
@@ -293,7 +293,7 @@ function applyTheme(theme, { silent = false } = {}) {
   updateThemeCopy();
 
   if (!silent) {
-    showToast(`Tema: ${theme.name}`);
+    showToast(`Theme: ${theme.name}`);
   }
 }
 
@@ -371,20 +371,20 @@ async function loadContent(filePath = null) {
     ui.content.querySelectorAll('pre').forEach((pre) => {
       const code = pre.querySelector('code');
       if (!code) return;
-      
+
       const btn = document.createElement('button');
       btn.className = 'copy-code-btn';
-      btn.textContent = 'Copiar';
+      btn.textContent = 'Copy';
       btn.onclick = () => {
         navigator.clipboard.writeText(code.innerText).then(() => {
-          btn.textContent = '¡Copiado!';
-          setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
+          btn.textContent = 'Copied!';
+          setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
         }).catch(() => {
           btn.textContent = 'Error';
-          setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
+          setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
         });
       };
-      
+
       pre.style.position = 'relative';
       pre.appendChild(btn);
     });
@@ -409,7 +409,7 @@ async function loadContent(filePath = null) {
     updateWindowUrl(filePath);
     ui.content.innerHTML = `
       <div class="error">
-        <h1>No se pudo abrir el archivo</h1>
+        <h1>Could not open the file</h1>
         <p>${escapeHtml(error)}</p>
       </div>
     `;
@@ -541,7 +541,7 @@ async function handleIncomingFiles(filePaths) {
   const supportedFiles = (filePaths || []).filter(isSupportedFilePath);
 
   if (supportedFiles.length === 0) {
-    showToast('Solo se admiten archivos .md, .markdown y .txt');
+    showToast('Only .md, .markdown and .txt files are supported');
     return;
   }
 
@@ -552,7 +552,7 @@ async function handleIncomingFiles(filePaths) {
       await invoke('open_new_window', { path: supportedFiles[index] }).catch(console.error);
     }
 
-    showToast(`${supportedFiles.length} archivos abiertos`);
+    showToast(`${supportedFiles.length} files opened`);
   }
 }
 
@@ -563,7 +563,7 @@ async function openFilePicker() {
       directory: false,
       filters: [
         {
-          name: 'Markdown y texto',
+          name: 'Markdown and text',
           extensions: ['md', 'markdown', 'txt'],
         },
       ],
@@ -576,7 +576,7 @@ async function openFilePicker() {
     await handleIncomingFiles(Array.isArray(selected) ? selected : [selected]);
   } catch (error) {
     console.error('Open dialog failed:', error);
-    showToast('No se pudo abrir el selector');
+    showToast('Could not open the file picker');
   }
 }
 

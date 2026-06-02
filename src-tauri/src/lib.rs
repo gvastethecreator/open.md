@@ -87,11 +87,13 @@ fn file_size_label(bytes: u64) -> String {
 
 fn user_friendly_read_error(error: std::io::Error) -> String {
     match error.kind() {
-        std::io::ErrorKind::NotFound => "El archivo no existe o ya no está disponible.".to_string(),
-        std::io::ErrorKind::PermissionDenied => {
-            "No hay permisos para leer este archivo.".to_string()
+        std::io::ErrorKind::NotFound => {
+            "The file does not exist or is no longer available.".to_string()
         }
-        _ => format!("No se pudo leer el archivo: {}", error),
+        std::io::ErrorKind::PermissionDenied => {
+            "You do not have permission to read this file.".to_string()
+        }
+        _ => format!("Could not read the file: {}", error),
     }
 }
 
@@ -100,7 +102,7 @@ fn process_file(file_path: &str) -> Result<String, String> {
 
     if !is_supported_extension(&canonical_path) {
         return Err(format!(
-            "Formato de archivo no soportado: {}",
+            "Unsupported file format: {}",
             canonical_path.display()
         ));
     }
@@ -108,16 +110,15 @@ fn process_file(file_path: &str) -> Result<String, String> {
     let metadata = fs::metadata(&canonical_path).map_err(user_friendly_read_error)?;
     if metadata.len() > MAX_RENDERABLE_FILE_SIZE_BYTES {
         return Err(format!(
-            "El archivo es demasiado grande para una vista instantánea ({}). Límite actual: {}.",
+            "The file is too large for an instant view ({}). Current limit: {}.",
             file_size_label(metadata.len()),
             file_size_label(MAX_RENDERABLE_FILE_SIZE_BYTES)
         ));
     }
 
     let bytes = fs::read(&canonical_path).map_err(user_friendly_read_error)?;
-    let content = String::from_utf8(bytes).map_err(|_| {
-        "El archivo no está en UTF-8 y no puede renderizarse correctamente.".to_string()
-    })?;
+    let content = String::from_utf8(bytes)
+        .map_err(|_| "The file is not in UTF-8 and cannot be rendered correctly.".to_string())?;
 
     match canonical_path
         .extension()
@@ -131,14 +132,14 @@ fn process_file(file_path: &str) -> Result<String, String> {
             html_escape::encode_text(&content)
         )),
         _ => Err(format!(
-            "Formato de archivo no soportado: {}",
+            "Unsupported file format: {}",
             canonical_path.display()
         )),
     }
 }
 
 fn get_welcome_content() -> Result<String, String> {
-    let welcome = "# Bienvenido a OpenMD\n\nArrastra un archivo `.md` o `.txt` aquí, o abre la aplicación con un archivo.";
+    let welcome = "# Welcome to OpenMD\n\nDrag a `.md` or `.txt` file here, or open the application with a file.";
     Ok(render_markdown_with_highlighting(welcome))
 }
 
@@ -256,10 +257,10 @@ mod tests {
 
     #[test]
     fn renders_headings_and_paragraphs() {
-        let html = render_markdown_with_highlighting("# Hola\n\nTexto simple");
+        let html = render_markdown_with_highlighting("# Hello\n\nSimple text");
 
-        assert!(html.contains("<h1>Hola</h1>"));
-        assert!(html.contains("<p>Texto simple</p>"));
+        assert!(html.contains("<h1>Hello</h1>"));
+        assert!(html.contains("<p>Simple text</p>"));
     }
 
     #[test]

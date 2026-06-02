@@ -13,23 +13,23 @@
     <div class="app-shell">
       <main class="viewport">
         <section id="empty-stage" class="empty-stage" aria-live="polite">
-          <div class="empty-card" id="empty-open-area" style="cursor: pointer;" title="Abrir archivo">
+          <div class="empty-card" id="empty-open-area" style="cursor: pointer;" title="Open file">
             <img class="empty-logo" src="/src/assets/favicon.svg" alt="OpenMD" />
-            <p class="eyebrow">Visor minimalista</p>
+            <p class="eyebrow">Minimalist viewer</p>
             <h1>OpenMD</h1>
-            <p class="empty-copy">Abre archivos <code>.md</code>, <code>.markdown</code> o <code>.txt</code> con un doble clic, arrastrándolos aquí, o haciendo clic.</p>
+            <p class="empty-copy">Open <code>.md</code>, <code>.markdown</code> or <code>.txt</code> files with a double click, by dragging them here, or by clicking.</p>
             <div class="empty-hints">
               <div class="hint-card">
                 <strong>Drag &amp; Drop</strong>
-                <span>Arrastra archivos directamente</span>
+                <span>Drag files directly into the window</span>
               </div>
               <div class="hint-card">
-                <strong>Temas</strong>
-                <span>Pulsa <kbd>T</kbd> para cambiar</span>
+                <strong>Themes</strong>
+                <span>Press <kbd>T</kbd> to switch</span>
               </div>
               <div class="hint-card">
-                <strong>Ayuda</strong>
-                <span>Pulsa <kbd>F1</kbd> para ver atajos</span>
+                <strong>Help</strong>
+                <span>Press <kbd>F1</kbd> to see shortcuts</span>
               </div>
             </div>
           </div>
@@ -37,14 +37,14 @@
 
         <section id="help-stage" class="help-stage hidden" aria-labelledby="help-title">
           <div class="help-card minimal-help">
-            <h1 id="help-title">Guía rápida</h1>
+            <h1 id="help-title">Quick guide</h1>
             <ul class="help-list">
-              <li><kbd>F1</kbd>: Abrir/cerrar ayuda</li>
-              <li><kbd>T</kbd>: Siguiente tema</li>
-              <li><kbd>Ctrl</kbd> + <kbd>T</kbd>: Tema anterior</li>
+              <li><kbd>F1</kbd>: Open/close help</li>
+              <li><kbd>T</kbd>: Next theme</li>
+              <li><kbd>Ctrl</kbd> + <kbd>T</kbd>: Previous theme</li>
               <li><kbd>Ctrl</kbd> + <kbd>+</kbd>/<kbd>-</kbd>/<kbd>0</kbd>: Zoom</li>
-              <li><kbd>Ctrl</kbd> + <kbd>O</kbd>: Abrir archivo</li>
-              <li>Arrastre un archivo o haga clic para abrir</li>
+              <li><kbd>Ctrl</kbd> + <kbd>O</kbd>: Open file</li>
+              <li>Drag a file or click to open it</li>
             </ul>
           </div>
         </section>
@@ -52,20 +52,20 @@
         <article id="content" class="markdown-body hidden" aria-live="polite"></article>
       </main>
       
-      <button id="scroll-to-top" class="scroll-to-top" aria-label="Volver arriba">
+      <button id="scroll-to-top" class="scroll-to-top" aria-label="Back to top">
         <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="18 15 12 9 6 15"></polyline>
         </svg>
       </button>
     </div>
 
-    <nav class="app-toolbar" aria-label="Barra de herramientas">
+    <nav class="app-toolbar" aria-label="Toolbar">
       <span id="status-pill" class="status-pill">OpenMD</span>
-      <select id="theme-select" class="theme-select" aria-label="Seleccionar tema"></select>
+      <select id="theme-select" class="theme-select" aria-label="Select theme"></select>
     </nav>
 
     <div id="drop-indicator" class="drop-indicator" aria-hidden="true">
-      <div class="drop-indicator__box">Suelta tus archivos <code>.md</code>, <code>.markdown</code> o <code>.txt</code></div>
+      <div class="drop-indicator__box">Drop your <code>.md</code>, <code>.markdown</code> or <code>.txt</code> files</div>
     </div>
   </body>
 </html>
