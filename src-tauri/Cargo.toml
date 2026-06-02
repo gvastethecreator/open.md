@@ -1,8 +1,11 @@
 [package]
 name = "open-md"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "Minimalist Markdown/TXT viewer built with Tauri v2, Rust and Vite."
+authors = ["gvastethecreator <https://github.com/gvastethecreator>"]
+license = "MIT"
+repository = "https://github.com/gvastethecreator/open-md"
+homepage = "https://github.com/gvastethecreator/open-md"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

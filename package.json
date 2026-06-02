@@ -3,6 +3,20 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "description": "Minimalist Markdown/TXT viewer built with Tauri v2, Rust and Vite.",
+  "license": "MIT",
+  "author": {
+    "name": "gvastethecreator",
+    "url": "https://github.com/gvastethecreator"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gvastethecreator/open-md.git"
+  },
+  "homepage": "https://github.com/gvastethecreator/open-md",
+  "bugs": {
+    "url": "https://github.com/gvastethecreator/open-md/issues"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",

@@ -2,18 +2,18 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "📥 deps",
+            "label": "deps",
             "type": "shell",
-            "command": "npm",
+            "command": "bun",
             "args": [
                 "install"
             ],
             "group": "none"
         },
         {
-            "label": "⚡ web dev",
+            "label": "web dev",
             "type": "shell",
-            "command": "npm",
+            "command": "bun",
             "args": [
                 "run",
                 "dev"
@@ -22,9 +22,9 @@
             "problemMatcher": []
         },
         {
-            "label": "🖥️ app dev",
+            "label": "app dev",
             "type": "shell",
-            "command": "npm",
+            "command": "bun",
             "args": [
                 "run",
                 "tauri",
@@ -34,9 +34,9 @@
             "problemMatcher": []
         },
         {
-            "label": "🧪 front",
+            "label": "front tests",
             "type": "shell",
-            "command": "npm",
+            "command": "bun",
             "args": [
                 "run",
                 "test:frontend"
@@ -44,9 +44,9 @@
             "group": "test"
         },
         {
-            "label": "🦀 rust",
+            "label": "rust tests",
             "type": "shell",
-            "command": "npm",
+            "command": "bun",
             "args": [
                 "run",
                 "test:rust"
@@ -54,9 +54,9 @@
             "group": "test"
         },
         {
-            "label": "🔎 check",
+            "label": "check:frontend",
             "type": "shell",
-            "command": "npm",
+            "command": "bun",
             "args": [
                 "run",
                 "check:frontend"
@@ -64,9 +64,9 @@
             "group": "test"
         },
         {
-            "label": "✅ verify",
+            "label": "verify",
             "type": "shell",
-            "command": "npm",
+            "command": "bun",
             "args": [
                 "run",
                 "verify"
@@ -77,16 +77,16 @@
             }
         },
         {
-            "label": "📦 build",
+            "label": "build",
             "type": "shell",
-            "command": "npm",
+            "command": "bun",
             "args": [
                 "run",
                 "tauri",
                 "build"
             ],
             "dependsOn": [
-                "✅ verify"
+                "verify"
             ],
             "dependsOrder": "sequence",
             "group": {
