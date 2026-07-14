@@ -1,4 +1,4 @@
-import { convertFileSrc, invoke } from '@tauri-apps/api/core';
+import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { open } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
@@ -12,6 +12,8 @@ const MAX_ZOOM = 3.0;
 const THEME_STORAGE_KEY = 'openmd-theme';
 const PREFERRED_THEME_NAMES = ['Github Light', 'Github Dark', 'GitHub', 'Ayu Light', 'Ayu Dark'];
 const SUPPORTED_EXTENSIONS = ['.md', '.markdown', '.txt'];
+const MAX_LOCAL_IMAGES = 100;
+const IMAGE_LOAD_CONCURRENCY = 4;
 
 let themes = [];
 let currentThemeIndex = -1;
@@ -19,19 +21,25 @@ let dragDropUnlisten = null;
 let toastTimeoutId = null;
 let scrollRafId = null;
 let currentFilePath = null;
-let activeImageUrls = [];
 let isHelpVisible = false;
+let focusBeforeHelp = null;
+let loadRequestId = 0;
 
 const ui = {
   content: null,
   emptyStage: null,
   helpStage: null,
-  emptyOpenArea: null,
+  emptyOpenButton: null,
+  toolbarOpenButton: null,
+  helpToggleButton: null,
+  closeHelpButton: null,
+  helpTitle: null,
   scrollToTop: null,
+  toast: null,
 };
 
 try {
-  mermaid.initialize({ startOnLoad: false, theme: 'default' });
+  mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'default' });
 } catch (e) {
   console.error('Mermaid init error:', e);
 }
@@ -40,8 +48,13 @@ function cacheElements() {
   ui.content = document.getElementById('content');
   ui.emptyStage = document.getElementById('empty-stage');
   ui.helpStage = document.getElementById('help-stage');
-  ui.emptyOpenArea = document.getElementById('empty-open-area');
+  ui.emptyOpenButton = document.getElementById('empty-open-button');
+  ui.toolbarOpenButton = document.getElementById('toolbar-open-button');
+  ui.helpToggleButton = document.getElementById('help-toggle-button');
+  ui.closeHelpButton = document.getElementById('close-help-button');
+  ui.helpTitle = document.getElementById('help-title');
   ui.scrollToTop = document.getElementById('scroll-to-top');
+  ui.toast = document.getElementById('toast');
 }
 
 export function isSupportedFilePath(filePath) {
@@ -57,17 +70,115 @@ export function getDisplayName(filePath) {
   return normalizedPath.split('/').pop() || filePath;
 }
 
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
-}
-
 function normalizeFilePath(filePath) {
   return String(filePath).replace(/\\/g, '/');
+}
+
+function normalizeHexColor(value) {
+  if (typeof value !== 'string') return null;
+
+  const match = value.trim().match(/^#([\da-f]{3}|[\da-f]{6})$/i);
+  if (!match) return null;
+
+  const hex = match[1].length === 3
+    ? [...match[1]].map((character) => character.repeat(2)).join('')
+    : match[1];
+
+  return `#${hex.toLowerCase()}`;
+}
+
+function hexToRgb(value) {
+  const normalized = normalizeHexColor(value);
+  if (!normalized) return null;
+
+  return {
+    r: parseInt(normalized.slice(1, 3), 16),
+    g: parseInt(normalized.slice(3, 5), 16),
+    b: parseInt(normalized.slice(5, 7), 16),
+  };
+}
+
+function relativeLuminance(value) {
+  const rgb = hexToRgb(value);
+  if (!rgb) return null;
+
+  const channels = [rgb.r, rgb.g, rgb.b].map((channel) => {
+    const normalized = channel / 255;
+    return normalized <= 0.04045
+      ? normalized / 12.92
+      : ((normalized + 0.055) / 1.055) ** 2.4;
+  });
+
+  return (channels[0] * 0.2126) + (channels[1] * 0.7152) + (channels[2] * 0.0722);
+}
+
+export function getContrastRatio(foreground, background) {
+  const foregroundLuminance = relativeLuminance(foreground);
+  const backgroundLuminance = relativeLuminance(background);
+
+  if (foregroundLuminance === null || backgroundLuminance === null) {
+    return 1;
+  }
+
+  const lighter = Math.max(foregroundLuminance, backgroundLuminance);
+  const darker = Math.min(foregroundLuminance, backgroundLuminance);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function mixHexColors(background, foreground, foregroundWeight) {
+  const backgroundRgb = hexToRgb(background);
+  const foregroundRgb = hexToRgb(foreground);
+  if (!backgroundRgb || !foregroundRgb) return background;
+
+  const weight = Math.min(Math.max(foregroundWeight, 0), 1);
+  const channel = (backgroundValue, foregroundValue) => (
+    Math.round((backgroundValue * (1 - weight)) + (foregroundValue * weight))
+      .toString(16)
+      .padStart(2, '0')
+  );
+
+  return `#${channel(backgroundRgb.r, foregroundRgb.r)}${channel(backgroundRgb.g, foregroundRgb.g)}${channel(backgroundRgb.b, foregroundRgb.b)}`;
+}
+
+function chooseAccessibleColor(candidates, background, minimumRatio = 4.5) {
+  for (const candidate of candidates) {
+    const normalized = normalizeHexColor(candidate);
+    if (normalized && getContrastRatio(normalized, background) >= minimumRatio) {
+      return normalized;
+    }
+  }
+
+  const blackRatio = getContrastRatio('#000000', background);
+  const whiteRatio = getContrastRatio('#ffffff', background);
+  return blackRatio >= whiteRatio ? '#000000' : '#ffffff';
+}
+
+export function getThemeTokens(theme = {}) {
+  const background = normalizeHexColor(theme.background) || '#ffffff';
+  const text = chooseAccessibleColor([theme.foreground], background);
+  const accent = chooseAccessibleColor(
+    [theme.color_05, theme.color_06, theme.color_02, theme.color_03, text],
+    background
+  );
+  const quote = chooseAccessibleColor([theme.color_07, theme.color_08, text], background);
+  const danger = chooseAccessibleColor(['#cf222e', '#ff7b72', text], background);
+  let surface = mixHexColors(background, text, 0.055);
+
+  if (getContrastRatio(text, surface) < 4.5) {
+    surface = background;
+  }
+
+  return {
+    background,
+    text,
+    surface,
+    border: mixHexColors(background, text, 0.22),
+    link: accent,
+    accent,
+    quote,
+    danger,
+    shadow: isColorDark(background) ? 'rgba(0, 0, 0, 0.42)' : 'rgba(15, 23, 42, 0.16)',
+  };
 }
 
 export function resolveRelativeFilePath(baseFilePath, relativePath) {
@@ -99,6 +210,48 @@ export function resolveRelativeFilePath(baseFilePath, relativePath) {
   return resolvedParts.join('/');
 }
 
+export function getLinkAction(href, currentDocumentPath, absoluteHref = null) {
+  if (typeof href !== 'string' || href.trim() === '') {
+    return { type: 'blocked' };
+  }
+
+  const trimmedHref = href.trim();
+  if (trimmedHref.startsWith('#')) {
+    return { type: 'anchor', href: trimmedHref };
+  }
+
+  if (/^https?:\/\//i.test(trimmedHref)) {
+    return { type: 'external', href: trimmedHref };
+  }
+
+  if (trimmedHref.startsWith('//') && absoluteHref && /^https?:\/\//i.test(absoluteHref)) {
+    return { type: 'external', href: absoluteHref };
+  }
+
+  if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(trimmedHref)) {
+    return { type: 'blocked' };
+  }
+
+  const hashIndex = trimmedHref.indexOf('#');
+  const fragment = hashIndex >= 0 ? trimmedHref.slice(hashIndex) : '';
+  const pathWithoutFragment = hashIndex >= 0 ? trimmedHref.slice(0, hashIndex) : trimmedHref;
+  const pathWithoutQuery = pathWithoutFragment.split('?')[0];
+
+  let decodedPath = pathWithoutQuery;
+  try {
+    decodedPath = decodeURIComponent(pathWithoutQuery);
+  } catch {
+    return { type: 'blocked' };
+  }
+
+  const resolvedPath = resolveRelativeFilePath(currentDocumentPath, decodedPath);
+  if (!resolvedPath || !isSupportedFilePath(resolvedPath)) {
+    return { type: 'blocked' };
+  }
+
+  return { type: 'file', path: resolvedPath, fragment };
+}
+
 export function getViewportMode(hasFilePath, helpVisible) {
   if (helpVisible) return 'help';
   return hasFilePath ? 'content' : 'empty';
@@ -126,33 +279,80 @@ function updateWindowUrl(filePath = null) {
   window.history.replaceState({}, '', url);
 }
 
-function revokeActiveImageUrls() {
-  activeImageUrls.forEach((url) => URL.revokeObjectURL(url));
-  activeImageUrls = [];
+function renderImageError(image, reason) {
+  const message = document.createElement('span');
+  message.className = 'image-error';
+  message.setAttribute('role', 'status');
+  const label = image.getAttribute('alt')?.trim();
+  message.textContent = label ? `${label}: ${reason}` : reason;
+  image.replaceWith(message);
 }
 
-function hydrateRelativeImages() {
-  if (!ui.content || !currentFilePath) return;
+export function getImageSourcePolicy(rawSource) {
+  if (typeof rawSource !== 'string' || rawSource.trim() === '') {
+    return { type: 'blocked', reason: 'Image source missing' };
+  }
 
-  revokeActiveImageUrls();
+  if (/^(?:data|blob):/i.test(rawSource)) {
+    return { type: 'blocked', reason: 'Embedded image not loaded' };
+  }
 
-  ui.content.querySelectorAll('img').forEach((image) => {
-    const rawSource = image.getAttribute('src');
-    if (!rawSource || /^(?:[a-z]+:)?\/\//i.test(rawSource) || rawSource.startsWith('data:')) {
-      return;
-    }
+  if (/^(?:[a-z]+:)?\/\//i.test(rawSource)) {
+    return { type: 'blocked', reason: 'Remote image not loaded' };
+  }
 
-    const resolvedPath = resolveRelativeFilePath(currentFilePath, rawSource);
-    if (!resolvedPath) {
-      return;
-    }
+  if (/^[a-z][a-z\d+.-]*:/i.test(rawSource)) {
+    return { type: 'blocked', reason: 'Unsupported image source' };
+  }
 
-    try {
-      image.src = convertFileSrc(resolvedPath);
-    } catch (error) {
-      console.warn('Could not resolve a relative image:', error);
-    }
+  return { type: 'relative', source: rawSource };
+}
+
+async function hydrateRelativeImages(documentPath, requestId) {
+  if (!ui.content || !documentPath) return;
+
+  const images = [...ui.content.querySelectorAll('img')];
+  images.slice(MAX_LOCAL_IMAGES).forEach((image) => {
+    renderImageError(image, 'Image limit exceeded');
   });
+
+  const pendingImages = images.slice(0, MAX_LOCAL_IMAGES);
+  let nextImageIndex = 0;
+
+  const hydrateNextImage = async () => {
+    while (nextImageIndex < pendingImages.length) {
+      const image = pendingImages[nextImageIndex];
+      nextImageIndex += 1;
+
+      const policy = getImageSourcePolicy(image.getAttribute('src'));
+      if (policy.type !== 'relative') {
+        renderImageError(image, policy.reason);
+        continue;
+      }
+
+      image.removeAttribute('src');
+      image.setAttribute('aria-busy', 'true');
+
+      try {
+        const dataUrl = await invoke('get_image_data', {
+          documentPath,
+          relativeSource: policy.source,
+        });
+
+        if (requestId !== loadRequestId || !image.isConnected) return;
+        image.src = dataUrl;
+        image.removeAttribute('aria-busy');
+      } catch (error) {
+        console.warn('Could not load a relative image:', error);
+        if (requestId === loadRequestId && image.isConnected) {
+          renderImageError(image, 'Image unavailable');
+        }
+      }
+    }
+  };
+
+  const workerCount = Math.min(IMAGE_LOAD_CONCURRENCY, pendingImages.length);
+  await Promise.all(Array.from({ length: workerCount }, hydrateNextImage));
 }
 
 export function getPreferredThemeIndex(themeList, savedThemeName = null) {
@@ -199,16 +399,21 @@ function updateThemeCopy() {
   const select = document.getElementById('theme-select');
   if (select && currentThemeIndex >= 0) {
     select.value = String(currentThemeIndex);
+    select.title = `Theme: ${themes[currentThemeIndex].name}`;
   }
 }
-function updateStatus(filePath = null) {
+function setStatusText(text, title = text) {
   const pill = document.getElementById('status-pill');
   if (!pill) return;
+  pill.textContent = text;
+  pill.title = title;
+}
+function updateStatus(filePath = null) {
   if (isHelpVisible) {
-    pill.textContent = 'Help';
+    setStatusText('Help');
     return;
   }
-  pill.textContent = filePath ? getDisplayName(filePath) : 'OpenMD';
+  setStatusText(filePath ? getDisplayName(filePath) : 'OpenMD');
 }
 
 function syncViewportState() {
@@ -227,13 +432,38 @@ function syncViewportState() {
   }
 
   document.body.classList.toggle('is-help-open', mode === 'help');
+  ui.helpToggleButton?.setAttribute('aria-expanded', String(mode === 'help'));
+  if (ui.helpToggleButton) {
+    ui.helpToggleButton.textContent = mode === 'help' ? 'Close help' : 'Help';
+  }
 }
 
-function setHelpVisible(nextVisible) {
+function setHelpVisible(nextVisible, { manageFocus = true } = {}) {
+  if (nextVisible === isHelpVisible) return;
+
+  if (nextVisible && manageFocus) {
+    focusBeforeHelp = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+  }
+
   isHelpVisible = nextVisible;
   syncViewportState();
   updateStatus(currentFilePath);
   updateWindowTitle(currentFilePath);
+
+  if (!manageFocus) return;
+
+  if (nextVisible) {
+    queueMicrotask(() => ui.helpTitle?.focus());
+    return;
+  }
+
+  const returnTarget = focusBeforeHelp?.isConnected
+    ? focusBeforeHelp
+    : ui.helpToggleButton;
+  focusBeforeHelp = null;
+  queueMicrotask(() => returnTarget?.focus());
 }
 
 function toggleHelp() {
@@ -247,7 +477,13 @@ function setDragState(isActive) {
 async function initThemes() {
   try {
     themes = [...allThemes].sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
-    currentThemeIndex = getPreferredThemeIndex(themes, localStorage.getItem(THEME_STORAGE_KEY));
+    let savedThemeName = null;
+    try {
+      savedThemeName = localStorage.getItem(THEME_STORAGE_KEY);
+    } catch (error) {
+      console.warn('Could not read the saved theme:', error);
+    }
+    currentThemeIndex = getPreferredThemeIndex(themes, savedThemeName);
 
     populateThemeSelect();
     updateThemeCopy();
@@ -265,62 +501,79 @@ function applyTheme(theme, { silent = false } = {}) {
   if (!theme) return;
 
   const root = document.documentElement;
-  root.style.setProperty('--bg-color', theme.background);
-  root.style.setProperty('--text-color', theme.foreground);
-  root.style.setProperty('--border-color', theme.color_08 || '#e1e4e8');
-  root.style.setProperty('--link-color', theme.color_05 || '#0366d6');
-  root.style.setProperty('--code-bg', theme.color_01 || 'rgba(27, 31, 35, 0.05)');
-  root.style.setProperty('--heading-1', theme.color_02 || theme.foreground);
-  root.style.setProperty('--heading-2', theme.color_03 || theme.foreground);
-  root.style.setProperty('--heading-3', theme.color_04 || theme.foreground);
-  root.style.setProperty('--heading-4', theme.color_05 || theme.foreground);
-  root.style.setProperty('--heading-5', theme.color_06 || theme.foreground);
-  root.style.setProperty('--quote-color', theme.color_07 || theme.color_08 || '#6a737d');
-  root.style.setProperty('--panel-bg', isColorDark(theme.background) ? 'rgba(255, 255, 255, 0.04)' : 'rgba(255, 255, 255, 0.86)');
-  root.style.setProperty('--toolbar-bg', isColorDark(theme.background) ? 'rgba(13, 17, 23, 0.75)' : 'rgba(255, 255, 255, 0.82)');
-  root.style.setProperty('--shadow-color', isColorDark(theme.background) ? 'rgba(0, 0, 0, 0.32)' : 'rgba(15, 23, 42, 0.14)');
+  const tokens = getThemeTokens(theme);
+  root.style.setProperty('--bg-color', tokens.background);
+  root.style.setProperty('--text-color', tokens.text);
+  root.style.setProperty('--border-color', tokens.border);
+  root.style.setProperty('--link-color', tokens.link);
+  root.style.setProperty('--accent-color', tokens.accent);
+  root.style.setProperty('--code-bg', tokens.surface);
+  root.style.setProperty('--heading-1', tokens.text);
+  root.style.setProperty('--heading-2', tokens.text);
+  root.style.setProperty('--heading-3', tokens.text);
+  root.style.setProperty('--heading-4', tokens.text);
+  root.style.setProperty('--heading-5', tokens.text);
+  root.style.setProperty('--quote-color', tokens.quote);
+  root.style.setProperty('--panel-bg', tokens.surface);
+  root.style.setProperty('--toolbar-bg', tokens.surface);
+  root.style.setProperty('--danger-color', tokens.danger);
+  root.style.setProperty('--shadow-color', tokens.shadow);
 
-  const isDark = isColorDark(theme.background);
+  const isDark = isColorDark(tokens.background);
+  root.style.colorScheme = isDark ? 'dark' : 'light';
   try {
-    mermaid.initialize({ startOnLoad: false, theme: isDark ? 'dark' : 'default' });
+    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: isDark ? 'dark' : 'default' });
   } catch (e) {
     console.error('Mermaid re-init error:', e);
   }
 
   currentThemeIndex = themes.findIndex((item) => item.name === theme.name);
 
-  localStorage.setItem(THEME_STORAGE_KEY, theme.name);
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme.name);
+  } catch (error) {
+    console.warn('Could not persist the selected theme:', error);
+  }
   updateThemeCopy();
 
   if (!silent) {
     showToast(`Theme: ${theme.name}`);
   }
+
+  if (currentFilePath && ui.content?.querySelector('.mermaid')) {
+    renderMermaidDiagrams({ reset: true }).catch((error) => {
+      console.error('Mermaid theme update error:', error);
+      showToast('The diagram could not update for this theme');
+    });
+  }
 }
 
 export function isColorDark(color) {
-  if (!color) return false;
-  const hex = color.replace('#', '');
-  if (hex.length < 6) return false;
-  const r = parseInt(hex.slice(0, 2), 16);
-  const g = parseInt(hex.slice(2, 4), 16);
-  const b = parseInt(hex.slice(4, 6), 16);
+  const rgb = hexToRgb(color);
+  if (!rgb) return false;
+  const { r, g, b } = rgb;
   const brightness = ((r * 299) + (g * 587) + (b * 114)) / 1000;
   return brightness < 155;
 }
 
 function showToast(message) {
-  let toast = document.getElementById('toast');
+  let toast = ui.toast || document.getElementById('toast');
   if (!toast) {
     toast = document.createElement('div');
     toast.id = 'toast';
+    toast.className = 'toast';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    toast.setAttribute('aria-atomic', 'true');
     document.body.appendChild(toast);
+    ui.toast = toast;
   }
   toast.textContent = message;
-  toast.className = 'toast show';
+  toast.classList.add('show');
 
   clearTimeout(toastTimeoutId);
   toastTimeoutId = setTimeout(() => {
-    toast.className = 'toast';
+    toast.classList.remove('show');
   }, 2000);
 }
 
@@ -330,7 +583,128 @@ function cycleTheme(direction = 1) {
   applyTheme(themes[currentThemeIndex]);
 }
 
-async function loadContent(filePath = null) {
+function renderLoadingState(filePath) {
+  const loading = document.createElement('div');
+  loading.className = 'loading';
+  loading.setAttribute('role', 'status');
+  loading.textContent = `Opening ${getDisplayName(filePath)}…`;
+  ui.content.replaceChildren(loading);
+}
+
+function renderErrorState(error) {
+  const panel = document.createElement('div');
+  panel.className = 'error';
+
+  const title = document.createElement('h1');
+  title.textContent = 'Could not open the file';
+
+  const message = document.createElement('p');
+  message.textContent = String(error);
+
+  const retryButton = document.createElement('button');
+  retryButton.className = 'primary-button';
+  retryButton.type = 'button';
+  retryButton.textContent = 'Choose another file';
+  retryButton.addEventListener('click', openFilePicker);
+
+  panel.append(title, message, retryButton);
+  ui.content.replaceChildren(panel);
+}
+
+function enhanceTables() {
+  ui.content.querySelectorAll('table').forEach((table) => {
+    if (table.parentElement?.classList.contains('table-scroll')) return;
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'table-scroll';
+    wrapper.setAttribute('tabindex', '0');
+    wrapper.setAttribute('role', 'region');
+    wrapper.setAttribute('aria-label', 'Scrollable table');
+    table.before(wrapper);
+    wrapper.appendChild(table);
+  });
+}
+
+function enhanceCodeBlocks() {
+  ui.content.querySelectorAll('pre').forEach((pre) => {
+    const code = pre.querySelector('code');
+    if (!code || pre.querySelector('.copy-code-btn')) return;
+
+    const button = document.createElement('button');
+    button.className = 'copy-code-btn';
+    button.type = 'button';
+    button.textContent = 'Copy';
+    button.setAttribute('aria-label', 'Copy code block');
+    button.addEventListener('click', async () => {
+      try {
+        if (!navigator.clipboard?.writeText) {
+          throw new Error('Clipboard access is unavailable');
+        }
+        await navigator.clipboard.writeText(code.innerText);
+        button.textContent = 'Copied';
+        showToast('Code copied');
+      } catch (error) {
+        console.error('Could not copy code:', error);
+        button.textContent = 'Retry';
+        showToast('Could not copy the code');
+      }
+
+      setTimeout(() => {
+        button.textContent = 'Copy';
+      }, 2000);
+    });
+
+    pre.appendChild(button);
+  });
+}
+
+async function renderMermaidDiagrams({ reset = false } = {}) {
+  if (!ui.content) return;
+
+  const diagrams = [...ui.content.querySelectorAll('.mermaid')];
+  if (diagrams.length === 0) return;
+
+  diagrams.forEach((diagram) => {
+    if (!diagram.dataset.mermaidSource) {
+      diagram.dataset.mermaidSource = diagram.textContent || '';
+    }
+
+    if (reset) {
+      diagram.textContent = diagram.dataset.mermaidSource;
+      diagram.removeAttribute('data-processed');
+    }
+  });
+
+  await mermaid.run({ nodes: diagrams, suppressErrors: true });
+}
+
+function focusLoadedContent(fragment = '') {
+  window.scrollTo({ top: 0, behavior: 'auto' });
+
+  if (fragment) {
+    let fragmentId = fragment.slice(1);
+    try {
+      fragmentId = decodeURIComponent(fragmentId);
+    } catch {
+      fragmentId = '';
+    }
+
+    const fragmentTarget = fragmentId
+      ? [...ui.content.querySelectorAll('[id]')].find((element) => element.id === fragmentId)
+      : null;
+
+    if (fragmentTarget) {
+      fragmentTarget.setAttribute('tabindex', '-1');
+      fragmentTarget.focus({ preventScroll: true });
+      fragmentTarget.scrollIntoView({ block: 'start' });
+      return;
+    }
+  }
+
+  ui.content.focus({ preventScroll: true });
+}
+
+async function loadContent(filePath = null, { fragment = '' } = {}) {
   if (!ui.content) {
     console.error('Content element not found!');
     return;
@@ -342,8 +716,12 @@ async function loadContent(filePath = null) {
   }
 
   if (!filePath) {
+    loadRequestId += 1;
     currentFilePath = null;
     isHelpVisible = false;
+    focusBeforeHelp = null;
+    ui.content.removeAttribute('aria-busy');
+    ui.content.replaceChildren();
     syncViewportState();
     updateStatus();
     updateWindowTitle();
@@ -351,12 +729,21 @@ async function loadContent(filePath = null) {
     return;
   }
 
+  const requestId = ++loadRequestId;
+  currentFilePath = filePath;
+  isHelpVisible = false;
+  focusBeforeHelp = null;
+  ui.content.setAttribute('aria-busy', 'true');
+  renderLoadingState(filePath);
+  syncViewportState();
+  setStatusText(`Opening ${getDisplayName(filePath)}…`, getDisplayName(filePath));
+  updateWindowTitle(filePath);
+
   try {
     const htmlContent = await invoke('get_file_content', { path: filePath });
-    currentFilePath = filePath;
-    isHelpVisible = false;
+    if (requestId !== loadRequestId) return;
     ui.content.innerHTML = htmlContent;
-    syncViewportState();
+    ui.content.removeAttribute('aria-busy');
     updateStatus(filePath);
     updateWindowTitle(filePath);
     updateWindowUrl(filePath);
@@ -366,79 +753,57 @@ async function loadContent(filePath = null) {
       img.setAttribute('loading', 'lazy');
     });
 
-    hydrateRelativeImages();
-
-    ui.content.querySelectorAll('pre').forEach((pre) => {
-      const code = pre.querySelector('code');
-      if (!code) return;
-
-      const btn = document.createElement('button');
-      btn.className = 'copy-code-btn';
-      btn.textContent = 'Copy';
-      btn.onclick = () => {
-        navigator.clipboard.writeText(code.innerText).then(() => {
-          btn.textContent = 'Copied!';
-          setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
-        }).catch(() => {
-          btn.textContent = 'Error';
-          setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
-        });
-      };
-
-      pre.style.position = 'relative';
-      pre.appendChild(btn);
-    });
+    await hydrateRelativeImages(filePath, requestId);
+    if (requestId !== loadRequestId) return;
+    enhanceTables();
+    enhanceCodeBlocks();
 
     try {
-      const mermaids = ui.content.querySelectorAll('.mermaid');
-      if (mermaids.length > 0) {
-        await mermaid.run({
-          nodes: mermaids,
-        });
-      }
-    } catch (e) {
-      console.error('Mermaid render error:', e);
+      await renderMermaidDiagrams();
+    } catch (error) {
+      console.error('Mermaid render error:', error);
+      showToast('One or more diagrams could not be rendered');
     }
+
+    focusLoadedContent(fragment);
+    handleScroll();
   } catch (error) {
+    if (requestId !== loadRequestId) return;
     console.error('Error loading content:', error);
-    currentFilePath = filePath;
-    isHelpVisible = false;
-    syncViewportState();
+    ui.content.removeAttribute('aria-busy');
     updateStatus(filePath);
     updateWindowTitle(filePath);
     updateWindowUrl(filePath);
-    ui.content.innerHTML = `
-      <div class="error">
-        <h1>Could not open the file</h1>
-        <p>${escapeHtml(error)}</p>
-      </div>
-    `;
+    renderErrorState(error);
+    focusLoadedContent();
   }
 }
 
 function handleLinkClick(event) {
-  const target = event.target.closest('a');
+  const target = event.target instanceof Element ? event.target.closest('a') : null;
   const hrefAttribute = target?.getAttribute('href');
 
-  if (target && hrefAttribute) {
-    if (target.href.startsWith('http://') || target.href.startsWith('https://')) {
-      event.preventDefault();
-      openUrl(target.href).catch((err) => {
-        console.error('Failed to open URL:', err);
-      });
-      return;
-    }
+  if (!target || !hrefAttribute) return;
 
-    if (hrefAttribute.startsWith('#')) {
-      return;
-    }
+  const action = getLinkAction(hrefAttribute, currentFilePath, target.href);
+  if (action.type === 'anchor') return;
 
-    const resolvedPath = resolveRelativeFilePath(currentFilePath, hrefAttribute);
-    if (resolvedPath && isSupportedFilePath(resolvedPath)) {
-      event.preventDefault();
-      loadContent(resolvedPath);
-    }
+  event.preventDefault();
+
+  if (action.type === 'external') {
+    openUrl(action.href).catch((error) => {
+      console.error('Failed to open URL:', error);
+      showToast('Could not open the external link');
+    });
+    return;
   }
+
+  if (action.type === 'file') {
+    loadContent(action.path, { fragment: action.fragment });
+    return;
+  }
+
+  showToast('This link type is not supported');
 }
 
 export function calculateNewZoom(current, deltaY, step, min, max) {
@@ -453,7 +818,7 @@ export function calculateNewZoom(current, deltaY, step, min, max) {
 
 function setZoom(newZoom) {
   currentZoom = Math.min(Math.max(newZoom, MIN_ZOOM), MAX_ZOOM);
-  document.body.style.fontSize = `${currentZoom}rem`;
+  document.documentElement.style.setProperty('--content-scale', currentZoom.toFixed(2));
   showToast(`Zoom: ${Math.round(currentZoom * 100)}%`);
 }
 
@@ -483,9 +848,10 @@ function handleScroll() {
 }
 
 function scrollToTop() {
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
   window.scrollTo({
     top: 0,
-    behavior: 'smooth'
+    behavior: reduceMotion ? 'auto' : 'smooth'
   });
 }
 
@@ -519,7 +885,8 @@ function handleKeyboard(event) {
     setZoom(1.0);
   }
 
-  const isTypingField = ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target?.tagName);
+  const isTypingField = ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target?.tagName)
+    || event.target?.isContentEditable;
   if (!isTypingField && (event.key === 't' || event.key === 'T') && !event.metaKey && !event.altKey) {
     event.preventDefault();
     if (event.ctrlKey || event.shiftKey) {
@@ -549,7 +916,12 @@ async function handleIncomingFiles(filePaths) {
 
   if (supportedFiles.length > 1) {
     for (let index = 1; index < supportedFiles.length; index += 1) {
-      await invoke('open_new_window', { path: supportedFiles[index] }).catch(console.error);
+      try {
+        await invoke('open_new_window', { path: supportedFiles[index] });
+      } catch (error) {
+        console.error('Could not open an additional window:', error);
+        showToast(`Could not open ${getDisplayName(supportedFiles[index])}`);
+      }
     }
 
     showToast(`${supportedFiles.length} files opened`);
@@ -621,29 +993,43 @@ function registerEvents() {
     if (typeof dragDropUnlisten === 'function') {
       dragDropUnlisten();
     }
-
-    revokeActiveImageUrls();
   });
   document.addEventListener('click', handleLinkClick);
 
-  ui.emptyOpenArea?.addEventListener('click', openFilePicker);
+  ui.emptyOpenButton?.addEventListener('click', openFilePicker);
+  ui.toolbarOpenButton?.addEventListener('click', openFilePicker);
+  ui.helpToggleButton?.addEventListener('click', toggleHelp);
+  ui.closeHelpButton?.addEventListener('click', () => setHelpVisible(false));
   ui.scrollToTop?.addEventListener('click', scrollToTop);
   document.getElementById('theme-select')?.addEventListener('change', handleThemeSelection);
 }
 
-function init() {
+async function init() {
   cacheElements();
   syncViewportState();
   registerEvents();
-  initThemes();
-  loadContent();
-  setupDragAndDrop();
+  await initThemes();
+  const queryFilePath = new URLSearchParams(window.location.search).get('file');
+  let initialFilePath = queryFilePath;
+
+  if (!initialFilePath && window.__TAURI_INTERNALS__) {
+    try {
+      initialFilePath = await invoke('get_initial_file_path');
+    } catch (error) {
+      console.warn('Could not inspect the launch file:', error);
+    }
+  }
+
+  await loadContent(initialFilePath);
+  await setupDragAndDrop();
 }
 
 if (typeof window !== 'undefined' && !window.__VITEST__) {
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => {
+      init().catch((error) => console.error('OpenMD initialization failed:', error));
+    });
   } else {
-    init();
+    init().catch((error) => console.error('OpenMD initialization failed:', error));
   }
 }

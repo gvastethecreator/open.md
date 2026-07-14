@@ -12,60 +12,84 @@
   <body>
     <div class="app-shell">
       <main class="viewport">
-        <section id="empty-stage" class="empty-stage" aria-live="polite">
-          <div class="empty-card" id="empty-open-area" style="cursor: pointer;" title="Open file">
-            <img class="empty-logo" src="/src/assets/favicon.svg" alt="OpenMD" />
+        <section id="empty-stage" class="empty-stage" aria-labelledby="empty-title">
+          <div class="empty-card">
+            <img class="empty-logo" src="/src/assets/favicon.svg" alt="" aria-hidden="true" />
             <p class="eyebrow">Minimalist viewer</p>
-            <h1>OpenMD</h1>
-            <p class="empty-copy">Open <code>.md</code>, <code>.markdown</code> or <code>.txt</code> files with a double click, by dragging them here, or by clicking.</p>
+            <h1 id="empty-title">OpenMD</h1>
+            <p class="empty-copy">Read <code>.md</code>, <code>.markdown</code> and <code>.txt</code> files in a focused, local window.</p>
+            <button id="empty-open-button" class="primary-button" type="button">Choose a file</button>
+            <p class="empty-secondary">or drag one anywhere into this window</p>
             <div class="empty-hints">
               <div class="hint-card">
-                <strong>Drag &amp; Drop</strong>
-                <span>Drag files directly into the window</span>
+                <strong>Local by default</strong>
+                <span>Your document stays on this device</span>
               </div>
               <div class="hint-card">
                 <strong>Themes</strong>
-                <span>Press <kbd>T</kbd> to switch</span>
+                <span>Use the picker or press <kbd>T</kbd></span>
               </div>
               <div class="hint-card">
                 <strong>Help</strong>
-                <span>Press <kbd>F1</kbd> to see shortcuts</span>
+                <span>Open the guide or press <kbd>F1</kbd></span>
               </div>
             </div>
           </div>
         </section>
 
         <section id="help-stage" class="help-stage hidden" aria-labelledby="help-title">
-          <div class="help-card minimal-help">
-            <h1 id="help-title">Quick guide</h1>
-            <ul class="help-list">
-              <li><kbd>F1</kbd>: Open/close help</li>
-              <li><kbd>T</kbd>: Next theme</li>
-              <li><kbd>Ctrl</kbd> + <kbd>T</kbd>: Previous theme</li>
-              <li><kbd>Ctrl</kbd> + <kbd>+</kbd>/<kbd>-</kbd>/<kbd>0</kbd>: Zoom</li>
-              <li><kbd>Ctrl</kbd> + <kbd>O</kbd>: Open file</li>
-              <li>Drag a file or click to open it</li>
-            </ul>
+          <div class="help-card">
+            <header class="help-header">
+              <p class="eyebrow">OpenMD guide</p>
+              <h1 id="help-title" tabindex="-1">Read without friction</h1>
+              <p class="help-copy">Everything important stays one shortcut or one visible control away.</p>
+            </header>
+            <div class="help-grid">
+              <section class="help-panel" aria-labelledby="files-help-title">
+                <h2 id="files-help-title">Files</h2>
+                <dl class="help-shortcuts">
+                  <div><dt><kbd>Ctrl</kbd> + <kbd>O</kbd></dt><dd>Choose another file</dd></div>
+                  <div><dt>Drag &amp; drop</dt><dd>Open one or several supported files</dd></div>
+                </dl>
+              </section>
+              <section class="help-panel" aria-labelledby="view-help-title">
+                <h2 id="view-help-title">View</h2>
+                <dl class="help-shortcuts">
+                  <div><dt><kbd>T</kbd></dt><dd>Next theme</dd></div>
+                  <div><dt><kbd>Shift</kbd> + <kbd>T</kbd></dt><dd>Previous theme</dd></div>
+                  <div><dt><kbd>Ctrl</kbd> + <kbd>+</kbd>/<kbd>-</kbd>/<kbd>0</kbd></dt><dd>Adjust or reset zoom</dd></div>
+                </dl>
+              </section>
+              <section class="help-panel help-panel--tip" aria-labelledby="navigation-help-title">
+                <h2 id="navigation-help-title">Navigation</h2>
+                <p>Use <kbd>F1</kbd> to toggle this guide and <kbd>Esc</kbd> to return to your document.</p>
+              </section>
+            </div>
+            <button id="close-help-button" class="secondary-button" type="button">Back to reading</button>
           </div>
         </section>
 
-        <article id="content" class="markdown-body hidden" aria-live="polite"></article>
+        <article id="content" class="markdown-body hidden" tabindex="-1"></article>
       </main>
-      
-      <button id="scroll-to-top" class="scroll-to-top" aria-label="Back to top">
-        <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="18 15 12 9 6 15"></polyline>
-        </svg>
-      </button>
+
+      <button id="scroll-to-top" class="scroll-to-top" type="button">Back to top</button>
     </div>
 
     <nav class="app-toolbar" aria-label="Toolbar">
-      <span id="status-pill" class="status-pill">OpenMD</span>
-      <select id="theme-select" class="theme-select" aria-label="Select theme"></select>
+      <span id="status-pill" class="status-pill" role="status" aria-live="polite" aria-atomic="true">OpenMD</span>
+      <div class="toolbar-actions">
+        <button id="toolbar-open-button" class="toolbar-button" type="button">Open file</button>
+        <label class="theme-field">
+          <span class="sr-only">Theme</span>
+          <select id="theme-select" class="theme-select" aria-label="Select theme"></select>
+        </label>
+        <button id="help-toggle-button" class="toolbar-button" type="button" aria-controls="help-stage" aria-expanded="false">Help</button>
+      </div>
     </nav>
 
     <div id="drop-indicator" class="drop-indicator" aria-hidden="true">
       <div class="drop-indicator__box">Drop your <code>.md</code>, <code>.markdown</code> or <code>.txt</code> files</div>
     </div>
+    <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
   </body>
 </html>

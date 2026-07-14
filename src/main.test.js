@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest';
+import allThemes from './themes.json';
 import {
   isColorDark,
   calculateNewZoom,
+  getContrastRatio,
   getPreferredThemeIndex,
+  getThemeTokens,
   getDisplayName,
+  getImageSourcePolicy,
+  getLinkAction,
   getViewportMode,
   isSupportedFilePath,
   resolveRelativeFilePath,
@@ -35,6 +40,43 @@ describe('Frontend Logic Tests', () => {
     });
   });
 
+  describe('semantic theme tokens', () => {
+    it('keeps every bundled theme readable on its main surfaces', () => {
+      const failures = [];
+
+      for (const theme of allThemes) {
+        const tokens = getThemeTokens(theme);
+        const checks = [
+          ['text/background', getContrastRatio(tokens.text, tokens.background), 4.5],
+          ['link/background', getContrastRatio(tokens.link, tokens.background), 4.5],
+          ['quote/background', getContrastRatio(tokens.quote, tokens.background), 4.5],
+          ['text/surface', getContrastRatio(tokens.text, tokens.surface), 4.5],
+        ];
+
+        for (const [label, ratio, minimum] of checks) {
+          if (ratio < minimum) {
+            failures.push(`${theme.name}: ${label} ${ratio.toFixed(2)} < ${minimum}`);
+          }
+        }
+      }
+
+      expect(failures).toEqual([]);
+    });
+
+    it('falls back safely when a theme contains invalid colors', () => {
+      const tokens = getThemeTokens({
+        name: 'Broken',
+        background: 'not-a-color',
+        foreground: '#fff',
+        color_05: 'also-broken',
+      });
+
+      expect(tokens.background).toBe('#ffffff');
+      expect(getContrastRatio(tokens.text, tokens.background)).toBeGreaterThanOrEqual(4.5);
+      expect(getContrastRatio(tokens.link, tokens.background)).toBeGreaterThanOrEqual(4.5);
+    });
+  });
+
   describe('file helpers', () => {
     it('detects supported file extensions case-insensitively', () => {
       expect(isSupportedFilePath('README.md')).toBe(true);
@@ -55,6 +97,54 @@ describe('Frontend Logic Tests', () => {
       expect(resolveRelativeFilePath('C:\\docs\\guide\\intro.md', './deep/note.txt')).toBe(
         'C:/docs/guide/deep/note.txt'
       );
+    });
+
+    it('classifies safe links and blocks unsupported schemes', () => {
+      expect(getLinkAction('#details', 'C:\\docs\\guide\\intro.md')).toEqual({
+        type: 'anchor',
+        href: '#details',
+      });
+      expect(getLinkAction('https://example.com/docs', 'C:\\docs\\guide\\intro.md')).toEqual({
+        type: 'external',
+        href: 'https://example.com/docs',
+      });
+      expect(
+        getLinkAction('../api/reference.md?raw=1#usage', 'C:\\docs\\guide\\intro.md')
+      ).toEqual({
+        type: 'file',
+        path: 'C:/docs/api/reference.md',
+        fragment: '#usage',
+      });
+      expect(getLinkAction('javascript:alert(1)', 'C:\\docs\\guide\\intro.md')).toEqual({
+        type: 'blocked',
+      });
+      expect(getLinkAction('file:///C:/private.txt', 'C:\\docs\\guide\\intro.md')).toEqual({
+        type: 'blocked',
+      });
+      expect(getLinkAction('./image.png', 'C:\\docs\\guide\\intro.md')).toEqual({
+        type: 'blocked',
+      });
+    });
+  });
+
+  describe('image source policy', () => {
+    it('allows only document-relative image sources', () => {
+      expect(getImageSourcePolicy('./assets/cover.png')).toEqual({
+        type: 'relative',
+        source: './assets/cover.png',
+      });
+      expect(getImageSourcePolicy('data:image/svg+xml;base64,PHN2Zz4=')).toMatchObject({
+        type: 'blocked',
+        reason: 'Embedded image not loaded',
+      });
+      expect(getImageSourcePolicy('https://example.com/cover.png')).toMatchObject({
+        type: 'blocked',
+        reason: 'Remote image not loaded',
+      });
+      expect(getImageSourcePolicy('file:outside.png')).toMatchObject({
+        type: 'blocked',
+        reason: 'Unsupported image source',
+      });
     });
   });
 

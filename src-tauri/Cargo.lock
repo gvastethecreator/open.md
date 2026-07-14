@@ -2370,6 +2370,7 @@ dependencies = [
 name = "open-md"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "html-escape",
  "pulldown-cmark",
  "serde",
@@ -2378,7 +2379,6 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
- "tauri-plugin-fs",
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
  "urlencoding",

@@ -19,6 +19,8 @@ for (const relativePath of requiredFiles) {
 }
 
 const indexHtml = readFileSync(path.join(root, 'index.html'), 'utf8');
+const mainJavaScript = readFileSync(path.join(root, 'src/main.js'), 'utf8');
+const stylesCss = readFileSync(path.join(root, 'src/styles.css'), 'utf8');
 if (!indexHtml.includes('src="/src/main.js"')) {
   throw new Error('index.html must load /src/main.js');
 }
@@ -27,6 +29,37 @@ if (!indexHtml.includes('href="/src/styles.css"')) {
 }
 if (!indexHtml.includes('href="/src/assets/favicon.svg"')) {
   throw new Error('index.html must load /src/assets/favicon.svg as favicon');
+}
+
+const requiredAccessibleControls = [
+  'id="empty-open-button"',
+  'id="toolbar-open-button"',
+  'id="help-toggle-button"',
+  'id="close-help-button"',
+  'role="status" aria-live="polite"',
+];
+for (const marker of requiredAccessibleControls) {
+  if (!indexHtml.includes(marker)) {
+    throw new Error(`index.html is missing required accessible UI marker: ${marker}`);
+  }
+}
+
+if (/\sstyle\s*=/.test(indexHtml)) {
+  throw new Error('index.html must not use inline style attributes');
+}
+
+if (!stylesCss.includes('box-sizing: border-box') || !stylesCss.includes('prefers-reduced-motion')) {
+  throw new Error('src/styles.css must preserve global box sizing and reduced-motion support');
+}
+
+if (!mainJavaScript.includes("securityLevel: 'strict'") || !mainJavaScript.includes('getThemeTokens')) {
+  throw new Error('src/main.js must preserve strict Mermaid rendering and semantic theme tokens');
+}
+if (!mainJavaScript.includes("invoke('get_initial_file_path')")) {
+  throw new Error('src/main.js must preserve the native launch-path handoff');
+}
+if (!mainJavaScript.includes('MAX_LOCAL_IMAGES') || !mainJavaScript.includes('IMAGE_LOAD_CONCURRENCY')) {
+  throw new Error('src/main.js must keep local image loading bounded');
 }
 
 const themesRaw = readFileSync(path.join(root, 'src/themes.json'), 'utf8').trim();
