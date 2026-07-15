@@ -1,6 +1,7 @@
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
 use pulldown_cmark::{html, CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
+use serde::Serialize;
 use std::env;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -17,9 +18,24 @@ static THEME_SET: OnceLock<ThemeSet> = OnceLock::new();
 
 const MAX_RENDERABLE_FILE_SIZE_BYTES: u64 = 20 * 1024 * 1024;
 const MAX_LOCAL_IMAGE_SIZE_BYTES: u64 = 12 * 1024 * 1024;
+const READING_WORDS_PER_MINUTE: usize = 220;
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DocumentPayload {
+    html: String,
+    source: String,
+    line_count: usize,
+    character_count: usize,
+    word_count: usize,
+    reading_time_minutes: usize,
+}
 
 #[tauri::command]
-fn get_file_content(window: tauri::Window, path: Option<String>) -> Result<String, String> {
+fn get_file_content(
+    window: tauri::Window,
+    path: Option<String>,
+) -> Result<DocumentPayload, String> {
     // If a path was explicitly passed
     if let Some(file_path) = path {
         if !file_path.is_empty() {
@@ -55,7 +71,9 @@ fn open_new_window(app: AppHandle, path: String) -> Result<(), String> {
 
     tauri::WebviewWindowBuilder::new(&app, label, tauri::WebviewUrl::App(url.into()))
         .title("OpenMD")
+        .decorations(false)
         .inner_size(900.0, 700.0)
+        .min_inner_size(440.0, 320.0)
         .center()
         .build()
         .map_err(|e| e.to_string())?;
@@ -188,7 +206,7 @@ fn user_friendly_read_error(error: std::io::Error) -> String {
     }
 }
 
-fn process_file(file_path: &str) -> Result<String, String> {
+fn process_file(file_path: &str) -> Result<DocumentPayload, String> {
     let canonical_path = fs::canonicalize(file_path).map_err(user_friendly_read_error)?;
 
     if !is_supported_extension(&canonical_path) {
@@ -216,20 +234,76 @@ fn process_file(file_path: &str) -> Result<String, String> {
         .map(|extension| extension.to_ascii_lowercase())
         .as_deref()
     {
-        Some("md") | Some("markdown") => Ok(render_markdown_with_highlighting(&content)),
-        Some("txt") => Ok(format!(
-            "<pre><code>{}</code></pre>",
-            html_escape::encode_text(&content)
-        )),
+        Some("md") | Some("markdown") => Ok(build_document_payload(&content, true)),
+        Some("txt") => Ok(build_document_payload(&content, false)),
         _ => {
             Err("Unsupported file format. Open a .md, .markdown or .txt file instead.".to_string())
         }
     }
 }
 
-fn get_welcome_content() -> Result<String, String> {
+fn get_welcome_content() -> Result<DocumentPayload, String> {
     let welcome = "# Welcome to OpenMD\n\nDrag a `.md` or `.txt` file here, or open the application with a file.";
-    Ok(render_markdown_with_highlighting(welcome))
+    Ok(build_document_payload(welcome, true))
+}
+
+fn build_document_payload(content: &str, is_markdown: bool) -> DocumentPayload {
+    let word_count = content.split_whitespace().count();
+    let reading_time_minutes = if word_count == 0 {
+        0
+    } else {
+        (word_count + READING_WORDS_PER_MINUTE - 1) / READING_WORDS_PER_MINUTE
+    };
+
+    let html = if is_markdown {
+        render_markdown_with_highlighting(content)
+    } else {
+        format!(
+            "<span class=\"source-line-anchor\" data-source-line=\"1\" aria-hidden=\"true\"></span><pre data-plain-text=\"true\"><code>{}</code></pre>",
+            html_escape::encode_text(content)
+        )
+    };
+
+    DocumentPayload {
+        html,
+        source: content.to_string(),
+        line_count: content.bytes().filter(|byte| *byte == b'\n').count() + 1,
+        character_count: content.chars().count(),
+        word_count,
+        reading_time_minutes,
+    }
+}
+
+fn source_line_starts(content: &str) -> Vec<usize> {
+    let mut starts = vec![0];
+    starts.extend(
+        content
+            .bytes()
+            .enumerate()
+            .filter_map(|(index, byte)| (byte == b'\n').then_some(index + 1)),
+    );
+    starts
+}
+
+fn source_line_for_offset(line_starts: &[usize], offset: usize) -> usize {
+    match line_starts.binary_search(&offset) {
+        Ok(index) => index + 1,
+        Err(index) => index.max(1),
+    }
+}
+
+fn tag_has_source_line(tag: &Tag<'_>) -> bool {
+    matches!(
+        tag,
+        Tag::Paragraph
+            | Tag::Heading { .. }
+            | Tag::BlockQuote(_)
+            | Tag::CodeBlock(_)
+            | Tag::List(_)
+            | Tag::FootnoteDefinition(_)
+            | Tag::Table(_)
+            | Tag::DefinitionList
+    )
 }
 
 fn render_markdown_with_highlighting(content: &str) -> String {
@@ -251,55 +325,78 @@ fn render_markdown_with_highlighting(content: &str) -> String {
     let mut in_code_block = false;
     let mut code_block_lang = String::new();
     let mut code_block_content = String::new();
+    let line_starts = source_line_starts(content);
 
-    let parser = Parser::new_ext(content, options).filter_map(|event| match event {
-        Event::Html(raw_html) | Event::InlineHtml(raw_html) => Some(Event::Text(raw_html)),
-        Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(ref lang))) => {
-            in_code_block = true;
-            code_block_lang = lang.to_string();
-            code_block_content.clear();
-            None
-        }
-        Event::Start(Tag::CodeBlock(CodeBlockKind::Indented)) => {
-            in_code_block = true;
-            code_block_lang = String::new();
-            code_block_content.clear();
-            None
-        }
-        Event::End(TagEnd::CodeBlock) => {
-            in_code_block = false;
+    let parser = Parser::new_ext(content, options)
+        .into_offset_iter()
+        .flat_map(|(event, source_range)| {
+            let mut output = Vec::with_capacity(2);
 
-            if code_block_lang == "mermaid" {
-                let html = format!(
-                    "<div class=\"mermaid\">{}</div>",
-                    html_escape::encode_text(&code_block_content)
-                );
-                Some(Event::Html(html.into()))
-            } else {
-                let syntax = if !code_block_lang.is_empty() {
-                    ps.find_syntax_by_token(&code_block_lang)
-                        .unwrap_or_else(|| ps.find_syntax_plain_text())
-                } else {
-                    ps.find_syntax_plain_text()
-                };
-
-                let html = highlighted_html_for_string(&code_block_content, &ps, syntax, theme)
-                    .unwrap_or_else(|_| {
-                        format!(
-                            "<pre><code>{}</code></pre>",
-                            html_escape::encode_text(&code_block_content)
-                        )
-                    });
-
-                Some(Event::Html(html.into()))
+            if matches!(&event, Event::Start(tag) if tag_has_source_line(tag)) {
+                let source_line = source_line_for_offset(&line_starts, source_range.start);
+                output.push(Event::Html(
+                    format!(
+                        "<span class=\"source-line-anchor\" data-source-line=\"{source_line}\" aria-hidden=\"true\"></span>"
+                    )
+                    .into(),
+                ));
             }
-        }
-        Event::Text(ref text) if in_code_block => {
-            code_block_content.push_str(text);
-            None
-        }
-        _ => Some(event),
-    });
+
+            match event {
+                Event::Html(raw_html) | Event::InlineHtml(raw_html) => {
+                    output.push(Event::Text(raw_html));
+                }
+                Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(ref lang))) => {
+                    in_code_block = true;
+                    code_block_lang = lang.to_string();
+                    code_block_content.clear();
+                }
+                Event::Start(Tag::CodeBlock(CodeBlockKind::Indented)) => {
+                    in_code_block = true;
+                    code_block_lang = String::new();
+                    code_block_content.clear();
+                }
+                Event::End(TagEnd::CodeBlock) => {
+                    in_code_block = false;
+
+                    if code_block_lang == "mermaid" {
+                        let html = format!(
+                            "<div class=\"mermaid\">{}</div>",
+                            html_escape::encode_text(&code_block_content)
+                        );
+                        output.push(Event::Html(html.into()));
+                    } else {
+                        let syntax = if !code_block_lang.is_empty() {
+                            ps.find_syntax_by_token(&code_block_lang)
+                                .unwrap_or_else(|| ps.find_syntax_plain_text())
+                        } else {
+                            ps.find_syntax_plain_text()
+                        };
+
+                        let html = highlighted_html_for_string(
+                            &code_block_content,
+                            ps,
+                            syntax,
+                            theme,
+                        )
+                        .unwrap_or_else(|_| {
+                            format!(
+                                "<pre><code>{}</code></pre>",
+                                html_escape::encode_text(&code_block_content)
+                            )
+                        });
+
+                        output.push(Event::Html(html.into()));
+                    }
+                }
+                Event::Text(ref text) if in_code_block => {
+                    code_block_content.push_str(text);
+                }
+                _ => output.push(event),
+            }
+
+            output
+        });
 
     let mut html_output = String::new();
     html::push_html(&mut html_output, parser);
@@ -325,7 +422,9 @@ pub fn run() {
                         tauri::WebviewUrl::App(url.into()),
                     )
                     .title("OpenMD")
+                    .decorations(false)
                     .inner_size(900.0, 700.0)
+                    .min_inner_size(440.0, 320.0)
                     .center()
                     .build();
                 }
@@ -357,6 +456,8 @@ mod tests {
 
         assert!(html.contains("<h1>Hello</h1>"));
         assert!(html.contains("<p>Simple text</p>"));
+        assert!(html.contains("data-source-line=\"1\""));
+        assert!(html.contains("data-source-line=\"3\""));
     }
 
     #[test]
@@ -381,11 +482,37 @@ mod tests {
 
     #[test]
     fn welcome_content_mentions_supported_files() {
-        let html = get_welcome_content().expect("welcome content should render");
+        let payload = get_welcome_content().expect("welcome content should render");
 
-        assert!(html.contains("OpenMD"));
-        assert!(html.contains(".md"));
-        assert!(html.contains(".txt"));
+        assert!(payload.html.contains("OpenMD"));
+        assert!(payload.html.contains(".md"));
+        assert!(payload.html.contains(".txt"));
+        assert_eq!(payload.line_count, 3);
+        assert_eq!(payload.character_count, 91);
+        assert!(payload.word_count > 0);
+        assert_eq!(payload.reading_time_minutes, 1);
+    }
+
+    #[test]
+    fn document_payload_preserves_source_and_stats() {
+        let payload = super::build_document_payload("one two\nthree\n", true);
+
+        assert_eq!(payload.source, "one two\nthree\n");
+        assert_eq!(payload.line_count, 3);
+        assert_eq!(payload.character_count, 14);
+        assert_eq!(payload.word_count, 3);
+        assert_eq!(payload.reading_time_minutes, 1);
+    }
+
+    #[test]
+    fn document_payload_serializes_the_frontend_contract() {
+        let payload = super::build_document_payload("# Title\nBody", true);
+        let serialized = serde_json::to_value(payload).expect("payload should serialize");
+
+        assert_eq!(serialized["source"], "# Title\nBody");
+        assert_eq!(serialized["lineCount"], 2);
+        assert_eq!(serialized["characterCount"], 12);
+        assert!(serialized.get("line_count").is_none());
     }
 
     #[test]

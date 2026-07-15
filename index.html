@@ -1,57 +1,82 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/src/assets/favicon.svg" />
+    <link rel="icon" type="image/png" href="/src/assets/openmd-icon.png" />
     <link rel="stylesheet" href="/src/styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f9fa" />
     <title>OpenMD</title>
     <script type="module" src="/src/main.js"></script>
   </head>
 
   <body>
+    <header id="app-titlebar" class="app-titlebar">
+      <div id="titlebar-drag-region" class="titlebar-drag-region" data-tauri-drag-region>
+        <img class="titlebar-icon" src="/src/assets/openmd-icon.png" alt="" aria-hidden="true" data-tauri-drag-region />
+        <span class="titlebar-app-name" data-tauri-drag-region>OpenMD</span>
+        <span class="titlebar-separator" aria-hidden="true" data-tauri-drag-region>—</span>
+        <span id="window-file-title" class="window-file-title" data-tauri-drag-region>Ready</span>
+      </div>
+
+      <div class="window-controls" role="group" aria-label="Window controls">
+        <button id="window-minimize-button" class="window-control" type="button" aria-label="Minimize" title="Minimize">
+          <i class="iconoir-minus" aria-hidden="true"></i>
+        </button>
+        <button id="window-maximize-button" class="window-control" type="button" aria-label="Maximize" title="Maximize">
+          <i class="iconoir-square" aria-hidden="true"></i>
+        </button>
+        <button id="window-close-button" class="window-control window-control--close" type="button" aria-label="Close" title="Close">
+          <i class="iconoir-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+    </header>
+
     <div class="app-shell">
-      <main class="viewport">
-        <section id="empty-stage" class="empty-stage" aria-labelledby="empty-title">
-          <div class="empty-card">
-            <img class="empty-logo" src="/src/assets/favicon.svg" alt="" aria-hidden="true" />
-            <p class="eyebrow">Minimalist viewer</p>
-            <h1 id="empty-title">OpenMD</h1>
-            <p class="empty-copy">Read <code>.md</code>, <code>.markdown</code> and <code>.txt</code> files in a focused, local window.</p>
-            <button id="empty-open-button" class="primary-button" type="button">Choose a file</button>
-            <p class="empty-secondary">or drag one anywhere into this window</p>
-            <div class="empty-hints">
-              <div class="hint-card">
-                <strong>Local by default</strong>
-                <span>Your document stays on this device</span>
-              </div>
-              <div class="hint-card">
-                <strong>Themes</strong>
-                <span>Use the picker or press <kbd>T</kbd></span>
-              </div>
-              <div class="hint-card">
-                <strong>Help</strong>
-                <span>Open the guide or press <kbd>F1</kbd></span>
-              </div>
+      <main id="viewport" class="viewport t-page-slide" data-page="1">
+        <section id="reader-page" class="reader-page t-page" data-page-id="1">
+          <section id="empty-stage" class="empty-stage" aria-labelledby="empty-title">
+            <div class="empty-content">
+              <img class="empty-logo" src="/src/assets/openmd-icon.png" alt="" aria-hidden="true" />
+              <h1 id="empty-title">Open a file</h1>
+              <p class="empty-copy">Markdown and text, kept local and easy to read.</p>
+              <button id="empty-open-button" class="primary-button" type="button">
+                <i class="iconoir-folder" aria-hidden="true"></i>
+                <span>Open file</span>
+              </button>
+              <p class="empty-secondary"><kbd>Ctrl</kbd> + <kbd>O</kbd><span aria-hidden="true"> · </span>or drop a file anywhere</p>
             </div>
+          </section>
+
+          <div id="document-stage" class="document-stage hidden">
+            <aside id="line-gutter" class="line-gutter" aria-hidden="true" hidden></aside>
+            <article id="content" class="markdown-body" tabindex="-1"></article>
+            <pre id="source-view" class="source-view hidden" tabindex="-1" aria-label="Raw document source"><code id="source-content"></code></pre>
           </div>
         </section>
 
-        <section id="help-stage" class="help-stage hidden" aria-labelledby="help-title">
-          <div class="help-card">
+        <section id="help-stage" class="help-stage t-page" data-page-id="2" aria-labelledby="help-title" aria-hidden="true" inert>
+          <div class="help-content">
             <header class="help-header">
-              <p class="eyebrow">OpenMD guide</p>
-              <h1 id="help-title" tabindex="-1">Read without friction</h1>
-              <p class="help-copy">Everything important stays one shortcut or one visible control away.</p>
+              <div>
+                <p class="eyebrow">OpenMD guide</p>
+                <h1 id="help-title" tabindex="-1">Help</h1>
+                <p class="help-copy">The useful controls, without the permanent chrome.</p>
+              </div>
+              <button id="close-help-button" class="icon-button help-close-button" type="button" aria-label="Close help" title="Close help (Esc)">
+                <i class="iconoir-xmark" aria-hidden="true"></i>
+              </button>
             </header>
-            <div class="help-grid">
+
+            <div class="help-sections">
               <section class="help-panel" aria-labelledby="files-help-title">
                 <h2 id="files-help-title">Files</h2>
                 <dl class="help-shortcuts">
                   <div><dt><kbd>Ctrl</kbd> + <kbd>O</kbd></dt><dd>Choose another file</dd></div>
-                  <div><dt>Drag &amp; drop</dt><dd>Open one or several supported files</dd></div>
+                  <div><dt>Drag and drop</dt><dd>Open one or several supported files</dd></div>
                 </dl>
               </section>
+
               <section class="help-panel" aria-labelledby="view-help-title">
                 <h2 id="view-help-title">View</h2>
                 <dl class="help-shortcuts">
@@ -60,36 +85,130 @@
                   <div><dt><kbd>Ctrl</kbd> + <kbd>+</kbd>/<kbd>-</kbd>/<kbd>0</kbd></dt><dd>Adjust or reset zoom</dd></div>
                 </dl>
               </section>
-              <section class="help-panel help-panel--tip" aria-labelledby="navigation-help-title">
+
+              <section class="help-panel" aria-labelledby="navigation-help-title">
                 <h2 id="navigation-help-title">Navigation</h2>
-                <p>Use <kbd>F1</kbd> to toggle this guide and <kbd>Esc</kbd> to return to your document.</p>
+                <p>Press <kbd>F1</kbd> to toggle this guide or <kbd>Esc</kbd> to return to the document.</p>
+              </section>
+
+              <section class="help-panel" aria-labelledby="reading-help-title">
+                <h2 id="reading-help-title">Reading</h2>
+                <p>Open Reading tools from the status bar for source lines, minimap, raw source, and progress.</p>
               </section>
             </div>
-            <button id="close-help-button" class="secondary-button" type="button">Back to reading</button>
           </div>
         </section>
-
-        <article id="content" class="markdown-body hidden" tabindex="-1"></article>
       </main>
 
-      <button id="scroll-to-top" class="scroll-to-top" type="button">Back to top</button>
+      <aside
+        id="document-minimap"
+        class="document-minimap"
+        tabindex="0"
+        role="scrollbar"
+        aria-label="Document minimap"
+        title="Document minimap · drag or use arrow keys"
+        aria-orientation="vertical"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="0"
+        hidden
+      >
+        <div id="minimap-document" class="minimap-document" aria-hidden="true"></div>
+        <div id="minimap-viewport" class="minimap-viewport" aria-hidden="true"></div>
+      </aside>
+
+      <button id="scroll-to-top" class="scroll-to-top icon-button" type="button" aria-label="Back to top" title="Back to top">
+        <i class="iconoir-nav-arrow-up" aria-hidden="true"></i>
+      </button>
     </div>
 
-    <nav class="app-toolbar" aria-label="Toolbar">
-      <span id="status-pill" class="status-pill" role="status" aria-live="polite" aria-atomic="true">OpenMD</span>
-      <div class="toolbar-actions">
-        <button id="toolbar-open-button" class="toolbar-button" type="button">Open file</button>
-        <label class="theme-field">
-          <span class="sr-only">Theme</span>
-          <select id="theme-select" class="theme-select" aria-label="Select theme"></select>
-        </label>
-        <button id="help-toggle-button" class="toolbar-button" type="button" aria-controls="help-stage" aria-expanded="false">Help</button>
+    <nav id="app-toolbar" class="app-toolbar" aria-label="Status and actions">
+      <div class="status-region">
+        <div class="status-copy" role="status" aria-live="polite" aria-atomic="true">
+          <i class="iconoir-page status-icon" aria-hidden="true"></i>
+          <span id="status-pill" class="status-primary">OpenMD</span>
+          <span class="status-separator" aria-hidden="true">·</span>
+          <span id="status-context" class="status-context">Ready</span>
+        </div>
+        <span id="status-metrics" class="status-metrics" aria-live="off" hidden></span>
+      </div>
+
+      <div class="toolbar-command-area">
+        <button id="actions-toggle-button" class="actions-toggle-button icon-button" type="button" aria-controls="toolbar-actions" aria-expanded="false" aria-label="Show actions" title="Show actions">
+          <i class="iconoir-more-horiz" aria-hidden="true"></i>
+        </button>
+
+        <div id="toolbar-actions" class="toolbar-actions">
+          <button id="toolbar-open-button" class="toolbar-button icon-button" type="button" aria-label="Open file" title="Open file (Ctrl+O)">
+            <i class="iconoir-folder" aria-hidden="true"></i>
+          </button>
+
+          <div id="reading-tools-shell" class="reading-tools-shell">
+            <button
+              id="reading-tools-button"
+              class="toolbar-button icon-button"
+              type="button"
+              aria-controls="reading-tools-panel"
+              aria-expanded="false"
+              aria-label="Open reading tools"
+              title="Reading tools"
+              disabled
+            >
+              <i class="iconoir-view-structure-up" aria-hidden="true"></i>
+            </button>
+
+            <section id="reading-tools-panel" class="reading-tools-panel" aria-label="Reading tools" aria-hidden="true" inert>
+              <header class="reading-tools-header">
+                <span>Reading tools</span>
+                <span><kbd>Esc</kbd> to close</span>
+              </header>
+
+              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="lineGuide">
+                <i class="iconoir-numbered-list-left" aria-hidden="true"></i>
+                <span><strong>Line guide</strong><small>Source lines at left</small></span>
+                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+              </button>
+
+              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="minimap">
+                <i class="iconoir-map" aria-hidden="true"></i>
+                <span><strong>Minimap</strong><small>Document overview</small></span>
+                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+              </button>
+
+              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="source">
+                <i class="iconoir-code" aria-hidden="true"></i>
+                <span><strong>Source</strong><small>Unformatted text</small></span>
+                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+              </button>
+
+              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="stats">
+                <i class="iconoir-clock" aria-hidden="true"></i>
+                <span><strong>Reading stats</strong><small>Progress and time left</small></span>
+                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+              </button>
+            </section>
+          </div>
+
+          <label class="theme-field icon-button" title="Choose theme">
+            <span class="sr-only">Theme</span>
+            <i class="iconoir-palette" aria-hidden="true"></i>
+            <select id="theme-select" class="theme-select" aria-label="Choose theme"></select>
+          </label>
+
+          <button id="help-toggle-button" class="toolbar-button icon-button" type="button" aria-controls="help-stage" aria-expanded="false" aria-label="Open help" title="Help (F1)">
+            <i class="iconoir-help-circle" aria-hidden="true"></i>
+          </button>
+        </div>
       </div>
     </nav>
 
     <div id="drop-indicator" class="drop-indicator" aria-hidden="true">
-      <div class="drop-indicator__box">Drop your <code>.md</code>, <code>.markdown</code> or <code>.txt</code> files</div>
+      <div class="drop-indicator__box">
+        <i class="iconoir-page-down" aria-hidden="true"></i>
+        <span>Drop a Markdown or text file</span>
+      </div>
     </div>
+
     <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
   </body>
 </html>
