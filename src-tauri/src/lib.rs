@@ -1,16 +1,15 @@
-use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
-use base64::Engine;
 use pulldown_cmark::{html, CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use serde::Serialize;
 use std::env;
 use std::fs;
-use std::path::{Component, Path, PathBuf};
+use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
 use syntect::highlighting::ThemeSet;
 use syntect::html::highlighted_html_for_string;
 use syntect::parsing::SyntaxSet;
 use tauri::{AppHandle, State};
+mod images;
 #[cfg(target_os = "macos")]
 use tauri::{Emitter, Manager};
 
@@ -21,7 +20,6 @@ static SYNTAX_SET: OnceLock<SyntaxSet> = OnceLock::new();
 static THEME_SET: OnceLock<ThemeSet> = OnceLock::new();
 
 const MAX_RENDERABLE_FILE_SIZE_BYTES: u64 = 20 * 1024 * 1024;
-const MAX_LOCAL_IMAGE_SIZE_BYTES: u64 = 12 * 1024 * 1024;
 const READING_WORDS_PER_MINUTE: usize = 220;
 
 #[derive(Debug, Serialize)]
@@ -101,7 +99,7 @@ fn build_document_window(app: &AppHandle, path: &str) -> Result<(), String> {
     let url = format!("index.html?file={}", urlencoding::encode(path));
 
     tauri::WebviewWindowBuilder::new(app, label, tauri::WebviewUrl::App(url.into()))
-        .title("OpenMD")
+        .title("open.md")
         .decorations(false)
         .inner_size(900.0, 700.0)
         .min_inner_size(440.0, 320.0)
@@ -134,43 +132,6 @@ fn queue_open_file_request(app: &AppHandle, paths: Vec<String>) {
     let _ = app.emit("open-file-request", request);
 }
 
-#[tauri::command]
-fn get_image_data(document_path: String, relative_source: String) -> Result<String, String> {
-    let document_path = fs::canonicalize(document_path).map_err(user_friendly_read_error)?;
-    if !is_supported_extension(&document_path) {
-        return Err("Images can only be loaded for an open Markdown or text document.".to_string());
-    }
-
-    let document_directory = document_path
-        .parent()
-        .ok_or_else(|| "The document folder is unavailable.".to_string())?;
-    let relative_path = safe_relative_image_path(&relative_source)?;
-    let image_path = fs::canonicalize(document_directory.join(relative_path))
-        .map_err(|_| "The local image is unavailable.".to_string())?;
-
-    // Keep local document content inside its own directory, including through symlinks.
-    if !image_path.starts_with(document_directory) {
-        return Err("The image is outside the document folder.".to_string());
-    }
-
-    let mime_type = image_mime_type(&image_path)
-        .ok_or_else(|| "This local image format is not supported.".to_string())?;
-    let metadata = fs::metadata(&image_path).map_err(user_friendly_read_error)?;
-    if metadata.len() > MAX_LOCAL_IMAGE_SIZE_BYTES {
-        return Err(format!(
-            "The local image is too large ({}). Current limit: {}.",
-            file_size_label(metadata.len()),
-            file_size_label(MAX_LOCAL_IMAGE_SIZE_BYTES)
-        ));
-    }
-
-    let bytes = fs::read(image_path).map_err(user_friendly_read_error)?;
-    Ok(format!(
-        "data:{mime_type};base64,{}",
-        BASE64_STANDARD.encode(bytes)
-    ))
-}
-
 fn syntax_set() -> &'static SyntaxSet {
     SYNTAX_SET.get_or_init(SyntaxSet::load_defaults_newlines)
 }
@@ -179,7 +140,7 @@ fn theme_set() -> &'static ThemeSet {
     THEME_SET.get_or_init(ThemeSet::load_defaults)
 }
 
-fn is_supported_extension(file_path: &Path) -> bool {
+pub(crate) fn is_supported_extension(file_path: &Path) -> bool {
     file_path
         .extension()
         .and_then(|extension| extension.to_str())
@@ -199,55 +160,12 @@ fn initial_file_path(args: &[String]) -> Option<String> {
         .cloned()
 }
 
-fn safe_relative_image_path(source: &str) -> Result<PathBuf, String> {
-    let without_fragment = source.split('#').next().unwrap_or_default();
-    let without_query = without_fragment.split('?').next().unwrap_or_default();
-    let decoded = urlencoding::decode(without_query)
-        .map_err(|_| "The local image path is invalid.".to_string())?;
-    let normalized = decoded.replace('\\', "/");
-    let path = Path::new(&normalized);
-
-    if normalized.is_empty()
-        || normalized.starts_with("//")
-        || normalized.contains("://")
-        || normalized.contains(':')
-        || path.is_absolute()
-        || path.components().any(|component| {
-            matches!(
-                component,
-                Component::ParentDir | Component::RootDir | Component::Prefix(_)
-            )
-        })
-    {
-        return Err("Only images inside the document folder can be loaded.".to_string());
-    }
-
-    Ok(path.to_path_buf())
-}
-
-fn image_mime_type(path: &Path) -> Option<&'static str> {
-    match path
-        .extension()
-        .and_then(|extension| extension.to_str())
-        .map(|extension| extension.to_ascii_lowercase())
-        .as_deref()
-    {
-        Some("png") => Some("image/png"),
-        Some("jpg") | Some("jpeg") => Some("image/jpeg"),
-        Some("gif") => Some("image/gif"),
-        Some("webp") => Some("image/webp"),
-        Some("bmp") => Some("image/bmp"),
-        Some("avif") => Some("image/avif"),
-        _ => None,
-    }
-}
-
-fn file_size_label(bytes: u64) -> String {
+pub(crate) fn file_size_label(bytes: u64) -> String {
     const MIB: f64 = 1024.0 * 1024.0;
     format!("{:.1} MiB", bytes as f64 / MIB)
 }
 
-fn user_friendly_read_error(error: std::io::Error) -> String {
+pub(crate) fn user_friendly_read_error(error: std::io::Error) -> String {
     match error.kind() {
         std::io::ErrorKind::NotFound => {
             "The file does not exist or is no longer available.".to_string()
@@ -296,7 +214,7 @@ fn process_file(file_path: &str) -> Result<DocumentPayload, String> {
 }
 
 fn get_welcome_content() -> Result<DocumentPayload, String> {
-    let welcome = "# Welcome to OpenMD\n\nDrag a `.md` or `.txt` file here, or open the application with a file.";
+    let welcome = "# Welcome to open.md\n\nDrag a `.md` or `.txt` file here, or open the application with a file.";
     Ok(build_document_payload(welcome, true))
 }
 
@@ -472,7 +390,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_file_content,
             get_initial_file_path,
-            get_image_data,
+            images::get_image_bytes,
             open_new_window,
             take_pending_open_file_requests,
             acknowledge_open_file_request
@@ -500,12 +418,10 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::{
-        file_size_label, get_image_data, get_welcome_content, image_mime_type, initial_file_path,
-        is_supported_extension, render_markdown_with_highlighting, safe_relative_image_path,
+        file_size_label, get_welcome_content, initial_file_path, is_supported_extension,
+        render_markdown_with_highlighting,
     };
-    use std::fs;
-    use std::path::{Path, PathBuf};
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::path::Path;
 
     #[test]
     fn renders_headings_and_paragraphs() {
@@ -541,11 +457,11 @@ mod tests {
     fn welcome_content_mentions_supported_files() {
         let payload = get_welcome_content().expect("welcome content should render");
 
-        assert!(payload.html.contains("OpenMD"));
+        assert!(payload.html.contains("open.md"));
         assert!(payload.html.contains(".md"));
         assert!(payload.html.contains(".txt"));
         assert_eq!(payload.line_count, 3);
-        assert_eq!(payload.character_count, 91);
+        assert_eq!(payload.character_count, 92);
         assert!(payload.word_count > 0);
         assert_eq!(payload.reading_time_minutes, 1);
     }
@@ -611,59 +527,5 @@ mod tests {
             Some("C:\\notes\\sample.md".to_string())
         );
         assert_eq!(initial_file_path(&["open-md".to_string()]), None);
-    }
-
-    #[test]
-    fn local_image_paths_stay_inside_the_document_folder() {
-        assert_eq!(
-            safe_relative_image_path("assets/diagram%20one.png?raw=1#preview").unwrap(),
-            PathBuf::from("assets/diagram one.png")
-        );
-        assert!(safe_relative_image_path("../secret.png").is_err());
-        assert!(safe_relative_image_path("..%2Fsecret.png").is_err());
-        assert!(safe_relative_image_path("https://example.com/image.png").is_err());
-        assert!(safe_relative_image_path("file:outside.png").is_err());
-        assert!(safe_relative_image_path("/absolute/image.png").is_err());
-    }
-
-    #[test]
-    fn local_image_mime_types_are_explicit() {
-        assert_eq!(image_mime_type(Path::new("cover.PNG")), Some("image/png"));
-        assert_eq!(image_mime_type(Path::new("photo.jpeg")), Some("image/jpeg"));
-        assert_eq!(image_mime_type(Path::new("vector.svg")), None);
-        assert_eq!(image_mime_type(Path::new("payload.html")), None);
-    }
-
-    #[test]
-    fn loads_a_bounded_image_from_the_document_directory() {
-        let unique = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock should be available")
-            .as_nanos();
-        let fixture_directory =
-            std::env::temp_dir().join(format!("openmd-image-test-{}-{unique}", std::process::id()));
-        let assets_directory = fixture_directory.join("assets");
-        fs::create_dir_all(&assets_directory).expect("fixture directory should be created");
-
-        let document_path = fixture_directory.join("sample.md");
-        let image_path = assets_directory.join("pixel.png");
-        fs::write(&document_path, "![Pixel](assets/pixel.png)")
-            .expect("fixture document should be written");
-        fs::write(&image_path, [0x89, b'P', b'N', b'G']).expect("fixture image should be written");
-
-        let data_url = get_image_data(
-            document_path.to_string_lossy().into_owned(),
-            "assets/pixel.png".to_string(),
-        )
-        .expect("local image should load");
-
-        assert_eq!(data_url, "data:image/png;base64,iVBORw==");
-        assert!(get_image_data(
-            document_path.to_string_lossy().into_owned(),
-            "../outside.png".to_string()
-        )
-        .is_err());
-
-        fs::remove_dir_all(fixture_directory).expect("fixture directory should be removed");
     }
 }

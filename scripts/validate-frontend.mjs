@@ -5,12 +5,19 @@ const root = process.cwd();
 const requiredFiles = [
   'index.html',
   'src/main.js',
+  'src/core/reader.js',
+  'src/image-resources.js',
+  'src/mermaid-renderer.js',
   'src/styles.css',
   'src/themes.json',
-  'src/assets/openmd-icon.png',
+  'src/themes.runtime.json',
+  'scripts/generate-runtime-themes.mjs',
+  'src/assets/icon.png',
+  'src/assets/app-icon.png',
   'src-tauri/tauri.conf.json',
   'src-tauri/capabilities/default.json',
   'src-tauri/src/lib.rs',
+  'src-tauri/src/images.rs',
   'docs/FILE_ASSOCIATIONS.md'
 ];
 
@@ -23,16 +30,63 @@ for (const relativePath of requiredFiles) {
 
 const indexHtml = readFileSync(path.join(root, 'index.html'), 'utf8');
 const mainJavaScript = readFileSync(path.join(root, 'src/main.js'), 'utf8');
+const mermaidRendererJavaScript = readFileSync(path.join(root, 'src/mermaid-renderer.js'), 'utf8');
 const stylesCss = readFileSync(path.join(root, 'src/styles.css'), 'utf8');
 const tauriRust = readFileSync(path.join(root, 'src-tauri/src/lib.rs'), 'utf8');
+const imageRust = readFileSync(path.join(root, 'src-tauri/src/images.rs'), 'utf8');
+const cargoManifest = readFileSync(path.join(root, 'src-tauri/Cargo.toml'), 'utf8');
+
+function readPngInfo(relativePath) {
+  const bytes = readFileSync(path.join(root, relativePath));
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  if (!bytes.subarray(0, signature.length).equals(signature) || bytes.length < 26) {
+    throw new Error(`${relativePath} must be a valid PNG`);
+  }
+
+  return {
+    width: bytes.readUInt32BE(16),
+    height: bytes.readUInt32BE(20),
+    colorType: bytes[25],
+    byteLength: bytes.length,
+  };
+}
+
+const expectedPngOutputs = [
+  ['src/assets/app-icon.png', 256, 256],
+  ['src-tauri/icons/32x32.png', 32, 32],
+  ['src-tauri/icons/128x128.png', 128, 128],
+  ['src-tauri/icons/128x128@2x.png', 256, 256],
+];
+for (const [relativePath, expectedWidth, expectedHeight] of expectedPngOutputs) {
+  const info = readPngInfo(relativePath);
+  if (info.width !== expectedWidth || info.height !== expectedHeight) {
+    throw new Error(`${relativePath} must be ${expectedWidth}x${expectedHeight}, got ${info.width}x${info.height}`);
+  }
+  if (info.colorType !== 6) {
+    throw new Error(`${relativePath} must preserve an RGBA channel for transparent edges`);
+  }
+}
+const appIconInfo = readPngInfo('src/assets/app-icon.png');
+if (appIconInfo.byteLength >= 128 * 1024) {
+  throw new Error('src/assets/app-icon.png must stay optimized for web use (under 128 KiB)');
+}
+
 if (!indexHtml.includes('src="/src/main.js"')) {
   throw new Error('index.html must load /src/main.js');
 }
 if (!indexHtml.includes('href="/src/styles.css"')) {
   throw new Error('index.html must load /src/styles.css');
 }
-if (!indexHtml.includes('href="/src/assets/openmd-icon.png"')) {
-  throw new Error('index.html must load /src/assets/openmd-icon.png as favicon');
+if (!indexHtml.includes('href="/src/assets/app-icon.png"')) {
+  throw new Error('index.html must load /src/assets/app-icon.png as favicon');
+}
+const legacyAssetName = ['openmd', 'icon.png'].join('-');
+if (indexHtml.includes(legacyAssetName) || mainJavaScript.includes(legacyAssetName)) {
+  throw new Error('stale legacy icon asset references must be removed');
+}
+const legacyProductName = ['Open', 'MD'].join('');
+if ([indexHtml, tauriRust, mainJavaScript].some((source) => source.includes(legacyProductName))) {
+  throw new Error('visible product branding must use open.md');
 }
 
 const requiredAccessibleControls = [
@@ -91,8 +145,30 @@ if (!stylesCss.includes('.source-markup-token') || !stylesCss.includes('font-wei
   throw new Error('src/styles.css must distinguish Markdown markup in source mode');
 }
 
-if (!mainJavaScript.includes("securityLevel: 'strict'") || !mainJavaScript.includes('getThemeTokens')) {
-  throw new Error('src/main.js must preserve strict Mermaid rendering and semantic theme tokens');
+if (
+  !mermaidRendererJavaScript.includes("securityLevel: 'strict'")
+  || !mermaidRendererJavaScript.includes("import('mermaid')")
+  || !mainJavaScript.includes('getThemeTokens')
+  || !mainJavaScript.includes("./mermaid-renderer.js")
+  || !mainJavaScript.includes("./core/reader.js")
+  || /from ['"]mermaid['"]/.test(mainJavaScript)
+) {
+  throw new Error('Mermaid must stay behind the lazy strict renderer boundary and pure reader helpers must stay deep-importable');
+}
+if (
+  !mainJavaScript.includes("invoke('get_image_bytes'")
+  || mainJavaScript.includes("invoke('get_image_data'")
+  || mainJavaScript.includes('data:image')
+  || !mainJavaScript.includes('ImageResourcePool')
+  || !mainJavaScript.includes('IMAGE_RESOURCE_BUDGET_EXCEEDED')
+) {
+  throw new Error('Local images must use raw get_image_bytes IPC and bounded Blob URL resources');
+}
+if (
+  [tauriRust, imageRust, cargoManifest].some((source) => source.includes('base64') || source.includes('get_image_data'))
+  || !imageRust.includes('Response::new')
+) {
+  throw new Error('Rust image IPC must return raw bytes without a base64 command');
 }
 if (!mainJavaScript.includes("invoke('get_initial_file_path')")) {
   throw new Error('src/main.js must preserve the native launch-path handoff');
@@ -165,12 +241,54 @@ for (const [index, theme] of themes.entries()) {
   seenThemeNames.add(normalizedName);
 }
 
+const runtimeThemesRaw = readFileSync(path.join(root, 'src/themes.runtime.json'), 'utf8').trim();
+let runtimeThemes;
+try {
+  runtimeThemes = JSON.parse(runtimeThemesRaw);
+} catch (error) {
+  throw new Error(`src/themes.runtime.json is not valid JSON: ${error.message}`);
+}
+
+const runtimeThemeKeys = [
+  'name',
+  'background',
+  'foreground',
+  'color_02',
+  'color_03',
+  'color_05',
+  'color_06',
+  'color_07',
+  'color_08',
+];
+if (!Array.isArray(runtimeThemes) || runtimeThemes.length !== themes.length) {
+  throw new Error(`Runtime themes must preserve all ${themes.length} source themes`);
+}
+for (const [index, theme] of runtimeThemes.entries()) {
+  if (Object.keys(theme).join('|') !== runtimeThemeKeys.join('|')) {
+    throw new Error(`Runtime theme at index ${index} has an unexpected field set`);
+  }
+  for (const key of runtimeThemeKeys) {
+    if (theme[key] !== themes[index][key]) {
+      throw new Error(`Runtime theme drift at index ${index}, field ${key}`);
+    }
+  }
+}
+
 const tauriConfig = JSON.parse(readFileSync(path.join(root, 'src-tauri/tauri.conf.json'), 'utf8'));
+if (tauriConfig?.productName !== 'open.md' || tauriConfig?.app?.windows?.[0]?.title !== 'open.md') {
+  throw new Error('src-tauri/tauri.conf.json must expose open.md as the visible product name');
+}
 if (tauriConfig?.build?.frontendDist !== '../dist') {
   throw new Error('src-tauri/tauri.conf.json must keep build.frontendDist set to ../dist for Vite build');
 }
 if (tauriConfig?.app?.windows?.[0]?.decorations !== false) {
   throw new Error('src-tauri/tauri.conf.json must keep the main window undecorated');
+}
+if (tauriConfig?.app?.withGlobalTauri !== false) {
+  throw new Error('src-tauri/tauri.conf.json must keep withGlobalTauri disabled');
+}
+if (!tauriConfig?.app?.security?.csp?.includes('img-src') || !tauriConfig.app.security.csp.includes('blob:')) {
+  throw new Error('src-tauri/tauri.conf.json must preserve the local image CSP mask');
 }
 const markdownAssociation = tauriConfig?.bundle?.fileAssociations?.find((association) =>
   association.ext?.includes('md') && association.ext?.includes('markdown')
