@@ -1,147 +1,64 @@
-# OpenMD
+# open.md
 
-Minimalist Markdown/TXT viewer built with **Tauri v2**, **Rust**, **Vite**
-and vanilla **JavaScript**. Open a `.md`, `.markdown` or `.txt` file from
-your file manager, drag it into the window, or pick it from the in-app
-dialog and you are reading it instantly.
+A quiet desktop viewer for Markdown and plain-text files.
 
-> Status: **early development** (v0.1.0). The core reading experience is
-> stable, but breaking changes between minor versions are still
-> possible until a 1.0.0 release is cut.
+`open.md` is a small Tauri desktop application for reading `.md`, `.markdown`,
+and `.txt` files. Drop a file onto the window, open it from the file picker, or
+use the operating system's **Open with** menu. The app renders local documents
+without fetching remote images or modifying the files it opens.
+
+> Status: early development (`0.1.0` development milestone). The reading path
+> is usable, but behaviour may still change before a tagged release.
 
 ## Features
 
-- Open `.md`, `.markdown` and `.txt` files (double-click, drag & drop,
-  or the in-app picker).
-- Multi-window support: dropping several files opens one window per file.
-- Markdown rendering via `pulldown-cmark` with `syntect` syntax
-  highlighting and a dedicated `mermaid` fenced-block code path.
-- Large theme catalogue (light, dark, and tinted) loaded from
-  `src/themes.json`; the chosen theme persists across sessions.
-- Relative `.md`/`.txt` links open in the same flow of reading.
-- Relative PNG, JPEG, GIF, WebP, BMP, and AVIF images load from the
-  document's own folder tree without granting the webview broad file-system
-  access. Remote images are not fetched.
-- Keyboard shortcuts and zoom controls (Ctrl + scroll, Ctrl + 0/+/-).
-- Single-instance behaviour: launching the app again with a file routes
-  the file into a new window of the running instance.
+- Markdown, Markdown-with-extension, and plain-text viewing.
+- Drag and drop, native file associations, and one-window-per-file launches.
+- Syntax-highlighted code blocks and Mermaid diagrams.
+- Relative document links and bounded local images from the opened document's
+  directory.
+- Persistent themes, keyboard shortcuts, zoom controls, and reduced-motion
+  support.
 
-## Tech Stack
+## Quick start
 
-| Layer    | Technology                                                        |
-| -------- | ----------------------------------------------------------------- |
-| Backend  | Rust (edition 2021) + Tauri v2                                    |
-| Frontend | Vite, vanilla JS, `mermaid` for diagrams                          |
-| Markdown | `pulldown-cmark` (Rust)                                           |
-| Highlighting | `syntect` (Rust) — HTML emitted with colour tokens applied    |
-| Plugins  | `tauri-plugin-dialog`, `tauri-plugin-opener`, `tauri-plugin-single-instance` |
-
-## Repository Layout
-
-```
-.
-├── index.html              # Vite entrypoint
-├── vite.config.js
-├── package.json
-├── bun.lock
-├── scripts/
-│   └── validate-frontend.mjs
-├── src/                    # Frontend source
-│   ├── main.js
-│   ├── main.test.js
-│   ├── styles.css
-│   ├── themes.json
-│   └── assets/
-│       └── favicon.svg
-├── src-tauri/              # Rust backend + Tauri config
-│   ├── Cargo.toml
-│   ├── build.rs
-│   ├── tauri.conf.json
-│   ├── capabilities/
-│   ├── icons/
-│   └── src/
-└── docs/
-    └── THEMES.md
-```
-
-## Requirements
-
-- [Rust](https://www.rust-lang.org/) (stable)
-- [Bun](https://bun.sh/) ≥ 1.1 (or [Node.js](https://nodejs.org/) 20.19+
-  / 22.12+)
-- The platform dependencies required by
-  [Tauri v2](https://v2.tauri.app/start/prerequisites/) (WebView2 on
-  Windows, WebKit on Linux/macOS, Xcode CLT on macOS, etc.)
-
-## Install
+Install [Rust](https://www.rust-lang.org/), [Bun](https://bun.sh/), and the
+platform dependencies required by
+[Tauri](https://v2.tauri.app/start/prerequisites/).
 
 ```bash
 bun install
+bun run tauri dev
 ```
 
-## Development
-
-Run the Vite dev server (frontend only):
+To run the frontend without a native window:
 
 ```bash
 bun run dev
 ```
 
-Run the full Tauri app in development mode (frontend + native window):
-
-```bash
-bun run tauri dev
-```
-
-## Build a Release
+## Build locally
 
 ```bash
 bun run tauri build
 ```
 
-The signed installer / bundle for your platform is written under
-`src-tauri/target/release/bundle/`.
+This creates a local bundle under `src-tauri/target/release/bundle/`. The
+repository does not currently publish installers or hosted release binaries.
 
-## Tests and Quality Gates
+## Documentation
 
-| Command                  | What it does                                          |
-| ------------------------ | ----------------------------------------------------- |
-| `bun run check:frontend` | Validate the frontend integration (HTML, CSS, JS, themes). |
-| `bun run test:frontend`  | Run Vitest frontend tests.                            |
-| `bun run fmt:rust`       | Verify Rust formatting with `cargo fmt --check`.      |
-| `bun run check:rust`     | Type-check the Rust backend.                          |
-| `bun run test:rust`      | Run the Rust unit tests.                              |
-| `bun run verify`         | Run the full pre-package validation pipeline.         |
+- [Development and checks](docs/DEVELOPMENT.md) — project layout, local
+  commands, and CI expectations.
+- [File associations](docs/FILE_ASSOCIATIONS.md) — how packaged builds
+  integrate with the operating system's **Open with** flow.
+- [Bundled themes](docs/THEMES.md) — source provenance and licensing for the
+  theme catalogue.
+- [Contributing](CONTRIBUTING.md) — setup, pull requests, and contribution
+  expectations.
+- [Security policy](SECURITY.md).
 
-Run `bun run verify` before tagging a release or sending a pull request.
+## License
 
-## Configuration
-
-OpenMD does not currently require any environment variables, API keys or
-external services. Optional configuration is read from
-`src-tauri/tauri.conf.json` (window dimensions, identifier, file
-associations, bundle targets).
-
-For safety, raw HTML in Markdown is displayed as text, non-HTTP link schemes
-are blocked, and local images are limited to supported formats under the open
-document's directory (12 MiB per image).
-
-## Themes
-
-The bundled theme catalogue is curated in `src/themes.json`. See
-[`docs/THEMES.md`](docs/THEMES.md) for the full list of authors,
-sources, and licence notes.
-
-## Contributing
-
-Bug reports and pull requests are welcome. See
-[`CONTRIBUTING.md`](CONTRIBUTING.md) for development setup, the
-contribution workflow, and the code of conduct. Security issues should
-be reported privately following [`SECURITY.md`](SECURITY.md).
-
-## Licence
-
-OpenMD is released under the **MIT License** — see
-[`LICENSE`](LICENSE) for the full text.
-
-Copyright © 2026 gvastethecreator
+`open.md` is distributed under the [MIT License](LICENSE). Bundled third-party
+material has its own notices in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

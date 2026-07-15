@@ -1,4 +1,4 @@
-# Contributor Covenant Code of Conduct
+# open.md Contributor Covenant Code of Conduct
 
 ## Our Pledge
 
@@ -36,7 +36,12 @@ This Code of Conduct applies within all community spaces, and also applies when 
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement by using the project's private reporting channel described in [`SECURITY.md`](./SECURITY.md), or by opening an issue on the [GitHub issue tracker][issues]. All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior may be
+reported by opening a minimal issue titled **Code of Conduct contact request**
+on the [GitHub issue tracker][issues]. Do not include incident details, names,
+screenshots, or other evidence in that issue. Community leaders will use it to
+agree on a private channel, then review and investigate the complaint promptly
+and fairly.
 
 All community leaders are obligated to respect the privacy and security of the reporter of any incident.
 
@@ -81,4 +86,4 @@ For answers to common questions about this code of conduct, see the FAQ at [http
 [Mozilla CoC]: https://github.com/mozilla/diversity
 [FAQ]: https://www.contributor-covenant.org/faq
 [translations]: https://www.contributor-covenant.org/translations
-[issues]: https://github.com/gvastethecreator/open-md/issues
+[issues]: https://github.com/gvastethecreator/open.md/issues
