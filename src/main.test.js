@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import allThemes from './themes.json';
+import allThemes from './themes.runtime.json';
 import {
   isColorDark,
   calculateNewZoom,
@@ -25,7 +25,7 @@ import {
   normalizeOpenFileRequest,
   normalizeReadingTools,
   resolveRelativeFilePath,
-} from './main.js';
+} from './core/reader.js';
 
 describe('Frontend Logic Tests', () => {
   describe('getPreferredThemeIndex', () => {
@@ -189,7 +189,7 @@ describe('Frontend Logic Tests', () => {
       const tokens = (line) => getMarkdownSourceTokenRanges(line)
         .map(({ start, end }) => line.slice(start, end));
 
-      expect(tokens('# OpenMD')).toEqual(['#']);
+      expect(tokens('# open.md')).toEqual(['#']);
       expect(tokens('- **bold** and `code`')).toEqual(['-', '**', '**', '`', '`']);
       expect(tokens('> Quote')).toEqual(['>']);
       expect(tokens('[Docs](guide.md)')).toEqual(['[', '](', ')']);
