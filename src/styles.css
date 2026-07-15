@@ -13,6 +13,7 @@
   --link-color: #087f86;
   --accent-color: #168c91;
   --ui-accent: #168c91;
+  --accent-foreground: #ffffff;
   --ui-muted: color-mix(in srgb, var(--text-color) 62%, var(--bg-color));
   --code-bg: #edf1f3;
   --code-block-bg: #202a34;
@@ -161,7 +162,7 @@ tt {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--quote-color);
+  background: color-mix(in srgb, var(--ui-accent) 58%, var(--border-color));
   background-clip: padding-box;
 }
 
@@ -432,7 +433,7 @@ tt {
   justify-content: center;
   gap: 8px;
   border-color: var(--ui-accent);
-  color: #ffffff;
+  color: var(--accent-foreground);
   background: var(--ui-accent);
   font-size: 0.9rem;
   font-weight: 680;
@@ -584,6 +585,11 @@ kbd {
   background: transparent;
   font: inherit;
   white-space: inherit;
+}
+
+.source-markup-token {
+  color: var(--ui-accent);
+  font-weight: 750;
 }
 
 .document-minimap {

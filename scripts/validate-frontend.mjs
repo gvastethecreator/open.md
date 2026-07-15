@@ -9,7 +9,9 @@ const requiredFiles = [
   'src/themes.json',
   'src/assets/openmd-icon.png',
   'src-tauri/tauri.conf.json',
-  'src-tauri/capabilities/default.json'
+  'src-tauri/capabilities/default.json',
+  'src-tauri/src/lib.rs',
+  'docs/FILE_ASSOCIATIONS.md'
 ];
 
 for (const relativePath of requiredFiles) {
@@ -22,6 +24,7 @@ for (const relativePath of requiredFiles) {
 const indexHtml = readFileSync(path.join(root, 'index.html'), 'utf8');
 const mainJavaScript = readFileSync(path.join(root, 'src/main.js'), 'utf8');
 const stylesCss = readFileSync(path.join(root, 'src/styles.css'), 'utf8');
+const tauriRust = readFileSync(path.join(root, 'src-tauri/src/lib.rs'), 'utf8');
 if (!indexHtml.includes('src="/src/main.js"')) {
   throw new Error('index.html must load /src/main.js');
 }
@@ -84,12 +87,32 @@ if (!stylesCss.includes('.minimap-document') || !stylesCss.includes('.minimap-vi
 if (!stylesCss.includes('body.is-minimap .markdown-body')) {
   throw new Error('src/styles.css must reserve reading space for the opt-in minimap on narrow layouts');
 }
+if (!stylesCss.includes('.source-markup-token') || !stylesCss.includes('font-weight: 750')) {
+  throw new Error('src/styles.css must distinguish Markdown markup in source mode');
+}
 
 if (!mainJavaScript.includes("securityLevel: 'strict'") || !mainJavaScript.includes('getThemeTokens')) {
   throw new Error('src/main.js must preserve strict Mermaid rendering and semantic theme tokens');
 }
 if (!mainJavaScript.includes("invoke('get_initial_file_path')")) {
   throw new Error('src/main.js must preserve the native launch-path handoff');
+}
+if (
+  !mainJavaScript.includes('renderSourceContent(documentPayload.source,')
+  || !mainJavaScript.includes("root.style.setProperty('--ui-accent', tokens.accent)")
+  || !mainJavaScript.includes("root.style.setProperty('--accent-foreground', tokens.accentForeground)")
+  || !mainJavaScript.includes('meta[name="theme-color"]')
+) {
+  throw new Error('src/main.js must preserve source markup emphasis and complete theme accent propagation');
+}
+if (
+  !mainJavaScript.includes("listen('open-file-request'")
+  || !mainJavaScript.includes("invoke('take_pending_open_file_requests')")
+  || !mainJavaScript.includes("getCurrentWindow().label !== 'main'")
+  || !tauriRust.includes('tauri::RunEvent::Opened')
+  || !tauriRust.includes('take_pending_open_file_requests')
+) {
+  throw new Error('Native file associations must preserve queued macOS and single-instance handoff');
 }
 if (!mainJavaScript.includes('MAX_LOCAL_IMAGES') || !mainJavaScript.includes('IMAGE_LOAD_CONCURRENCY')) {
   throw new Error('src/main.js must keep local image loading bounded');
@@ -148,6 +171,12 @@ if (tauriConfig?.build?.frontendDist !== '../dist') {
 }
 if (tauriConfig?.app?.windows?.[0]?.decorations !== false) {
   throw new Error('src-tauri/tauri.conf.json must keep the main window undecorated');
+}
+const markdownAssociation = tauriConfig?.bundle?.fileAssociations?.find((association) =>
+  association.ext?.includes('md') && association.ext?.includes('markdown')
+);
+if (markdownAssociation?.role !== 'Viewer' || markdownAssociation?.mimeType !== 'text/markdown') {
+  throw new Error('src-tauri/tauri.conf.json must register Markdown files as a viewer association');
 }
 
 const capabilities = JSON.parse(readFileSync(path.join(root, 'src-tauri/capabilities/default.json'), 'utf8'));

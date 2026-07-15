@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -28,6 +29,7 @@ export const DEFAULT_READING_TOOLS = Object.freeze({
 let themes = [];
 let currentThemeIndex = -1;
 let dragDropUnlisten = null;
+let fileOpenRequestUnlisten = null;
 let toastTimeoutId = null;
 let scrollRafId = null;
 let currentFilePath = null;
@@ -47,6 +49,10 @@ let minimapCloneRevision = 0;
 let minimapContentHeight = 0;
 let viewScrollPositions = { rendered: 0, source: 0 };
 let windowChromeUnlisteners = [];
+let fileOpenRequestsReady = false;
+let queuedFileOpenRequests = [];
+let fileOpenRequestChain = Promise.resolve();
+const handledFileOpenRequestIds = new Set();
 
 const ui = {
   windowFileTitle: null,
@@ -179,6 +185,143 @@ export function normalizeReadingTools(value) {
   return Object.fromEntries(
     Object.keys(DEFAULT_READING_TOOLS).map((key) => [key, value?.[key] === true])
   );
+}
+
+export function normalizeOpenFileRequest(value) {
+  const id = Math.floor(Number(value?.id));
+  const paths = [...new Set(
+    (Array.isArray(value?.paths) ? value.paths : [])
+      .filter((path) => typeof path === 'string' && path.trim() !== '')
+  )];
+
+  return Number.isSafeInteger(id) && id > 0 && paths.length > 0 ? { id, paths } : null;
+}
+
+function isEscapedSourceToken(line, index) {
+  let backslashes = 0;
+  for (let cursor = index - 1; cursor >= 0 && line[cursor] === '\\'; cursor -= 1) {
+    backslashes += 1;
+  }
+  return backslashes % 2 === 1;
+}
+
+export function getMarkdownSourceTokenRanges(line) {
+  const sourceLine = typeof line === 'string' ? line : '';
+  const ranges = [];
+  const codeIntervals = [];
+  const addRange = (start, end) => {
+    if (start >= 0 && end > start) ranges.push({ start, end });
+  };
+
+  const fence = sourceLine.match(/^\s{0,3}(`{3,}|~{3,})/);
+  if (fence) {
+    const start = sourceLine.indexOf(fence[1]);
+    addRange(start, start + fence[1].length);
+  } else {
+    const structuralPatterns = [
+      /^\s{0,3}(#{1,6})(?=\s|$)/,
+      /^\s{0,3}(>)/,
+      /^\s*([-+*])(?=\s)/,
+      /^\s*(\d+[.)])(?=\s)/,
+    ];
+    for (const pattern of structuralPatterns) {
+      const match = sourceLine.match(pattern);
+      if (!match) continue;
+      const start = sourceLine.indexOf(match[1]);
+      addRange(start, start + match[1].length);
+      break;
+    }
+
+    const taskMarker = sourceLine.match(/^\s*(?:[-+*]|\d+[.)])\s+(\[[ xX]\])/);
+    if (taskMarker) {
+      const start = sourceLine.indexOf(taskMarker[1]);
+      addRange(start, start + taskMarker[1].length);
+    }
+  }
+
+  const backtickPattern = /`+/g;
+  let backtickMatch;
+  while ((backtickMatch = backtickPattern.exec(sourceLine)) !== null) {
+    if (isEscapedSourceToken(sourceLine, backtickMatch.index)) continue;
+    const delimiter = backtickMatch[0];
+    const closingIndex = sourceLine.indexOf(delimiter, backtickMatch.index + delimiter.length);
+    addRange(backtickMatch.index, backtickMatch.index + delimiter.length);
+    if (closingIndex < 0) continue;
+    addRange(closingIndex, closingIndex + delimiter.length);
+    codeIntervals.push([backtickMatch.index, closingIndex + delimiter.length]);
+    backtickPattern.lastIndex = closingIndex + delimiter.length;
+  }
+
+  const isInsideCode = (index) => codeIntervals.some(([start, end]) => index > start && index < end);
+  const emphasisPattern = /\*\*|__|~~|\*|_/g;
+  const delimiterPositions = new Map();
+  let emphasisMatch;
+  while ((emphasisMatch = emphasisPattern.exec(sourceLine)) !== null) {
+    const token = emphasisMatch[0];
+    const index = emphasisMatch.index;
+    if (isEscapedSourceToken(sourceLine, index) || isInsideCode(index)) continue;
+    if (
+      token === '_'
+      && /[\p{L}\p{N}]/u.test(sourceLine[index - 1] || '')
+      && /[\p{L}\p{N}]/u.test(sourceLine[index + 1] || '')
+    ) {
+      continue;
+    }
+    const positions = delimiterPositions.get(token) || [];
+    positions.push(index);
+    delimiterPositions.set(token, positions);
+  }
+  for (const [token, positions] of delimiterPositions) {
+    for (let index = 0; index + 1 < positions.length; index += 2) {
+      addRange(positions[index], positions[index] + token.length);
+      addRange(positions[index + 1], positions[index + 1] + token.length);
+    }
+  }
+
+  const linkPattern = /(!?)\[[^\]\n]*\]\([^\)\n]*\)/g;
+  let linkMatch;
+  while ((linkMatch = linkPattern.exec(sourceLine)) !== null) {
+    if (isEscapedSourceToken(sourceLine, linkMatch.index) || isInsideCode(linkMatch.index)) continue;
+    const openLength = linkMatch[1] ? 2 : 1;
+    const bridgeIndex = sourceLine.indexOf('](', linkMatch.index + openLength);
+    const closeIndex = linkMatch.index + linkMatch[0].length - 1;
+    addRange(linkMatch.index, linkMatch.index + openLength);
+    addRange(bridgeIndex, bridgeIndex + 2);
+    addRange(closeIndex, closeIndex + 1);
+  }
+
+  const visibleRanges = [];
+  for (const range of ranges.sort((left, right) => left.start - right.start || right.end - left.end)) {
+    const previous = visibleRanges.at(-1);
+    if (!previous || range.start >= previous.end) visibleRanges.push(range);
+  }
+  return visibleRanges;
+}
+
+function renderSourceContent(source, isMarkdown = true) {
+  if (!ui.sourceContent) return;
+  if (!isMarkdown) {
+    ui.sourceContent.textContent = String(source);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  const lines = String(source).split('\n');
+  lines.forEach((line, lineIndex) => {
+    let cursor = 0;
+    for (const range of getMarkdownSourceTokenRanges(line)) {
+      if (range.start > cursor) fragment.append(document.createTextNode(line.slice(cursor, range.start)));
+      const token = document.createElement('strong');
+      token.className = 'source-markup-token';
+      token.textContent = line.slice(range.start, range.end);
+      fragment.append(token);
+      cursor = range.end;
+    }
+    if (cursor < line.length) fragment.append(document.createTextNode(line.slice(cursor)));
+    if (lineIndex < lines.length - 1) fragment.append(document.createTextNode('\n'));
+  });
+
+  ui.sourceContent.replaceChildren(fragment);
 }
 
 export function getReadingProgress(scrollTop, scrollHeight, clientHeight) {
@@ -372,6 +515,7 @@ export function getThemeTokens(theme = {}) {
     border: mixHexColors(background, text, 0.22),
     link: accent,
     accent,
+    accentForeground: chooseAccessibleColor(['#000000', '#ffffff'], accent),
     quote,
     danger,
     shadow: isColorDark(background) ? 'rgba(0, 0, 0, 0.42)' : 'rgba(15, 23, 42, 0.16)',
@@ -975,6 +1119,8 @@ function applyTheme(theme, { silent = false } = {}) {
   root.style.setProperty('--border-color', tokens.border);
   root.style.setProperty('--link-color', tokens.link);
   root.style.setProperty('--accent-color', tokens.accent);
+  root.style.setProperty('--ui-accent', tokens.accent);
+  root.style.setProperty('--accent-foreground', tokens.accentForeground);
   root.style.setProperty('--code-bg', tokens.surface);
   root.style.setProperty('--heading-1', tokens.text);
   root.style.setProperty('--heading-2', tokens.text);
@@ -986,6 +1132,7 @@ function applyTheme(theme, { silent = false } = {}) {
   root.style.setProperty('--toolbar-bg', tokens.surface);
   root.style.setProperty('--danger-color', tokens.danger);
   root.style.setProperty('--shadow-color', tokens.shadow);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', tokens.background);
 
   const isDark = isColorDark(tokens.background);
   root.style.colorScheme = isDark ? 'dark' : 'light';
@@ -1252,7 +1399,7 @@ async function loadContent(filePath = null, { fragment = '' } = {}) {
     if (requestId !== loadRequestId) return;
     currentDocument = documentPayload;
     ui.content.innerHTML = documentPayload.html;
-    if (ui.sourceContent) ui.sourceContent.textContent = documentPayload.source;
+    renderSourceContent(documentPayload.source, getFileKind(filePath) === 'Markdown');
     ui.content.removeAttribute('aria-busy');
     updateWindowTitle(filePath);
     updateWindowUrl(filePath);
@@ -1849,6 +1996,81 @@ async function handleIncomingFiles(filePaths) {
   }
 }
 
+async function handleNativeOpenFileRequest(value) {
+  const request = normalizeOpenFileRequest(value);
+  if (!request || handledFileOpenRequestIds.has(request.id)) return;
+  handledFileOpenRequestIds.add(request.id);
+
+  try {
+    const supportedFiles = request.paths.filter(isSupportedFilePath);
+    if (supportedFiles.length === 0) {
+      showToast('Only .md, .markdown and .txt files are supported');
+      return;
+    }
+
+    if (!currentFilePath) {
+      await handleIncomingFiles(supportedFiles);
+      return;
+    }
+
+    for (const path of supportedFiles) {
+      try {
+        await invoke('open_new_window', { path });
+      } catch (error) {
+        console.error('Could not open an associated file:', error);
+        showToast(`Could not open ${getDisplayName(path)}`);
+      }
+    }
+
+    if (supportedFiles.length > 1) showToast(`${supportedFiles.length} files opened`);
+  } finally {
+    if (window.__TAURI_INTERNALS__) {
+      invoke('acknowledge_open_file_request', { id: request.id }).catch((error) => {
+        console.warn('Could not acknowledge the file-open request:', error);
+      });
+    }
+  }
+}
+
+function scheduleNativeOpenFileRequest(value) {
+  const request = normalizeOpenFileRequest(value);
+  if (!request) return;
+
+  if (!fileOpenRequestsReady) {
+    queuedFileOpenRequests.push(request);
+    return;
+  }
+
+  fileOpenRequestChain = fileOpenRequestChain
+    .then(() => handleNativeOpenFileRequest(request))
+    .catch((error) => {
+      console.error('Could not process the file-open request:', error);
+      showToast('Could not open the associated file');
+    });
+}
+
+async function setupFileAssociationEvents() {
+  if (!window.__TAURI_INTERNALS__ || getCurrentWindow().label !== 'main') return;
+
+  try {
+    fileOpenRequestUnlisten = await listen('open-file-request', (event) => {
+      scheduleNativeOpenFileRequest(event.payload);
+    });
+    const pendingRequests = await invoke('take_pending_open_file_requests');
+    if (Array.isArray(pendingRequests)) pendingRequests.forEach(scheduleNativeOpenFileRequest);
+  } catch (error) {
+    console.warn('Native file-open events are unavailable in this runtime:', error);
+  }
+}
+
+async function flushQueuedFileOpenRequests() {
+  fileOpenRequestsReady = true;
+  const requests = queuedFileOpenRequests;
+  queuedFileOpenRequests = [];
+  requests.forEach(scheduleNativeOpenFileRequest);
+  await fileOpenRequestChain;
+}
+
 async function openFilePicker() {
   setReadingToolsOpen(false);
   setActionsPinned(false);
@@ -1917,6 +2139,9 @@ function registerEvents() {
     if (typeof dragDropUnlisten === 'function') {
       dragDropUnlisten();
     }
+    if (typeof fileOpenRequestUnlisten === 'function') {
+      fileOpenRequestUnlisten();
+    }
     minimapResizeObserver?.disconnect();
     windowChromeUnlisteners.forEach((unlisten) => unlisten());
     windowChromeUnlisteners = [];
@@ -1960,6 +2185,7 @@ async function init() {
   loadReadingToolPreferences();
   syncViewportState();
   registerEvents();
+  await setupFileAssociationEvents();
   await setupWindowChrome();
   setupActionRevealMode();
   setupReadingResizeObserver();
@@ -1976,6 +2202,7 @@ async function init() {
   }
 
   await loadContent(initialFilePath);
+  await flushQueuedFileOpenRequests();
   await setupDragAndDrop();
 }
 

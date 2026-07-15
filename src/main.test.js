@@ -11,6 +11,7 @@ import {
   getCurrentLineFromAnchors,
   getEstimatedMinutesRemaining,
   getLineGutterLeft,
+  getMarkdownSourceTokenRanges,
   getImageSourcePolicy,
   getLinkAction,
   getMinimapViewportGeometry,
@@ -21,6 +22,7 @@ import {
   getWindowControlPresentation,
   isSupportedFilePath,
   normalizeDocumentPayload,
+  normalizeOpenFileRequest,
   normalizeReadingTools,
   resolveRelativeFilePath,
 } from './main.js';
@@ -60,6 +62,8 @@ describe('Frontend Logic Tests', () => {
         const checks = [
           ['text/background', getContrastRatio(tokens.text, tokens.background), 4.5],
           ['link/background', getContrastRatio(tokens.link, tokens.background), 4.5],
+          ['accent/background', getContrastRatio(tokens.accent, tokens.background), 4.5],
+          ['accent foreground/accent', getContrastRatio(tokens.accentForeground, tokens.accent), 4.5],
           ['quote/background', getContrastRatio(tokens.quote, tokens.background), 4.5],
           ['text/surface', getContrastRatio(tokens.text, tokens.surface), 4.5],
         ];
@@ -181,6 +185,17 @@ describe('Frontend Logic Tests', () => {
   });
 
   describe('reading tools', () => {
+    it('finds Markdown delimiters without changing source content', () => {
+      const tokens = (line) => getMarkdownSourceTokenRanges(line)
+        .map(({ start, end }) => line.slice(start, end));
+
+      expect(tokens('# OpenMD')).toEqual(['#']);
+      expect(tokens('- **bold** and `code`')).toEqual(['-', '**', '**', '`', '`']);
+      expect(tokens('> Quote')).toEqual(['>']);
+      expect(tokens('[Docs](guide.md)')).toEqual(['[', '](', ')']);
+      expect(tokens('plain a_b identifier')).toEqual([]);
+    });
+
     it('normalizes structured and legacy document payloads', () => {
       expect(normalizeDocumentPayload({
         html: '<h1>Title</h1>',
@@ -251,6 +266,18 @@ describe('Frontend Logic Tests', () => {
         source: false,
         stats: false,
       });
+    });
+
+    it('normalizes and deduplicates native file-open requests', () => {
+      expect(normalizeOpenFileRequest({
+        id: 7,
+        paths: ['C:\\docs\\one.md', 'C:\\docs\\one.md', 'C:\\docs\\two.markdown', 42],
+      })).toEqual({
+        id: 7,
+        paths: ['C:\\docs\\one.md', 'C:\\docs\\two.markdown'],
+      });
+      expect(normalizeOpenFileRequest({ id: 0, paths: ['README.md'] })).toBeNull();
+      expect(normalizeOpenFileRequest({ id: 9, paths: [] })).toBeNull();
     });
 
     it('calculates bounded progress and remaining time', () => {
