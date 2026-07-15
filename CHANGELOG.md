@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to OpenMD are documented in this file. The format is
+All notable changes to `open.md` are documented in this file. The format is
 based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the
 project adheres to [Semantic Versioning](https://semver.org/) once a
 stable release is cut.
@@ -9,22 +9,33 @@ stable release is cut.
 
 ### Added
 
+- Source provenance and the applicable MIT notice for the bundled Gogh theme
+  catalogue.
+- Minimal issue and pull-request templates for welcoming contributions.
+- Separate Bun and Cargo dependency-audit gates in CI.
 - Accessible Open, Help, theme, status, recovery, code-copy, and back-to-top
   controls across the empty, reading, loading, and error states.
 - Bounded local-image loading for supported raster formats stored under the
   open document's directory.
 - Theme contrast and link-policy regression tests across the full bundled
   theme catalogue.
+- Reproducible runtime-theme generation and a production bundle budget gate.
 
 ### Changed
 
 - Reworked the reading shell, help screen, responsive toolbar, tables, code
   blocks, focus lifecycle, zoom, and reduced-motion behaviour.
+- Reworked the public README and developer documentation around the exact
+  `open.md` brand; local builds are documented as unsigned.
 - Restored direct file-association and command-line launches through an
   explicit native-to-frontend path handoff.
-- Updated frontend dependencies and pinned patched transitive versions; the
-  production and full npm audits now report zero known vulnerabilities.
-- Raised the documented Node.js fallback requirement to match Vite 8.
+- Updated frontend dependencies and pinned patched transitive versions; CI now
+  runs a Bun audit and a pinned `cargo-audit` gate.
+- Extracted pure reader contracts from the UI composition root, deferred
+  Mermaid until a document contains a diagram, and reduced the initial
+  JavaScript payload without removing diagram or theme support.
+- Replaced base64 image IPC with validated raw bytes and bounded Blob URLs;
+  document image resources now share a 64 MiB retained-byte budget.
 
 ### Security
 
@@ -35,17 +46,19 @@ stable release is cut.
   count, concurrency, per-file size, type, and directory boundaries.
 - Removed the unused broad Tauri file-system plugin permission in favour of a
   narrow Rust command for document-relative images.
+- Disabled the unused global Tauri browser object; the frontend uses explicit
+  ESM APIs and the narrow command bridge.
 
-## [0.1.0] - 2026-06-02
+## 0.1.0 development milestone - 2026-06-02
 
-The first tagged public release of OpenMD. Compared with the initial
-commit on 2026-02-06, this release adds the public-release metadata
-set, a hardened content security policy, English in-app copy, a
-vendored code of conduct, and a CI workflow.
+This was a development milestone, not a Git tag or GitHub release. Compared
+with the initial commit on 2026-02-06, the milestone added repository metadata,
+a hardened content security policy, English in-app copy, a vendored code of
+conduct, and a CI workflow.
 
 ### Added
 
-- Initial public release of OpenMD: a Tauri v2 desktop viewer for
+- Initial `open.md` desktop viewer baseline for
   `.md`, `.markdown` and `.txt` files.
 - Markdown rendering via `pulldown-cmark` with `syntect` syntax
   highlighting, including a special case for `mermaid` fenced blocks.
@@ -56,13 +69,13 @@ vendored code of conduct, and a CI workflow.
   instance plugin, keyboard shortcuts, and zoom controls.
 - Frontend test suite with Vitest and a Rust test module covering the
   core rendering helpers.
-- Public-release metadata: `LICENSE` (MIT), `SECURITY.md`,
+- Repository metadata: `LICENSE` (MIT), `SECURITY.md`,
   `CONTRIBUTING.md`, `CHANGELOG.md`, and `CODE_OF_CONDUCT.md`
   (Contributor Covenant v2.1).
 - Repository fields in `package.json` and `src-tauri/Cargo.toml`.
 - Tauri identifier set to `com.gvastethecreator.openmd`.
-- `docs/THEMES.md` documenting the origin and licence of every bundled
-  theme.
+- `docs/THEMES.md` documenting the Gogh source commit and license for the
+  bundled theme catalogue.
 - `.github/workflows/ci.yml` running `bun run verify` (frontend
   validation, frontend tests, Rust format check, `cargo check`, Rust
   unit tests) on Linux, Windows, and macOS for every push to `main`
@@ -70,8 +83,8 @@ vendored code of conduct, and a CI workflow.
 
 ### Changed
 
-- `README.md` rewritten with a public-facing overview, install steps,
-  development workflow, and licence section.
+- `README.md` rewritten as a short public-facing overview with install steps,
+  local unsigned-build wording, and links to developer documentation.
 - `.gitignore` extended with common editor, OS, environment, and
   coverage artefacts.
 - `.vscode/tasks.json` switched from `npm` to `bun` to match the
@@ -93,6 +106,6 @@ vendored code of conduct, and a CI workflow.
   `src/assets/tauri.svg`.
 - Empty `src/themes/` directory.
 - Internal product brief `PRD.md` (out of scope for the public repo).
+- Tracked internal quality-audit notes (kept in the local, ignored archive).
 
-[Unreleased]: https://github.com/gvastethecreator/open-md/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/gvastethecreator/open-md/releases/tag/v0.1.0
+[Unreleased]: https://github.com/gvastethecreator/open.md/commits/main

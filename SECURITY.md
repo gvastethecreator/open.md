@@ -1,30 +1,31 @@
-# Security Policy
+# Security policy
 
-## Supported Versions
+## Supported versions
 
-The latest tagged release of `open-md` receives security updates. Older
-versions are not maintained.
+`open.md` does not have a tagged release yet. Security fixes are considered for
+current development on `main`; milestone snapshots are not maintained as
+separate release lines.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
+| Development line | Supported |
+| --- | --- |
+| `main` | Yes |
+| `0.1.0` milestone snapshot | No separate support |
 
-## Reporting a Vulnerability
+## Reporting a vulnerability
 
-If you discover a security issue, **do not open a public GitHub issue**.
+GitHub private vulnerability reporting is not enabled for this repository.
+Please do not publish vulnerability details in a public issue. Open a minimal
+issue titled **Security contact request** with no exploit details, logs, sample
+files, or affected paths; a maintainer will use it to agree on a private
+reporting channel.
 
-Please report it privately by emailing the maintainer or by using GitHub's
-[private vulnerability reporting][gh-security] for this repository.
-
-Include:
+Include, when safe to share:
 
 - A clear description of the issue and its impact.
-- Steps to reproduce, or a proof-of-concept when possible.
-- The affected version/commit.
-- Any known mitigations or workarounds.
+- Reproduction steps or a proof of concept.
+- The affected version or commit.
+- Any known mitigation or workaround.
 
-You can expect an acknowledgement within a reasonable time, followed by a
-fix or a documented decision. We will coordinate disclosure timing with
-the reporter.
-
-[gh-security]: https://github.com/gvastethecreator/open-md/security/advisories/new
+After a private channel is established, we will acknowledge the report when
+possible, investigate it privately, and coordinate disclosure timing with the
+reporter.

@@ -50,4 +50,5 @@ desktop.ini
 *.sw?
 
 # Local-only audit reports (not for the public repo)
-PUBLIC_READINESS_REPORT.md
+.local/
+.scratch/
