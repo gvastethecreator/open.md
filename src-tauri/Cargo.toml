@@ -4,8 +4,8 @@ version = "0.1.0"
 description = "Minimalist Markdown/TXT viewer built with Tauri v2, Rust and Vite."
 authors = ["gvastethecreator <https://github.com/gvastethecreator>"]
 license = "MIT"
-repository = "https://github.com/gvastethecreator/open-md"
-homepage = "https://github.com/gvastethecreator/open-md"
+repository = "https://github.com/gvastethecreator/open.md"
+homepage = "https://github.com/gvastethecreator/open.md"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -23,12 +23,11 @@ tauri-build = { version = "2.6.3", features = [] }
 [dependencies]
 tauri = { version = "2.11.5", features = [] }
 tauri-plugin-opener = "2.5.4"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-pulldown-cmark = "0.13.1"
-syntect = "5.3.0"
-html-escape = "0.2.13"
-base64 = "0.22.1"
-tauri-plugin-single-instance = "2.4.0"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+pulldown-cmark = "0.13.4"
+syntect = { version = "5.3.0", default-features = false, features = ["default-syntaxes", "default-themes", "html", "regex-onig"] }
+html-escape = "0.2.14"
+tauri-plugin-single-instance = "2.4.3"
 tauri-plugin-dialog = "2.7.1"
 urlencoding = "2.1.3"
