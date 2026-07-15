@@ -7,7 +7,34 @@ stable release is cut.
 
 ## [Unreleased]
 
-_No unreleased changes yet._
+### Added
+
+- Accessible Open, Help, theme, status, recovery, code-copy, and back-to-top
+  controls across the empty, reading, loading, and error states.
+- Bounded local-image loading for supported raster formats stored under the
+  open document's directory.
+- Theme contrast and link-policy regression tests across the full bundled
+  theme catalogue.
+
+### Changed
+
+- Reworked the reading shell, help screen, responsive toolbar, tables, code
+  blocks, focus lifecycle, zoom, and reduced-motion behaviour.
+- Restored direct file-association and command-line launches through an
+  explicit native-to-frontend path handoff.
+- Updated frontend dependencies and pinned patched transitive versions; the
+  production and full npm audits now report zero known vulnerabilities.
+- Raised the documented Node.js fallback requirement to match Vite 8.
+
+### Security
+
+- Raw HTML in Markdown is escaped instead of injected into the webview.
+- Mermaid uses strict security mode; unsafe link schemes and remote images are
+  blocked with visible feedback.
+- Embedded images are blocked, and document-relative images have explicit
+  count, concurrency, per-file size, type, and directory boundaries.
+- Removed the unused broad Tauri file-system plugin permission in favour of a
+  narrow Rust command for document-relative images.
 
 ## [0.1.0] - 2026-06-02
 
