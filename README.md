@@ -19,6 +19,9 @@ dialog and you are reading it instantly.
 - Large theme catalogue (light, dark, and tinted) loaded from
   `src/themes.json`; the chosen theme persists across sessions.
 - Relative `.md`/`.txt` links open in the same flow of reading.
+- Relative PNG, JPEG, GIF, WebP, BMP, and AVIF images load from the
+  document's own folder tree without granting the webview broad file-system
+  access. Remote images are not fetched.
 - Keyboard shortcuts and zoom controls (Ctrl + scroll, Ctrl + 0/+/-).
 - Single-instance behaviour: launching the app again with a file routes
   the file into a new window of the running instance.
@@ -31,7 +34,7 @@ dialog and you are reading it instantly.
 | Frontend | Vite, vanilla JS, `mermaid` for diagrams                          |
 | Markdown | `pulldown-cmark` (Rust)                                           |
 | Highlighting | `syntect` (Rust) — HTML emitted with colour tokens applied    |
-| Plugins  | `tauri-plugin-fs`, `tauri-plugin-dialog`, `tauri-plugin-opener`, `tauri-plugin-single-instance` |
+| Plugins  | `tauri-plugin-dialog`, `tauri-plugin-opener`, `tauri-plugin-single-instance` |
 
 ## Repository Layout
 
@@ -64,7 +67,8 @@ dialog and you are reading it instantly.
 ## Requirements
 
 - [Rust](https://www.rust-lang.org/) (stable)
-- [Bun](https://bun.sh/) ≥ 1.1 (or [Node.js](https://nodejs.org/) ≥ 18)
+- [Bun](https://bun.sh/) ≥ 1.1 (or [Node.js](https://nodejs.org/) 20.19+
+  / 22.12+)
 - The platform dependencies required by
   [Tauri v2](https://v2.tauri.app/start/prerequisites/) (WebView2 on
   Windows, WebKit on Linux/macOS, Xcode CLT on macOS, etc.)
@@ -117,6 +121,10 @@ OpenMD does not currently require any environment variables, API keys or
 external services. Optional configuration is read from
 `src-tauri/tauri.conf.json` (window dimensions, identifier, file
 associations, bundle targets).
+
+For safety, raw HTML in Markdown is displayed as text, non-HTTP link schemes
+are blocked, and local images are limited to supported formats under the open
+document's directory (12 MiB per image).
 
 ## Themes
 
