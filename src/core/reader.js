@@ -63,6 +63,25 @@ export function normalizeReadingTools(value) {
   );
 }
 
+export function normalizeCycleIndex(value, itemCount) {
+  const count = Math.max(0, Math.floor(Number(itemCount) || 0));
+  if (count === 0) return 0;
+
+  const index = Math.floor(Number(value));
+  return Number.isFinite(index) && index >= 0 && index < count ? index : 0;
+}
+
+export function getScrollEdgeState(scrollTop, scrollHeight, clientHeight, threshold = 1) {
+  const top = Math.max(0, Number(scrollTop) || 0);
+  const maxScroll = Math.max(0, (Number(scrollHeight) || 0) - (Number(clientHeight) || 0));
+  const edgeThreshold = Math.max(0, Number(threshold) || 0);
+
+  return {
+    before: maxScroll > edgeThreshold && top > edgeThreshold,
+    after: maxScroll > edgeThreshold && top < maxScroll - edgeThreshold,
+  };
+}
+
 export function normalizeOpenFileRequest(value) {
   const id = Math.floor(Number(value?.id));
   const paths = [...new Set(

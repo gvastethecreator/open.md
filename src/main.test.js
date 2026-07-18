@@ -16,6 +16,7 @@ import {
   getLinkAction,
   getMinimapViewportGeometry,
   getReadingProgress,
+  getScrollEdgeState,
   getStatusMetricParts,
   getViewportMode,
   getVisibleSourceLineRange,
@@ -23,6 +24,7 @@ import {
   isSupportedFilePath,
   normalizeDocumentPayload,
   normalizeOpenFileRequest,
+  normalizeCycleIndex,
   normalizeReadingTools,
   resolveRelativeFilePath,
 } from './core/reader.js';
@@ -268,6 +270,14 @@ describe('Frontend Logic Tests', () => {
       });
     });
 
+    it('keeps persisted font choices inside their available preset range', () => {
+      expect(normalizeCycleIndex(2, 3)).toBe(2);
+      expect(normalizeCycleIndex(3, 3)).toBe(0);
+      expect(normalizeCycleIndex(-1, 3)).toBe(0);
+      expect(normalizeCycleIndex('1', 3)).toBe(1);
+      expect(normalizeCycleIndex(1, 0)).toBe(0);
+    });
+
     it('normalizes and deduplicates native file-open requests', () => {
       expect(normalizeOpenFileRequest({
         id: 7,
@@ -286,6 +296,13 @@ describe('Frontend Logic Tests', () => {
       expect(getReadingProgress(0, 400, 500)).toBe(100);
       expect(getEstimatedMinutesRemaining(8, 25)).toBe(6);
       expect(getEstimatedMinutesRemaining(8, 100)).toBe(0);
+    });
+
+    it('shows scroll-edge cues only where more content exists', () => {
+      expect(getScrollEdgeState(0, 1000, 400)).toEqual({ before: false, after: true });
+      expect(getScrollEdgeState(300, 1000, 400)).toEqual({ before: true, after: true });
+      expect(getScrollEdgeState(600, 1000, 400)).toEqual({ before: true, after: false });
+      expect(getScrollEdgeState(0, 300, 400)).toEqual({ before: false, after: false });
     });
 
     it('uses the first visible raw source line as the current reading line', () => {

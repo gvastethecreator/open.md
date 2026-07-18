@@ -189,6 +189,51 @@
             </section>
           </div>
 
+          <div id="typography-shell" class="typography-shell">
+            <button
+              id="typography-button"
+              class="toolbar-button icon-button"
+              type="button"
+              aria-controls="typography-panel"
+              aria-expanded="false"
+              aria-label="Open typography options"
+              title="Typography"
+            >
+              <i class="iconoir-type" aria-hidden="true"></i>
+            </button>
+
+            <section id="typography-panel" class="typography-panel" aria-label="Typography" aria-hidden="true" inert>
+              <header class="typography-header">
+                <span>Typography</span>
+                <span>Click to cycle</span>
+              </header>
+
+              <button id="sans-font-button" class="typography-option" type="button" data-font-kind="sans">
+                <i class="iconoir-type" aria-hidden="true"></i>
+                <span><strong>Sans</strong><small id="sans-font-name">System</small></span>
+                <i class="iconoir-nav-arrow-right" aria-hidden="true"></i>
+              </button>
+
+              <button id="mono-font-button" class="typography-option" type="button" data-font-kind="mono">
+                <i class="iconoir-code" aria-hidden="true"></i>
+                <span><strong>Mono</strong><small id="mono-font-name">Cascadia</small></span>
+                <i class="iconoir-nav-arrow-right" aria-hidden="true"></i>
+              </button>
+            </section>
+          </div>
+
+          <button
+            id="always-on-top-button"
+            class="toolbar-button icon-button"
+            type="button"
+            role="switch"
+            aria-checked="false"
+            aria-label="Always on top: off"
+            title="Always on top: off"
+          >
+            <i class="iconoir-pin" aria-hidden="true"></i>
+          </button>
+
           <label class="theme-field icon-button" title="Choose theme">
             <span class="sr-only">Theme</span>
             <i class="iconoir-palette" aria-hidden="true"></i>
