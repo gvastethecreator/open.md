@@ -20,6 +20,10 @@ stable release is cut.
 - Theme contrast and link-policy regression tests across the full bundled
   theme catalogue.
 - Reproducible runtime-theme generation and a production bundle budget gate.
+- Persisted always-on-top and typography controls, with independent sans and
+  monospace font cycles.
+- Conditional top and bottom reading-edge cues with a soft fade and blur for
+  long, scrollable content.
 
 ### Changed
 

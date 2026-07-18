@@ -97,6 +97,11 @@ const requiredAccessibleControls = [
   'id="actions-toggle-button"',
   'id="reading-tools-button"',
   'id="reading-tools-panel"',
+  'id="typography-button"',
+  'id="typography-panel"',
+  'id="sans-font-button"',
+  'id="mono-font-button"',
+  'id="always-on-top-button"',
   'id="line-gutter"',
   'id="document-minimap"',
   'id="minimap-document"',
@@ -156,6 +161,13 @@ if (
   throw new Error('Mermaid must stay behind the lazy strict renderer boundary and pure reader helpers must stay deep-importable');
 }
 if (
+  !stylesCss.includes('.typography-panel')
+  || !stylesCss.includes('body.has-scroll-before .app-shell::before')
+  || !stylesCss.includes('backdrop-filter: blur(1.25px)')
+) {
+  throw new Error('src/styles.css must preserve typography controls and conditional scroll-edge depth cues');
+}
+if (
   !mainJavaScript.includes("invoke('get_image_bytes'")
   || mainJavaScript.includes("invoke('get_image_data'")
   || mainJavaScript.includes('data:image')
@@ -202,6 +214,15 @@ if (
   || !mainJavaScript.includes('getWindowControlPresentation')
 ) {
   throw new Error('src/main.js must preserve structured document data and measured reading-tool geometry');
+}
+if (
+  !mainJavaScript.includes('nativeWindow.setAlwaysOnTop')
+  || !mainJavaScript.includes('FONT_PRESETS')
+  || !mainJavaScript.includes('getScrollEdgeState')
+  || !readFileSync(path.join(root, 'src-tauri/capabilities/default.json'), 'utf8')
+    .includes('core:window:allow-set-always-on-top')
+) {
+  throw new Error('Window pinning, font presets, and scroll-edge state must stay wired through their runtime contracts');
 }
 
 const themesRaw = readFileSync(path.join(root, 'src/themes.json'), 'utf8').trim();

@@ -19,6 +19,7 @@ import {
   getMinimapViewportGeometry,
   getPreferredThemeIndex,
   getReadingProgress,
+  getScrollEdgeState,
   getStatusMetricParts,
   getThemeTokens,
   getViewportMode,
@@ -27,6 +28,7 @@ import {
   isColorDark,
   isSupportedFilePath,
   normalizeDocumentPayload,
+  normalizeCycleIndex,
   normalizeOpenFileRequest,
   normalizeReadingTools,
 } from './core/reader.js';
@@ -43,7 +45,21 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3.0;
 const THEME_STORAGE_KEY = 'openmd-theme';
 const READING_TOOLS_STORAGE_KEY = 'openmd-reading-tools-v1';
+const FONT_PREFERENCES_STORAGE_KEY = 'openmd-font-preferences-v1';
+const ALWAYS_ON_TOP_STORAGE_KEY = 'openmd-always-on-top';
 const CURATED_THEME_NAMES = ['Paper', 'Github Light', 'Github Dark', 'Ayu Light', 'Ayu Dark'];
+const FONT_PRESETS = Object.freeze({
+  sans: Object.freeze([
+    { name: 'System', value: 'Inter, "Segoe UI", Helvetica, Arial, sans-serif' },
+    { name: 'Humanist', value: 'Candara, "Trebuchet MS", "Segoe UI", sans-serif' },
+    { name: 'Classic sans', value: '"Gill Sans", "Gill Sans MT", Calibri, Arial, sans-serif' },
+  ]),
+  mono: Object.freeze([
+    { name: 'Cascadia', value: '"Cascadia Code", "Cascadia Mono", "SFMono-Regular", Consolas, monospace' },
+    { name: 'Consolas', value: 'Consolas, "Liberation Mono", Menlo, monospace' },
+    { name: 'Courier', value: '"Courier New", Courier, monospace' },
+  ]),
+});
 const MAX_LOCAL_IMAGES = 100;
 const IMAGE_LOAD_CONCURRENCY = 4;
 const imageResourcePool = new ImageResourcePool();
@@ -61,6 +77,10 @@ let loadRequestId = 0;
 let currentDocument = null;
 let readingTools = { ...DEFAULT_READING_TOOLS };
 let isReadingToolsOpen = false;
+let fontPreferences = { sans: 0, mono: 0 };
+let isTypographyOpen = false;
+let isAlwaysOnTop = false;
+let nativeWindow = null;
 let currentSourceLine = 1;
 let currentReadingProgress = 0;
 let readingUiRafId = null;
@@ -110,6 +130,11 @@ const ui = {
   readingToolsShell: null,
   readingToolsPanel: null,
   readingToolToggles: [],
+  typographyShell: null,
+  typographyButton: null,
+  typographyPanel: null,
+  fontButtons: [],
+  alwaysOnTopButton: null,
 };
 
 function cacheElements() {
@@ -146,6 +171,11 @@ function cacheElements() {
   ui.readingToolsShell = document.getElementById('reading-tools-shell');
   ui.readingToolsPanel = document.getElementById('reading-tools-panel');
   ui.readingToolToggles = [...document.querySelectorAll('[data-reading-tool]')];
+  ui.typographyShell = document.getElementById('typography-shell');
+  ui.typographyButton = document.getElementById('typography-button');
+  ui.typographyPanel = document.getElementById('typography-panel');
+  ui.fontButtons = [...document.querySelectorAll('[data-font-kind]')];
+  ui.alwaysOnTopButton = document.getElementById('always-on-top-button');
 }
 
 function renderSourceContent(source, isMarkdown = true) {
@@ -186,9 +216,9 @@ function updateWindowTitle(filePath = null) {
 async function setupWindowChrome() {
   if (!window.__TAURI_INTERNALS__) return;
 
-  const appWindow = getCurrentWindow();
+  nativeWindow = getCurrentWindow();
   const syncMaximizePresentation = async () => {
-    const maximized = await appWindow.isMaximized();
+    const maximized = await nativeWindow.isMaximized();
     const presentation = getWindowControlPresentation(maximized);
     const icon = ui.windowMaximizeButton?.querySelector('i');
     if (icon) icon.className = presentation.iconClass;
@@ -210,20 +240,28 @@ async function setupWindowChrome() {
   };
 
   const toggleMaximize = () => runWindowAction(
-    () => appWindow.toggleMaximize(),
+    () => nativeWindow.toggleMaximize(),
     'Could not resize the window',
     syncMaximizePresentation
   );
 
   ui.windowMinimizeButton?.addEventListener('click', () => {
-    runWindowAction(() => appWindow.minimize(), 'Could not minimize the window');
+    runWindowAction(() => nativeWindow.minimize(), 'Could not minimize the window');
   });
   ui.windowMaximizeButton?.addEventListener('click', toggleMaximize);
   ui.windowCloseButton?.addEventListener('click', () => {
-    runWindowAction(() => appWindow.close(), 'Could not close the window');
+    runWindowAction(() => nativeWindow.close(), 'Could not close the window');
   });
+  try {
+    await nativeWindow.setAlwaysOnTop(isAlwaysOnTop);
+  } catch (error) {
+    isAlwaysOnTop = false;
+    saveAlwaysOnTopPreference();
+    updateAlwaysOnTopControl();
+    console.warn('Could not restore the always-on-top preference:', error);
+  }
   await syncMaximizePresentation();
-  windowChromeUnlisteners.push(await appWindow.onResized(syncMaximizePresentation));
+  windowChromeUnlisteners.push(await nativeWindow.onResized(syncMaximizePresentation));
 }
 
 function updateWindowUrl(filePath = null) {
@@ -459,9 +497,155 @@ function saveReadingToolPreferences() {
   }
 }
 
+function updateFontControls() {
+  for (const kind of Object.keys(FONT_PRESETS)) {
+    const presets = FONT_PRESETS[kind];
+    const index = normalizeCycleIndex(fontPreferences[kind], presets.length);
+    const current = presets[index];
+    const next = presets[(index + 1) % presets.length];
+    const button = ui.fontButtons.find((candidate) => candidate.dataset.fontKind === kind);
+    const name = document.getElementById(`${kind}-font-name`);
+    const kindLabel = kind === 'sans' ? 'Sans' : 'Mono';
+
+    if (name) name.textContent = current.name;
+    if (button) {
+      const label = `${kindLabel} font: ${current.name}. Activate for ${next.name}`;
+      button.setAttribute('aria-label', label);
+      button.title = label;
+    }
+  }
+}
+
+function applyFontPreferences({ announceKind = null } = {}) {
+  const root = document.documentElement;
+  for (const kind of Object.keys(FONT_PRESETS)) {
+    const presets = FONT_PRESETS[kind];
+    const index = normalizeCycleIndex(fontPreferences[kind], presets.length);
+    fontPreferences[kind] = index;
+    root.style.setProperty(`--font-${kind}`, presets[index].value);
+  }
+
+  updateFontControls();
+  isMinimapDocumentDirty = true;
+  queueReadingUiUpdate();
+
+  if (announceKind && FONT_PRESETS[announceKind]) {
+    const label = announceKind === 'sans' ? 'Sans' : 'Mono';
+    showToast(`${label} font: ${FONT_PRESETS[announceKind][fontPreferences[announceKind]].name}`);
+  }
+}
+
+function loadVisualPreferences() {
+  try {
+    const savedFonts = JSON.parse(localStorage.getItem(FONT_PREFERENCES_STORAGE_KEY) || '{}');
+    fontPreferences = Object.fromEntries(
+      Object.keys(FONT_PRESETS).map((kind) => [
+        kind,
+        normalizeCycleIndex(savedFonts?.[kind], FONT_PRESETS[kind].length),
+      ])
+    );
+  } catch (error) {
+    console.warn('Could not read saved font preferences:', error);
+    fontPreferences = { sans: 0, mono: 0 };
+  }
+
+  try {
+    isAlwaysOnTop = localStorage.getItem(ALWAYS_ON_TOP_STORAGE_KEY) === 'true';
+  } catch (error) {
+    console.warn('Could not read the always-on-top preference:', error);
+    isAlwaysOnTop = false;
+  }
+
+  applyFontPreferences();
+  updateAlwaysOnTopControl();
+}
+
+function saveFontPreferences() {
+  try {
+    localStorage.setItem(FONT_PREFERENCES_STORAGE_KEY, JSON.stringify(fontPreferences));
+  } catch (error) {
+    console.warn('Could not save font preferences:', error);
+  }
+}
+
+function cycleFont(kind) {
+  const presets = FONT_PRESETS[kind];
+  if (!presets) return;
+
+  fontPreferences = {
+    ...fontPreferences,
+    [kind]: normalizeCycleIndex(fontPreferences[kind] + 1, presets.length),
+  };
+  saveFontPreferences();
+  applyFontPreferences({ announceKind: kind });
+}
+
+function setTypographyOpen(nextOpen, { returnFocus = false } = {}) {
+  isTypographyOpen = Boolean(nextOpen && !isHelpVisible);
+  if (isTypographyOpen) setReadingToolsOpen(false);
+  document.body.classList.toggle('is-typography-open', isTypographyOpen);
+  ui.typographyButton?.setAttribute('aria-expanded', String(isTypographyOpen));
+
+  if (ui.typographyButton) {
+    const label = isTypographyOpen ? 'Close typography options' : 'Open typography options';
+    ui.typographyButton.setAttribute('aria-label', label);
+    ui.typographyButton.title = label;
+  }
+
+  if (ui.typographyPanel) {
+    ui.typographyPanel.setAttribute('aria-hidden', String(!isTypographyOpen));
+    ui.typographyPanel.toggleAttribute('inert', !isTypographyOpen);
+  }
+
+  if (!isTypographyOpen && returnFocus) {
+    queueMicrotask(() => ui.typographyButton?.focus());
+  }
+}
+
+function updateAlwaysOnTopControl() {
+  const label = `Always on top: ${isAlwaysOnTop ? 'on' : 'off'}`;
+  document.body.classList.toggle('is-always-on-top', isAlwaysOnTop);
+  ui.alwaysOnTopButton?.setAttribute('aria-checked', String(isAlwaysOnTop));
+  if (ui.alwaysOnTopButton) {
+    ui.alwaysOnTopButton.setAttribute('aria-label', label);
+    ui.alwaysOnTopButton.title = label;
+  }
+}
+
+function saveAlwaysOnTopPreference() {
+  try {
+    localStorage.setItem(ALWAYS_ON_TOP_STORAGE_KEY, String(isAlwaysOnTop));
+  } catch (error) {
+    console.warn('Could not save the always-on-top preference:', error);
+  }
+}
+
+async function toggleAlwaysOnTop() {
+  if (!nativeWindow) {
+    showToast('Always on top is available in the desktop app');
+    return;
+  }
+
+  const nextValue = !isAlwaysOnTop;
+  if (ui.alwaysOnTopButton) ui.alwaysOnTopButton.disabled = true;
+  try {
+    await nativeWindow.setAlwaysOnTop(nextValue);
+    isAlwaysOnTop = nextValue;
+    saveAlwaysOnTopPreference();
+    updateAlwaysOnTopControl();
+    showToast(`Always on top ${nextValue ? 'on' : 'off'}`);
+  } catch (error) {
+    console.error('Could not change the always-on-top setting:', error);
+    showToast('Could not change always on top');
+  } finally {
+    if (ui.alwaysOnTopButton) ui.alwaysOnTopButton.disabled = false;
+  }
+}
+
 function setReadingToolsOpen(nextOpen, { returnFocus = false } = {}) {
   const canOpen = hasLoadedDocument() && !isHelpVisible;
   isReadingToolsOpen = Boolean(nextOpen && canOpen);
+  if (isReadingToolsOpen) setTypographyOpen(false);
   document.body.classList.toggle('is-reading-tools-open', isReadingToolsOpen);
   ui.readingToolsButton?.setAttribute('aria-expanded', String(isReadingToolsOpen));
 
@@ -618,7 +802,10 @@ function setHelpVisible(nextVisible, { manageFocus = true } = {}) {
   }
 
   isHelpVisible = nextVisible;
-  if (nextVisible) setReadingToolsOpen(false);
+  if (nextVisible) {
+    setReadingToolsOpen(false);
+    setTypographyOpen(false);
+  }
   syncViewportState();
   updateStatus(currentFilePath);
   updateWindowTitle(currentFilePath);
@@ -904,6 +1091,7 @@ async function loadContent(filePath = null, { fragment = '' } = {}) {
     applyReadingTools();
     updateWindowTitle();
     updateWindowUrl();
+    handleScroll();
     return;
   }
 
@@ -978,6 +1166,7 @@ async function loadContent(filePath = null, { fragment = '' } = {}) {
     applyReadingTools();
     setStatusText(getDisplayName(filePath), 'Could not open');
     focusLoadedContent();
+    handleScroll();
   }
 }
 
@@ -1333,15 +1522,18 @@ function handleScroll() {
   if (scrollRafId) return;
   scrollRafId = requestAnimationFrame(() => {
     scrollRafId = null;
-    if (!ui.scrollToTop) return;
     const scroller = getActiveScroller();
     if (!scroller) return;
     const { scrollTop, scrollHeight, clientHeight } = scroller;
     const maxScroll = scrollHeight - clientHeight;
+    const edges = getScrollEdgeState(scrollTop, scrollHeight, clientHeight);
 
-    if (maxScroll > 0 && scrollTop > maxScroll * 0.5) {
+    document.body.classList.toggle('has-scroll-before', edges.before);
+    document.body.classList.toggle('has-scroll-after', edges.after);
+
+    if (ui.scrollToTop && maxScroll > 0 && scrollTop > maxScroll * 0.5) {
       ui.scrollToTop.classList.add('show');
-    } else {
+    } else if (ui.scrollToTop) {
       ui.scrollToTop.classList.remove('show');
     }
     if (!isHelpVisible) updateReadingUi();
@@ -1372,6 +1564,14 @@ function toggleActions() {
 
 function toggleReadingTools() {
   setReadingToolsOpen(!isReadingToolsOpen);
+}
+
+function toggleTypography() {
+  setTypographyOpen(!isTypographyOpen);
+}
+
+function handleFontCycle(event) {
+  cycleFont(event.currentTarget.dataset.fontKind);
 }
 
 function handleReadingToolToggle(event) {
@@ -1406,6 +1606,12 @@ function handleKeyboard(event) {
   if (event.key === 'Escape' && isReadingToolsOpen) {
     event.preventDefault();
     setReadingToolsOpen(false, { returnFocus: true });
+    return;
+  }
+
+  if (event.key === 'Escape' && isTypographyOpen) {
+    event.preventDefault();
+    setTypographyOpen(false, { returnFocus: true });
     return;
   }
 
@@ -1629,10 +1835,14 @@ function registerEvents() {
     windowChromeUnlisteners = [];
   });
   window.addEventListener('resize', queueReadingUiUpdate, { passive: true });
+  window.addEventListener('resize', handleScroll, { passive: true });
   document.addEventListener('click', handleLinkClick);
   document.addEventListener('pointerdown', (event) => {
     if (isReadingToolsOpen && !ui.readingToolsShell?.contains(event.target)) {
       setReadingToolsOpen(false);
+    }
+    if (isTypographyOpen && !ui.typographyShell?.contains(event.target)) {
+      setTypographyOpen(false);
     }
     if (
       document.body.classList.contains('is-actions-pinned')
@@ -1651,8 +1861,13 @@ function registerEvents() {
   ui.helpStage?.addEventListener('scroll', handleScroll, { passive: true });
   ui.actionsToggleButton?.addEventListener('click', toggleActions);
   ui.readingToolsButton?.addEventListener('click', toggleReadingTools);
+  ui.typographyButton?.addEventListener('click', toggleTypography);
+  ui.alwaysOnTopButton?.addEventListener('click', toggleAlwaysOnTop);
   ui.readingToolToggles.forEach((toggle) => {
     toggle.addEventListener('click', handleReadingToolToggle);
+  });
+  ui.fontButtons.forEach((button) => {
+    button.addEventListener('click', handleFontCycle);
   });
   ui.documentMinimap?.addEventListener('pointerdown', handleMinimapPointerDown);
   ui.documentMinimap?.addEventListener('pointermove', handleMinimapPointerMove);
@@ -1665,6 +1880,7 @@ function registerEvents() {
 async function init() {
   cacheElements();
   loadReadingToolPreferences();
+  loadVisualPreferences();
   syncViewportState();
   registerEvents();
   await setupFileAssociationEvents();
