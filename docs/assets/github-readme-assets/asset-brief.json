@@ -1,0 +1,112 @@
+{
+  "schema_version": 1,
+  "repo": {
+    "path": "D:\\DEV\\open-md",
+    "name": "open-md",
+    "remote": "https://github.com/gvastethecreator/open.md.git",
+    "readme": "D:\\DEV\\open-md\\README.md",
+    "metadata_source": "package.json"
+  },
+  "content": {
+    "title": "open.md",
+    "subtitle": "A quiet desktop viewer for Markdown",
+    "tags": [
+      "Local-first",
+      "Tauri",
+      "Markdown",
+      "JavaScript",
+      "Rust",
+      "HTML"
+    ],
+    "languages": [
+      "Markdown",
+      "JavaScript",
+      "Rust",
+      "HTML",
+      "CSS"
+    ]
+  },
+  "template": {
+    "id": "creative-workbench",
+    "label": "Creative Workbench",
+    "best_for": [
+      "image",
+      "video",
+      "design",
+      "portfolio",
+      "generative",
+      "visual",
+      "game",
+      "simulation",
+      "map",
+      "threejs",
+      "webgl",
+      "interactive",
+      "library",
+      "utility"
+    ],
+    "palette": "near-black, pearl, acid yellow, violet, cyan, soft coral",
+    "visual_language": "production workbench with render passes, asset tiles, material swatches, light rigs, crafted project-specific objects, and cinematic polish",
+    "composition": "dynamic studio arrangement with title-safe margin, strong foreground/background separation, and visible making energy",
+    "avoid": [
+      "readable posters",
+      "camera brand logos",
+      "generic art gallery",
+      "flat app mockups",
+      "tiny UI text",
+      "unrequested fantasy/game objects",
+      "gemstones",
+      "coins",
+      "keys",
+      "potion bottles"
+    ]
+  },
+  "icon_style": {
+    "id": "macos-front",
+    "label": "macOS Front Icon",
+    "style": {
+      "visual": "premium application icon with a modern macOS-style aesthetic, featuring a clear and recognizable central object",
+      "composition": "main object centered, front-facing or near-front-facing view, strong silhouette, immediately readable even at small sizes",
+      "shape_language": "soft, rounded, clean, and volumetric shapes with polished edges and balanced proportions",
+      "material": "soft glossy surfaces, premium plastic, frosted glass, polished metal, ceramic, rubber, or high-quality synthetic material depending on the concept",
+      "color": "harmonious color palette, controlled saturation, smooth gradients, well-defined accent colors, and enough contrast for icon readability",
+      "lighting": "soft studio lighting, realistic shadows, delicate highlights, controlled reflections, and subtle depth without isometric perspective",
+      "texture": "subtle textures, clean surfaces, minimal micro-details, refined finish without excessive noise",
+      "depth": "depth created through layering, bevels, inner shadows, soft highlights, and ambient occlusion rather than strong perspective",
+      "background": "simple clean background, transparent background, solid neutral color, or subtle gradient, without elements competing with the main object",
+      "quality": "high-quality render, polished professional finish, detailed but not cluttered, ready to be used as an App Store or desktop application icon",
+      "mood": "modern, elegant, friendly, technological, premium, clear, and memorable",
+      "consistency": "maintain macOS-style icon coherence: refined materials, clean volume, simple composition, strong readability, and a front-facing iconic presentation"
+    },
+    "constraints": {
+      "format": "square 1:1 application icon",
+      "readability": "must remain readable at small sizes such as 32x32, 64x64, and 128x128",
+      "complexity": "avoid excessive internal details, tiny text, or elements that become unreadable when scaled down",
+      "no_text": "do not include text, letters, numbers, watermarks, or existing logos",
+      "no_isometric": "do not use isometric perspective or angled 3/4 icon presentation",
+      "no_mockup": "do not show the icon inside a phone, laptop, screen, package, or presentation mockup"
+    }
+  },
+  "assets": [
+    {
+      "id": "readme-hero",
+      "kind": "banner",
+      "label": "README hero banner",
+      "width": 2100,
+      "height": 900,
+      "raw_path": "raw/readme-hero.png",
+      "final_path": "final/readme-hero.svg",
+      "prompt": "Use case: stylized-concept\nAsset type: README hero banner textless image layer, 2100x900.\nPrimary request: Create a polished GitHub project visual for open.md.\nProject context: A quiet desktop viewer for Markdown\nProject tags: Local-first, Tauri, Markdown, JavaScript, Rust, HTML\nVisual template: Creative Workbench.\nScene/backdrop: production workbench with render passes, asset tiles, material swatches, light rigs, crafted project-specific objects, and cinematic polish.\nComposition/framing: dynamic studio arrangement with title-safe margin, strong foreground/background separation, and visible making energy; 21:9 ultrawide banner; left text block, right visual detail, readable at README width.\nColor palette: near-black, pearl, acid yellow, violet, cyan, soft coral.\nText: none. Do not render any readable title, subtitle, code, labels, captions, UI copy, watermark, signature, or logo.\nConstraints: high-polish README/GitHub-ready bitmap background, crisp detail, strong contrast under a deterministic SVG text overlay.\nAvoid: readable posters, camera brand logos, generic art gallery, flat app mockups, tiny UI text, unrequested fantasy/game objects, gemstones, coins, keys, potion bottles."
+    },
+    {
+      "id": "social-preview",
+      "kind": "banner",
+      "label": "GitHub social preview",
+      "width": 1280,
+      "height": 640,
+      "raw_path": "raw/social-preview.png",
+      "final_path": "final/social-preview.svg",
+      "prompt": "Use case: stylized-concept\nAsset type: GitHub social preview textless image layer, 1280x640.\nPrimary request: Create a polished GitHub project visual for open.md.\nProject context: A quiet desktop viewer for Markdown\nProject tags: Local-first, Tauri, Markdown, JavaScript, Rust, HTML\nVisual template: Creative Workbench.\nScene/backdrop: production workbench with render passes, asset tiles, material swatches, light rigs, crafted project-specific objects, and cinematic polish.\nComposition/framing: dynamic studio arrangement with title-safe margin, strong foreground/background separation, and visible making energy; center-safe card, no critical content near edges.\nColor palette: near-black, pearl, acid yellow, violet, cyan, soft coral.\nText: none. Do not render any readable title, subtitle, code, labels, captions, UI copy, watermark, signature, or logo.\nConstraints: high-polish README/GitHub-ready bitmap background, crisp detail, strong contrast under a deterministic SVG text overlay.\nAvoid: readable posters, camera brand logos, generic art gallery, flat app mockups, tiny UI text, unrequested fantasy/game objects, gemstones, coins, keys, potion bottles."
+    }
+  ]
+}
