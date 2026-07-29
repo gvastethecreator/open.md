@@ -27,18 +27,17 @@ export function getFileKind(filePath) {
 }
 
 export function normalizeDocumentPayload(payload) {
-  if (typeof payload === 'string') {
-    return {
-      html: payload,
-      source: '',
-      lineCount: 1,
-      characterCount: 0,
-      wordCount: 0,
-      readingTimeMinutes: 0,
-    };
+  if (
+    !payload
+    || typeof payload !== 'object'
+    || Array.isArray(payload)
+    || typeof payload.html !== 'string'
+    || typeof payload.source !== 'string'
+  ) {
+    throw new TypeError('Invalid document payload');
   }
 
-  const source = typeof payload?.source === 'string' ? payload.source : '';
+  const source = payload.source;
   const fallbackLineCount = source.split('\n').length;
 
   return {
