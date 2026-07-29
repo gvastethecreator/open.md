@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_READER_PREFERENCES,
   createMemoryPreferenceStore,
+  createOptionalWebPreferenceStore,
   createReaderPreferences,
   createWebPreferenceStore,
 } from './reader-preferences.js';
@@ -109,6 +110,33 @@ describe('reader preferences', () => {
     expect(store.dump()[KEYS.alwaysOnTop]).toBe('false');
   });
 
+  it('serializes rapid native pin changes so the last request wins', async () => {
+    let releasePin;
+    const firstPin = new Promise((resolve) => { releasePin = resolve; });
+    const windowPin = {
+      setAlwaysOnTop: vi.fn((value) => value ? firstPin : Promise.resolve()),
+    };
+    const store = createMemoryPreferenceStore();
+    const preferences = createReaderPreferences({ store, windowPin });
+    await preferences.load();
+
+    const turnOn = preferences.update({ alwaysOnTop: true });
+    await vi.waitFor(() => expect(windowPin.setAlwaysOnTop).toHaveBeenCalledWith(true));
+    const turnOff = preferences.update({ alwaysOnTop: false });
+    const themeChange = preferences.update({ themeName: 'Paper' });
+
+    await Promise.resolve();
+    expect(preferences.current().themeName).toBe('Paper');
+
+    releasePin();
+    await Promise.all([turnOn, turnOff, themeChange]);
+
+    expect(windowPin.setAlwaysOnTop.mock.calls.map(([value]) => value)).toEqual([true, false]);
+    expect(preferences.current().alwaysOnTop).toBe(false);
+    expect(preferences.current().themeName).toBe('Paper');
+    expect(store.dump()[KEYS.alwaysOnTop]).toBe('false');
+  });
+
   it('adapts Web Storage and keeps changes in memory when persistence is unavailable', async () => {
     const values = new Map();
     const webStorage = {
@@ -131,5 +159,16 @@ describe('reader preferences', () => {
     const result = await unavailable.update({ themeName: 'Ayu Light' });
     expect(result.status).toBe('volatile');
     expect(unavailable.current().themeName).toBe('Ayu Light');
+  });
+
+  it('falls back when acquiring Web Storage throws', () => {
+    const blockedWindow = {};
+    Object.defineProperty(blockedWindow, 'localStorage', {
+      get() {
+        throw new DOMException('Storage blocked', 'SecurityError');
+      },
+    });
+
+    expect(createOptionalWebPreferenceStore(blockedWindow)).toBeNull();
   });
 });

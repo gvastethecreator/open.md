@@ -25,11 +25,12 @@ import {
   isColorDark,
 } from './core/reader.js';
 import { renderMermaidDiagrams } from './mermaid-renderer.js';
+import { orderNativeOpenRequests } from './open-intent-controller.js';
 import { mountReaderShell } from './reader-shell.js';
 import {
   DEFAULT_READING_TOOLS,
   FONT_PRESETS,
-  createWebPreferenceStore,
+  createOptionalWebPreferenceStore,
   normalizeFontIndex,
 } from './reader-preferences.js';
 
@@ -819,7 +820,7 @@ function mountApplicationReaderShell() {
           setAlwaysOnTop: (value) => getCurrentWindow().setAlwaysOnTop(value),
         } : {}),
       },
-      storage: createWebPreferenceStore(window.localStorage),
+      storage: createOptionalWebPreferenceStore(window),
     },
     hooks: {
       getDiagramTheme: activeDiagramTheme,
@@ -1352,15 +1353,22 @@ function submitNativeOpenFileRequest(value) {
 }
 
 async function setupFileAssociationEvents() {
-  if (!window.__TAURI_INTERNALS__ || getCurrentWindow().label !== 'main') return;
+  if (!window.__TAURI_INTERNALS__) return;
 
+  const bufferedRequests = [];
+  let replayingPendingRequests = true;
   try {
     fileOpenRequestUnlisten = await listen('open-file-request', (event) => {
-      submitNativeOpenFileRequest(event.payload);
+      if (replayingPendingRequests) bufferedRequests.push(event.payload);
+      else submitNativeOpenFileRequest(event.payload);
     });
     const pendingRequests = await invoke('list_pending_open_file_requests');
-    if (Array.isArray(pendingRequests)) pendingRequests.forEach(submitNativeOpenFileRequest);
+    const orderedRequests = orderNativeOpenRequests(pendingRequests, bufferedRequests);
+    replayingPendingRequests = false;
+    orderedRequests.forEach(submitNativeOpenFileRequest);
   } catch (error) {
+    replayingPendingRequests = false;
+    orderNativeOpenRequests(bufferedRequests).forEach(submitNativeOpenFileRequest);
     console.warn('Native file-open events are unavailable in this runtime:', error);
   }
 }

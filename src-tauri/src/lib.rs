@@ -79,6 +79,15 @@ pub fn run() {
         .expect("error while building tauri application");
 
     app.run(|app_handle, event| {
+        if let tauri::RunEvent::WindowEvent {
+            label,
+            event: tauri::WindowEvent::Destroyed,
+            ..
+        } = &event
+        {
+            open_requests::redeliver_pending(app_handle, label);
+        }
+
         #[cfg(target_os = "macos")]
         if let tauri::RunEvent::Opened { urls } = event {
             let paths = urls
@@ -90,7 +99,7 @@ pub fn run() {
         }
 
         #[cfg(not(target_os = "macos"))]
-        let _ = (app_handle, event);
+        let _ = event;
     });
 }
 
