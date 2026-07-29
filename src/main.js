@@ -14,7 +14,6 @@ import {
   getFileKind,
   getLineGutterLeft,
   getLinkAction,
-  getMarkdownSourceTokenRanges,
   getMinimapViewportGeometry,
   getPreferredThemeIndex,
   getReadingProgress,
@@ -166,32 +165,6 @@ function cacheElements() {
   ui.typographyPanel = document.getElementById('typography-panel');
   ui.fontButtons = [...document.querySelectorAll('[data-font-kind]')];
   ui.alwaysOnTopButton = document.getElementById('always-on-top-button');
-}
-
-function renderSourceContent(source, isMarkdown = true) {
-  if (!ui.sourceContent) return;
-  if (!isMarkdown) {
-    ui.sourceContent.textContent = String(source);
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-  const lines = String(source).split('\n');
-  lines.forEach((line, lineIndex) => {
-    let cursor = 0;
-    for (const range of getMarkdownSourceTokenRanges(line)) {
-      if (range.start > cursor) fragment.append(document.createTextNode(line.slice(cursor, range.start)));
-      const token = document.createElement('strong');
-      token.className = 'source-markup-token';
-      token.textContent = line.slice(range.start, range.end);
-      fragment.append(token);
-      cursor = range.end;
-    }
-    if (cursor < line.length) fragment.append(document.createTextNode(line.slice(cursor)));
-    if (lineIndex < lines.length - 1) fragment.append(document.createTextNode('\n'));
-  });
-
-  ui.sourceContent.replaceChildren(fragment);
 }
 
 function updateWindowTitle(filePath = null) {
@@ -835,49 +808,6 @@ function cycleTheme(direction = 1) {
   applyTheme(themes[currentThemeIndex]);
 }
 
-function enhanceCodeBlocks() {
-  ui.content.querySelectorAll('pre').forEach((pre) => {
-    const code = pre.querySelector('code');
-    if (!code || pre.querySelector('.copy-code-btn')) return;
-
-    const button = document.createElement('button');
-    button.className = 'copy-code-btn';
-    button.type = 'button';
-    button.setAttribute('aria-label', 'Copy code block');
-    button.title = 'Copy code';
-    const icon = document.createElement('i');
-    icon.className = 'iconoir-copy';
-    icon.setAttribute('aria-hidden', 'true');
-    button.appendChild(icon);
-    button.addEventListener('click', async () => {
-      try {
-        if (!navigator.clipboard?.writeText) {
-          throw new Error('Clipboard access is unavailable');
-        }
-        await navigator.clipboard.writeText(code.innerText);
-        icon.className = 'iconoir-check';
-        button.setAttribute('aria-label', 'Code copied');
-        button.title = 'Copied';
-        showToast('Code copied');
-      } catch (error) {
-        console.error('Could not copy code:', error);
-        icon.className = 'iconoir-refresh';
-        button.setAttribute('aria-label', 'Retry copying code');
-        button.title = 'Retry copy';
-        showToast('Could not copy the code');
-      }
-
-      setTimeout(() => {
-        icon.className = 'iconoir-copy';
-        button.setAttribute('aria-label', 'Copy code block');
-        button.title = 'Copy code';
-      }, 2000);
-    });
-
-    pre.appendChild(button);
-  });
-}
-
 function resetDocumentReadingState() {
   isMinimapDocumentDirty = true;
   currentSourceLine = 1;
@@ -953,8 +883,6 @@ function mountApplicationReaderShell() {
       },
     },
     hooks: {
-      renderSource: renderSourceContent,
-      enhanceCodeBlocks,
       getDiagramTheme: activeDiagramTheme,
       isSourceActive: isSourceViewActive,
       chooseAnotherFile: openFilePicker,
@@ -967,6 +895,7 @@ function mountApplicationReaderShell() {
       onStateChange: handleDocumentSessionState,
       onSettled: handleScroll,
       onWarning: showToast,
+      onToast: showToast,
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
   });
