@@ -2,6 +2,7 @@ import {
   getDisplayName,
   getFileKind,
   getImageSourcePolicy,
+  getMarkdownSourceTokenRanges,
   normalizeDocumentPayload,
 } from './core/reader.js';
 import {
@@ -73,6 +74,78 @@ function enhanceTables(document, content) {
     wrapper.setAttribute('aria-label', 'Scrollable table');
     table.before(wrapper);
     wrapper.appendChild(table);
+  });
+}
+
+function renderSource(document, sourceContent, source, isMarkdown) {
+  if (!sourceContent) return;
+  if (!isMarkdown) {
+    sourceContent.textContent = String(source);
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  const lines = String(source).split('\n');
+  lines.forEach((line, lineIndex) => {
+    let cursor = 0;
+    for (const range of getMarkdownSourceTokenRanges(line)) {
+      if (range.start > cursor) {
+        fragment.append(document.createTextNode(line.slice(cursor, range.start)));
+      }
+      const token = document.createElement('strong');
+      token.className = 'source-markup-token';
+      token.textContent = line.slice(range.start, range.end);
+      fragment.append(token);
+      cursor = range.end;
+    }
+    if (cursor < line.length) fragment.append(document.createTextNode(line.slice(cursor)));
+    if (lineIndex < lines.length - 1) fragment.append(document.createTextNode('\n'));
+  });
+
+  sourceContent.replaceChildren(fragment);
+}
+
+function enhanceCodeBlocks({ window, document, content, clipboard, onToast, onDiagnostic }) {
+  content.querySelectorAll('pre').forEach((pre) => {
+    const code = pre.querySelector('code');
+    if (!code || pre.querySelector('.copy-code-btn')) return;
+
+    const button = document.createElement('button');
+    button.className = 'copy-code-btn';
+    button.type = 'button';
+    button.setAttribute('aria-label', 'Copy code block');
+    button.title = 'Copy code';
+    const icon = document.createElement('i');
+    icon.className = 'iconoir-copy';
+    icon.setAttribute('aria-hidden', 'true');
+    button.appendChild(icon);
+
+    button.addEventListener('click', async () => {
+      try {
+        if (typeof clipboard?.writeText !== 'function') {
+          throw new Error('Clipboard access is unavailable');
+        }
+        await clipboard.writeText(code.innerText);
+        icon.className = 'iconoir-check';
+        button.setAttribute('aria-label', 'Code copied');
+        button.title = 'Copied';
+        onToast?.('Code copied');
+      } catch (error) {
+        onDiagnostic?.('Could not copy code', error);
+        icon.className = 'iconoir-refresh';
+        button.setAttribute('aria-label', 'Retry copying code');
+        button.title = 'Retry copy';
+        onToast?.('Could not copy the code');
+      }
+
+      window.setTimeout(() => {
+        icon.className = 'iconoir-copy';
+        button.setAttribute('aria-label', 'Copy code block');
+        button.title = 'Copy code';
+      }, 2000);
+    });
+
+    pre.appendChild(button);
   });
 }
 
@@ -225,14 +298,26 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
 
       content.innerHTML = openedDocument.html;
       content.querySelectorAll('img').forEach((image) => image.setAttribute('loading', 'lazy'));
-      hooks.renderSource?.(openedDocument.source, getFileKind(path) === 'Markdown');
+      renderSource(
+        document,
+        sourceContent,
+        openedDocument.source,
+        getFileKind(path) === 'Markdown'
+      );
       hooks.onDocumentCommitted?.({ path, document: openedDocument });
 
       await hydrateImages(path, candidate);
       if (!isCurrent(candidate)) return { status: 'superseded', path };
 
       enhanceTables(document, content);
-      hooks.enhanceCodeBlocks?.(content);
+      enhanceCodeBlocks({
+        window,
+        document,
+        content,
+        clipboard: adapters.clipboard || window.navigator?.clipboard,
+        onToast: hooks.onToast,
+        onDiagnostic: hooks.onDiagnostic,
+      });
 
       try {
         await adapters.diagrams?.render?.(content, { theme: hooks.getDiagramTheme?.() || 'default' });
