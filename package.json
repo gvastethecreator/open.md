@@ -25,7 +25,9 @@
     "generate:themes": "node ./scripts/generate-runtime-themes.mjs",
     "tauri": "tauri",
     "test:frontend": "vitest run",
-    "check:frontend": "node ./scripts/validate-frontend.mjs",
+    "check:static": "node ./scripts/validate-frontend.mjs",
+    "check:shell": "vitest run src/reader-shell.test.js",
+    "check:frontend": "bun run check:static && bun run check:shell",
     "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "fmt:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check",
@@ -33,6 +35,7 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",
+    "jsdom": "29.1.1",
     "vite": "^8.1.4",
     "vitest": "^4.1.10"
   },
