@@ -5,7 +5,34 @@ const LOCAL_ORIGINS = new Set(['picker', 'drop', 'link']);
 const MAX_REMEMBERED_DELIVERIES = 512;
 
 function pathKey(path) {
-  return path.trim().replace(/\\/g, '/').toLocaleLowerCase('en-US');
+  const normalized = path.trim().replace(/\\/g, '/');
+  const isWindowsPath = /^[a-z]:/i.test(normalized) || normalized.startsWith('//');
+  return isWindowsPath ? normalized.toLocaleLowerCase('en-US') : normalized;
+}
+
+export function orderNativeOpenRequests(...batches) {
+  const seen = new Set();
+  const requests = [];
+  for (const batch of batches) {
+    for (const request of Array.isArray(batch) ? batch : []) {
+      const key = request?.id === undefined || request?.id === null
+        ? null
+        : String(request.id);
+      if (key !== null && seen.has(key)) continue;
+      if (key !== null) seen.add(key);
+      requests.push({ request, index: requests.length });
+    }
+  }
+
+  requests.sort((left, right) => {
+    const leftId = Number(left.request?.id);
+    const rightId = Number(right.request?.id);
+    if (Number.isSafeInteger(leftId) && Number.isSafeInteger(rightId) && leftId !== rightId) {
+      return leftId - rightId;
+    }
+    return left.index - right.index;
+  });
+  return requests.map(({ request }) => request);
 }
 
 function normalizeIntent(value) {
@@ -57,8 +84,43 @@ export function createOpenIntentController({
   let orderedChain = Promise.resolve();
   const waiting = [];
   const deliveries = new Map();
+  const assertActive = () => {
+    if (disposed) throw new Error('Open intent controller is disposed');
+  };
+
+  const pruneDeliveries = () => {
+    if (deliveries.size <= MAX_REMEMBERED_DELIVERIES) return;
+    for (const [key, entry] of deliveries) {
+      if (deliveries.size <= MAX_REMEMBERED_DELIVERIES) break;
+      if (entry.settled && entry.acknowledged) deliveries.delete(key);
+    }
+  };
+
+  const acknowledgeDelivery = async (entry) => {
+    if (entry.acknowledged) return;
+    if (typeof entry.acknowledge !== 'function') {
+      entry.acknowledged = true;
+      pruneDeliveries();
+      return;
+    }
+    if (entry.acknowledging) return entry.acknowledging;
+
+    entry.acknowledging = (async () => {
+      try {
+        await entry.acknowledge();
+        entry.acknowledged = true;
+      } catch (error) {
+        onDiagnostic?.('Could not acknowledge the file-open request', error);
+      } finally {
+        entry.acknowledging = null;
+        pruneDeliveries();
+      }
+    })();
+    return entry.acknowledging;
+  };
 
   const execute = async (intent) => {
+    assertActive();
     const supported = [];
     const rejected = [];
     for (const item of intent.items) {
@@ -91,18 +153,25 @@ export function createOpenIntentController({
     if (shouldOpenHere) {
       const [first, ...rest] = supported;
       const result = await session.open({ path: first.path, fragment: first.fragment });
+      assertActive();
       windowItems = rest;
       if (result?.status === 'ready') openedHere.push(first.path);
-      else if (result?.status === 'superseded') superseded = true;
+      else if (result?.status === 'superseded') {
+        if (LOCAL_ORIGINS.has(intent.origin)) superseded = true;
+        else windowItems = supported;
+      }
       else if (result?.status === 'failed') failures.push({ path: first.path, error: result.error });
     }
 
     for (const item of windowItems) {
       try {
+        assertActive();
         if (typeof openWindow !== 'function') throw new Error('Window adapter unavailable');
         await openWindow(item.path);
+        assertActive();
         openedInWindows.push(item.path);
       } catch (error) {
+        assertActive();
         failures.push({ path: item.path, error });
         onDiagnostic?.('Could not open an additional window', error);
         onFeedback?.(`Could not open ${getDisplayName(item.path)}`);
@@ -145,30 +214,42 @@ export function createOpenIntentController({
     }
 
     const deliveryKey = intent.delivery?.key || null;
-    if (deliveryKey && deliveries.has(deliveryKey)) return deliveries.get(deliveryKey);
+    if (deliveryKey && deliveries.has(deliveryKey)) {
+      const entry = deliveries.get(deliveryKey);
+      if (typeof entry.acknowledge !== 'function'
+        && typeof intent.delivery?.acknowledge === 'function') {
+        entry.acknowledge = intent.delivery.acknowledge;
+        entry.acknowledged = false;
+      }
+      if (entry.settled && !entry.acknowledged) void acknowledgeDelivery(entry);
+      return entry.operation;
+    }
 
     const operation = ready ? schedule(intent) : enqueueUntilReady(intent);
-    const acknowledgedOperation = (async () => {
-      try {
-        return await operation;
-      } finally {
-        if (typeof intent.delivery?.acknowledge === 'function') {
-          try {
-            await intent.delivery.acknowledge();
-          } catch (error) {
-            onDiagnostic?.('Could not acknowledge the file-open request', error);
-          }
-        }
-      }
-    })();
+    if (!deliveryKey) return operation;
 
-    if (deliveryKey) {
-      if (deliveries.size >= MAX_REMEMBERED_DELIVERIES) {
-        deliveries.delete(deliveries.keys().next().value);
+    const entry = {
+      settled: false,
+      acknowledged: false,
+      acknowledging: null,
+      acknowledge: intent.delivery?.acknowledge,
+      operation: null,
+    };
+    entry.operation = operation.then(
+      async (result) => {
+        entry.settled = true;
+        await acknowledgeDelivery(entry);
+        return result;
+      },
+      (error) => {
+        entry.settled = true;
+        deliveries.delete(deliveryKey);
+        throw error;
       }
-      deliveries.set(deliveryKey, acknowledgedOperation);
-    }
-    return acknowledgedOperation;
+    );
+    deliveries.set(deliveryKey, entry);
+    pruneDeliveries();
+    return entry.operation;
   };
 
   const start = async (initialIntent = null) => {

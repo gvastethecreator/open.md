@@ -72,6 +72,14 @@ export function createWebPreferenceStore(storage) {
   });
 }
 
+export function createOptionalWebPreferenceStore(window) {
+  try {
+    return window?.localStorage ? createWebPreferenceStore(window.localStorage) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function createMemoryPreferenceStore(initial = {}) {
   const values = new Map(
     Object.entries(initial).map(([key, value]) => [key, String(value)])
@@ -92,6 +100,7 @@ export function createReaderPreferences({ store, windowPin = null }) {
   let state = DEFAULT_READER_PREFERENCES;
   let disposed = false;
   let pinChain = Promise.resolve();
+  let pinUpdateChain = Promise.resolve();
   const listeners = new Set();
 
   const notify = () => listeners.forEach((listener) => listener(state));
@@ -166,8 +175,7 @@ export function createReaderPreferences({ store, windowPin = null }) {
     };
   };
 
-  const update = async (patch = {}) => {
-    if (disposed) throw new Error('Reader preferences are disposed');
+  const applyUpdate = async (patch) => {
     const warnings = [];
     const changesAlwaysOnTop = typeof patch.alwaysOnTop === 'boolean'
       && patch.alwaysOnTop !== state.alwaysOnTop;
@@ -222,6 +230,18 @@ export function createReaderPreferences({ store, windowPin = null }) {
       snapshot: state,
       warnings,
     };
+  };
+
+  const update = (patch = {}) => {
+    if (disposed) return Promise.reject(new Error('Reader preferences are disposed'));
+    if (typeof patch.alwaysOnTop !== 'boolean') return applyUpdate(patch);
+
+    const operation = pinUpdateChain.then(() => {
+      if (disposed) throw new Error('Reader preferences are disposed');
+      return applyUpdate(patch);
+    });
+    pinUpdateChain = operation.catch(() => undefined);
+    return operation;
   };
 
   return Object.freeze({
