@@ -6,10 +6,11 @@ It describes the repository layout, the local checks, and the CI gates for
 
 ## Repository layout
 
-- `src/` — the Vite composition root, pure reader contracts, deferred Mermaid
-  renderer, bounded image resources, styles, tests, and theme data.
-- `src-tauri/` — the Rust rendering and file-access layer, Tauri configuration,
-  capabilities, and native file-association metadata.
+- `src/` — the Vite composition root, reader shell, document/open/preference
+  owners, deferred Mermaid renderer, bounded image resources, styles, tests,
+  and theme data.
+- `src-tauri/` — native document access and open-request modules, thin Tauri
+  adapters, configuration, capabilities, and file-association metadata.
 - `scripts/` — focused static validation used by the frontend check.
 - `docs/` — developer and provenance documentation; private audit notes belong
   under the ignored `.local/` directory.
@@ -52,7 +53,10 @@ bun run check:rust
 bun run test:rust
 ```
 
-`bun run verify` runs frontend validation/tests, the production build and
+`check:frontend` keeps static asset/config/theme invariants separate from
+executable reader-shell scenarios over the real `index.html` with fake
+adapters. `bun run verify` runs those checks, all frontend tests, the
+production build and
 bundle budget, plus the Rust formatting, type-check, and unit-test gates. CI
 runs the same gates on Linux, Windows, and macOS, then runs separate Bun and
 Cargo dependency audits.
@@ -74,14 +78,32 @@ handoff and default-app policy.
 
 ## Runtime boundaries
 
-- `src/core/reader.js` owns pure reader policy and can be tested without
-  loading Tauri or the browser composition root.
+- `src/reader-shell.js` is the public composition seam. Production and shell
+  tests mount the same document, open-intent, and preference owners.
+- `src/document-session.js` owns open/cancel/render/enrich/focus/cleanup for
+  one document, including stale generations and relative-image resources.
+- `src/open-intent-controller.js` owns path normalization, readiness, order,
+  duplicate native delivery, supported-file feedback, and current/new-window
+  policy for every ingress.
+- `src/reader-preferences.js` owns the four current preference schemas,
+  defaults, storage fallback, notifications, and native pin rollback.
+- `src/core/reader.js` retains pure reader calculations that can be tested
+  without Tauri or the browser composition root.
 - `src/mermaid-renderer.js` loads Mermaid only when a document contains a
   diagram and serializes operations on Mermaid's singleton renderer.
 - `src/image-resources.js` owns the 64 MiB per-document Blob URL budget and
   revocation lifecycle; Rust returns validated local image bytes directly.
-- `src-tauri/src/images.rs` owns image path containment, type validation, and
-  the 12 MiB per-image boundary.
+- `src-tauri/src/document_access.rs` owns canonical document/image access,
+  supported types, rendering, metadata, containment, and native byte limits.
+- `src-tauri/src/images.rs` is the binary-response adapter for validated
+  image bytes. `src-tauri/src/open_requests.rs` owns stable native delivery
+  IDs, in-process pending replay, acknowledgment, and live coordinator-window
+  handoff.
+
+See [Architecture context](../CONTEXT.md), the
+[architecture workplan](architecture/WORKPLAN.md), and
+[ADR 0001](adr/0001-open-intent-delivery.md) for invariants and accepted
+trade-offs.
 
 ## Themes and third-party material
 
