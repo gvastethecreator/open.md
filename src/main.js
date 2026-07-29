@@ -24,9 +24,7 @@ import {
   getVisibleSourceLineRange,
   getWindowControlPresentation,
   isColorDark,
-  isSupportedFilePath,
   normalizeCycleIndex,
-  normalizeOpenFileRequest,
   normalizeReadingTools,
 } from './core/reader.js';
 import { renderMermaidDiagrams } from './mermaid-renderer.js';
@@ -79,10 +77,6 @@ let minimapCloneRevision = 0;
 let minimapContentHeight = 0;
 let viewScrollPositions = { rendered: 0, source: 0 };
 let windowChromeUnlisteners = [];
-let fileOpenRequestsReady = false;
-let queuedFileOpenRequests = [];
-let fileOpenRequestChain = Promise.resolve();
-const handledFileOpenRequestIds = new Set();
 let readerShell = null;
 
 const ui = {
@@ -881,6 +875,9 @@ function mountApplicationReaderShell() {
       diagrams: {
         render: renderMermaidDiagrams,
       },
+      windows: {
+        openDocument: (path) => invoke('open_new_window', { path }),
+      },
     },
     hooks: {
       getDiagramTheme: activeDiagramTheme,
@@ -898,18 +895,6 @@ function mountApplicationReaderShell() {
       onToast: showToast,
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
-  });
-}
-
-async function loadContent(filePath = null, { fragment = '' } = {}) {
-  if (!filePath) {
-    const urlParams = new URLSearchParams(window.location.search);
-    filePath = urlParams.get('file');
-  }
-  if (!readerShell) throw new Error('Reader shell is not mounted');
-  return readerShell.open({
-    origin: 'direct',
-    items: filePath ? [{ path: filePath, fragment }] : [],
   });
 }
 
@@ -933,7 +918,13 @@ function handleLinkClick(event) {
   }
 
   if (action.type === 'file') {
-    loadContent(action.path, { fragment: action.fragment });
+    readerShell?.open({
+      origin: 'link',
+      items: [{ path: action.path, fragment: action.fragment }],
+    }).catch((error) => {
+      console.error('Could not open the linked document:', error);
+      showToast('Could not open the linked document');
+    });
     return;
   }
 
@@ -1402,81 +1393,19 @@ function handleThemeSelection(event) {
   }
 }
 
-async function handleIncomingFiles(filePaths) {
-  const supportedFiles = (filePaths || []).filter(isSupportedFilePath);
-
-  if (supportedFiles.length === 0) {
-    showToast('Only .md, .markdown and .txt files are supported');
-    return;
-  }
-
-  await loadContent(supportedFiles[0]);
-
-  if (supportedFiles.length > 1) {
-    for (let index = 1; index < supportedFiles.length; index += 1) {
-      try {
-        await invoke('open_new_window', { path: supportedFiles[index] });
-      } catch (error) {
-        console.error('Could not open an additional window:', error);
-        showToast(`Could not open ${getDisplayName(supportedFiles[index])}`);
-      }
-    }
-
-    showToast(`${supportedFiles.length} files opened`);
-  }
-}
-
-async function handleNativeOpenFileRequest(value) {
-  const request = normalizeOpenFileRequest(value);
-  if (!request || handledFileOpenRequestIds.has(request.id)) return;
-  handledFileOpenRequestIds.add(request.id);
-
-  try {
-    const supportedFiles = request.paths.filter(isSupportedFilePath);
-    if (supportedFiles.length === 0) {
-      showToast('Only .md, .markdown and .txt files are supported');
-      return;
-    }
-
-    if (!currentFilePath) {
-      await handleIncomingFiles(supportedFiles);
-      return;
-    }
-
-    for (const path of supportedFiles) {
-      try {
-        await invoke('open_new_window', { path });
-      } catch (error) {
-        console.error('Could not open an associated file:', error);
-        showToast(`Could not open ${getDisplayName(path)}`);
-      }
-    }
-
-    if (supportedFiles.length > 1) showToast(`${supportedFiles.length} files opened`);
-  } finally {
-    if (window.__TAURI_INTERNALS__) {
-      invoke('acknowledge_open_file_request', { id: request.id }).catch((error) => {
-        console.warn('Could not acknowledge the file-open request:', error);
-      });
-    }
-  }
-}
-
-function scheduleNativeOpenFileRequest(value) {
-  const request = normalizeOpenFileRequest(value);
-  if (!request) return;
-
-  if (!fileOpenRequestsReady) {
-    queuedFileOpenRequests.push(request);
-    return;
-  }
-
-  fileOpenRequestChain = fileOpenRequestChain
-    .then(() => handleNativeOpenFileRequest(request))
-    .catch((error) => {
-      console.error('Could not process the file-open request:', error);
-      showToast('Could not open the associated file');
-    });
+function submitNativeOpenFileRequest(value) {
+  const items = (Array.isArray(value?.paths) ? value.paths : []).map((path) => ({ path }));
+  readerShell?.open({
+    origin: 'association',
+    items,
+    delivery: {
+      key: value?.id,
+      acknowledge: () => invoke('acknowledge_open_file_request', { id: value?.id }),
+    },
+  }).catch((error) => {
+    console.error('Could not process the file-open request:', error);
+    showToast('Could not open the associated file');
+  });
 }
 
 async function setupFileAssociationEvents() {
@@ -1484,21 +1413,13 @@ async function setupFileAssociationEvents() {
 
   try {
     fileOpenRequestUnlisten = await listen('open-file-request', (event) => {
-      scheduleNativeOpenFileRequest(event.payload);
+      submitNativeOpenFileRequest(event.payload);
     });
-    const pendingRequests = await invoke('take_pending_open_file_requests');
-    if (Array.isArray(pendingRequests)) pendingRequests.forEach(scheduleNativeOpenFileRequest);
+    const pendingRequests = await invoke('list_pending_open_file_requests');
+    if (Array.isArray(pendingRequests)) pendingRequests.forEach(submitNativeOpenFileRequest);
   } catch (error) {
     console.warn('Native file-open events are unavailable in this runtime:', error);
   }
-}
-
-async function flushQueuedFileOpenRequests() {
-  fileOpenRequestsReady = true;
-  const requests = queuedFileOpenRequests;
-  queuedFileOpenRequests = [];
-  requests.forEach(scheduleNativeOpenFileRequest);
-  await fileOpenRequestChain;
 }
 
 async function openFilePicker() {
@@ -1520,7 +1441,10 @@ async function openFilePicker() {
       return;
     }
 
-    await handleIncomingFiles(Array.isArray(selected) ? selected : [selected]);
+    await readerShell?.open({
+      origin: 'picker',
+      items: (Array.isArray(selected) ? selected : [selected]).map((path) => ({ path })),
+    });
   } catch (error) {
     console.error('Open dialog failed:', error);
     showToast('Could not open the file picker');
@@ -1551,7 +1475,10 @@ async function setupDragAndDrop() {
 
       if (event.payload.type === 'drop') {
         setDragState(false);
-        await handleIncomingFiles(event.payload.paths);
+        await readerShell?.open({
+          origin: 'drop',
+          items: (event.payload.paths || []).map((path) => ({ path })),
+        });
         return;
       }
 
@@ -1633,18 +1560,21 @@ async function init() {
   setupReadingResizeObserver();
   await initThemes();
   const queryFilePath = new URLSearchParams(window.location.search).get('file');
-  let initialFilePath = queryFilePath;
+  let initialFilePaths = queryFilePath ? [queryFilePath] : [];
 
-  if (!initialFilePath && window.__TAURI_INTERNALS__) {
+  if (initialFilePaths.length === 0 && window.__TAURI_INTERNALS__) {
     try {
-      initialFilePath = await invoke('get_initial_file_path');
+      const launchPaths = await invoke('get_initial_file_paths');
+      initialFilePaths = Array.isArray(launchPaths) ? launchPaths : [];
     } catch (error) {
       console.warn('Could not inspect the launch file:', error);
     }
   }
 
-  await loadContent(initialFilePath);
-  await flushQueuedFileOpenRequests();
+  await readerShell.start(initialFilePaths.length > 0 ? {
+    origin: 'launch',
+    items: initialFilePaths.map((path) => ({ path })),
+  } : null);
   await setupDragAndDrop();
 }
 

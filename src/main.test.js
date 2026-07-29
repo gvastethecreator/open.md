@@ -23,7 +23,6 @@ import {
   getWindowControlPresentation,
   isSupportedFilePath,
   normalizeDocumentPayload,
-  normalizeOpenFileRequest,
   normalizeCycleIndex,
   normalizeReadingTools,
   resolveRelativeFilePath,
@@ -271,18 +270,6 @@ describe('Frontend Logic Tests', () => {
       expect(normalizeCycleIndex(-1, 3)).toBe(0);
       expect(normalizeCycleIndex('1', 3)).toBe(1);
       expect(normalizeCycleIndex(1, 0)).toBe(0);
-    });
-
-    it('normalizes and deduplicates native file-open requests', () => {
-      expect(normalizeOpenFileRequest({
-        id: 7,
-        paths: ['C:\\docs\\one.md', 'C:\\docs\\one.md', 'C:\\docs\\two.markdown', 42],
-      })).toEqual({
-        id: 7,
-        paths: ['C:\\docs\\one.md', 'C:\\docs\\two.markdown'],
-      });
-      expect(normalizeOpenFileRequest({ id: 0, paths: ['README.md'] })).toBeNull();
-      expect(normalizeOpenFileRequest({ id: 9, paths: [] })).toBeNull();
     });
 
     it('calculates bounded progress and remaining time', () => {
