@@ -791,13 +791,21 @@ function activeDiagramTheme() {
     : 'default';
 }
 
+function invokeDocumentCommand(command, args) {
+  if (!window.__TAURI_INTERNALS__) {
+    return Promise.reject(new Error('Native file access is unavailable in this browser preview.'));
+  }
+
+  return invoke(command, args);
+}
+
 function mountApplicationReaderShell() {
   readerShell = mountReaderShell({
     window,
     adapters: {
       documents: {
-        open: (path) => invoke('get_file_content', { path }),
-        readImage: (documentPath, relativeSource) => invoke('get_image_bytes', {
+        open: (path) => invokeDocumentCommand('get_file_content', { path }),
+        readImage: (documentPath, relativeSource) => invokeDocumentCommand('get_image_bytes', {
           documentPath,
           relativeSource,
         }),
