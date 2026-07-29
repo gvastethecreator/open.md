@@ -1,13 +1,6 @@
 const PREFERRED_THEME_NAMES = ['Github Light', 'Github Dark', 'GitHub', 'Ayu Light', 'Ayu Dark'];
 const SUPPORTED_EXTENSIONS = ['.md', '.markdown', '.txt'];
 
-export const DEFAULT_READING_TOOLS = Object.freeze({
-  lineGuide: false,
-  minimap: false,
-  source: false,
-  stats: false,
-});
-
 export function isSupportedFilePath(filePath) {
   return typeof filePath === 'string' && SUPPORTED_EXTENSIONS.some((ext) => filePath.toLowerCase().endsWith(ext));
 }
@@ -54,20 +47,6 @@ export function normalizeDocumentPayload(payload) {
       Number.isFinite(payload?.readingTimeMinutes) ? Math.floor(payload.readingTimeMinutes) : 0
     ),
   };
-}
-
-export function normalizeReadingTools(value) {
-  return Object.fromEntries(
-    Object.keys(DEFAULT_READING_TOOLS).map((key) => [key, value?.[key] === true])
-  );
-}
-
-export function normalizeCycleIndex(value, itemCount) {
-  const count = Math.max(0, Math.floor(Number(itemCount) || 0));
-  if (count === 0) return 0;
-
-  const index = Math.floor(Number(value));
-  return Number.isFinite(index) && index >= 0 && index < count ? index : 0;
 }
 
 export function getScrollEdgeState(scrollTop, scrollHeight, clientHeight, threshold = 1) {

@@ -23,10 +23,9 @@ import {
   getWindowControlPresentation,
   isSupportedFilePath,
   normalizeDocumentPayload,
-  normalizeCycleIndex,
-  normalizeReadingTools,
   resolveRelativeFilePath,
 } from './core/reader.js';
+import { normalizeFontIndex, normalizeReadingTools } from './reader-preferences.js';
 
 describe('Frontend Logic Tests', () => {
   describe('getPreferredThemeIndex', () => {
@@ -265,11 +264,11 @@ describe('Frontend Logic Tests', () => {
     });
 
     it('keeps persisted font choices inside their available preset range', () => {
-      expect(normalizeCycleIndex(2, 3)).toBe(2);
-      expect(normalizeCycleIndex(3, 3)).toBe(0);
-      expect(normalizeCycleIndex(-1, 3)).toBe(0);
-      expect(normalizeCycleIndex('1', 3)).toBe(1);
-      expect(normalizeCycleIndex(1, 0)).toBe(0);
+      expect(normalizeFontIndex(2, 3)).toBe(2);
+      expect(normalizeFontIndex(3, 3)).toBe(0);
+      expect(normalizeFontIndex(-1, 3)).toBe(0);
+      expect(normalizeFontIndex('1', 3)).toBe(1);
+      expect(normalizeFontIndex(1, 0)).toBe(0);
     });
 
     it('calculates bounded progress and remaining time', () => {
