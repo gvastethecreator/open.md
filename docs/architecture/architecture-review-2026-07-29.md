@@ -2,32 +2,37 @@
 
 Date: 2026-07-29
 Repository revision: `60d1949e6b121e9f809d1c5e4f8c0293bec9f0a7` (`main`)
-Status: recommendations ready; user decision pending
+Status: ARC-01 through ARC-05 accepted, implemented, and verified; packaged cross-platform smoke remains a platform gate
 Canonical source: this Markdown file
-Visual companion: `.scratch/reports/architecture-open-md/index.html`
+Historical visual companion (review baseline only): `.scratch/reports/architecture-open-md/index.html`
 
 > Architecture terms stay in English to match the project contract: **module**, **interface**, **implementation**, **depth**, **deep**, **shallow**, **seam**, **adapter**, **leverage**, and **locality**.
 
 ## Summary
 
-- The app is healthy at the current revision: 47 frontend tests, 13 Rust tests, the static frontend check, and the production build pass.
+- At the reviewed revision, the app was healthy: 47 frontend tests, 13 Rust
+  tests, the static frontend check, and the production build passed.
 - The remaining friction is structural. `src/main.js` has 1,915 physical lines, 84 top-level functions, and 31 top-level mutable bindings. Its behavior has no executable test seam.
 - `src/core/reader.js` was a useful extraction, but its 27-symbol interface now exposes unrelated file, theme, viewport, source, native-request, and minimap calculations. The module is shallow at its interface even though its implementation contains valuable policy.
 - One recent reader feature added 502 lines across eight files, including 226 lines in `src/main.js`. This change spread is the clearest locality signal.
-- Five deepening moves are recommended. Start by making the app shell executable in tests, then deepen native document access and the frontend document session. Open intents and reader preferences follow as separate slices.
-- No final interface is proposed here. Acceptance of each candidate is required before shared context, ADRs, workplan, or interface design.
+- All five deepening moves were accepted and implemented in the proposed order:
+  executable shell, native document access, document session, open intent, and
+  reader preferences.
+- The selected interface is a DOM-bound reader-shell facade with deep domain
+  owners and ports only where multiple real adapters exist. Shared context,
+  workplan, and the open-delivery ADR now record the settled design.
 
 ## Executive decision
 
-Approve, reject, or defer these candidates as a batch or one by one:
+Implementation outcome:
 
 | ID | Recommendation | Severity | Strength | Decision |
 |---|---|---:|---|---|
-| ARC-01 | Deepen the frontend verification entrypoint | P2 | Strong | Pending |
-| ARC-02 | Create a deep document session module | P2 | Strong | Pending |
-| ARC-03 | Create a native document access module | P2 | Strong | Pending |
-| ARC-04 | Create one open-intent seam | P2 | Medium | Pending |
-| ARC-05 | Create a reader preferences module | P3 | Medium | Pending |
+| ARC-01 | Deepen the frontend verification entrypoint | P2 | Strong | Accepted · implemented |
+| ARC-02 | Create a deep document session module | P2 | Strong | Accepted · implemented |
+| ARC-03 | Create a native document access module | P2 | Strong | Accepted · implemented |
+| ARC-04 | Create one open-intent seam | P2 | Medium | Accepted · implemented |
+| ARC-05 | Create a reader preferences module | P3 | Medium | Accepted · implemented |
 
 ## Scope and method
 
@@ -84,10 +89,11 @@ These modules already earn their keep and should not be dissolved:
 
 - `src/mermaid-renderer.js` is deep. Its small interface hides lazy import, strict configuration, singleton serialization, failed-import retry, queue recovery, and theme reset. Deleting it would push that complexity into every render caller.
 - `src/image-resources.js` earns its seam. It owns byte accounting, budget failure, Blob creation, per-resource revocation, and document cleanup with focused failure tests. Deleting it would recreate resource lifecycle code inside the composition root.
-- `src-tauri/src/images.rs` owns meaningful path containment and per-image limits. It needs deeper locality with document access, not deletion.
+- `src-tauri/src/document_access.rs` now owns path containment and per-image
+  limits; `src-tauri/src/images.rs` remains a thin binary-response adapter.
 - The generated runtime theme projection is a settled performance decision. This review does not reopen it.
 
-## Current shape
+## Reviewed baseline shape
 
 ```mermaid
 flowchart LR
@@ -122,7 +128,7 @@ Every candidate uses the same explicit claim key:
 
 **Severity**: P2
 **Recommendation strength**: Strong
-**Decision**: Pending
+**Decision**: Accepted and implemented in `bc1977a`
 
 **Files**
 
@@ -155,7 +161,8 @@ Deepen the existing verification entrypoint. Keep one caller interface for local
 - an executable reader-shell seam with a real DOM plus fake Tauri and storage adapters;
 - focused scenarios for load success/failure, stale requests, cleanup, open routing, preferences, and keyboard/panel state.
 
-Do not choose the final test interface until this recommendation is accepted.
+The accepted interface keeps static invariants in the validator and executes
+the public `mountReaderShell` seam over the real HTML with fake adapters.
 
 **Benefits**
 
@@ -190,7 +197,7 @@ Do not choose the final test interface until this recommendation is accepted.
 
 **Severity**: P2
 **Recommendation strength**: Strong
-**Decision**: Pending
+**Decision**: Accepted and implemented in `4a91146`
 
 **Files**
 
@@ -221,7 +228,8 @@ Deleting `image-resources.js` or `mermaid-renderer.js` would push real lifecycle
 
 Create a document session module that owns one document's open, cancel, render, enrich, focus-ready, and cleanup lifecycle. Treat native document loading, Mermaid, and Blob resources as adapters at the session seam. Keep `src/main.js` responsible for composition and event wiring.
 
-Do not define methods, event shapes, or ownership transfer rules until interface design is accepted.
+The accepted `DocumentSession` interface owns the private generation and
+resource lifecycle while the reader shell supplies adapters and hooks.
 
 **Benefits**
 
@@ -258,7 +266,7 @@ Do not define methods, event shapes, or ownership transfer rules until interface
 
 **Severity**: P2
 **Recommendation strength**: Strong
-**Decision**: Pending
+**Decision**: Accepted and implemented in `bb8f4b1`
 
 **Files**
 
@@ -287,7 +295,9 @@ Deleting `images.rs` would move path containment, MIME allowlisting, byte limits
 
 Create one native document access module that owns supported document policy, canonical file access, Markdown/plain-text rendering, document metadata, and related local-resource policy. Keep Tauri command registration and platform boot as adapters. Remove dead compatibility only after executable contract proof.
 
-The validated native owner should remain authoritative for file/resource type. Exact payload shape and command names belong to later interface design.
+The validated native owner is authoritative for file/resource policy and
+returns one structured document payload through the existing Tauri command
+boundary.
 
 **Benefits**
 
@@ -325,7 +335,7 @@ The validated native owner should remain authoritative for file/resource type. E
 
 **Severity**: P2
 **Recommendation strength**: Medium
-**Decision**: Pending
+**Decision**: Accepted and implemented in `311e953`
 
 **Files**
 
@@ -354,7 +364,11 @@ The five ingress adapters justify a real seam. Without an open-intent module, de
 
 Define **Open intent** as the canonical domain request to open one or more supported documents, including origin and current-window context. Create one module that owns normalization, ordering, duplicate delivery, readiness, and window policy. Keep CLI, single-instance, macOS event, picker, drag/drop, and link entry as adapters.
 
-Final intent fields, acknowledgment semantics, and ownership between Rust and JavaScript require accepted interface design.
+The accepted intent carries origin, items, and optional delivery
+acknowledgment. Rust owns stable pending delivery; JavaScript owns
+normalization, readiness, deduplication, support feedback, order, and window
+policy. The trade-off is recorded in
+[ADR 0001](../adr/0001-open-intent-delivery.md).
 
 **Benefits**
 
@@ -392,7 +406,7 @@ Final intent fields, acknowledgment semantics, and ownership between Rust and Ja
 
 **Severity**: P3
 **Recommendation strength**: Medium
-**Decision**: Pending
+**Decision**: Accepted and implemented in `4d16a30`
 
 **Files**
 
@@ -458,7 +472,7 @@ Do not introduce a generic settings framework. The module should cover only curr
 
 ## Target ownership shape
 
-This diagram names candidate modules and adapters only. It is not final interface design.
+This is the implemented ownership shape.
 
 ```mermaid
 flowchart LR
@@ -487,13 +501,18 @@ flowchart LR
 - Accepted: keep `src/main.js` as the composition root until concrete friction justifies deeper modules. E-01 through E-12 now provide that evidence.
 - Rejected: framework rewrite, generic dependency injection across every module, and splitting every UI concern into small pass-through modules.
 
-### Pending user choices
+### Recorded decisions
 
-- Accept, reject, or defer ARC-01 through ARC-05.
-- Choose one accepted candidate for interface design first. ARC-01 is recommended.
-- Decide whether ARC-04 merits an ADR for cross-platform delivery semantics.
+- Accepted ARC-01 through ARC-05 as one implementation batch.
+- Selected the common-case reader-shell facade over shallow bootstrap wrappers
+  and a general ports-and-adapters architecture.
+- Kept `src/main.js` and `src-tauri/src/lib.rs` as composition roots.
+- Created ADR 0001 because native replay and acknowledgment semantics are
+  surprising and costly to reverse.
+- Rejected a generic event bus, dependency-injection container, settings
+  framework, and versioned wire protocol without another concrete need.
 
-## Suggested execution order
+## Implemented execution order
 
 1. **ARC-01 — Verification entrypoint.** First because every later structural move needs executable parity proof.
 2. **ARC-03 — Native document access.** Shrink `lib.rs` behind unchanged commands and remove upward policy dependencies before changing the cross-runtime contract.
@@ -503,57 +522,77 @@ flowchart LR
 
 ## Prioritized workplan
 
-| Order | Candidate | Dependency | Acceptance result | Owner / authority | Verification path |
+| Order | Candidate | Dependency | Acceptance result | Implementation reference | Verification path |
 |---:|---|---|---|---|---|
-| 1 | ARC-01 | User acceptance | One command proves static invariants plus real shell behavior. | Implementation agent; user approves candidate/interface scope. | Existing tests + new shell scenarios + production build. |
-| 2 | ARC-03 | ARC-01 shell/payload proof | `lib.rs` is composition; document/resource policy is local and dead paths are resolved. | Rust implementation agent; user approves any contract/ADR change. | Rust module tests + frontend payload scenario. |
-| 3 | ARC-02 | ARC-01; stable ARC-03 command path | One session owns load through cleanup; callers no longer know request IDs/resources. | Frontend implementation agent; user approves interface design. | Session tests + browser/Tauri smoke + bundle gate. |
-| 4 | ARC-04 | ARC-02 session seam | Five adapters preserve order, dedupe, support, and window policy. | Cross-runtime implementation agent; user owns ADR decision. | Deterministic queue tests + platform smoke where available. |
-| 5 | ARC-05 | ARC-01 | One preferences seam owns schema/persistence/fallback. | Frontend implementation agent. | In-memory storage tests + browser restore/failure smoke. |
+| 1 | ARC-01 | Accepted | Implemented: one command proves static invariants plus real shell behavior. | `bc1977a` | Shell scenarios + production build. |
+| 2 | ARC-03 | ARC-01 complete | Implemented: `lib.rs` composes; document/resource policy is local and dead paths are removed. | `bb8f4b1` | Rust access matrix + frontend payload scenario. |
+| 3 | ARC-02 | ARC-01 and ARC-03 complete | Implemented: one session owns load through cleanup; callers do not know generations/resources. | `4a91146` | Session tests + browser/build gates. |
+| 4 | ARC-04 | ARC-02 complete | Implemented: all ingress adapters preserve order, dedupe, support, and window policy. | `311e953`, `4abf14b` | Controller/queue tests + platform smoke where available. |
+| 5 | ARC-05 | ARC-01 complete | Implemented: one preferences seam owns schema, persistence, fallback, and pin rollback. | `4d16a30`, `4abf14b` | Storage/native adapter tests + browser smoke. |
 
 ## Documentation fan-out
 
-After acceptance, keep this review as the index and fan out only settled decisions:
+This review remains the index; settled decisions fan out as follows:
 
-- `CONTEXT.md`: add **Document session**, **Native document access**, **Document resource**, **Open intent**, and **Reader preferences** for accepted candidates.
-- `docs/adr/0001-open-intent-delivery.md`: create only if ARC-04 is accepted and the chosen cross-platform delivery/acknowledgment trade-off is surprising or hard to reverse.
-- A document-contract ADR: create only if ARC-02/ARC-03 move rendered HTML, media type, cancellation, or source metadata ownership across the Tauri seam.
-- `docs/architecture/WORKPLAN.md`: track all accepted recommendations, dependencies, acceptance criteria, and verification.
-- `docs/DEVELOPMENT.md`: update the verification and module map after implementation lands.
+- `CONTEXT.md` records all five domain owners and their invariants.
+- `docs/adr/0001-open-intent-delivery.md` records native replay,
+  deduplication, acknowledgment, and window policy.
+- No document-contract ADR was needed: ARC-02/ARC-03 preserved the existing
+  rendered payload ownership while removing the unused legacy form.
+- `docs/architecture/WORKPLAN.md` records implementation commits, acceptance,
+  and evidence.
+- `docs/DEVELOPMENT.md` and `docs/FILE_ASSOCIATIONS.md` describe the final
+  runtime map.
 
 ## Verification
 
-### Checks run
+### Implementation closure
 
 | Check | Result | Notes |
 |---|---|---|
-| Git baseline | Passed | Started from clean `main...origin/main`; only requested planning/report artifacts were added. |
-| `bun run check:frontend` | Passed | 364 themes found. |
-| `bun run test:frontend` | Passed | 4 files, 47 tests. |
-| `bun run test:rust` | Passed after cold compile timeout | First 184 s attempt timed out; warmed rerun passed 13 tests with linker-message warnings only. |
-| `bun run build` | Passed | 103 assets; initial JS 137,540 B; Mermaid deferred. |
-| Source/call-path audit | Passed | All material claims map to E-01 through E-14. |
-| HTML containment | Passed | Both normal and `--report` modes returned `HTML_LAB_VALID`; the companion directory contains one file and no external URL/path. |
-| Browser desktop/narrow/semantics | Passed | 1440×1000 and 390×844 rendered with no page overflow or console warnings/errors; internal navigation, landmarks, headings, named scroll regions, and sampled AA contrast passed. |
-| Keyboard traversal | Limited | The skip link and five scroll regions received visible focus, but the in-app browser backend did not advance or activate default behavior from synthetic Tab/Enter; full physical traversal is not claimed. |
-| Static visual pressure | Passed with contextual findings | No P1; P2/P3 detector leads were reconciled against live overflow, contrast, label, and capture evidence. |
-| Independent review | Passed after repair | Fresh review found four repairable gaps: final ledger state, claim labels, companion parity, and E-07 precision. All were reconciled before delivery. |
+| `bun run verify` | Passed | Static frontend validation; 2/2 public-shell checks; 72/72 frontend tests in 8 files; production build and bundle budgets; Rust formatting, type-check, and 11/11 unit tests. |
+| Ownership/deletion audit | Passed | The composition root no longer owns stale generations, Blob cleanup, preference schemas, open queues, or duplicate policy. Native adapters no longer own document/resource policy. |
+| Browser desktop/narrow/error | Passed | 1440×1000 and 390×844 rendered without horizontal overflow or console warnings/errors. Empty, help, typography, persisted theme, and dependency-error states were exercised. |
+| Keyboard and focus | Passed with tool limit | Enter/click activation, Escape dismissal, inert state, and focus return passed for help and typography. The browser backend did not provide reliable sequential synthetic Tab traversal, so a full physical traversal is not claimed. |
+| Semantic accessibility scan | Passed | No duplicate IDs, unnamed visible controls, unlabeled visible form fields, missing image alternatives, heading jumps, undersized enabled targets, or blocked panel hit targets were found. |
+| Static visual pressure | Passed with contextual findings | No P1 findings. Existing P2/P3 heuristics were reconciled against live responsive, overflow, label, and capture evidence; this architecture batch does not redesign those surfaces. |
+| Independent implementation review | Passed after adversarial repair | Review exposed ordering, cancellation, acknowledgment, coordinator, path-case, pin-race, storage-fallback, and documentation gaps. Each material finding gained a regression test or explicit contract correction; the final pass found no P1/P2 blocker. |
 
 ### Skipped checks
 
-- No product runtime mutation occurred, so no before/after app screenshot is claimed.
-- macOS/Linux file-open runtime smoke remains unavailable on this Windows host.
-- No architecture improvement is claimed yet; this is an audit and recommendation artifact.
+- Packaged Tauri smoke was not run. The Vite shell and production bundle were
+  exercised, but browser proof does not prove the native bridge.
+- macOS/Linux file-open runtime timing remains unavailable on this Windows
+  host. Deterministic Rust/frontend queue tests cover policy, not platform
+  delivery timing.
+- No representative-user comprehension study was run because this batch does
+  not redesign the reader. Task-effectiveness claims remain limited to
+  regression evidence.
 
 ## Residual risks
 
-- The current tests are green but do not execute `src/main.js`; behavior confidence remains lower than helper confidence.
-- Co-change evidence spans only 10 `src/main.js` commits. It shows repeated locality pressure but cannot predict every future change.
-- Native open routing has platform-specific branches. Static evidence cannot prove event timing on macOS.
-- Changing the ARC-02/ARC-03 cross-runtime contract in one batch would raise regression and rollback cost; preserve expand-contract sequencing.
-- Candidate module names express ownership, not accepted final interfaces.
-- A broad refactor could create shallow pass-through modules if execution ignores the deletion test and expand-contract order.
+- Native open routing still has platform-specific timing branches. Run packaged
+  file-association smoke on macOS and Linux before relying on a release solely
+  on this host's evidence.
+- The native pending queue is intentionally in memory. A full process crash can
+  lose unacknowledged requests; the replay guarantee applies only while that
+  process remains alive.
+- The browser preview intentionally cannot read native paths. It now reports
+  that boundary directly, but only a packaged runtime proves bridge wiring.
+- Co-change evidence spans only 10 historical `src/main.js` commits. It
+  justified this batch but cannot predict every future ownership need.
+- Filesystem containment remains check-then-read. An adversarial local process
+  can still race a file change between canonicalization/metadata and reading;
+  this pre-existing TOCTOU risk is not solved by the ownership refactor.
+- Windows drive and UNC deduplication follows the normal case-insensitive
+  filesystem rule. A rare case-sensitive NTFS directory can contain paths the
+  controller would treat as duplicates.
+- New features can recreate shallow pass-through modules if they bypass the
+  deletion test or duplicate policy outside the five accepted owners.
 
-## Acceptance request
+## Acceptance outcome
 
-For each candidate, record one status: **accepted**, **rejected**, or **deferred**. If the batch is accepted, start interface design with ARC-01, then create the shared context, ADR, and workplan documents described above.
+ARC-01 through ARC-05 are accepted and implemented on
+`codex/arc-01-05-architecture`. The implementation commits are recorded in
+the workplan above. The independent review passed; merge readiness is limited
+only by the explicitly deferred packaged platform smoke gates.
