@@ -12,7 +12,6 @@ import {
   getDisplayName,
   getEstimatedMinutesRemaining,
   getFileKind,
-  getImageSourcePolicy,
   getLineGutterLeft,
   getLinkAction,
   getMarkdownSourceTokenRanges,
@@ -27,17 +26,12 @@ import {
   getWindowControlPresentation,
   isColorDark,
   isSupportedFilePath,
-  normalizeDocumentPayload,
   normalizeCycleIndex,
   normalizeOpenFileRequest,
   normalizeReadingTools,
 } from './core/reader.js';
-import {
-  ImageResourceBudgetError,
-  ImageResourcePool,
-  getImageMimeType,
-} from './image-resources.js';
 import { renderMermaidDiagrams } from './mermaid-renderer.js';
+import { mountReaderShell } from './reader-shell.js';
 
 let currentZoom = 1;
 const ZOOM_STEP = 0.1;
@@ -60,10 +54,6 @@ const FONT_PRESETS = Object.freeze({
     { name: 'Courier', value: '"Courier New", Courier, monospace' },
   ]),
 });
-const MAX_LOCAL_IMAGES = 100;
-const IMAGE_LOAD_CONCURRENCY = 4;
-const imageResourcePool = new ImageResourcePool();
-
 let themes = [];
 let currentThemeIndex = -1;
 let dragDropUnlisten = null;
@@ -73,7 +63,6 @@ let scrollRafId = null;
 let currentFilePath = null;
 let isHelpVisible = false;
 let focusBeforeHelp = null;
-let loadRequestId = 0;
 let currentDocument = null;
 let readingTools = { ...DEFAULT_READING_TOOLS };
 let isReadingToolsOpen = false;
@@ -95,6 +84,7 @@ let fileOpenRequestsReady = false;
 let queuedFileOpenRequests = [];
 let fileOpenRequestChain = Promise.resolve();
 const handledFileOpenRequestIds = new Set();
+let readerShell = null;
 
 const ui = {
   windowFileTitle: null,
@@ -275,99 +265,6 @@ function updateWindowUrl(filePath = null) {
   }
 
   window.history.replaceState({}, '', url);
-}
-
-function renderImageError(image, reason) {
-  const message = document.createElement('span');
-  message.className = 'image-error';
-  message.setAttribute('role', 'status');
-  const label = image.getAttribute('alt')?.trim();
-  message.textContent = label ? `${label}: ${reason}` : reason;
-  image.replaceWith(message);
-}
-
-async function hydrateRelativeImages(documentPath, requestId) {
-  if (!ui.content || !documentPath) return;
-
-  const images = [...ui.content.querySelectorAll('img')];
-  images.slice(MAX_LOCAL_IMAGES).forEach((image) => {
-    renderImageError(image, 'Image limit exceeded');
-  });
-
-  const pendingImages = images.slice(0, MAX_LOCAL_IMAGES);
-  let nextImageIndex = 0;
-
-  const hydrateNextImage = async () => {
-    while (nextImageIndex < pendingImages.length) {
-      if (requestId !== loadRequestId) return;
-
-      const image = pendingImages[nextImageIndex];
-      nextImageIndex += 1;
-
-      const policy = getImageSourcePolicy(image.getAttribute('src'));
-      if (policy.type !== 'relative') {
-        renderImageError(image, policy.reason);
-        continue;
-      }
-
-      const mimeType = getImageMimeType(policy.source);
-      if (!mimeType) {
-        renderImageError(image, 'This local image format is not supported');
-        continue;
-      }
-
-      image.removeAttribute('src');
-      image.setAttribute('aria-busy', 'true');
-
-      let objectUrl = null;
-      try {
-        const response = await invoke('get_image_bytes', {
-          documentPath,
-          relativeSource: policy.source,
-        });
-
-        if (requestId !== loadRequestId || !image.isConnected) return;
-        objectUrl = imageResourcePool.create(response, mimeType);
-        if (requestId !== loadRequestId || !image.isConnected) {
-          imageResourcePool.revoke(objectUrl);
-          return;
-        }
-
-        image.src = objectUrl;
-        if (requestId !== loadRequestId || !image.isConnected) {
-          imageResourcePool.revoke(objectUrl);
-          return;
-        }
-
-        if (typeof image.decode === 'function') {
-          await image.decode();
-        }
-
-        if (requestId !== loadRequestId || !image.isConnected) {
-          imageResourcePool.revoke(objectUrl);
-          return;
-        }
-        image.removeAttribute('aria-busy');
-      } catch (error) {
-        if (requestId !== loadRequestId) {
-          if (objectUrl) imageResourcePool.revoke(objectUrl);
-          return;
-        }
-        if (objectUrl) imageResourcePool.revoke(objectUrl);
-        const reason = error instanceof ImageResourceBudgetError
-          || error?.code === 'IMAGE_RESOURCE_BUDGET_EXCEEDED'
-          ? 'Image budget exceeded (64 MiB per document)'
-          : 'Image unavailable';
-        console.warn('Could not load a relative image:', error);
-        if (requestId === loadRequestId && image.isConnected) {
-          renderImageError(image, reason);
-        }
-      }
-    }
-  };
-
-  const workerCount = Math.min(IMAGE_LOAD_CONCURRENCY, pendingImages.length);
-  await Promise.all(Array.from({ length: workerCount }, hydrateNextImage));
 }
 
 function populateThemeSelect() {
@@ -903,12 +800,9 @@ function applyTheme(theme, { silent = false } = {}) {
   }
 
   if (currentFilePath && ui.content?.querySelector('.mermaid')) {
-    renderMermaidDiagrams(ui.content, { reset: true, theme: isDark ? 'dark' : 'default' })
+    readerShell?.refreshAppearance({ diagramTheme: isDark ? 'dark' : 'default' })
       .then(markMinimapDirty)
-      .catch((error) => {
-        console.error('Mermaid theme update error:', error);
-        showToast('The diagram could not update for this theme');
-      });
+      .catch((error) => console.error('Could not refresh document appearance:', error));
   }
   isMinimapDocumentDirty = true;
   queueReadingUiUpdate();
@@ -939,53 +833,6 @@ function cycleTheme(direction = 1) {
   if (themes.length === 0) return;
   currentThemeIndex = (currentThemeIndex + direction + themes.length) % themes.length;
   applyTheme(themes[currentThemeIndex]);
-}
-
-function renderLoadingState(filePath) {
-  const loading = document.createElement('div');
-  loading.className = 'loading';
-  loading.setAttribute('role', 'status');
-  loading.textContent = `Opening ${getDisplayName(filePath)}…`;
-  ui.content.replaceChildren(loading);
-}
-
-function renderErrorState(error) {
-  const panel = document.createElement('div');
-  panel.className = 'error';
-
-  const title = document.createElement('h1');
-  title.textContent = 'Could not open the file';
-
-  const message = document.createElement('p');
-  message.textContent = String(error);
-
-  const retryButton = document.createElement('button');
-  retryButton.className = 'primary-button';
-  retryButton.type = 'button';
-  const retryIcon = document.createElement('i');
-  retryIcon.className = 'iconoir-folder';
-  retryIcon.setAttribute('aria-hidden', 'true');
-  const retryLabel = document.createElement('span');
-  retryLabel.textContent = 'Choose another file';
-  retryButton.append(retryIcon, retryLabel);
-  retryButton.addEventListener('click', openFilePicker);
-
-  panel.append(title, message, retryButton);
-  ui.content.replaceChildren(panel);
-}
-
-function enhanceTables() {
-  ui.content.querySelectorAll('table').forEach((table) => {
-    if (table.parentElement?.classList.contains('table-scroll')) return;
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'table-scroll';
-    wrapper.setAttribute('tabindex', '0');
-    wrapper.setAttribute('role', 'region');
-    wrapper.setAttribute('aria-label', 'Scrollable table');
-    table.before(wrapper);
-    wrapper.appendChild(table);
-  });
 }
 
 function enhanceCodeBlocks() {
@@ -1031,143 +878,110 @@ function enhanceCodeBlocks() {
   });
 }
 
-function focusLoadedContent(fragment = '') {
-  ui.readerPage?.scrollTo({ top: 0, behavior: 'auto' });
-
-  if (isSourceViewActive()) {
-    ui.sourceView?.focus({ preventScroll: true });
-    return;
-  }
-
-  if (fragment) {
-    let fragmentId = fragment.slice(1);
-    try {
-      fragmentId = decodeURIComponent(fragmentId);
-    } catch {
-      fragmentId = '';
-    }
-
-    const fragmentTarget = fragmentId
-      ? [...ui.content.querySelectorAll('[id]')].find((element) => element.id === fragmentId)
-      : null;
-
-    if (fragmentTarget) {
-      fragmentTarget.setAttribute('tabindex', '-1');
-      fragmentTarget.focus({ preventScroll: true });
-      fragmentTarget.scrollIntoView({ block: 'start' });
-      return;
-    }
-  }
-
-  ui.content.focus({ preventScroll: true });
-}
-
-async function loadContent(filePath = null, { fragment = '' } = {}) {
-  if (!ui.content) {
-    console.error('Content element not found!');
-    return;
-  }
-
-  if (!filePath) {
-    const urlParams = new URLSearchParams(window.location.search);
-    filePath = urlParams.get('file');
-  }
-
-  if (!filePath) {
-    loadRequestId += 1;
-    imageResourcePool.clear();
-    currentFilePath = null;
-    currentDocument = null;
-    isMinimapDocumentDirty = true;
-    currentSourceLine = 1;
-    currentReadingProgress = 0;
-    viewScrollPositions = { rendered: 0, source: 0 };
-    isHelpVisible = false;
-    focusBeforeHelp = null;
-    ui.content.removeAttribute('aria-busy');
-    ui.content.replaceChildren();
-    if (ui.sourceContent) ui.sourceContent.textContent = '';
-    syncViewportState();
-    applyReadingTools();
-    updateWindowTitle();
-    updateWindowUrl();
-    handleScroll();
-    return;
-  }
-
-  const requestId = ++loadRequestId;
-  imageResourcePool.clear();
-  currentFilePath = filePath;
-  currentDocument = null;
+function resetDocumentReadingState() {
   isMinimapDocumentDirty = true;
   currentSourceLine = 1;
   currentReadingProgress = 0;
   viewScrollPositions = { rendered: 0, source: 0 };
   isHelpVisible = false;
   focusBeforeHelp = null;
-  setReadingToolsOpen(false);
-  if (ui.sourceContent) ui.sourceContent.textContent = '';
-  ui.content.setAttribute('aria-busy', 'true');
-  renderLoadingState(filePath);
-  syncViewportState();
-  applyReadingTools();
-  setStatusText(getDisplayName(filePath), 'Opening…');
-  updateWindowTitle(filePath);
+}
 
-  try {
-    const documentPayload = normalizeDocumentPayload(
-      await invoke('get_file_content', { path: filePath })
-    );
-    if (requestId !== loadRequestId) return;
-    currentDocument = documentPayload;
-    ui.content.innerHTML = documentPayload.html;
-    renderSourceContent(documentPayload.source, getFileKind(filePath) === 'Markdown');
-    ui.content.removeAttribute('aria-busy');
-    updateWindowTitle(filePath);
-    updateWindowUrl(filePath);
-
-    const images = ui.content.querySelectorAll('img');
-    images.forEach((img) => {
-      img.setAttribute('loading', 'lazy');
-    });
-
-    await hydrateRelativeImages(filePath, requestId);
-    if (requestId !== loadRequestId) return;
-    enhanceTables();
-    enhanceCodeBlocks();
-
-    try {
-      const activeTheme = themes[currentThemeIndex];
-      const mermaidTheme = activeTheme && isColorDark(getThemeTokens(activeTheme).background)
-        ? 'dark'
-        : 'default';
-      await renderMermaidDiagrams(ui.content, { theme: mermaidTheme });
-      if (requestId !== loadRequestId) return;
-    } catch (error) {
-      if (requestId !== loadRequestId) return;
-      console.error('Mermaid render error:', error);
-      showToast('One or more diagrams could not be rendered');
-    }
-
+function handleDocumentSessionState(snapshot) {
+  if (snapshot.state === 'loading') {
+    currentFilePath = snapshot.path;
+    currentDocument = null;
+    resetDocumentReadingState();
+    setReadingToolsOpen(false);
+    syncViewportState();
     applyReadingTools();
-    focusLoadedContent(fragment);
-    handleScroll();
-  } catch (error) {
-    if (requestId !== loadRequestId) return;
-    imageResourcePool.clear();
-    console.error('Error loading content:', error);
-    ui.content.removeAttribute('aria-busy');
+    setStatusText(getDisplayName(snapshot.path), 'Opening…');
+    updateWindowTitle(snapshot.path);
+    return;
+  }
+
+  if (snapshot.state === 'ready') {
+    currentFilePath = snapshot.path;
+    currentDocument = snapshot.document;
+    updateWindowTitle(snapshot.path);
+    updateWindowUrl(snapshot.path);
+    applyReadingTools();
+    return;
+  }
+
+  if (snapshot.state === 'failed') {
+    currentFilePath = snapshot.path;
     currentDocument = null;
     isMinimapDocumentDirty = true;
-    if (ui.sourceContent) ui.sourceContent.textContent = '';
-    updateWindowTitle(filePath);
-    updateWindowUrl(filePath);
-    renderErrorState(error);
+    updateWindowTitle(snapshot.path);
+    updateWindowUrl(snapshot.path);
     applyReadingTools();
-    setStatusText(getDisplayName(filePath), 'Could not open');
-    focusLoadedContent();
-    handleScroll();
+    setStatusText(getDisplayName(snapshot.path), 'Could not open');
+    return;
   }
+
+  currentFilePath = null;
+  currentDocument = null;
+  resetDocumentReadingState();
+  syncViewportState();
+  applyReadingTools();
+  updateWindowTitle();
+  updateWindowUrl();
+  handleScroll();
+}
+
+function activeDiagramTheme() {
+  const activeTheme = themes[currentThemeIndex];
+  return activeTheme && isColorDark(getThemeTokens(activeTheme).background)
+    ? 'dark'
+    : 'default';
+}
+
+function mountApplicationReaderShell() {
+  readerShell = mountReaderShell({
+    window,
+    adapters: {
+      documents: {
+        open: (path) => invoke('get_file_content', { path }),
+        readImage: (documentPath, relativeSource) => invoke('get_image_bytes', {
+          documentPath,
+          relativeSource,
+        }),
+      },
+      diagrams: {
+        render: renderMermaidDiagrams,
+      },
+    },
+    hooks: {
+      renderSource: renderSourceContent,
+      enhanceCodeBlocks,
+      getDiagramTheme: activeDiagramTheme,
+      isSourceActive: isSourceViewActive,
+      chooseAnotherFile: openFilePicker,
+      onDocumentCommitted: ({ path, document: openedDocument }) => {
+        currentFilePath = path;
+        currentDocument = openedDocument;
+        updateWindowTitle(path);
+        updateWindowUrl(path);
+      },
+      onStateChange: handleDocumentSessionState,
+      onSettled: handleScroll,
+      onWarning: showToast,
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  });
+}
+
+async function loadContent(filePath = null, { fragment = '' } = {}) {
+  if (!filePath) {
+    const urlParams = new URLSearchParams(window.location.search);
+    filePath = urlParams.get('file');
+  }
+  if (!readerShell) throw new Error('Reader shell is not mounted');
+  return readerShell.open({
+    origin: 'direct',
+    items: filePath ? [{ path: filePath, fragment }] : [],
+  });
 }
 
 function handleLinkClick(event) {
@@ -1830,7 +1644,7 @@ function registerEvents() {
       fileOpenRequestUnlisten();
     }
     minimapResizeObserver?.disconnect();
-    imageResourcePool.clear();
+    readerShell?.dispose();
     windowChromeUnlisteners.forEach((unlisten) => unlisten());
     windowChromeUnlisteners = [];
   });
@@ -1879,6 +1693,7 @@ function registerEvents() {
 
 async function init() {
   cacheElements();
+  mountApplicationReaderShell();
   loadReadingToolPreferences();
   loadVisualPreferences();
   syncViewportState();

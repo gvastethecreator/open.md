@@ -1,0 +1,91 @@
+// @vitest-environment jsdom
+
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import { mountReaderShell } from './reader-shell.js';
+
+const indexHtml = readFileSync('index.html', 'utf8');
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function payload(title) {
+  return {
+    html: `<h1>${title}</h1>`,
+    source: `# ${title}`,
+    lineCount: 1,
+    characterCount: title.length + 2,
+    wordCount: 1,
+    readingTimeMinutes: 1,
+  };
+}
+
+function renderFixture() {
+  document.open();
+  document.write(indexHtml);
+  document.close();
+}
+
+function createAdapters(openDocument) {
+  return {
+    documents: {
+      open: openDocument,
+      readImage: async () => new Uint8Array(),
+    },
+    diagrams: {
+      render: async () => false,
+    },
+  };
+}
+
+describe('reader shell', () => {
+  it('keeps a stale document load from replacing the latest DOM', async () => {
+    renderFixture();
+    const first = deferred();
+    const second = deferred();
+    const shell = mountReaderShell({
+      window,
+      adapters: createAdapters((path) => path === 'first.md' ? first.promise : second.promise),
+    });
+
+    const firstOpen = shell.open({ origin: 'link', items: [{ path: 'first.md' }] });
+    const secondOpen = shell.open({ origin: 'link', items: [{ path: 'second.md' }] });
+    second.resolve(payload('Second'));
+
+    await expect(secondOpen).resolves.toMatchObject({ status: 'ready', path: 'second.md' });
+    expect(document.querySelector('#content h1')?.textContent).toBe('Second');
+
+    first.resolve(payload('First'));
+    await expect(firstOpen).resolves.toMatchObject({ status: 'superseded', path: 'first.md' });
+    expect(document.querySelector('#content h1')?.textContent).toBe('Second');
+
+    shell.dispose();
+  });
+
+  it('renders dependency failures through the public shell seam', async () => {
+    renderFixture();
+    const shell = mountReaderShell({
+      window,
+      adapters: createAdapters(async () => {
+        throw new Error('Disk unavailable');
+      }),
+    });
+
+    await expect(
+      shell.open({ origin: 'picker', items: [{ path: 'broken.md' }] })
+    ).resolves.toMatchObject({ status: 'failed', path: 'broken.md' });
+
+    expect(document.querySelector('#content .error h1')?.textContent).toBe('Could not open the file');
+    expect(document.querySelector('#content .error p')?.textContent).toContain('Disk unavailable');
+    expect(document.querySelector('#content')?.hasAttribute('aria-busy')).toBe(false);
+
+    shell.dispose();
+  });
+});
