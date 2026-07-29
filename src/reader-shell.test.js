@@ -54,16 +54,20 @@ describe('reader shell', () => {
       window,
       adapters: createAdapters((path) => path === 'first.md' ? first.promise : second.promise),
     });
+    await shell.start();
 
     const firstOpen = shell.open({ origin: 'link', items: [{ path: 'first.md' }] });
     const secondOpen = shell.open({ origin: 'link', items: [{ path: 'second.md' }] });
     second.resolve(payload('Second'));
 
-    await expect(secondOpen).resolves.toMatchObject({ status: 'ready', path: 'second.md' });
+    await expect(secondOpen).resolves.toMatchObject({
+      status: 'completed',
+      openedHere: ['second.md'],
+    });
     expect(document.querySelector('#content h1')?.textContent).toBe('Second');
 
     first.resolve(payload('First'));
-    await expect(firstOpen).resolves.toMatchObject({ status: 'superseded', path: 'first.md' });
+    await expect(firstOpen).resolves.toMatchObject({ status: 'superseded' });
     expect(document.querySelector('#content h1')?.textContent).toBe('Second');
 
     shell.dispose();
@@ -77,10 +81,14 @@ describe('reader shell', () => {
         throw new Error('Disk unavailable');
       }),
     });
+    await shell.start();
 
     await expect(
       shell.open({ origin: 'picker', items: [{ path: 'broken.md' }] })
-    ).resolves.toMatchObject({ status: 'failed', path: 'broken.md' });
+    ).resolves.toMatchObject({
+      status: 'partial',
+      failures: [{ path: 'broken.md' }],
+    });
 
     expect(document.querySelector('#content .error h1')?.textContent).toBe('Could not open the file');
     expect(document.querySelector('#content .error p')?.textContent).toContain('Disk unavailable');

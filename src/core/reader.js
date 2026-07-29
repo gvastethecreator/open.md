@@ -81,16 +81,6 @@ export function getScrollEdgeState(scrollTop, scrollHeight, clientHeight, thresh
   };
 }
 
-export function normalizeOpenFileRequest(value) {
-  const id = Math.floor(Number(value?.id));
-  const paths = [...new Set(
-    (Array.isArray(value?.paths) ? value.paths : [])
-      .filter((path) => typeof path === 'string' && path.trim() !== '')
-  )];
-
-  return Number.isSafeInteger(id) && id > 0 && paths.length > 0 ? { id, paths } : null;
-}
-
 function isEscapedSourceToken(line, index) {
   let backslashes = 0;
   for (let cursor = index - 1; cursor >= 0 && line[cursor] === '\\'; cursor -= 1) {
