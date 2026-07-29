@@ -6,7 +6,6 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import allThemes from './themes.runtime.json';
 import {
-  DEFAULT_READING_TOOLS,
   calculateNewZoom,
   getCurrentLineFromAnchors,
   getDisplayName,
@@ -24,33 +23,21 @@ import {
   getVisibleSourceLineRange,
   getWindowControlPresentation,
   isColorDark,
-  normalizeCycleIndex,
-  normalizeReadingTools,
 } from './core/reader.js';
 import { renderMermaidDiagrams } from './mermaid-renderer.js';
 import { mountReaderShell } from './reader-shell.js';
+import {
+  DEFAULT_READING_TOOLS,
+  FONT_PRESETS,
+  createWebPreferenceStore,
+  normalizeFontIndex,
+} from './reader-preferences.js';
 
 let currentZoom = 1;
 const ZOOM_STEP = 0.1;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3.0;
-const THEME_STORAGE_KEY = 'openmd-theme';
-const READING_TOOLS_STORAGE_KEY = 'openmd-reading-tools-v1';
-const FONT_PREFERENCES_STORAGE_KEY = 'openmd-font-preferences-v1';
-const ALWAYS_ON_TOP_STORAGE_KEY = 'openmd-always-on-top';
 const CURATED_THEME_NAMES = ['Paper', 'Github Light', 'Github Dark', 'Ayu Light', 'Ayu Dark'];
-const FONT_PRESETS = Object.freeze({
-  sans: Object.freeze([
-    { name: 'System', value: 'Inter, "Segoe UI", Helvetica, Arial, sans-serif' },
-    { name: 'Humanist', value: 'Candara, "Trebuchet MS", "Segoe UI", sans-serif' },
-    { name: 'Classic sans', value: '"Gill Sans", "Gill Sans MT", Calibri, Arial, sans-serif' },
-  ]),
-  mono: Object.freeze([
-    { name: 'Cascadia', value: '"Cascadia Code", "Cascadia Mono", "SFMono-Regular", Consolas, monospace' },
-    { name: 'Consolas', value: 'Consolas, "Liberation Mono", Menlo, monospace' },
-    { name: 'Courier', value: '"Courier New", Courier, monospace' },
-  ]),
-});
 let themes = [];
 let currentThemeIndex = -1;
 let dragDropUnlisten = null;
@@ -209,14 +196,6 @@ async function setupWindowChrome() {
   ui.windowCloseButton?.addEventListener('click', () => {
     runWindowAction(() => nativeWindow.close(), 'Could not close the window');
   });
-  try {
-    await nativeWindow.setAlwaysOnTop(isAlwaysOnTop);
-  } catch (error) {
-    isAlwaysOnTop = false;
-    saveAlwaysOnTopPreference();
-    updateAlwaysOnTopControl();
-    console.warn('Could not restore the always-on-top preference:', error);
-  }
   await syncMaximizePresentation();
   windowChromeUnlisteners.push(await nativeWindow.onResized(syncMaximizePresentation));
 }
@@ -343,28 +322,32 @@ function isSourceViewActive() {
   return hasLoadedDocument() && readingTools.source;
 }
 
-function loadReadingToolPreferences() {
-  try {
-    const saved = localStorage.getItem(READING_TOOLS_STORAGE_KEY);
-    readingTools = saved ? normalizeReadingTools(JSON.parse(saved)) : { ...DEFAULT_READING_TOOLS };
-  } catch (error) {
-    console.warn('Could not read saved reading tools:', error);
-    readingTools = { ...DEFAULT_READING_TOOLS };
+function reportPreferenceResult(result) {
+  if (result?.status === 'volatile') {
+    showToast('Preference applied for this session only');
   }
 }
 
-function saveReadingToolPreferences() {
-  try {
-    localStorage.setItem(READING_TOOLS_STORAGE_KEY, JSON.stringify(readingTools));
-  } catch (error) {
-    console.warn('Could not save reading tools:', error);
+function handlePreferenceSnapshot(snapshot) {
+  readingTools = { ...snapshot.readingTools };
+  fontPreferences = { ...snapshot.fonts };
+  isAlwaysOnTop = snapshot.alwaysOnTop;
+  applyFontPreferences();
+  updateAlwaysOnTopControl();
+  applyReadingTools();
+
+  if (snapshot.themeName && themes.length > 0) {
+    const savedIndex = themes.findIndex((theme) => theme.name === snapshot.themeName);
+    if (savedIndex >= 0 && savedIndex !== currentThemeIndex) {
+      applyTheme(themes[savedIndex], { silent: true, persist: false });
+    }
   }
 }
 
 function updateFontControls() {
   for (const kind of Object.keys(FONT_PRESETS)) {
     const presets = FONT_PRESETS[kind];
-    const index = normalizeCycleIndex(fontPreferences[kind], presets.length);
+    const index = normalizeFontIndex(fontPreferences[kind], presets.length);
     const current = presets[index];
     const next = presets[(index + 1) % presets.length];
     const button = ui.fontButtons.find((candidate) => candidate.dataset.fontKind === kind);
@@ -380,11 +363,11 @@ function updateFontControls() {
   }
 }
 
-function applyFontPreferences({ announceKind = null } = {}) {
+function applyFontPreferences() {
   const root = document.documentElement;
   for (const kind of Object.keys(FONT_PRESETS)) {
     const presets = FONT_PRESETS[kind];
-    const index = normalizeCycleIndex(fontPreferences[kind], presets.length);
+    const index = normalizeFontIndex(fontPreferences[kind], presets.length);
     fontPreferences[kind] = index;
     root.style.setProperty(`--font-${kind}`, presets[index].value);
   }
@@ -393,55 +376,17 @@ function applyFontPreferences({ announceKind = null } = {}) {
   isMinimapDocumentDirty = true;
   queueReadingUiUpdate();
 
-  if (announceKind && FONT_PRESETS[announceKind]) {
-    const label = announceKind === 'sans' ? 'Sans' : 'Mono';
-    showToast(`${label} font: ${FONT_PRESETS[announceKind][fontPreferences[announceKind]].name}`);
-  }
 }
 
-function loadVisualPreferences() {
-  try {
-    const savedFonts = JSON.parse(localStorage.getItem(FONT_PREFERENCES_STORAGE_KEY) || '{}');
-    fontPreferences = Object.fromEntries(
-      Object.keys(FONT_PRESETS).map((kind) => [
-        kind,
-        normalizeCycleIndex(savedFonts?.[kind], FONT_PRESETS[kind].length),
-      ])
-    );
-  } catch (error) {
-    console.warn('Could not read saved font preferences:', error);
-    fontPreferences = { sans: 0, mono: 0 };
-  }
-
-  try {
-    isAlwaysOnTop = localStorage.getItem(ALWAYS_ON_TOP_STORAGE_KEY) === 'true';
-  } catch (error) {
-    console.warn('Could not read the always-on-top preference:', error);
-    isAlwaysOnTop = false;
-  }
-
-  applyFontPreferences();
-  updateAlwaysOnTopControl();
-}
-
-function saveFontPreferences() {
-  try {
-    localStorage.setItem(FONT_PREFERENCES_STORAGE_KEY, JSON.stringify(fontPreferences));
-  } catch (error) {
-    console.warn('Could not save font preferences:', error);
-  }
-}
-
-function cycleFont(kind) {
+async function cycleFont(kind) {
   const presets = FONT_PRESETS[kind];
   if (!presets) return;
 
-  fontPreferences = {
-    ...fontPreferences,
-    [kind]: normalizeCycleIndex(fontPreferences[kind] + 1, presets.length),
-  };
-  saveFontPreferences();
-  applyFontPreferences({ announceKind: kind });
+  const nextIndex = normalizeFontIndex(fontPreferences[kind] + 1, presets.length);
+  const result = await readerShell.preferences.update({ fonts: { [kind]: nextIndex } });
+  reportPreferenceResult(result);
+  const label = kind === 'sans' ? 'Sans' : 'Mono';
+  showToast(`${label} font: ${FONT_PRESETS[kind][fontPreferences[kind]].name}`);
 }
 
 function setTypographyOpen(nextOpen, { returnFocus = false } = {}) {
@@ -476,28 +421,19 @@ function updateAlwaysOnTopControl() {
   }
 }
 
-function saveAlwaysOnTopPreference() {
-  try {
-    localStorage.setItem(ALWAYS_ON_TOP_STORAGE_KEY, String(isAlwaysOnTop));
-  } catch (error) {
-    console.warn('Could not save the always-on-top preference:', error);
-  }
-}
-
 async function toggleAlwaysOnTop() {
-  if (!nativeWindow) {
-    showToast('Always on top is available in the desktop app');
-    return;
-  }
-
   const nextValue = !isAlwaysOnTop;
   if (ui.alwaysOnTopButton) ui.alwaysOnTopButton.disabled = true;
   try {
-    await nativeWindow.setAlwaysOnTop(nextValue);
-    isAlwaysOnTop = nextValue;
-    saveAlwaysOnTopPreference();
-    updateAlwaysOnTopControl();
-    showToast(`Always on top ${nextValue ? 'on' : 'off'}`);
+    const result = await readerShell.preferences.update({ alwaysOnTop: nextValue });
+    if (result.status === 'applied' || result.status === 'volatile') {
+      reportPreferenceResult(result);
+      showToast(`Always on top ${nextValue ? 'on' : 'off'}`);
+    } else if (result.status === 'unavailable') {
+      showToast('Always on top is available in the desktop app');
+    } else {
+      showToast('Could not change always on top');
+    }
   } catch (error) {
     console.error('Could not change the always-on-top setting:', error);
     showToast('Could not change always on top');
@@ -579,7 +515,7 @@ function applyReadingTools() {
   queueReadingUiUpdate();
 }
 
-function setReadingTool(tool, nextValue) {
+async function setReadingTool(tool, nextValue) {
   if (!Object.hasOwn(DEFAULT_READING_TOOLS, tool) || !hasLoadedDocument()) return;
 
   const next = Boolean(nextValue);
@@ -590,9 +526,8 @@ function setReadingTool(tool, nextValue) {
     viewScrollPositions[previousView] = ui.readerPage.scrollTop;
   }
 
-  readingTools = { ...readingTools, [tool]: next };
-  saveReadingToolPreferences();
-  applyReadingTools();
+  const result = await readerShell.preferences.update({ readingTools: { [tool]: next } });
+  reportPreferenceResult(result);
 
   if (tool === 'source' && ui.readerPage) {
     const nextView = next ? 'source' : 'rendered';
@@ -705,19 +640,14 @@ function setDragState(isActive) {
 async function initThemes() {
   try {
     themes = [...allThemes].sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
-    let savedThemeName = null;
-    try {
-      savedThemeName = localStorage.getItem(THEME_STORAGE_KEY);
-    } catch (error) {
-      console.warn('Could not read the saved theme:', error);
-    }
+    const savedThemeName = readerShell.preferences.current().themeName;
     currentThemeIndex = getPreferredThemeIndex(themes, savedThemeName);
 
     populateThemeSelect();
     updateThemeCopy();
 
     if (currentThemeIndex >= 0) {
-      applyTheme(themes[currentThemeIndex], { silent: true });
+      applyTheme(themes[currentThemeIndex], { silent: true, persist: false });
     }
   } catch (error) {
     console.error('Failed to initialize themes:', error);
@@ -725,7 +655,7 @@ async function initThemes() {
   }
 }
 
-function applyTheme(theme, { silent = false } = {}) {
+function applyTheme(theme, { silent = false, persist = true } = {}) {
   if (!theme) return;
 
   const root = document.documentElement;
@@ -755,10 +685,10 @@ function applyTheme(theme, { silent = false } = {}) {
 
   currentThemeIndex = themes.findIndex((item) => item.name === theme.name);
 
-  try {
-    localStorage.setItem(THEME_STORAGE_KEY, theme.name);
-  } catch (error) {
-    console.warn('Could not persist the selected theme:', error);
+  if (persist) {
+    readerShell.preferences.update({ themeName: theme.name })
+      .then(reportPreferenceResult)
+      .catch((error) => console.warn('Could not persist the selected theme:', error));
   }
   updateThemeCopy();
 
@@ -877,7 +807,11 @@ function mountApplicationReaderShell() {
       },
       windows: {
         openDocument: (path) => invoke('open_new_window', { path }),
+        ...(window.__TAURI_INTERNALS__ ? {
+          setAlwaysOnTop: (value) => getCurrentWindow().setAlwaysOnTop(value),
+        } : {}),
       },
+      storage: createWebPreferenceStore(window.localStorage),
     },
     hooks: {
       getDiagramTheme: activeDiagramTheme,
@@ -893,6 +827,7 @@ function mountApplicationReaderShell() {
       onSettled: handleScroll,
       onWarning: showToast,
       onToast: showToast,
+      onPreferencesChange: handlePreferenceSnapshot,
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
   });
@@ -1550,8 +1485,10 @@ function registerEvents() {
 async function init() {
   cacheElements();
   mountApplicationReaderShell();
-  loadReadingToolPreferences();
-  loadVisualPreferences();
+  const preferenceResult = await readerShell.preferences.load();
+  if (preferenceResult.status === 'fallback') {
+    console.warn('One or more saved preferences could not be restored:', preferenceResult.warnings);
+  }
   syncViewportState();
   registerEvents();
   await setupFileAssociationEvents();

@@ -1,5 +1,9 @@
 import { createDocumentSession } from './document-session.js';
 import { createOpenIntentController } from './open-intent-controller.js';
+import {
+  createMemoryPreferenceStore,
+  createReaderPreferences,
+} from './reader-preferences.js';
 
 export function mountReaderShell({ window, adapters, hooks = {} }) {
   if (!window?.document) throw new Error('Reader shell requires a window with a document');
@@ -10,6 +14,15 @@ export function mountReaderShell({ window, adapters, hooks = {} }) {
     openWindow: adapters.windows?.openDocument,
     onFeedback: hooks.onToast,
     onDiagnostic: hooks.onDiagnostic,
+  });
+  const preferences = createReaderPreferences({
+    store: adapters.storage || createMemoryPreferenceStore(),
+    windowPin: typeof adapters.windows?.setAlwaysOnTop === 'function'
+      ? { setAlwaysOnTop: adapters.windows.setAlwaysOnTop }
+      : null,
+  });
+  const unsubscribePreferences = preferences.subscribe((snapshot) => {
+    hooks.onPreferencesChange?.(snapshot);
   });
   let disposed = false;
 
@@ -22,6 +35,7 @@ export function mountReaderShell({ window, adapters, hooks = {} }) {
       if (disposed) throw new Error('Reader shell is disposed');
       return openIntents.submit(intent);
     },
+    preferences,
     refreshAppearance({ diagramTheme = 'default' } = {}) {
       if (disposed) return Promise.resolve(false);
       return documentSession.refreshDiagrams(diagramTheme);
@@ -30,6 +44,8 @@ export function mountReaderShell({ window, adapters, hooks = {} }) {
     dispose() {
       if (disposed) return;
       disposed = true;
+      unsubscribePreferences();
+      preferences.dispose();
       openIntents.dispose();
       documentSession.dispose();
     },
