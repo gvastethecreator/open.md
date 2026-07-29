@@ -198,7 +198,7 @@ describe('Frontend Logic Tests', () => {
       expect(tokens('plain a_b identifier')).toEqual([]);
     });
 
-    it('normalizes structured and legacy document payloads', () => {
+    it('normalizes structured payloads and rejects the removed string contract', () => {
       expect(normalizeDocumentPayload({
         html: '<h1>Title</h1>',
         source: '# Title\n',
@@ -214,12 +214,7 @@ describe('Frontend Logic Tests', () => {
         wordCount: 2,
         readingTimeMinutes: 1,
       });
-      expect(normalizeDocumentPayload('<p>Legacy</p>')).toMatchObject({
-        html: '<p>Legacy</p>',
-        source: '',
-        lineCount: 1,
-        characterCount: 0,
-      });
+      expect(() => normalizeDocumentPayload('<p>Legacy</p>')).toThrow('Invalid document payload');
     });
 
     it('keeps essential document counts and labels zoom explicitly', () => {
