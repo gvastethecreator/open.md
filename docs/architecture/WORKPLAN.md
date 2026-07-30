@@ -187,21 +187,21 @@ resize observation, scheduling and disposal.
 ### ARC-12 — Deepen the editor document model
 
 **Type:** AFK
-**Status:** Ready
+**Status:** Implemented
 **Blocked by:** ARC-11.
 
 **What to build:** Extend the Editor Document module so canonical blocks,
 history, cursor, CRUD, split/merge and serialization live behind one model
 interface rather than inside the DOM session closure.
 
-- [ ] Model behavior covers Markdown/TXT mutation and independent undo/redo.
-- [ ] Editor session observes model snapshots instead of owning history arrays.
-- [ ] Existing editor user paths remain green.
+- [x] Model behavior covers Markdown/TXT mutation and independent undo/redo.
+- [x] Editor session observes model snapshots instead of owning history arrays.
+- [x] Existing editor user paths remain green.
 
 ### ARC-13 — Own editor overlay lifecycle
 
 **Type:** AFK
-**Status:** Blocked
+**Status:** Ready
 **Blocked by:** ARC-12.
 
 **What to build:** One Editor Overlay controller owns command/block menus,

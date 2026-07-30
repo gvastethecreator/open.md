@@ -221,6 +221,260 @@ export function getEditorDocumentStats(blocks) {
   };
 }
 
+export function createEditorDocumentModel({
+  source: initialSource = '',
+  markdown: initialMarkdown = true,
+  historyLimit = 150,
+} = {}) {
+  let markdown = initialMarkdown !== false;
+  let blocks = parseEditorDocument(initialSource, { markdown });
+  let cursor = null;
+  let revision = 0;
+  let disposed = false;
+  const limit = Math.max(2, Math.floor(Number(historyLimit) || 150));
+  let history = [serializeEditorDocument(blocks, { markdown })];
+  let historyIndex = 0;
+  const subscribers = new Set();
+
+  const source = () => serializeEditorDocument(blocks, { markdown });
+  const publicBlock = (block) => Object.freeze({ ...block });
+  const snapshot = () => Object.freeze({
+    revision,
+    markdown,
+    source: source(),
+    blocks: Object.freeze(blocks.map(publicBlock)),
+    stats: Object.freeze(getEditorDocumentStats(blocks)),
+    cursor: cursor ? Object.freeze({ ...cursor }) : null,
+    canUndo: historyIndex > 0,
+    canRedo: historyIndex < history.length - 1,
+  });
+  const publish = () => {
+    const next = snapshot();
+    subscribers.forEach((subscriber) => subscriber(next));
+    return next;
+  };
+  const recordHistory = () => {
+    const current = source();
+    if (history[historyIndex] === current) return false;
+    history = history.slice(0, historyIndex + 1);
+    history.push(current);
+    if (history.length > limit) history.shift();
+    historyIndex = history.length - 1;
+    return true;
+  };
+  const commit = (mutate) => {
+    if (disposed) return null;
+    const result = mutate();
+    if (result === false || result === null) return result;
+    if (blocks.length === 0) blocks = [createEditorBlock()];
+    recordHistory();
+    revision += 1;
+    publish();
+    return result;
+  };
+  const findIndex = (id) => blocks.findIndex((block) => block.id === id);
+  const block = (id) => {
+    const found = blocks[findIndex(id)];
+    return found ? publicBlock(found) : null;
+  };
+  const normalizedBlock = (current, patch) => createEditorBlock(
+    patch.type ?? current.type,
+    patch.text ?? current.text,
+    {
+      id: current.id,
+      checked: patch.checked ?? current.checked,
+      indent: patch.indent ?? current.indent,
+      number: patch.number ?? current.number,
+      language: patch.language ?? current.language,
+      fence: patch.fence ?? current.fence,
+    },
+  );
+
+  const updateBlock = (id, patch = {}) => commit(() => {
+    const index = findIndex(id);
+    if (index < 0) return null;
+    blocks[index] = normalizedBlock(blocks[index], patch);
+    return publicBlock(blocks[index]);
+  });
+
+  const changeType = (id, type) => commit(() => {
+    const index = findIndex(id);
+    if (index < 0) return null;
+    const current = blocks[index];
+    const text = current.text.replace(/^\/[^\s]*\s?/, '');
+    blocks[index] = normalizedBlock(current, {
+      type,
+      text: type === 'divider' ? '' : text,
+      checked: type === 'todo' ? current.checked : false,
+    });
+    return publicBlock(blocks[index]);
+  });
+
+  const addAfter = (afterId, { type = 'paragraph', text = '', ...options } = {}) => commit(() => {
+    const index = Math.max(0, findIndex(afterId));
+    const next = createEditorBlock(type, text, options);
+    blocks.splice(index + 1, 0, next);
+    return publicBlock(next);
+  });
+
+  const remove = (id) => commit(() => {
+    const index = findIndex(id);
+    if (index < 0) return null;
+    if (blocks.length === 1) {
+      const replacement = createEditorBlock();
+      blocks = [replacement];
+      return { changed: true, focusId: replacement.id, enteringId: replacement.id, index: 0 };
+    }
+    blocks.splice(index, 1);
+    return {
+      changed: true,
+      focusId: blocks[Math.max(0, index - 1)].id,
+      enteringId: null,
+      index,
+    };
+  });
+
+  const moveTo = (id, destination) => commit(() => {
+    const sourceIndex = findIndex(id);
+    const target = Math.min(Math.max(Math.floor(Number(destination)), 0), blocks.length - 1);
+    if (sourceIndex < 0 || sourceIndex === target) return false;
+    const [moving] = blocks.splice(sourceIndex, 1);
+    blocks.splice(target, 0, moving);
+    return { changed: true, id, sourceIndex, destination: target };
+  });
+  const move = (id, delta) => {
+    const index = findIndex(id);
+    const destination = index + Math.trunc(Number(delta) || 0);
+    if (index < 0 || destination < 0 || destination >= blocks.length) return false;
+    return moveTo(id, destination);
+  };
+
+  const duplicate = (id) => commit(() => {
+    const index = findIndex(id);
+    if (index < 0) return null;
+    const current = blocks[index];
+    const copy = createEditorBlock(current.type, current.text, {
+      checked: current.checked,
+      indent: current.indent,
+      number: current.number,
+      language: current.language,
+      fence: current.fence,
+    });
+    blocks.splice(index + 1, 0, copy);
+    return publicBlock(copy);
+  });
+
+  const split = (id, { before = '', after = '' } = {}) => commit(() => {
+    const index = findIndex(id);
+    if (index < 0 || blocks[index].type === 'code') return false;
+    const current = blocks[index];
+    blocks[index] = normalizedBlock(current, { text: before });
+    const nextType = current.type.startsWith('heading') || current.type === 'quote'
+      ? 'paragraph'
+      : current.type;
+    const next = createEditorBlock(nextType, after, {
+      indent: current.indent,
+      number: current.type === 'numbered' ? current.number + 1 : 1,
+    });
+    blocks.splice(index + 1, 0, next);
+    return publicBlock(next);
+  });
+
+  const mergeWithPrevious = (id) => commit(() => {
+    const index = findIndex(id);
+    if (index <= 0) return false;
+    const current = blocks[index];
+    const previous = blocks[index - 1];
+    if (current.type === 'divider' || previous.type === 'divider' || previous.type === 'code') return false;
+    const offset = previous.text.length;
+    blocks[index - 1] = normalizedBlock(previous, { text: `${previous.text}${current.text}` });
+    blocks.splice(index, 1);
+    return { changed: true, focusId: previous.id, offset };
+  });
+
+  const indent = (id, delta) => {
+    const current = blocks[findIndex(id)];
+    if (!current || !['bullet', 'numbered', 'todo'].includes(current.type)) return false;
+    return updateBlock(id, {
+      indent: Math.min(Math.max(current.indent + Math.trunc(Number(delta) || 0), 0), 6),
+    });
+  };
+
+  const restoreHistory = (nextIndex, action, activeId = null) => {
+    if (disposed) return { changed: false, action };
+    const index = Math.min(Math.max(nextIndex, 0), history.length - 1);
+    if (index === historyIndex) return { changed: false, action };
+    const activeIndex = Math.max(0, findIndex(activeId));
+    historyIndex = index;
+    blocks = parseEditorDocument(history[index], { markdown });
+    revision += 1;
+    publish();
+    return {
+      changed: true,
+      action,
+      focusId: blocks[Math.min(activeIndex, blocks.length - 1)].id,
+    };
+  };
+  const undo = (activeId = null) => restoreHistory(historyIndex - 1, 'undo', activeId);
+  const redo = (activeId = null) => restoreHistory(historyIndex + 1, 'redo', activeId);
+
+  const setCursor = (nextCursor) => {
+    const next = nextCursor
+      ? { line: Math.max(1, Math.floor(Number(nextCursor.line) || 1)), column: Math.max(1, Math.floor(Number(nextCursor.column) || 1)) }
+      : null;
+    if (cursor?.line === next?.line && cursor?.column === next?.column) return false;
+    cursor = next;
+    revision += 1;
+    publish();
+    return true;
+  };
+
+  const load = (nextSource = '', { markdown: nextMarkdown = markdown } = {}) => {
+    if (disposed) return snapshot();
+    markdown = nextMarkdown !== false;
+    blocks = parseEditorDocument(nextSource, { markdown });
+    cursor = null;
+    history = [source()];
+    historyIndex = 0;
+    revision += 1;
+    return publish();
+  };
+
+  const subscribe = (subscriber) => {
+    if (typeof subscriber !== 'function' || disposed) return () => {};
+    subscribers.add(subscriber);
+    subscriber(snapshot());
+    return () => subscribers.delete(subscriber);
+  };
+
+  const dispose = () => {
+    disposed = true;
+    subscribers.clear();
+  };
+
+  return Object.freeze({
+    snapshot,
+    source,
+    block,
+    subscribe,
+    load,
+    updateBlock,
+    changeType,
+    addAfter,
+    remove,
+    move,
+    moveTo,
+    duplicate,
+    split,
+    mergeWithPrevious,
+    indent,
+    undo,
+    redo,
+    setCursor,
+    dispose,
+  });
+}
+
 export function editorBlockLabel(type) {
   return EDITOR_COMMANDS.find((command) => command.id === type)?.label
     || (type.startsWith('heading') ? `Heading ${type.slice(-1)}` : 'Text');
