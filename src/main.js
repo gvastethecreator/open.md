@@ -337,10 +337,15 @@ function updateStatusMetrics() {
   if (!ui.statusMetrics) return;
 
   if (isEditMode && editorSession) {
-    const stats = editorSession.current().stats;
+    const editorState = editorSession.current();
+    const { cursor, stats } = editorState;
     ui.statusMetrics.hidden = false;
-    ui.statusMetrics.textContent = `${stats.blocks} ${stats.blocks === 1 ? 'block' : 'blocks'} · ${stats.words} ${stats.words === 1 ? 'word' : 'words'}`;
-    ui.statusMetrics.title = `${stats.blocks} blocks. ${stats.words} words. ${stats.characters} characters.`;
+    ui.statusMetrics.textContent = cursor
+      ? `Ln ${cursor.line} · Col ${cursor.column}`
+      : `${stats.blocks} ${stats.blocks === 1 ? 'block' : 'blocks'} · ${stats.words} ${stats.words === 1 ? 'word' : 'words'}`;
+    ui.statusMetrics.title = cursor
+      ? `Line ${cursor.line}. Column ${cursor.column}. ${stats.blocks} blocks. ${stats.words} words. ${stats.characters} characters.`
+      : `${stats.blocks} blocks. ${stats.words} words. ${stats.characters} characters.`;
     ui.statusMetrics.setAttribute('aria-label', ui.statusMetrics.title);
     return;
   }
@@ -1055,6 +1060,7 @@ function mountApplicationEditor() {
     },
     hooks: {
       onStateChange: handleEditorState,
+      onCursorChange: updateStatusMetrics,
       onSaved: async () => {
         showToast('Changes saved');
         await readerShell?.reload();
