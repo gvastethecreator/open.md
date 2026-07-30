@@ -45,6 +45,28 @@ function caretOffset(element, selection) {
   return before.toString().length;
 }
 
+function editorTextFromNode(node) {
+  if (!node) return '';
+  if (node.nodeType === 3) return node.nodeValue || '';
+  if (node.nodeType !== 1) return '';
+  if (node.tagName === 'BR') return '\n';
+
+  const content = [...node.childNodes].map(editorTextFromNode).join('');
+  return node.tagName === 'DIV' || node.tagName === 'P' ? `${content}\n` : content;
+}
+
+function textBeforeSelection(document, element, selection) {
+  if (!element || !selection || selection.rangeCount === 0) return '';
+  const active = selection.getRangeAt(0);
+  if (!element.contains(active.startContainer)) return '';
+  const before = document.createRange();
+  before.selectNodeContents(element);
+  before.setEnd(active.startContainer, active.startOffset);
+  const host = document.createElement('div');
+  host.append(before.cloneContents());
+  return [...host.childNodes].map(editorTextFromNode).join('').replace(/\n$/, '');
+}
+
 function markdownAroundSelection(document, element, selection) {
   if (!selection || selection.rangeCount === 0 || !element.contains(selection.anchorNode)) {
     return { before: editableHtmlToMarkdown(element), after: '' };
@@ -106,6 +128,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   let historyIndex = 0;
   let disposed = false;
   let caretEchoVersion = 0;
+  let cursor = null;
+  let blockLineCounts = new Map();
   const drafts = new Map();
 
   const source = () => serializeEditorDocument(blocks, {
@@ -119,8 +143,15 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     saveState,
     error: saveError,
     stats: getEditorDocumentStats(blocks),
+    cursor: cursor ? Object.freeze({ ...cursor }) : null,
   });
   const notify = () => hooks.onStateChange?.(snapshot());
+
+  const setCursor = (nextCursor) => {
+    if (cursor?.line === nextCursor?.line && cursor?.column === nextCursor?.column) return;
+    cursor = nextCursor;
+    hooks.onCursorChange?.(cursor ? Object.freeze({ ...cursor }) : null);
+  };
 
   const commitHistory = () => {
     const current = source();
@@ -155,6 +186,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     const selection = window.getSelection();
     selection.removeAllRanges();
     selection.addRange(range);
+    activeBlockId = id;
+    updateCursorFromSelection(selection);
     content.scrollIntoView?.({ block: 'nearest' });
   };
 
@@ -348,10 +381,14 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   const updateBlockFromElement = (wrapper) => {
     const block = findBlock(wrapper?.dataset.blockId);
     if (!block) return;
+    const previousLineCount = blockLineCounts.get(block.id);
     const content = blockContent(wrapper);
     if (content) block.text = editableHtmlToMarkdown(content);
     const checkbox = wrapper.querySelector('[data-todo-check]');
     if (checkbox) block.checked = checkbox.checked;
+    if (previousLineCount !== undefined && previousLineCount !== sourceLineCount(block)) {
+      refreshBlockLineIndex();
+    }
   };
 
   const renderBlock = (block, index) => {
@@ -393,8 +430,9 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
       checkbox.checked = block.checked;
+      checkbox.className = 'editor-todo-checkbox';
       checkbox.dataset.todoCheck = '';
-      checkbox.setAttribute('aria-label', 'Mark task complete');
+      checkbox.setAttribute('aria-label', block.checked ? 'Mark task incomplete' : 'Mark task complete');
       body.append(checkbox);
     }
     if (block.type === 'numbered') {
@@ -445,10 +483,28 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     return wrapper;
   };
 
+  const sourceLineCount = (block) => serializeEditorDocument([block], {
+    markdown: activeDocument?.markdown !== false,
+  }).split('\n').length;
+
+  const refreshBlockLineIndex = () => {
+    let nextLine = 1;
+    const nextCounts = new Map();
+    blocks.forEach((block) => {
+      const wrapper = findWrapper(block.id);
+      if (wrapper) wrapper.dataset.sourceLineStart = String(nextLine);
+      const lineCount = sourceLineCount(block);
+      nextCounts.set(block.id, lineCount);
+      nextLine += lineCount;
+    });
+    blockLineCounts = nextCounts;
+  };
+
   function render() {
     const fragment = document.createDocumentFragment();
     blocks.forEach((block, index) => fragment.append(renderBlock(block, index)));
     canvas.replaceChildren(fragment);
+    refreshBlockLineIndex();
     root.classList.toggle('is-empty-document', blocks.length === 1 && blocks[0].text === '');
   }
 
@@ -658,6 +714,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     const wrapper = event.target.closest?.('[data-block-id]');
     if (!wrapper || !event.target.matches('[data-todo-check]')) return;
     updateBlockFromElement(wrapper);
+    event.target.setAttribute('aria-label', event.target.checked ? 'Mark task incomplete' : 'Mark task complete');
     commitHistory();
     notify();
   };
@@ -777,8 +834,39 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     });
   };
 
+  const updateCursorFromSelection = (selection) => {
+    if (mode !== 'edit' || !selection || selection.rangeCount === 0) {
+      setCursor(null);
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    const node = range.startContainer;
+    if (!node) {
+      setCursor(null);
+      return;
+    }
+    const element = node.nodeType === 1 ? node : node.parentElement;
+    const content = element?.closest?.('[data-editor-content]');
+    const wrapper = content?.closest?.('[data-block-id]');
+    if (!content || !wrapper || !canvas.contains(content)) {
+      setCursor(null);
+      return;
+    }
+
+    const before = textBeforeSelection(document, content, selection);
+    const localLines = before.split('\n');
+    const blockStartLine = Number.parseInt(wrapper.dataset.sourceLineStart, 10) || 1;
+    const codeFenceOffset = activeDocument?.markdown !== false && wrapper.dataset.blockType === 'code' ? 1 : 0;
+    setCursor({
+      line: blockStartLine + codeFenceOffset + localLines.length - 1,
+      column: localLines.at(-1).length + 1,
+    });
+  };
+
   const captureSelection = () => {
     const selection = window.getSelection();
+    updateCursorFromSelection(selection);
     captureCaretEcho(selection);
     if (mode !== 'edit' || !isSelectionInside(selection, canvas)) {
       if (!linkPopover || linkPopover.hidden) closeInlineToolbar();
@@ -887,6 +975,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     closeBlockMenu();
     closeInlineToolbar();
     hideCaretEcho();
+    setCursor(null);
     mode = 'read';
     saveState = 'idle';
     saveError = '';
@@ -1064,6 +1153,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       disposed = true;
       document.removeEventListener('selectionchange', captureSelection);
       hideCaretEcho();
+      setCursor(null);
       closeCommandMenu();
       closeBlockMenu();
       closeInlineToolbar();

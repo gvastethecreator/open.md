@@ -22,7 +22,7 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-function mount(save = vi.fn(async () => ({ source: '' }))) {
+function mount(save = vi.fn(async () => ({ source: '' })), hooks = {}) {
   renderFixture();
   const session = createEditorSession({
     window,
@@ -38,6 +38,7 @@ function mount(save = vi.fn(async () => ({ source: '' }))) {
       linkApply: document.getElementById('editor-link-apply'),
     },
     adapters: { save },
+    hooks,
   });
   return { session, save };
 }
@@ -72,6 +73,62 @@ describe('editor session', () => {
 
     expect(document.querySelector('.editor-block')?.dataset.blockType).toBe('todo');
     expect(session.source()).toBe('- [ ] ');
+  });
+
+  it('keeps native checkbox semantics while its completion label follows state', () => {
+    const { session } = mount();
+    session.setDocument({ path: 'sample.md', source: '- [ ] Ship the release', markdown: true });
+    session.enter();
+    const checkbox = document.querySelector('[data-todo-check]');
+
+    expect(checkbox).toMatchObject({ type: 'checkbox', checked: false });
+    expect(checkbox.getAttribute('aria-label')).toBe('Mark task complete');
+
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(checkbox.getAttribute('aria-label')).toBe('Mark task incomplete');
+    expect(session.source()).toBe('- [x] Ship the release');
+
+    checkbox.checked = false;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+    expect(checkbox.getAttribute('aria-label')).toBe('Mark task complete');
+  });
+
+  it('reports source line and visible column for the active editor caret', async () => {
+    const onCursorChange = vi.fn();
+    const { session } = mount(undefined, { onCursorChange });
+    session.setDocument({
+      path: 'sample.md',
+      source: '# Title\n\n- [ ] Task\n\n```js\none\ntwo\n```\nAfter',
+      markdown: true,
+    });
+    session.enter();
+    await Promise.resolve();
+
+    const contents = [...document.querySelectorAll('[data-editor-content]')];
+    const code = contents.at(-2);
+    const range = document.createRange();
+    range.setStart(code.firstChild, 6);
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.dispatchEvent(new Event('selectionchange'));
+
+    expect(session.current().cursor).toEqual({ line: 7, column: 3 });
+    expect(onCursorChange).toHaveBeenLastCalledWith({ line: 7, column: 3 });
+
+    code.textContent = 'one\ntwo\nthree';
+    code.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    const after = contents.at(-1);
+    const shiftedRange = document.createRange();
+    shiftedRange.setStart(after.firstChild, 2);
+    shiftedRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(shiftedRange);
+    document.dispatchEvent(new Event('selectionchange'));
+
+    expect(session.current().cursor).toEqual({ line: 10, column: 3 });
   });
 
   it('preserves a dirty draft when saving fails and supports retry', async () => {

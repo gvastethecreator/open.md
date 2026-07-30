@@ -10,7 +10,8 @@ Edit and Source; its tooltip names the current mode and the next one. On macOS,
 use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd>.
 
 The document becomes a block canvas. The source file remains Markdown or text;
-there is no private document format.
+there is no private document format. While the caret is in the editor, the
+status bar shows its source line and visible column.
 
 ## Work with blocks
 
