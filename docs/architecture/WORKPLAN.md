@@ -339,16 +339,16 @@ mutation, and editor action adapters behind a small context interface.
 ### ARC-21 — Own document ingress adapters
 
 **Type:** AFK
-**Status:** Planned
+**Status:** Implemented
 **Blocked by:** ARC-23.
 
 **What to build:** One Document Ingress Controller owns picker, association
 event replay/acknowledgment, global drag safety, native drag-drop, and
 document-change guards while the Open Intent controller owns request policy.
 
-- [ ] Preview/no-native mode remains usable and native association replay stays FIFO/idempotent.
-- [ ] Drag/drop and picker refuse document replacement while a dirty edit is blocked.
-- [ ] Listener teardown and failure fallback are tested.
+- [x] Preview/no-native mode remains usable and native association replay stays FIFO/idempotent.
+- [x] Drag/drop and picker refuse document replacement while a dirty edit is blocked.
+- [x] Listener teardown and failure fallback are tested.
 
 ### ARC-22 — Own document view-state projection
 
