@@ -161,6 +161,26 @@ export function getMarkdownSourceTokenRanges(line) {
   return visibleRanges;
 }
 
+export function setMarkdownTaskChecked(source, sourceLine, checked) {
+  if (typeof source !== 'string') return null;
+  const lineNumber = Math.floor(Number(sourceLine));
+  if (!Number.isFinite(lineNumber) || lineNumber < 1) return null;
+
+  const newline = source.includes('\r\n') ? '\r\n' : '\n';
+  const lines = source.split(/\r?\n/);
+  const index = lineNumber - 1;
+  if (index >= lines.length) return null;
+
+  const match = lines[index].match(/^(\s*(?:[-+*]|\d+[.)])\s+\[)([ xX])(\])/);
+  if (!match) return null;
+  const nextMarker = checked ? 'x' : ' ';
+  const nextLine = `${match[1]}${nextMarker}${match[3]}${lines[index].slice(match[0].length)}`;
+  if (nextLine === lines[index]) return { source, changed: false };
+
+  lines[index] = nextLine;
+  return { source: lines.join(newline), changed: true };
+}
+
 export function getReadingProgress(scrollTop, scrollHeight, clientHeight) {
   const maxScroll = Math.max(0, Number(scrollHeight) - Number(clientHeight));
   if (maxScroll === 0) return 100;

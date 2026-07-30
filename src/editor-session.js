@@ -162,13 +162,16 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     historyIndex = history.length - 1;
   };
 
-  const restoreHistory = (nextIndex) => {
+  const restoreHistory = (nextIndex, action) => {
     const index = clamp(nextIndex, 0, history.length - 1);
     if (index === historyIndex) return false;
+    const activeIndex = Math.max(0, blocks.findIndex((block) => block.id === activeBlockId));
     historyIndex = index;
     blocks = parseEditorDocument(history[index], { markdown: activeDocument?.markdown !== false });
     render();
     notify();
+    hooks.onHistoryRestore?.(action);
+    queueMicrotask(() => focusBlock(blocks[Math.min(activeIndex, blocks.length - 1)].id));
     return true;
   };
 
@@ -492,8 +495,11 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     const nextCounts = new Map();
     blocks.forEach((block) => {
       const wrapper = findWrapper(block.id);
-      if (wrapper) wrapper.dataset.sourceLineStart = String(nextLine);
       const lineCount = sourceLineCount(block);
+      if (wrapper) {
+        wrapper.dataset.sourceLineStart = String(nextLine);
+        wrapper.dataset.sourceLineCount = String(lineCount);
+      }
       nextCounts.set(block.id, lineCount);
       nextLine += lineCount;
     });
@@ -590,12 +596,12 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
     if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'z') {
       event.preventDefault();
-      restoreHistory(historyIndex + (event.shiftKey ? 1 : -1));
+      restoreHistory(historyIndex + (event.shiftKey ? 1 : -1), event.shiftKey ? 'redo' : 'undo');
       return;
     }
     if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'y') {
       event.preventDefault();
-      restoreHistory(historyIndex + 1);
+      restoreHistory(historyIndex + 1, 'redo');
       return;
     }
     if ((event.ctrlKey || event.metaKey) && event.altKey && /^[1-3]$/.test(event.key)) {
@@ -767,6 +773,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     caretEchoVersion += 1;
     caretEcho.classList.remove('is-moving');
     caretEcho.hidden = true;
+    root.classList.remove('has-custom-caret');
   };
 
   const captureCaretEcho = (selection) => {
@@ -776,7 +783,6 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       || !selection
       || selection.rangeCount === 0
       || !selection.isCollapsed
-      || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     ) {
       hideCaretEcho();
       return;
@@ -803,6 +809,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     caretEcho.style.top = `${Math.round(rect.top * 2) / 2}px`;
     caretEcho.style.height = `${Math.max(12, Math.min(32, rect.height))}px`;
     caretEcho.hidden = false;
+    root.classList.add('has-custom-caret');
     caretEcho.classList.remove('is-moving');
     const version = ++caretEchoVersion;
 
@@ -812,7 +819,6 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       caretEcho.addEventListener('animationend', () => {
         if (version !== caretEchoVersion) return;
         caretEcho.classList.remove('is-moving');
-        caretEcho.hidden = true;
       }, { once: true });
     });
   };

@@ -1,5 +1,13 @@
 # Third-party notices
 
+## Pretext
+
+Responsive heading fitting uses
+[`@chenglou/pretext`](https://github.com/chenglou/pretext), version `0.0.8`.
+Pretext is copyright 2026 Pretext contributors and is distributed under the
+MIT License. Its license text is available in the installed package at
+`node_modules/@chenglou/pretext/LICENSE` and in the upstream repository.
+
 ## Inter typeface
 
 `src/assets/fonts/` includes the normal and italic Inter variable webfonts from
