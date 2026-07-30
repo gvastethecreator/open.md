@@ -31,6 +31,7 @@ import { createContextMenuController } from './context-menu-controller.js';
 import { createTooltipController } from './tooltip-controller.js';
 import { createStatusPresenter } from './status-presenter.js';
 import { createReaderViewportController } from './reader-viewport-controller.js';
+import { createEditorFeedbackPresenter } from './editor-feedback-presenter.js';
 
 let currentZoom = 1;
 const ZOOM_STEP = 0.1;
@@ -56,6 +57,7 @@ let tooltipController = null;
 let statusPresenter = null;
 let readerControls = null;
 let readerViewport = null;
+let editorFeedback = null;
 
 const ui = {
   windowFileTitle: null,
@@ -567,63 +569,15 @@ function mountReaderControls() {
 
 function handleEditorState(snapshot) {
   const nextEditMode = snapshot.mode === 'edit';
-  const modeChanged = nextEditMode !== isEditMode;
+  const feedback = editorFeedback?.render(snapshot) || {
+    isEditMode: nextEditMode,
+    modeChanged: nextEditMode !== isEditMode,
+  };
+  const modeChanged = feedback.modeChanged;
   if (modeChanged) contextMenuController?.close({ immediate: true });
-  isEditMode = nextEditMode;
-  document.body.classList.toggle('is-edit-mode', isEditMode);
-  document.body.classList.toggle('has-unsaved-changes', snapshot.dirty);
-  document.body.classList.toggle('is-editor-saving', snapshot.saveState === 'saving');
-  document.body.classList.toggle('has-editor-save-error', snapshot.saveState === 'error');
+  isEditMode = feedback.isEditMode;
 
   documentModeCoordinator?.refresh();
-
-  if (ui.editorSaveButton) {
-    ui.editorSaveButton.hidden = !isEditMode;
-    ui.editorSaveButton.disabled = snapshot.saveState === 'saving' || !snapshot.dirty;
-    ui.editorSaveButton.classList.toggle('is-error', snapshot.saveState === 'error');
-    ui.editorSaveButton.dataset.state = snapshot.saveState === 'error'
-      ? 'error'
-      : snapshot.saveState === 'saving'
-        ? 'saving'
-        : snapshot.dirty
-          ? 'unsaved'
-          : 'saved';
-    const icon = ui.editorSaveButton.querySelector('i');
-    if (icon) {
-      icon.className = snapshot.saveState === 'error'
-        ? 'iconoir-warning-triangle'
-        : snapshot.saveState === 'saving'
-        ? 'iconoir-refresh'
-        : snapshot.dirty
-          ? 'iconoir-floppy-disk'
-          : 'iconoir-check';
-    }
-  }
-  if (ui.editorSaveLabel) {
-    ui.editorSaveLabel.textContent = snapshot.saveState === 'saving'
-      ? 'Saving…'
-      : snapshot.saveState === 'error'
-        ? 'Save failed'
-        : snapshot.dirty
-          ? 'Unsaved'
-          : snapshot.saveState === 'recovered'
-            ? 'Recovered'
-            : 'Saved';
-  }
-  if (ui.editorSaveButton) {
-    ui.editorSaveButton.dataset.tooltip = snapshot.saveState === 'error'
-      ? `Save failed: ${snapshot.error}. Activate to retry.`
-      : snapshot.dirty
-        ? 'Unsaved changes · Save now (Ctrl+S)'
-        : 'Document saved';
-    ui.editorSaveButton.setAttribute('aria-label', snapshot.saveState === 'saving'
-      ? 'Saving document'
-      : snapshot.saveState === 'error'
-        ? `Retry saving document. Last error: ${snapshot.error}`
-        : snapshot.dirty
-          ? 'Save document'
-          : 'Document saved');
-  }
 
   documentSaveCoordinator?.observeEditor(snapshot);
   if (isEditMode) readingNavigation?.markDirty();
@@ -633,6 +587,14 @@ function handleEditorState(snapshot) {
 }
 
 function mountApplicationEditor() {
+  editorFeedback = createEditorFeedbackPresenter({
+    window,
+    document,
+    elements: {
+      editorSaveButton: ui.editorSaveButton,
+      editorSaveLabel: ui.editorSaveLabel,
+    },
+  });
   editorSession = createEditorSession({
     window,
     elements: {
@@ -1304,6 +1266,7 @@ function registerEvents() {
     statusPresenter?.dispose();
     readerControls?.dispose();
     readerViewport?.dispose();
+    editorFeedback?.dispose();
     responsiveTypography?.dispose();
     readerShell?.dispose();
     editorSession?.dispose();
