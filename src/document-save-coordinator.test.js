@@ -87,6 +87,21 @@ describe('Document Save Coordinator', () => {
     expect(view.notify).not.toHaveBeenCalled();
   });
 
+  it('keeps a same-path reload inside the save lifecycle current', async () => {
+    const pending = deferred();
+    const view = fixture({ saveEditor: vi.fn(() => pending.promise) });
+    view.coordinator.replaceDocument({ path: 'notes.md', document: payload('Before') });
+    const saving = view.coordinator.saveEditor();
+    await Promise.resolve();
+
+    view.coordinator.replaceDocument({ path: 'notes.md', document: null });
+    view.coordinator.replaceDocument({ path: 'notes.md', document: payload('After') });
+    pending.resolve({ status: 'saved' });
+
+    await expect(saving).resolves.toMatchObject({ status: 'saved' });
+    expect(view.notify).toHaveBeenCalledWith('Changes saved');
+  });
+
   it('serializes task saves and rolls back the exact failed checkbox and source', async () => {
     const saveDocument = vi.fn()
       .mockRejectedValueOnce(new Error('disk full'))
