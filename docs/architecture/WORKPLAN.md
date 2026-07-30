@@ -325,16 +325,16 @@ hooks while save scheduling remains in `document-save-coordinator.js`.
 ### ARC-20 — Own document content actions
 
 **Type:** AFK
-**Status:** Planned
+**Status:** Implemented
 **Blocked by:** ARC-16 and ARC-18.
 
 **What to build:** One Document Content Actions module resolves Read/Source/Edit
 context actions and owns selection capture, clipboard fallback, paste, task
 mutation, and editor action adapters behind a small context interface.
 
-- [ ] Links, code, tasks, images, tables, diagrams, selections, source, and blocks keep their action sets.
-- [ ] Clipboard failure restores selection/focus and reports a user-facing error.
-- [ ] Focused action tests execute representative actions in all three modes.
+- [x] Links, code, tasks, images, tables, diagrams, selections, source, and blocks keep their action sets.
+- [x] Clipboard failure restores selection/focus and reports a user-facing error.
+- [x] Focused action tests execute representative actions in all three modes.
 
 ### ARC-21 — Own document ingress adapters
 
