@@ -32,7 +32,13 @@ describe('reader preferences', () => {
     expect(result.status).toBe('loaded');
     expect(preferences.current()).toEqual({
       themeName: 'Ayu Dark',
-      readingTools: { lineGuide: true, minimap: false, source: false, stats: true },
+      readingTools: {
+        lineGuide: true,
+        minimap: false,
+        source: false,
+        stats: true,
+        wordWrap: true,
+      },
       fonts: { sans: 2, mono: 1 },
       alwaysOnTop: true,
       autoSave: false,
@@ -64,19 +70,25 @@ describe('reader preferences', () => {
     await preferences.load();
 
     await preferences.update({ themeName: 'Paper' });
-    await preferences.update({ readingTools: { source: true, stats: true } });
+    await preferences.update({ readingTools: { source: true, stats: true, wordWrap: false } });
     await preferences.update({ fonts: { sans: 1, mono: 2 } });
     await preferences.update({ autoSave: false });
 
     expect(preferences.current()).toMatchObject({
       themeName: 'Paper',
-      readingTools: { source: true, stats: true },
+      readingTools: { source: true, stats: true, wordWrap: false },
       fonts: { sans: 1, mono: 2 },
       autoSave: false,
     });
     expect(store.dump()).toMatchObject({
       [KEYS.theme]: 'Paper',
-      [KEYS.tools]: JSON.stringify({ lineGuide: false, minimap: false, source: true, stats: true }),
+      [KEYS.tools]: JSON.stringify({
+        lineGuide: false,
+        minimap: false,
+        source: true,
+        stats: true,
+        wordWrap: false,
+      }),
       [KEYS.fonts]: JSON.stringify({ sans: 1, mono: 2 }),
       [KEYS.autoSave]: 'false',
     });

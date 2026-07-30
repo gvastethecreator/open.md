@@ -279,17 +279,26 @@ describe('Frontend Logic Tests', () => {
       });
     });
 
-    it('accepts only explicit persisted booleans', () => {
+    it('accepts explicit booleans and fills missing tool defaults', () => {
       expect(normalizeReadingTools({
         lineGuide: true,
         minimap: 'true',
         source: false,
         stats: 1,
+        wordWrap: false,
       })).toEqual({
         lineGuide: true,
         minimap: false,
         source: false,
         stats: false,
+        wordWrap: false,
+      });
+      expect(normalizeReadingTools({})).toEqual({
+        lineGuide: false,
+        minimap: false,
+        source: false,
+        stats: false,
+        wordWrap: true,
       });
     });
 

@@ -24,6 +24,7 @@ export const DEFAULT_READING_TOOLS = Object.freeze({
   minimap: false,
   source: false,
   stats: false,
+  wordWrap: true,
 });
 
 function freezeSnapshot(value) {
@@ -46,7 +47,10 @@ export const DEFAULT_READER_PREFERENCES = freezeSnapshot({
 
 export function normalizeReadingTools(value) {
   return Object.fromEntries(
-    Object.keys(DEFAULT_READING_TOOLS).map((key) => [key, value?.[key] === true])
+    Object.entries(DEFAULT_READING_TOOLS).map(([key, fallback]) => [
+      key,
+      typeof value?.[key] === 'boolean' ? value[key] : fallback,
+    ])
   );
 }
 

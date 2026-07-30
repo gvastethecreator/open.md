@@ -10,7 +10,7 @@
     <script type="module" src="/src/main.js"></script>
   </head>
 
-  <body>
+  <body class="is-word-wrap">
     <header id="app-titlebar" class="app-titlebar">
       <div id="titlebar-drag-region" class="titlebar-drag-region" data-tauri-drag-region>
         <img class="titlebar-icon" src="/src/assets/app-icon.png" width="256" height="256" alt="" aria-hidden="true" data-tauri-drag-region />
@@ -61,6 +61,12 @@
             <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="minimap">
               <i class="iconoir-map" aria-hidden="true"></i>
               <span><strong>Minimap</strong><small>Document overview</small></span>
+              <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+            </button>
+
+            <button class="reading-tool-toggle" type="button" role="switch" aria-checked="true" data-reading-tool="wordWrap">
+              <i class="iconoir-wrap-text" aria-hidden="true"></i>
+              <span><strong>Word wrap</strong><small>Wrap long lines in every mode</small></span>
               <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
             </button>
 

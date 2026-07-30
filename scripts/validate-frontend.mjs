@@ -109,6 +109,7 @@ const requiredAccessibleControls = [
   'id="source-view"',
   'data-reading-tool="lineGuide"',
   'data-reading-tool="minimap"',
+  'data-reading-tool="wordWrap"',
   'data-reading-tool="stats"',
   'data-preference-toggle="autoSave"',
   'id="theme-select"',
@@ -150,6 +151,13 @@ if (!stylesCss.includes('body.is-minimap .markdown-body')) {
 }
 if (!stylesCss.includes('.source-markup-token') || !stylesCss.includes('font-weight: 750')) {
   throw new Error('src/styles.css must distinguish Markdown markup in source mode');
+}
+if (
+  !stylesCss.includes('--content-depth-filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.1))')
+  || !stylesCss.includes('body.is-word-wrap .source-view')
+  || !stylesCss.includes('body:not(.is-word-wrap) .editor-block-content')
+) {
+  throw new Error('src/styles.css must preserve configurable wrapping and subtle content depth');
 }
 
 if (
