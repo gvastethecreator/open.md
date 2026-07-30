@@ -902,6 +902,14 @@ body.is-mode-morphing #document-stage > .editor-view:not([hidden]) {
   animation-fill-mode: both;
 }
 
+body.is-mode-morphing.is-line-guide .line-gutter:not([hidden]) {
+  view-transition-name: mode-line-guide;
+}
+
+body.is-mode-morphing.is-minimap .document-minimap:not([hidden]) {
+  view-transition-name: mode-minimap;
+}
+
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
@@ -946,8 +954,19 @@ html.is-theme-wiping .editor-caret-echo {
   animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+::view-transition-group(mode-line-guide),
+::view-transition-group(mode-minimap) {
+  animation-duration: 300ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 ::view-transition-image-pair(document-surface) {
   isolation: auto;
+}
+
+::view-transition-image-pair(mode-line-guide),
+::view-transition-image-pair(mode-minimap) {
+  isolation: isolate;
 }
 
 ::view-transition-old(document-surface),
@@ -964,11 +983,35 @@ html.is-theme-wiping .editor-caret-echo {
   animation: mode-surface-in 340ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
+::view-transition-old(mode-line-guide) {
+  animation: mode-line-guide-out 130ms cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+
+::view-transition-new(mode-line-guide) {
+  animation: mode-line-guide-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+::view-transition-old(mode-minimap) {
+  animation: mode-minimap-out 140ms cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+
+::view-transition-new(mode-minimap) {
+  animation: mode-minimap-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 body.is-mode-morphing #document-stage > .markdown-body.is-mode-morph-entering,
 body.is-mode-morphing #document-stage > .source-view.is-mode-morph-entering,
 body.is-mode-morphing #document-stage > .editor-view.is-mode-morph-entering {
   animation: mode-surface-in 340ms cubic-bezier(0.4, 0, 0.2, 1) both;
   transform-origin: 50% 12%;
+}
+
+.line-gutter.is-mode-chrome-morphing {
+  animation: mode-line-guide-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.document-minimap.is-mode-chrome-morphing {
+  animation: mode-minimap-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes mode-surface-out {
@@ -982,7 +1025,7 @@ body.is-mode-morphing #document-stage > .editor-view.is-mode-morph-entering {
     opacity: 0;
     clip-path: inset(0.8% 0.35% round 8px);
     filter: blur(2px);
-    transform: scale(0.992);
+    transform: translateY(-4px) scale(0.992);
   }
 }
 
@@ -991,13 +1034,73 @@ body.is-mode-morphing #document-stage > .editor-view.is-mode-morph-entering {
     opacity: 0;
     clip-path: inset(1.2% 0.45% round 10px);
     filter: blur(3px);
-    transform: scale(0.988);
+    transform: translateY(6px) scale(0.988);
   }
   to {
     opacity: 1;
     clip-path: inset(0 round 0);
     filter: blur(0);
     transform: scale(1);
+  }
+}
+
+@keyframes mode-line-guide-out {
+  from {
+    opacity: 1;
+    clip-path: inset(0 round 0);
+    filter: blur(0);
+    transform: translateX(0) scaleX(1);
+  }
+  to {
+    opacity: 0;
+    clip-path: inset(1% 8% round 6px);
+    filter: blur(0.8px);
+    transform: translateX(-4px) scaleX(0.94);
+  }
+}
+
+@keyframes mode-line-guide-in {
+  from {
+    opacity: 0;
+    clip-path: inset(1% 10% round 7px);
+    filter: blur(1px);
+    transform: translateX(-5px) scaleX(0.92);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 round 0);
+    filter: blur(0);
+    transform: translateX(0) scaleX(1);
+  }
+}
+
+@keyframes mode-minimap-out {
+  from {
+    opacity: 1;
+    clip-path: inset(0 round 0);
+    filter: blur(0);
+    transform: translateX(0) scaleX(1);
+  }
+  to {
+    opacity: 0;
+    clip-path: inset(1% 6% round 8px);
+    filter: blur(0.8px);
+    transform: translateX(5px) scaleX(0.95);
+  }
+}
+
+@keyframes mode-minimap-in {
+  from {
+    opacity: 0;
+    clip-path: inset(1% 8% round 9px);
+    filter: blur(1px);
+    transform: translateX(6px) scaleX(0.94);
+  }
+  to {
+    opacity: 0.72;
+    clip-path: inset(0 round 0);
+    filter: blur(0);
+    transform: translateX(0) scaleX(1);
   }
 }
 
@@ -1086,15 +1189,13 @@ body.is-line-guide .editor-end-hint {
   justify-content: center;
   gap: var(--editor-control-gap);
   opacity: 0;
-  transform: translateX(4px);
-  transition: opacity var(--motion-fast) var(--motion-ease-standard), transform var(--motion-fast) var(--motion-ease-standard);
+  transition: opacity var(--motion-fast) var(--motion-ease-standard);
 }
 
 .editor-block:hover .editor-block-gutter,
 .editor-block:focus-within .editor-block-gutter,
 .editor-view.is-block-dragging .editor-block-gutter {
   opacity: 1;
-  transform: translateX(0);
 }
 
 .editor-gutter-button {
@@ -1110,6 +1211,7 @@ body.is-line-guide .editor-end-hint {
   transition:
     color var(--motion-fast) var(--motion-ease-standard),
     background-color var(--motion-fast) var(--motion-ease-standard),
+    box-shadow var(--motion-fast) var(--motion-ease-standard),
     transform var(--motion-fast) var(--motion-ease-out);
 }
 
@@ -1117,6 +1219,7 @@ body.is-line-guide .editor-end-hint {
 .editor-gutter-button:focus-visible {
   color: var(--text-color);
   background: color-mix(in srgb, var(--text-color) 7%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-accent) 10%, transparent);
 }
 
 .editor-drag-handle { cursor: grab; }
@@ -2937,9 +3040,17 @@ body.is-reading-tools-open .typography-panel {
   ::view-transition-group(document-surface),
   ::view-transition-old(document-surface),
   ::view-transition-new(document-surface),
+  ::view-transition-group(mode-line-guide),
+  ::view-transition-old(mode-line-guide),
+  ::view-transition-new(mode-line-guide),
+  ::view-transition-group(mode-minimap),
+  ::view-transition-old(mode-minimap),
+  ::view-transition-new(mode-minimap),
   body.is-mode-morphing .markdown-body.is-mode-morph-entering,
   body.is-mode-morphing .source-view.is-mode-morph-entering,
-  body.is-mode-morphing .editor-view.is-mode-morph-entering {
+  body.is-mode-morphing .editor-view.is-mode-morph-entering,
+  .line-gutter.is-mode-chrome-morphing,
+  .document-minimap.is-mode-chrome-morphing {
     animation: none !important;
     filter: none !important;
     transform: none !important;

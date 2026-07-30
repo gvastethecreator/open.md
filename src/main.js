@@ -1239,13 +1239,29 @@ function finishDocumentModeMorph(generation) {
   clearTimeout(modeMorphFallbackTimeoutId);
   modeMorphFallbackTimeoutId = null;
   activeDocumentModeTransition = null;
+  getDocumentModeSurface()?.classList.remove('is-mode-morph-entering');
+  ui.lineGutter?.classList.remove('is-mode-chrome-morphing');
+  ui.documentMinimap?.classList.remove('is-mode-chrome-morphing');
   document.body.classList.remove('is-mode-morphing');
   delete document.body.dataset.modeMorphFrom;
   delete document.body.dataset.modeMorphTo;
 }
 
+function replayDocumentModeChromeMorph() {
+  if (document.body.classList.contains('is-line-guide')) {
+    replayOneShotAnimation(ui.lineGutter, 'is-mode-chrome-morphing');
+  }
+  if (document.body.classList.contains('is-minimap')) {
+    replayOneShotAnimation(ui.documentMinimap, 'is-mode-chrome-morphing');
+  }
+}
+
 async function withDocumentModeMorph(update) {
-  activeDocumentModeTransition?.skipTransition?.();
+  const interruptedTransition = activeDocumentModeTransition;
+  interruptedTransition?.skipTransition?.();
+  if (document.body.classList.contains('is-mode-morphing')) {
+    finishDocumentModeMorph(modeMorphGeneration);
+  }
   activeThemeTransition?.skipTransition?.();
   clearTimeout(modeMorphFallbackTimeoutId);
   modeMorphFallbackTimeoutId = null;
@@ -1268,6 +1284,7 @@ async function withDocumentModeMorph(update) {
         return result;
       }
       replayOneShotAnimation(getDocumentModeSurface(nextMode), 'is-mode-morph-entering');
+      replayDocumentModeChromeMorph();
       modeMorphFallbackTimeoutId = setTimeout(() => finishDocumentModeMorph(generation), 380);
       return result;
     } catch (error) {
@@ -1290,6 +1307,8 @@ async function withDocumentModeMorph(update) {
   }
 
   activeDocumentModeTransition = transition;
+  transition.ready.catch(() => {});
+  modeMorphFallbackTimeoutId = setTimeout(() => finishDocumentModeMorph(generation), 440);
   transition.finished.then(
     () => finishDocumentModeMorph(generation),
     () => finishDocumentModeMorph(generation)
