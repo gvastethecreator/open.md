@@ -22,11 +22,9 @@ import { createEditorSession } from './editor-session.js';
 import { orderNativeOpenRequests } from './open-intent-controller.js';
 import { mountReaderShell } from './reader-shell.js';
 import {
-  DEFAULT_READING_TOOLS,
-  FONT_PRESETS,
   createOptionalWebPreferenceStore,
-  normalizeFontIndex,
 } from './reader-preferences.js';
+import { createReaderControls } from './reader-controls.js';
 import { createResponsiveTypography } from './responsive-typography.js';
 import { createReadingNavigationController } from './reading-navigation-controller.js';
 import { createDocumentModeCoordinator } from './document-mode-coordinator.js';
@@ -47,12 +45,6 @@ let currentFilePath = null;
 let isHelpVisible = false;
 let focusBeforeHelp = null;
 let currentDocument = null;
-let readingTools = { ...DEFAULT_READING_TOOLS };
-let isReadingToolsOpen = false;
-let fontPreferences = { sans: 0, mono: 0 };
-let isTypographyOpen = false;
-let isAlwaysOnTop = false;
-let isAutoSaveEnabled = true;
 let windowChrome = null;
 let readerShell = null;
 let editorSession = null;
@@ -66,6 +58,7 @@ let themeCoordinator = null;
 let contextMenuController = null;
 let tooltipController = null;
 let statusPresenter = null;
+let readerControls = null;
 let syntaxHighlighterPromise = null;
 
 const ui = {
@@ -237,7 +230,7 @@ function updateStatus(filePath = null) {
       updateStatusMetrics();
       return;
     }
-    const viewLabel = currentDocument && readingTools.source ? 'Source' : getFileKind(filePath);
+    const viewLabel = currentDocument && readerControls?.current().readingTools.source ? 'Source' : getFileKind(filePath);
     setStatusText(getDisplayName(filePath), viewLabel);
     updateStatusMetrics();
     return;
@@ -283,10 +276,10 @@ function updateStatusMetrics() {
     characterCount: currentDocument.characterCount,
     zoomPercent: currentZoom * 100,
     currentLine: readingNavigation?.snapshot().currentLine || 1,
-    showCurrentLine: readingTools.lineGuide,
+    showCurrentLine: readerControls?.current().readingTools.lineGuide,
     readingProgress: readingNavigation?.snapshot().readingProgress || 0,
     readingTimeMinutes: currentDocument.readingTimeMinutes,
-    showReadingStats: readingTools.stats,
+    showReadingStats: readerControls?.current().readingTools.stats,
   });
 
   statusPresenter?.renderMetrics(metrics.items, metrics.accessible.join('. '));
@@ -297,7 +290,7 @@ function hasLoadedDocument() {
 }
 
 function isSourceViewActive() {
-  return hasLoadedDocument() && readingTools.source && !isEditMode;
+  return hasLoadedDocument() && readerControls?.current().readingTools.source && !isEditMode;
 }
 
 function reportPreferenceResult(result) {
@@ -307,221 +300,24 @@ function reportPreferenceResult(result) {
 }
 
 function handlePreferenceSnapshot(snapshot) {
-  readingTools = { ...snapshot.readingTools };
-  fontPreferences = { ...snapshot.fonts };
-  isAlwaysOnTop = snapshot.alwaysOnTop;
-  isAutoSaveEnabled = snapshot.autoSave;
-  documentSaveCoordinator?.setAutoSaveEnabled(isAutoSaveEnabled, editorSession?.current());
-  applyFontPreferences();
-  updateAlwaysOnTopControl();
-  updateAutoSaveControl();
-  applyReadingTools();
-
-  if (snapshot.themeName && themeCoordinator?.current()?.name !== snapshot.themeName) {
-    themeCoordinator?.applyName(snapshot.themeName, { silent: true, persist: false });
-  }
-}
-
-function updateFontControls() {
-  for (const kind of Object.keys(FONT_PRESETS)) {
-    const presets = FONT_PRESETS[kind];
-    const index = normalizeFontIndex(fontPreferences[kind], presets.length);
-    const current = presets[index];
-    const next = presets[(index + 1) % presets.length];
-    const button = ui.fontButtons.find((candidate) => candidate.dataset.fontKind === kind);
-    const name = document.getElementById(`${kind}-font-name`);
-    const kindLabel = kind === 'sans' ? 'Sans' : 'Mono';
-
-    if (name) name.textContent = current.name;
-    if (button) {
-      const label = `${kindLabel} font: ${current.name}. Activate for ${next.name}`;
-      button.setAttribute('aria-label', label);
-      button.dataset.tooltip = label;
-    }
-  }
-}
-
-function applyFontPreferences() {
-  const root = document.documentElement;
-  for (const kind of Object.keys(FONT_PRESETS)) {
-    const presets = FONT_PRESETS[kind];
-    const index = normalizeFontIndex(fontPreferences[kind], presets.length);
-    fontPreferences[kind] = index;
-    root.style.setProperty(`--font-${kind}`, presets[index].value);
-  }
-
-  updateFontControls();
-  readingNavigation?.markDirty();
-  responsiveTypography?.schedule();
-}
-
-async function cycleFont(kind) {
-  const presets = FONT_PRESETS[kind];
-  if (!presets) return;
-
-  const nextIndex = normalizeFontIndex(fontPreferences[kind] + 1, presets.length);
-  const result = await readerShell.preferences.update({ fonts: { [kind]: nextIndex } });
-  reportPreferenceResult(result);
-  const label = kind === 'sans' ? 'Sans' : 'Mono';
-  showToast(`${label} font: ${FONT_PRESETS[kind][fontPreferences[kind]].name}`);
+  readerControls?.applySnapshot(snapshot);
 }
 
 function setTypographyOpen(nextOpen, { returnFocus = false } = {}) {
-  isTypographyOpen = Boolean(nextOpen && !isHelpVisible);
-  if (isTypographyOpen) setReadingToolsOpen(false);
-  document.body.classList.toggle('is-typography-open', isTypographyOpen);
-  ui.typographyButton?.setAttribute('aria-expanded', String(isTypographyOpen));
-
-  if (ui.typographyButton) {
-    const label = isTypographyOpen ? 'Close appearance options' : 'Open appearance options';
-    ui.typographyButton.setAttribute('aria-label', label);
-    ui.typographyButton.dataset.tooltip = label;
-  }
-
-  if (ui.typographyPanel) {
-    ui.typographyPanel.setAttribute('aria-hidden', String(!isTypographyOpen));
-    ui.typographyPanel.toggleAttribute('inert', !isTypographyOpen);
-  }
-
-  if (!isTypographyOpen && returnFocus) {
-    queueMicrotask(() => ui.typographyButton?.focus());
-  }
-}
-
-function updateAutoSaveControl() {
-  ui.autoSaveToggle?.setAttribute('aria-checked', String(isAutoSaveEnabled));
-  if (ui.autoSaveToggle) {
-    const label = `Auto-save: ${isAutoSaveEnabled ? 'on' : 'off'}`;
-    ui.autoSaveToggle.setAttribute('aria-label', label);
-    ui.autoSaveToggle.dataset.tooltip = label;
-  }
-}
-
-async function toggleAutoSave() {
-  const result = await readerShell.preferences.update({ autoSave: !isAutoSaveEnabled });
-  reportPreferenceResult(result);
-  documentSaveCoordinator?.setAutoSaveEnabled(isAutoSaveEnabled, editorSession?.current());
-  showToast(`Auto-save ${isAutoSaveEnabled ? 'on' : 'off'}`);
-}
-
-function updateAlwaysOnTopControl() {
-  const label = `Always on top: ${isAlwaysOnTop ? 'on' : 'off'}`;
-  document.body.classList.toggle('is-always-on-top', isAlwaysOnTop);
-  ui.alwaysOnTopButton?.setAttribute('aria-checked', String(isAlwaysOnTop));
-  if (ui.alwaysOnTopButton) {
-    ui.alwaysOnTopButton.setAttribute('aria-label', label);
-    ui.alwaysOnTopButton.dataset.tooltip = label;
-  }
-}
-
-async function toggleAlwaysOnTop() {
-  const nextValue = !isAlwaysOnTop;
-  if (ui.alwaysOnTopButton) ui.alwaysOnTopButton.disabled = true;
-  try {
-    const result = await readerShell.preferences.update({ alwaysOnTop: nextValue });
-    if (result.status === 'applied' || result.status === 'volatile') {
-      reportPreferenceResult(result);
-      showToast(`Always on top ${nextValue ? 'on' : 'off'}`);
-    } else if (result.status === 'unavailable') {
-      showToast('Always on top is available in the desktop app');
-    } else {
-      showToast('Could not change always on top');
-    }
-  } catch (error) {
-    console.error('Could not change the always-on-top setting:', error);
-    showToast('Could not change always on top');
-  } finally {
-    if (ui.alwaysOnTopButton) ui.alwaysOnTopButton.disabled = false;
-  }
+  readerControls?.setTypographyOpen(nextOpen, { returnFocus });
 }
 
 function setReadingToolsOpen(nextOpen, { returnFocus = false } = {}) {
-  const canOpen = !isHelpVisible;
-  isReadingToolsOpen = Boolean(nextOpen && canOpen);
-  if (isReadingToolsOpen) setTypographyOpen(false);
-  document.body.classList.toggle('is-reading-tools-open', isReadingToolsOpen);
-  ui.readingToolsButton?.setAttribute('aria-expanded', String(isReadingToolsOpen));
-
-  if (ui.readingToolsButton) {
-    const label = isReadingToolsOpen ? 'Close view options' : 'Open view options';
-    ui.readingToolsButton.setAttribute('aria-label', label);
-    ui.readingToolsButton.dataset.tooltip = label;
-  }
-
-  if (ui.readingToolsPanel) {
-    ui.readingToolsPanel.setAttribute('aria-hidden', String(!isReadingToolsOpen));
-    ui.readingToolsPanel.toggleAttribute('inert', !isReadingToolsOpen);
-  }
-
-  if (!isReadingToolsOpen && returnFocus) {
-    queueMicrotask(() => ui.readingToolsButton?.focus());
-  }
-}
-
-function updateReadingToolControls() {
-  const available = hasLoadedDocument();
-  const hasActiveTool = available && ['lineGuide', 'minimap', 'stats', 'wordWrap']
-    .some((tool) => readingTools[tool] !== DEFAULT_READING_TOOLS[tool]);
-
-  if (ui.readingToolsButton) {
-    ui.readingToolsButton.classList.toggle('is-active', hasActiveTool);
-  }
-
-  ui.readingToolToggles.forEach((toggle) => {
-    const tool = toggle.dataset.readingTool;
-    toggle.disabled = !available;
-    toggle.setAttribute('aria-checked', String(Boolean(readingTools[tool])));
-  });
+  readerControls?.setReadingToolsOpen(nextOpen, { returnFocus });
 }
 
 function applyReadingTools() {
-  const available = hasLoadedDocument();
-  const sourceActive = available && readingTools.source && !isEditMode;
-  const lineGuideActive = available && readingTools.lineGuide;
-  const minimapActive = available && readingTools.minimap;
-
-  document.body.classList.toggle('is-source-view', sourceActive);
-  document.body.classList.toggle('is-line-guide', lineGuideActive);
-  document.body.classList.toggle('is-minimap', minimapActive);
-  document.body.classList.toggle('is-word-wrap', readingTools.wordWrap);
-  documentModeCoordinator?.refresh();
-  ui.content?.classList.toggle('hidden', sourceActive || isEditMode);
-  ui.sourceView?.classList.toggle('hidden', !sourceActive);
-
-  readingNavigation?.refreshTools();
-  responsiveTypography?.schedule();
-  updateReadingToolControls();
+  readerControls?.refresh();
   updateStatus(currentFilePath);
 }
 
 async function setReadingTool(tool, nextValue) {
-  if (!Object.hasOwn(DEFAULT_READING_TOOLS, tool) || !hasLoadedDocument()) return;
-
-  const next = Boolean(nextValue);
-  if (readingTools[tool] === next) return;
-
-  if (tool === 'source' && ui.readerPage) {
-    readingNavigation?.captureViewScroll(readingTools.source ? 'source' : 'read');
-  }
-
-  const result = await readerShell.preferences.update({ readingTools: { [tool]: next } });
-  reportPreferenceResult(result);
-
-  if (tool === 'source' && ui.readerPage) {
-    requestAnimationFrame(() => {
-      readingNavigation?.restoreViewScroll(next ? 'source' : 'read');
-      (next ? ui.sourceView : ui.content)?.focus({ preventScroll: true });
-    });
-  }
-
-  const labels = {
-    lineGuide: 'Line guide',
-    minimap: 'Minimap',
-    source: 'Source view',
-    stats: 'Reading stats',
-    wordWrap: 'Word wrap',
-  };
-  showToast(`${labels[tool]} ${next ? 'on' : 'off'}`);
+  return readerControls?.setReadingTool(tool, nextValue);
 }
 
 function syncViewportState() {
@@ -835,6 +631,59 @@ function mountApplicationReaderShell() {
   });
 }
 
+function mountReaderControls() {
+  readerControls = createReaderControls({
+    window,
+    document,
+    elements: {
+      readingToolsButton: ui.readingToolsButton,
+      readingToolsShell: ui.readingToolsShell,
+      readingToolsPanel: ui.readingToolsPanel,
+      typographyButton: ui.typographyButton,
+      typographyShell: ui.typographyShell,
+      typographyPanel: ui.typographyPanel,
+      alwaysOnTopButton: ui.alwaysOnTopButton,
+      autoSaveToggle: ui.autoSaveToggle,
+      fontButtons: ui.fontButtons,
+      readingToolToggles: ui.readingToolToggles,
+      content: ui.content,
+      sourceView: ui.sourceView,
+    },
+    adapters: {
+      preferences: readerShell.preferences,
+      isDocumentAvailable: hasLoadedDocument,
+      isEditMode: () => isEditMode,
+    },
+    hooks: {
+      isHelpVisible: () => isHelpVisible,
+      captureViewScroll: (mode) => readingNavigation?.captureViewScroll(mode),
+      restoreViewScroll: (mode) => readingNavigation?.restoreViewScroll(mode),
+      onReadingToolsApplied: () => {
+        documentModeCoordinator?.refresh();
+        readingNavigation?.refreshTools();
+        responsiveTypography?.schedule();
+        updateStatus(currentFilePath);
+      },
+      onFontsApplied: () => {
+        readingNavigation?.markDirty();
+        responsiveTypography?.schedule();
+      },
+      onAutoSaveApplied: (enabled) => {
+        documentSaveCoordinator?.setAutoSaveEnabled(enabled, editorSession?.current());
+      },
+      onThemeName: (themeName) => {
+        if (themeName && themeCoordinator?.current()?.name !== themeName) {
+          themeCoordinator?.applyName(themeName, { silent: true, persist: false });
+        }
+      },
+      onPreferenceResult: reportPreferenceResult,
+      onToast: showToast,
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  });
+  readerControls.start();
+}
+
 function handleEditorState(snapshot) {
   const nextEditMode = snapshot.mode === 'edit';
   const modeChanged = nextEditMode !== isEditMode;
@@ -925,7 +774,7 @@ function mountApplicationEditor() {
       onStateChange: handleEditorState,
       onCursorChange: () => {
         updateStatusMetrics();
-        if (readingTools.lineGuide) readingNavigation?.queueUpdate();
+        if (readerControls?.current().readingTools.lineGuide) readingNavigation?.queueUpdate();
       },
       onSaved: async () => {
         await readerShell?.reload();
@@ -964,7 +813,7 @@ function mountDocumentSaveCoordinator() {
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
   });
-  documentSaveCoordinator.setAutoSaveEnabled(isAutoSaveEnabled, editorSession.current());
+  documentSaveCoordinator.setAutoSaveEnabled(readerControls?.current().autoSave !== false, editorSession.current());
 }
 
 function mountDocumentModeCoordinator() {
@@ -1022,8 +871,8 @@ function mountReadingNavigation() {
       getFilePath: () => currentFilePath,
       getMode: () => isEditMode ? 'edit' : isSourceViewActive() ? 'source' : 'read',
       isHelpVisible: () => isHelpVisible,
-      isLineGuideEnabled: () => readingTools.lineGuide,
-      isMinimapEnabled: () => readingTools.minimap,
+      isLineGuideEnabled: () => readerControls?.current().readingTools.lineGuide,
+      isMinimapEnabled: () => readerControls?.current().readingTools.minimap,
       getEditorCursorLine: () => editorSession?.current().cursor?.line,
     },
     hooks: {
@@ -1375,23 +1224,6 @@ function handleZoom(event) {
   }
 }
 
-function toggleReadingTools() {
-  setReadingToolsOpen(!isReadingToolsOpen);
-}
-
-function toggleTypography() {
-  setTypographyOpen(!isTypographyOpen);
-}
-
-function handleFontCycle(event) {
-  cycleFont(event.currentTarget.dataset.fontKind);
-}
-
-function handleReadingToolToggle(event) {
-  const tool = event.currentTarget.dataset.readingTool;
-  setReadingTool(tool, event.currentTarget.getAttribute('aria-checked') !== 'true');
-}
-
 function handleKeyboard(event) {
   if (event.key === 'F1') {
     event.preventDefault();
@@ -1405,7 +1237,7 @@ function handleKeyboard(event) {
     return;
   }
 
-  if (event.key === 'Escape' && isReadingToolsOpen) {
+  if (event.key === 'Escape' && readerControls?.isReadingToolsOpen()) {
     event.preventDefault();
     setReadingToolsOpen(false, { returnFocus: true });
     return;
@@ -1423,7 +1255,7 @@ function handleKeyboard(event) {
     return;
   }
 
-  if (event.key === 'Escape' && isTypographyOpen) {
+  if (event.key === 'Escape' && readerControls?.isTypographyOpen()) {
     event.preventDefault();
     setTypographyOpen(false, { returnFocus: true });
     return;
@@ -1589,38 +1421,21 @@ function registerEvents() {
     contextMenuController?.dispose();
     tooltipController?.dispose();
     statusPresenter?.dispose();
+    readerControls?.dispose();
     responsiveTypography?.dispose();
     readerShell?.dispose();
     editorSession?.dispose();
     windowChrome?.dispose();
   });
   document.addEventListener('click', handleLinkClick);
-  document.addEventListener('pointerdown', (event) => {
-    if (isReadingToolsOpen && !ui.readingToolsShell?.contains(event.target)) {
-      setReadingToolsOpen(false);
-    }
-    if (isTypographyOpen && !ui.typographyShell?.contains(event.target)) {
-      setTypographyOpen(false);
-    }
-  });
 
   ui.emptyOpenButton?.addEventListener('click', openFilePicker);
   ui.toolbarOpenButton?.addEventListener('click', openFilePicker);
   ui.helpToggleButton?.addEventListener('click', toggleHelp);
   ui.closeHelpButton?.addEventListener('click', () => setHelpVisible(false));
   ui.content?.addEventListener('change', handleReadTaskToggle);
-  ui.readingToolsButton?.addEventListener('click', toggleReadingTools);
-  ui.typographyButton?.addEventListener('click', toggleTypography);
-  ui.alwaysOnTopButton?.addEventListener('click', toggleAlwaysOnTop);
-  ui.autoSaveToggle?.addEventListener('click', toggleAutoSave);
   ui.editModeButton?.addEventListener('click', () => documentModeCoordinator?.cycle());
   ui.editorSaveButton?.addEventListener('click', () => documentSaveCoordinator?.saveEditor());
-  ui.readingToolToggles.forEach((toggle) => {
-    toggle.addEventListener('click', handleReadingToolToggle);
-  });
-  ui.fontButtons.forEach((button) => {
-    button.addEventListener('click', handleFontCycle);
-  });
   document.getElementById('theme-select')?.addEventListener('change', handleThemeSelection);
 }
 
@@ -1642,6 +1457,7 @@ async function init() {
     onDiagnostic: (message, error) => console.warn(`${message}:`, error),
   });
   mountApplicationReaderShell();
+  mountReaderControls();
   mountApplicationEditor();
   mountDocumentSaveCoordinator();
   mountDocumentModeCoordinator();
