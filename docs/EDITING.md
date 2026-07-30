@@ -70,6 +70,12 @@ features in one file. It includes headings, inline formatting, task and nested
 lists, a wide table, a local image, a Mermaid diagram, code, a footnote and
 Unicode text.
 
+## About and Help
+
+Press <kbd>F1</kbd> or use the question-mark icon to open About + Help. It
+contains the local-file and format guarantees, a four-step quick start and the
+essential shortcuts. Press <kbd>Esc</kbd> to return to the document.
+
 ## Current limits
 
 Editing covers the common Markdown blocks above. Existing heading levels 4–6

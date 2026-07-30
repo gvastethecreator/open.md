@@ -20,12 +20,19 @@ function ensureMessageElement(document, toast) {
   return message;
 }
 
-export function createToastPresenter({ window, document, element = null, duration = 2000 }) {
+export function createToastPresenter({
+  window,
+  document,
+  element = null,
+  duration = 2000,
+  exitDuration = 140,
+}) {
   if (!window || !document) throw new TypeError('Toast Presenter requires window and document');
 
   const toast = ensureToastElement(document, element);
   const messageElement = ensureMessageElement(document, toast);
   let timeoutId = null;
+  let exitTimeoutId = null;
   let revision = 0;
   let animations = [];
   let disposed = false;
@@ -56,6 +63,7 @@ export function createToastPresenter({ window, document, element = null, duratio
       text: outgoingElement.textContent,
       opacity: outgoingStyle.opacity || '1',
       filter: outgoingStyle.filter || 'none',
+      transform: outgoingStyle.transform || 'none',
     };
     const canMorph = toast.classList.contains('show')
       && messageElement.textContent !== nextMessage
@@ -77,35 +85,28 @@ export function createToastPresenter({ window, document, element = null, duratio
     messageElement.textContent = nextMessage;
 
     const targetBox = toast.getBoundingClientRect();
-    const currentRadius = window.getComputedStyle(toast).borderRadius;
     toast.style.width = `${visibleBox.width}px`;
     toast.style.height = `${visibleBox.height}px`;
     toast.appendChild(previousMessage);
 
-    const shape = toast.animate([
-      { width: `${visibleBox.width}px`, height: `${visibleBox.height}px`, borderRadius: currentRadius },
-      {
-        width: `${(visibleBox.width + targetBox.width) / 2}px`,
-        height: `${(visibleBox.height + targetBox.height) / 2}px`,
-        borderRadius: '8px',
-        offset: 0.5,
-      },
-      { width: `${targetBox.width}px`, height: `${targetBox.height}px`, borderRadius: currentRadius },
-    ], { duration: 260, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'both' });
+    const size = toast.animate([
+      { width: `${visibleBox.width}px`, height: `${visibleBox.height}px` },
+      { width: `${targetBox.width}px`, height: `${targetBox.height}px` },
+    ], { duration: 240, easing: 'cubic-bezier(0.2, 0, 0, 1)', fill: 'both' });
     const previous = previousMessage.animate([
-      { opacity: outgoing.opacity, filter: outgoing.filter },
-      { opacity: 0, filter: 'blur(0.6px)' },
-    ], { duration: 120, easing: 'cubic-bezier(0.4, 0, 0.6, 1)', fill: 'both' });
+      { opacity: outgoing.opacity, filter: outgoing.filter, transform: outgoing.transform },
+      { opacity: 0, filter: 'blur(0.8px)', transform: 'translateY(-5px)' },
+    ], { duration: 140, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'both' });
     const next = messageElement.animate([
-      { opacity: 0, filter: 'blur(0.6px)' },
-      { opacity: 1, filter: 'blur(0)' },
+      { opacity: 0, filter: 'blur(0.8px)', transform: 'translateY(5px)' },
+      { opacity: 1, filter: 'blur(0)', transform: 'translateY(0)' },
     ], {
-      duration: 180,
-      delay: 58,
-      easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+      duration: 200,
+      delay: 42,
+      easing: 'cubic-bezier(0.2, 0, 0, 1)',
       fill: 'both',
     });
-    animations = [shape, previous, next];
+    animations = [size, previous, next];
     Promise.allSettled(animations.map((animation) => animation.finished)).then(() => {
       if (morphRevision === revision && !disposed) clearMorph();
     });
@@ -113,12 +114,23 @@ export function createToastPresenter({ window, document, element = null, duratio
 
   const show = (message) => {
     if (disposed) return;
+    window.clearTimeout(exitTimeoutId);
+    exitTimeoutId = null;
+    toast.classList.remove('is-leaving');
     replaceMessage(String(message));
     toast.classList.add('show');
     window.clearTimeout(timeoutId);
     timeoutId = window.setTimeout(() => {
       timeoutId = null;
-      toast.classList.remove('show');
+      if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || exitDuration <= 0) {
+        toast.classList.remove('show', 'is-leaving');
+        return;
+      }
+      toast.classList.add('is-leaving');
+      exitTimeoutId = window.setTimeout(() => {
+        exitTimeoutId = null;
+        toast.classList.remove('show', 'is-leaving');
+      }, exitDuration);
     }, duration);
   };
 
@@ -126,9 +138,11 @@ export function createToastPresenter({ window, document, element = null, duratio
     if (disposed) return;
     disposed = true;
     window.clearTimeout(timeoutId);
+    window.clearTimeout(exitTimeoutId);
     timeoutId = null;
+    exitTimeoutId = null;
     clearMorph({ invalidate: true });
-    toast.classList.remove('show');
+    toast.classList.remove('show', 'is-leaving');
   };
 
   return Object.freeze({ show, cancel: () => clearMorph({ invalidate: true }), dispose, element: toast });

@@ -13,10 +13,10 @@ function fixture({ animate = true, reduced = false } = {}) {
   const animations = [];
   if (animate) {
     const install = (element) => {
-      element.animate = vi.fn(() => {
+      element.animate = vi.fn((keyframes, options) => {
         let resolve;
         const finished = new Promise((next) => { resolve = next; });
-        const animation = { cancel: vi.fn(), finished, resolve };
+        const animation = { cancel: vi.fn(), finished, keyframes, options, resolve };
         animations.push(animation);
         return animation;
       });
@@ -36,7 +36,13 @@ function fixture({ animate = true, reduced = false } = {}) {
 describe('Toast Presenter', () => {
   it('shows one accessible message and hides it after the display interval', async () => {
     const { dom, toast } = fixture({ animate: false });
-    const presenter = createToastPresenter({ window: dom.window, document: dom.window.document, element: toast, duration: 5 });
+    const presenter = createToastPresenter({
+      window: dom.window,
+      document: dom.window.document,
+      element: toast,
+      duration: 5,
+      exitDuration: 0,
+    });
 
     presenter.show('Saved');
     expect(toast.classList.contains('show')).toBe(true);
@@ -54,6 +60,19 @@ describe('Toast Presenter', () => {
 
     expect(animations).toHaveLength(3);
     expect(toast.querySelectorAll('.toast-message--previous')).toHaveLength(1);
+    expect(animations[0].keyframes.every((frame) => !('borderRadius' in frame))).toBe(true);
+    expect(animations[1].keyframes.at(-1)).toMatchObject({
+      opacity: 0,
+      transform: 'translateY(-5px)',
+    });
+    expect(animations[2].keyframes[0]).toMatchObject({
+      opacity: 0,
+      transform: 'translateY(5px)',
+    });
+    expect(animations[2].keyframes.at(-1)).toMatchObject({
+      opacity: 1,
+      transform: 'translateY(0)',
+    });
     animations.forEach((animation) => animation.resolve());
     await Promise.resolve();
     await Promise.resolve();
@@ -75,6 +94,36 @@ describe('Toast Presenter', () => {
     fallbackPresenter.show('One');
     fallbackPresenter.show('Two');
     expect(fallback.toast.querySelectorAll('.toast-message')).toHaveLength(1);
+  });
+
+  it('stages the text exit and lets a new message interrupt it', () => {
+    vi.useFakeTimers();
+    try {
+      const { dom, toast } = fixture({ animate: false });
+      const presenter = createToastPresenter({
+        window: dom.window,
+        document: dom.window.document,
+        element: toast,
+        duration: 100,
+        exitDuration: 40,
+      });
+
+      presenter.show('One');
+      vi.advanceTimersByTime(100);
+      expect(toast.classList.contains('show')).toBe(true);
+      expect(toast.classList.contains('is-leaving')).toBe(true);
+
+      presenter.show('Two');
+      expect(toast.classList.contains('is-leaving')).toBe(false);
+      expect(toast.querySelector('.toast-message').textContent).toBe('Two');
+
+      vi.advanceTimersByTime(140);
+      expect(toast.classList.contains('show')).toBe(false);
+      expect(toast.classList.contains('is-leaving')).toBe(false);
+      presenter.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('cancels rapid morphs and disposes all temporary state', () => {
