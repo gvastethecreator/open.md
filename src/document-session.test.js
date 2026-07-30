@@ -25,7 +25,7 @@ function createResources() {
   };
 }
 
-function createSession({ open, readImage, render, resources, hooks } = {}) {
+function createSession({ open, readImage, render, highlight, resources, hooks } = {}) {
   return createDocumentSession({
     window,
     adapters: {
@@ -35,6 +35,9 @@ function createSession({ open, readImage, render, resources, hooks } = {}) {
       },
       diagrams: {
         render: render || vi.fn(async () => false),
+      },
+      syntax: {
+        highlight: highlight || vi.fn(async () => false),
       },
       resources: resources || createResources(),
     },
@@ -97,6 +100,28 @@ describe('document session', () => {
     expect(onWarning).toHaveBeenCalledOnce();
     expect(onWarning).toHaveBeenCalledWith('One or more diagrams could not be rendered');
     expect(document.querySelector('#content .mermaid')?.textContent).toBe('graph TD');
+  });
+
+  it('runs deferred syntax enrichment and preserves readable code when it fails', async () => {
+    const onWarning = vi.fn();
+    const onDiagnostic = vi.fn();
+    const highlight = vi.fn(async (content) => {
+      expect(content.querySelector('.copy-code-btn')).not.toBeNull();
+      throw new Error('Syntax chunk unavailable');
+    });
+    const session = createSession({
+      open: vi.fn(async () => payload({
+        html: '<pre><code class="language-javascript">const calm = true;</code></pre>',
+      })),
+      highlight,
+      hooks: { onWarning, onDiagnostic },
+    });
+
+    await expect(session.open({ path: 'code.md' })).resolves.toMatchObject({ status: 'ready' });
+    expect(highlight).toHaveBeenCalledOnce();
+    expect(onWarning).toHaveBeenCalledWith('Code remains readable without syntax colors');
+    expect(onDiagnostic).toHaveBeenCalledWith('Syntax highlighting error', expect.any(Error));
+    expect(document.querySelector('#content code')?.textContent).toBe('const calm = true;');
   });
 
   it('clears document resources on replacement, failure and disposal', async () => {

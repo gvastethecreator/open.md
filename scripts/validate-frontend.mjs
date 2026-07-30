@@ -155,7 +155,7 @@ if (!stylesCss.includes('.source-markup-token') || !stylesCss.includes('font-wei
 if (
   !stylesCss.includes('.typography-panel')
   || !stylesCss.includes('body.has-scroll-before .app-shell::before')
-  || !stylesCss.includes('backdrop-filter: blur(1.25px)')
+  || !stylesCss.includes('backdrop-filter: blur(2.5px)')
 ) {
   throw new Error('src/styles.css must preserve typography controls and conditional scroll-edge depth cues');
 }

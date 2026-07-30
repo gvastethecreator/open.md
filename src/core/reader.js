@@ -372,6 +372,32 @@ function chooseAccessibleColor(candidates, background, minimumRatio = 4.5) {
   return blackRatio >= whiteRatio ? '#000000' : '#ffffff';
 }
 
+function adaptColorToContrast(value, background, minimumRatio = 4.5) {
+  const normalized = normalizeHexColor(value);
+  if (!normalized) return null;
+  if (getContrastRatio(normalized, background) >= minimumRatio) return normalized;
+
+  const contrastTarget = getContrastRatio('#000000', background) >= getContrastRatio('#ffffff', background)
+    ? '#000000'
+    : '#ffffff';
+
+  for (let weight = 0.06; weight <= 1; weight += 0.06) {
+    const adjusted = mixHexColors(normalized, contrastTarget, Math.min(weight, 1));
+    if (getContrastRatio(adjusted, background) >= minimumRatio) return adjusted;
+  }
+
+  return contrastTarget;
+}
+
+function chooseAdaptiveColor(candidates, background, minimumRatio = 4.5) {
+  for (const candidate of candidates) {
+    const adjusted = adaptColorToContrast(candidate, background, minimumRatio);
+    if (adjusted) return adjusted;
+  }
+
+  return chooseAccessibleColor([], background, minimumRatio);
+}
+
 export function getThemeTokens(theme = {}) {
   const background = normalizeHexColor(theme.background) || '#ffffff';
   const text = chooseAccessibleColor([theme.foreground], background);
@@ -382,10 +408,16 @@ export function getThemeTokens(theme = {}) {
   const quote = chooseAccessibleColor([theme.color_07, theme.color_08, text], background);
   const danger = chooseAccessibleColor(['#cf222e', '#ff7b72', text], background);
   let surface = mixHexColors(background, text, 0.055);
+  let codeBackground = mixHexColors(background, text, 0.09);
 
   if (getContrastRatio(text, surface) < 4.5) {
     surface = background;
   }
+  if (getContrastRatio(text, codeBackground) < 4.5) {
+    codeBackground = background;
+  }
+
+  const codeText = chooseAccessibleColor([theme.foreground, text], codeBackground);
 
   return {
     background,
@@ -398,6 +430,17 @@ export function getThemeTokens(theme = {}) {
     quote,
     danger,
     shadow: isColorDark(background) ? 'rgba(0, 0, 0, 0.42)' : 'rgba(15, 23, 42, 0.16)',
+    codeBackground,
+    codeText,
+    syntaxComment: chooseAdaptiveColor([theme.color_08, quote, text], codeBackground),
+    syntaxKeyword: chooseAdaptiveColor([theme.color_06, theme.color_05, accent, text], codeBackground),
+    syntaxString: chooseAdaptiveColor([theme.color_03, theme.color_07, accent, text], codeBackground),
+    syntaxNumber: chooseAdaptiveColor([theme.color_02, theme.color_06, danger, text], codeBackground),
+    syntaxTitle: chooseAdaptiveColor([theme.color_05, theme.color_07, accent, text], codeBackground),
+    syntaxProperty: chooseAdaptiveColor([theme.color_07, theme.color_05, accent, text], codeBackground),
+    syntaxMeta: chooseAdaptiveColor([theme.color_06, theme.color_02, accent, text], codeBackground),
+    syntaxAddition: chooseAdaptiveColor([theme.color_03, theme.color_07, text], codeBackground),
+    syntaxDeletion: chooseAdaptiveColor([theme.color_02, danger, text], codeBackground),
   };
 }
 

@@ -82,6 +82,9 @@ let activeDocumentModeTransition = null;
 let modeMorphFallbackTimeoutId = null;
 let modeMorphGeneration = 0;
 let documentModeChangeGeneration = 0;
+let themeTransitionFrameId = null;
+let themeTransitionReleaseFrameId = null;
+let syntaxHighlighterPromise = null;
 
 const ui = {
   windowFileTitle: null,
@@ -583,14 +586,17 @@ function applyReadingTools() {
   ui.sourceView?.classList.toggle('hidden', !sourceActive);
 
   if (ui.lineGutter) {
-    ui.lineGutter.hidden = !lineGuideActive;
-    if (!lineGuideActive) ui.lineGutter.replaceChildren();
+    ui.lineGutter.hidden = !available;
+    ui.lineGutter.setAttribute('aria-hidden', String(!lineGuideActive));
+    if (!available) ui.lineGutter.replaceChildren();
   }
 
   if (ui.documentMinimap) {
-    ui.documentMinimap.hidden = !minimapActive;
+    ui.documentMinimap.hidden = !available;
+    ui.documentMinimap.setAttribute('aria-hidden', String(!minimapActive));
+    ui.documentMinimap.toggleAttribute('inert', !minimapActive);
     isMinimapDocumentDirty = minimapActive;
-    if (!minimapActive) {
+    if (!available) {
       minimapContentHeight = 0;
       ui.minimapDocument?.replaceChildren();
     }
@@ -745,6 +751,16 @@ function applyTheme(theme, { silent = false, persist = true } = {}) {
 
   const root = document.documentElement;
   const tokens = getThemeTokens(theme);
+  root.classList.add('is-theme-changing');
+  if (themeTransitionFrameId !== null) cancelAnimationFrame(themeTransitionFrameId);
+  if (themeTransitionReleaseFrameId !== null) cancelAnimationFrame(themeTransitionReleaseFrameId);
+  themeTransitionFrameId = requestAnimationFrame(() => {
+    themeTransitionFrameId = null;
+    themeTransitionReleaseFrameId = requestAnimationFrame(() => {
+      themeTransitionReleaseFrameId = null;
+      root.classList.remove('is-theme-changing');
+    });
+  });
   root.style.setProperty('--bg-color', tokens.background);
   root.style.setProperty('--text-color', tokens.text);
   root.style.setProperty('--border-color', tokens.border);
@@ -753,6 +769,17 @@ function applyTheme(theme, { silent = false, persist = true } = {}) {
   root.style.setProperty('--ui-accent', tokens.accent);
   root.style.setProperty('--accent-foreground', tokens.accentForeground);
   root.style.setProperty('--code-bg', tokens.surface);
+  root.style.setProperty('--code-block-bg', tokens.codeBackground);
+  root.style.setProperty('--code-block-text', tokens.codeText);
+  root.style.setProperty('--syntax-comment', tokens.syntaxComment);
+  root.style.setProperty('--syntax-keyword', tokens.syntaxKeyword);
+  root.style.setProperty('--syntax-string', tokens.syntaxString);
+  root.style.setProperty('--syntax-number', tokens.syntaxNumber);
+  root.style.setProperty('--syntax-title', tokens.syntaxTitle);
+  root.style.setProperty('--syntax-property', tokens.syntaxProperty);
+  root.style.setProperty('--syntax-meta', tokens.syntaxMeta);
+  root.style.setProperty('--syntax-addition', tokens.syntaxAddition);
+  root.style.setProperty('--syntax-deletion', tokens.syntaxDeletion);
   root.style.setProperty('--heading-1', tokens.text);
   root.style.setProperty('--heading-2', tokens.text);
   root.style.setProperty('--heading-3', tokens.text);
@@ -767,6 +794,8 @@ function applyTheme(theme, { silent = false, persist = true } = {}) {
 
   const isDark = isColorDark(tokens.background);
   root.style.colorScheme = isDark ? 'dark' : 'light';
+  root.dataset.themeName = theme.name;
+  root.dataset.themeTone = isDark ? 'dark' : 'light';
 
   currentThemeIndex = themes.findIndex((item) => item.name === theme.name);
 
@@ -883,6 +912,18 @@ function activeDiagramTheme() {
     : 'default';
 }
 
+async function highlightDocumentCode(container) {
+  if (!container?.querySelector?.('pre code')) return false;
+  if (!syntaxHighlighterPromise) {
+    syntaxHighlighterPromise = import('./syntax-highlighter.js').catch((error) => {
+      syntaxHighlighterPromise = null;
+      throw error;
+    });
+  }
+  const { highlightCodeBlocks } = await syntaxHighlighterPromise;
+  return highlightCodeBlocks(container);
+}
+
 function invokeDocumentCommand(command, args) {
   if (!window.__TAURI_INTERNALS__) {
     return Promise.reject(new Error('Native file access is unavailable in this browser preview.'));
@@ -946,6 +987,9 @@ function mountApplicationReaderShell() {
       },
       diagrams: {
         render: renderMermaidDiagrams,
+      },
+      syntax: {
+        highlight: highlightDocumentCode,
       },
       windows: {
         openDocument: (path) => invoke('open_new_window', { path }),
@@ -1444,14 +1488,16 @@ function positionLineGutter() {
   const viewStyles = getComputedStyle(activeView);
   const compact = window.matchMedia?.('(max-width: 460px)').matches;
   const digitWidth = String(currentDocument?.lineCount || 1).length * (compact ? 6 : 7);
+  const editorControlLane = Number.parseFloat(viewStyles.getPropertyValue('--editor-control-lane')) || 52;
+  const editorLineGap = Number.parseFloat(viewStyles.getPropertyValue('--editor-line-gap')) || 12;
   ui.lineGutter.style.width = `${Math.max(compact ? 29 : 34, digitWidth + 8)}px`;
   const gutterRect = ui.lineGutter.getBoundingClientRect();
-  const gap = isEditMode ? (compact ? 30 : 38) : (compact ? 8 : 12);
+  const gap = isEditMode ? editorControlLane + editorLineGap : (compact ? 8 : 12);
   const left = getLineGutterLeft({
     viewLeft: viewRect.left,
     stageLeft: stageRect.left,
     paddingLeft: isEditMode
-      ? 38 + (Number.parseFloat(viewStyles.paddingLeft) || 0)
+      ? editorControlLane + (Number.parseFloat(viewStyles.paddingLeft) || 0)
       : Number.parseFloat(viewStyles.paddingLeft) || 0,
     gutterWidth: gutterRect.width || 34,
     gap,
@@ -1460,7 +1506,13 @@ function positionLineGutter() {
 }
 
 function renderLineGuide() {
-  if (!ui.lineGutter || ui.lineGutter.hidden || !ui.readerPage || !currentDocument) return;
+  if (
+    !ui.lineGutter
+    || ui.lineGutter.hidden
+    || !document.body.classList.contains('is-line-guide')
+    || !ui.readerPage
+    || !currentDocument
+  ) return;
 
   positionLineGutter();
   const { scrollTop, clientHeight } = ui.readerPage;
@@ -1564,6 +1616,7 @@ function renderMinimapDocument() {
     !isMinimapDocumentDirty
     || !ui.documentMinimap
     || ui.documentMinimap.hidden
+    || !document.body.classList.contains('is-minimap')
     || !ui.minimapDocument
     || !ui.readerPage
   ) return;
@@ -1605,6 +1658,7 @@ function updateMinimapViewport() {
   if (
     !ui.documentMinimap
     || ui.documentMinimap.hidden
+    || !document.body.classList.contains('is-minimap')
     || !ui.minimapViewport
     || !ui.readerPage
   ) return;
