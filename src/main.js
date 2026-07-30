@@ -33,6 +33,7 @@ import { createStatusPresenter } from './status-presenter.js';
 import { createReaderViewportController } from './reader-viewport-controller.js';
 import { createEditorFeedbackPresenter } from './editor-feedback-presenter.js';
 import { createDocumentContentActions } from './document-content-actions.js';
+import { createDocumentViewStateController } from './document-view-state.js';
 
 let currentZoom = 1;
 const ZOOM_STEP = 0.1;
@@ -40,8 +41,6 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3.0;
 let dragDropUnlisten = null;
 let fileOpenRequestUnlisten = null;
-let currentFilePath = null;
-let currentDocument = null;
 let windowChrome = null;
 let readerShell = null;
 let runtimeAdapters = null;
@@ -60,6 +59,7 @@ let readerControls = null;
 let readerViewport = null;
 let editorFeedback = null;
 let documentContentActions = null;
+let documentViewState = null;
 
 const ui = {
   windowFileTitle: null,
@@ -221,6 +221,14 @@ function isHelpVisible() {
   return readerViewport?.isHelpVisible() ?? false;
 }
 
+function getCurrentFilePath() {
+  return documentViewState?.current().path || null;
+}
+
+function getCurrentDocument() {
+  return documentViewState?.current().document || null;
+}
+
 function updateStatus(filePath = null) {
   if (isHelpVisible()) {
     setStatusText('About + Help', 'F1 to close');
@@ -235,7 +243,7 @@ function updateStatus(filePath = null) {
       updateStatusMetrics();
       return;
     }
-    const viewLabel = currentDocument && readerControls?.current().readingTools.source ? 'Source' : getFileKind(filePath);
+    const viewLabel = getCurrentDocument() && readerControls?.current().readingTools.source ? 'Source' : getFileKind(filePath);
     setStatusText(getDisplayName(filePath), viewLabel);
     updateStatusMetrics();
     return;
@@ -270,20 +278,20 @@ function updateStatusMetrics() {
     return;
   }
 
-  const isAvailable = Boolean(currentDocument && currentFilePath && !isHelpVisible());
+  const isAvailable = Boolean(getCurrentDocument() && getCurrentFilePath() && !isHelpVisible());
   if (!isAvailable) {
     statusPresenter?.renderMetrics([], '');
     return;
   }
 
   const metrics = getStatusMetricParts({
-    lineCount: currentDocument.lineCount,
-    characterCount: currentDocument.characterCount,
+    lineCount: getCurrentDocument().lineCount,
+    characterCount: getCurrentDocument().characterCount,
     zoomPercent: currentZoom * 100,
     currentLine: readingNavigation?.snapshot().currentLine || 1,
     showCurrentLine: readerControls?.current().readingTools.lineGuide,
     readingProgress: readingNavigation?.snapshot().readingProgress || 0,
-    readingTimeMinutes: currentDocument.readingTimeMinutes,
+    readingTimeMinutes: getCurrentDocument().readingTimeMinutes,
     showReadingStats: readerControls?.current().readingTools.stats,
   });
 
@@ -291,7 +299,7 @@ function updateStatusMetrics() {
 }
 
 function hasLoadedDocument() {
-  return Boolean(currentDocument && currentFilePath);
+  return Boolean(getCurrentDocument() && getCurrentFilePath());
 }
 
 function isSourceViewActive() {
@@ -318,7 +326,7 @@ function setReadingToolsOpen(nextOpen, { returnFocus = false } = {}) {
 
 function applyReadingTools() {
   readerControls?.refresh();
-  updateStatus(currentFilePath);
+  updateStatus(getCurrentFilePath());
 }
 
 async function setReadingTool(tool, nextValue) {
@@ -327,7 +335,7 @@ async function setReadingTool(tool, nextValue) {
 
 function syncViewportState() {
   readerViewport?.sync({
-    hasFilePath: Boolean(currentFilePath),
+    hasFilePath: Boolean(getCurrentFilePath()),
     sourceActive: isSourceViewActive(),
   });
 }
@@ -356,7 +364,7 @@ async function initThemes() {
         name: document.getElementById('theme-name'),
       },
       hooks: {
-        shouldPrepareDiagrams: () => Boolean(currentFilePath && ui.content?.querySelector('.mermaid')),
+        shouldPrepareDiagrams: () => Boolean(getCurrentFilePath() && ui.content?.querySelector('.mermaid')),
         prepareDiagrams: (diagramTheme, diagramTokens) => readerShell?.prepareAppearance({
           diagramTheme,
           diagramTokens,
@@ -391,60 +399,34 @@ function resetDocumentReadingState() {
 }
 
 function handleDocumentSessionState(snapshot) {
-  if (snapshot.state === 'loading') {
-    if (editorSession?.current().path && editorSession.current().path !== snapshot.path) {
-      editorSession.clearDocument();
-    }
-    currentFilePath = snapshot.path;
-    currentDocument = null;
-    documentSaveCoordinator?.replaceDocument({ path: snapshot.path, document: null });
-    resetDocumentReadingState();
-    setReadingToolsOpen(false);
-    syncViewportState();
-    applyReadingTools();
-    setStatusText(getDisplayName(snapshot.path), 'Opening…');
-    updateWindowTitle(snapshot.path);
-    return;
-  }
+  documentViewState?.handle(snapshot);
+}
 
-  if (snapshot.state === 'ready') {
-    currentFilePath = snapshot.path;
-    currentDocument = snapshot.document;
-    documentSaveCoordinator?.replaceDocument({ path: snapshot.path, document: snapshot.document });
-    editorSession?.setDocument({
-      path: snapshot.path,
-      source: snapshot.document.source,
-      markdown: getFileKind(snapshot.path) === 'Markdown',
-    });
-    updateWindowTitle(snapshot.path);
-    updateWindowUrl(snapshot.path);
-    applyReadingTools();
-    return;
-  }
+function commitDocumentViewState(value) {
+  documentViewState?.commitDocument(value);
+}
 
-  if (snapshot.state === 'failed') {
-    currentFilePath = snapshot.path;
-    currentDocument = null;
-    documentSaveCoordinator?.replaceDocument({ path: snapshot.path, document: null });
-    readingNavigation?.markDirty();
-    updateWindowTitle(snapshot.path);
-    updateWindowUrl(snapshot.path);
-    applyReadingTools();
-    setStatusText(getDisplayName(snapshot.path), 'Could not open');
-    editorSession?.clearDocument();
-    return;
-  }
-
-  currentFilePath = null;
-  currentDocument = null;
-  documentSaveCoordinator?.replaceDocument();
-  editorSession?.clearDocument();
-  resetDocumentReadingState();
-  syncViewportState();
-  applyReadingTools();
-  updateWindowTitle();
-  updateWindowUrl();
-  readingNavigation?.handleScroll();
+function mountDocumentViewState() {
+  documentViewState = createDocumentViewStateController({
+    window,
+    adapters: {
+      getEditorSession: () => editorSession,
+    },
+    hooks: {
+      replaceDocument: (value) => value
+        ? documentSaveCoordinator?.replaceDocument(value)
+        : documentSaveCoordinator?.replaceDocument(),
+      resetReadingState: resetDocumentReadingState,
+      closeReadingTools: () => setReadingToolsOpen(false),
+      syncViewport: syncViewportState,
+      applyReadingTools,
+      setStatus: setStatusText,
+      updateTitle: updateWindowTitle,
+      updateUrl: updateWindowUrl,
+      markNavigationDirty: () => readingNavigation?.markDirty(),
+      handleNavigationScroll: () => readingNavigation?.handleScroll(),
+    },
+  });
 }
 
 function activeDiagramTheme() {
@@ -466,12 +448,7 @@ function mountApplicationReaderShell() {
       getDiagramTokens: activeDiagramTokens,
       isSourceActive: isSourceViewActive,
       chooseAnotherFile: openFilePicker,
-      onDocumentCommitted: ({ path, document: openedDocument }) => {
-        currentFilePath = path;
-        currentDocument = openedDocument;
-        updateWindowTitle(path);
-        updateWindowUrl(path);
-      },
+      onDocumentCommitted: commitDocumentViewState,
       onStateChange: handleDocumentSessionState,
       onSettled: () => readingNavigation?.handleScroll(),
       onWarning: showToast,
@@ -500,14 +477,14 @@ function mountReaderViewport() {
     hooks: {
       closeTransientUi: () => readerControls?.closeTransient(),
       onHelpChanged: () => {
-        updateStatus(currentFilePath);
-        updateWindowTitle(currentFilePath);
+        updateStatus(getCurrentFilePath());
+        updateWindowTitle(getCurrentFilePath());
         readingNavigation?.handleScroll();
       },
     },
   });
   readerViewport.sync({
-    hasFilePath: Boolean(currentFilePath),
+    hasFilePath: Boolean(getCurrentFilePath()),
     sourceActive: isSourceViewActive(),
   });
 }
@@ -541,13 +518,13 @@ function mountReaderControls() {
       restoreViewScroll: (mode) => readingNavigation?.restoreViewScroll(mode),
       onReadingToolsApplied: ({ sourceActive }) => {
         readerViewport?.sync({
-          hasFilePath: Boolean(currentFilePath),
+          hasFilePath: Boolean(getCurrentFilePath()),
           sourceActive,
         });
         documentModeCoordinator?.refresh();
         readingNavigation?.refreshTools();
         responsiveTypography?.schedule();
-        updateStatus(currentFilePath);
+        updateStatus(getCurrentFilePath());
       },
       onFontsApplied: () => {
         readingNavigation?.markDirty();
@@ -585,7 +562,7 @@ function handleEditorState(snapshot) {
   if (isEditMode) readingNavigation?.markDirty();
   responsiveTypography?.schedule();
   if (modeChanged) applyReadingTools();
-  else updateStatus(currentFilePath);
+  else updateStatus(getCurrentFilePath());
 }
 
 function mountApplicationEditor() {
@@ -644,7 +621,7 @@ function mountDocumentSaveCoordinator() {
     hooks: {
       notify: showToast,
       onTaskCommitted: ({ path, document: savedDocument }) => {
-        currentDocument = savedDocument;
+        documentViewState?.updateDocument({ path, document: savedDocument });
         editorSession?.setDocument({
           path,
           source: savedDocument.source,
@@ -712,8 +689,8 @@ function mountReadingNavigation() {
       scrollToTop: ui.scrollToTop,
     },
     adapters: {
-      getDocument: () => currentDocument,
-      getFilePath: () => currentFilePath,
+      getDocument: getCurrentDocument,
+      getFilePath: getCurrentFilePath,
       getMode: () => isEditMode ? 'edit' : isSourceViewActive() ? 'source' : 'read',
       isHelpVisible,
       isLineGuideEnabled: () => readerControls?.current().readingTools.lineGuide,
@@ -742,7 +719,7 @@ function mountDocumentContentActions() {
       isHelpVisible,
       isEditMode: () => isEditMode,
       isSourceActive: isSourceViewActive,
-      getDocument: () => currentDocument,
+      getDocument: getCurrentDocument,
       getEditorSession: () => editorSession,
       toggleReadTask: (payload) => documentSaveCoordinator?.toggleReadTask(payload),
     },
@@ -784,7 +761,7 @@ function handleLinkClick(event) {
     return;
   }
 
-  const action = getLinkAction(hrefAttribute, currentFilePath, target.href);
+  const action = getLinkAction(hrefAttribute, getCurrentFilePath(), target.href);
   if (action.type === 'anchor') return;
 
   event.preventDefault();
@@ -815,7 +792,7 @@ function setZoom(newZoom) {
   currentZoom = Math.min(Math.max(newZoom, MIN_ZOOM), MAX_ZOOM);
   document.documentElement.style.setProperty('--content-scale', currentZoom.toFixed(2));
   readingNavigation?.markDirty();
-  updateStatus(currentFilePath);
+  updateStatus(getCurrentFilePath());
   showToast(`Zoom: ${Math.round(currentZoom * 100)}%`);
 }
 
@@ -1066,6 +1043,7 @@ async function init() {
   mountReaderControls();
   mountApplicationEditor();
   mountDocumentSaveCoordinator();
+  mountDocumentViewState();
   mountDocumentModeCoordinator();
   mountReadingNavigation();
   mountDocumentContentActions();
