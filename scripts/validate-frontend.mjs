@@ -148,11 +148,12 @@ if (
   throw new Error('src/styles.css must preserve conditional animated zoom status');
 }
 if (
-  !stylesCss.includes('.toast.show.is-leaving .toast-message')
-  || !stylesCss.includes('transform: translateY(-5px)')
-  || !stylesCss.includes('transform: translateY(5px)')
+  !stylesCss.includes('.toast-surface')
+  || !stylesCss.includes('.toast.is-animating .toast-message')
+  || !stylesCss.includes('will-change: clip-path, opacity, transform')
+  || /\.toast-message\s*\{[^}]*transition:/s.test(stylesCss)
 ) {
-  throw new Error('src/styles.css must preserve directional toast text motion');
+  throw new Error('src/styles.css must keep toast motion on isolated WAAPI layers');
 }
 if (!stylesCss.includes('.help-project-facts') || !stylesCss.includes('.help-steps')) {
   throw new Error('src/styles.css must preserve the About and Help composition');
