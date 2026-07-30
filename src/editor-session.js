@@ -6,6 +6,7 @@ import {
   inlineMarkdownToHtml,
   serializeEditorDocument,
 } from './editor-document.js';
+import { createEditorOverlayController } from './editor-overlay-controller.js';
 
 const INLINE_COMMANDS = Object.freeze({
   bold: 'bold',
@@ -125,9 +126,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   let saveState = 'idle';
   let saveError = '';
   let activeBlockId = null;
-  let commandBlockId = null;
-  let commandIndex = 0;
-  let blockMenuId = null;
+  let overlayController = null;
   let savedSelection = null;
   let disposed = false;
   let caretEchoVersion = 0;
@@ -240,21 +239,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     content.scrollIntoView?.({ block: 'nearest' });
   };
 
-  const closeCommandMenu = ({ returnFocus = false } = {}) => {
-    const id = commandBlockId;
-    commandBlockId = null;
-    commandIndex = 0;
-    commandMenu.hidden = true;
-    commandMenu.replaceChildren();
-    if (returnFocus && id) focusBlock(id);
-  };
-
-  const closeBlockMenu = ({ returnFocus = false } = {}) => {
-    const id = blockMenuId;
-    blockMenuId = null;
-    blockMenu.hidden = true;
-    if (returnFocus && id) findWrapper(id)?.querySelector('[data-block-menu]')?.focus();
-  };
+  const closeCommandMenu = (options) => overlayController?.closeCommand(options);
+  const closeBlockMenu = (options) => overlayController?.closeBlock(options);
 
   const closeInlineToolbar = () => {
     inlineToolbar.hidden = true;
@@ -283,71 +269,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     element.style.top = `${Math.round(top)}px`;
   };
 
-  const commandMatches = (query) => {
-    const normalized = String(query || '').trim().toLowerCase();
-    const available = activeDocument?.markdown === false
-      ? EDITOR_COMMANDS.filter((command) => command.id === 'paragraph')
-      : EDITOR_COMMANDS;
-    if (!normalized) return available;
-    return available.filter((command) => (
-      command.label.toLowerCase().includes(normalized)
-      || command.hint.toLowerCase().includes(normalized)
-      || command.id.includes(normalized)
-    ));
-  };
-
-  const openCommandMenu = (blockId, query = '') => {
-    const wrapper = findWrapper(blockId);
-    if (!wrapper) return;
-    closeBlockMenu();
-    commandBlockId = blockId;
-    const commands = commandMatches(query);
-    commandIndex = clamp(commandIndex, 0, Math.max(0, commands.length - 1));
-    commandMenu.replaceChildren();
-
-    const header = document.createElement('div');
-    header.className = 'editor-menu-header';
-    header.textContent = commands.length > 0 ? 'Turn into' : 'No matching blocks';
-    commandMenu.append(header);
-    commands.forEach((command, index) => {
-      const button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'editor-command';
-      button.dataset.command = command.id;
-      button.setAttribute('role', 'option');
-      button.setAttribute('aria-selected', String(index === commandIndex));
-      const icon = document.createElement('i');
-      icon.className = command.icon;
-      icon.setAttribute('aria-hidden', 'true');
-      const copy = document.createElement('span');
-      const label = document.createElement('strong');
-      label.textContent = command.label;
-      const hint = document.createElement('small');
-      hint.textContent = command.hint;
-      copy.append(label, hint);
-      button.append(icon, copy);
-      commandMenu.append(button);
-    });
-    positionFloating(commandMenu, wrapper.getBoundingClientRect());
-  };
-
-  const openBlockMenu = (blockId, anchor, { focus = false } = {}) => {
-    closeCommandMenu();
-    blockMenuId = blockId;
-    const block = findBlock(blockId);
-    if (!block) return;
-    blockMenu.querySelector('[data-block-action="move-up"]')?.toggleAttribute(
-      'disabled', documentSnapshot.blocks[0]?.id === blockId
-    );
-    blockMenu.querySelector('[data-block-action="move-down"]')?.toggleAttribute(
-      'disabled', documentSnapshot.blocks.at(-1)?.id === blockId
-    );
-    blockMenu.querySelector('[data-block-action="delete"]')?.toggleAttribute(
-      'disabled', documentSnapshot.blocks.length === 1 && block.text === ''
-    );
-    positionFloating(blockMenu, anchor.getBoundingClientRect());
-    if (focus) queueMicrotask(() => blockMenu.querySelector('button:not(:disabled)')?.focus());
-  };
+  const openCommandMenu = (blockId, query = '') => overlayController?.openCommand(blockId, query);
+  const openBlockMenu = (blockId, anchor, options) => overlayController?.openBlock(blockId, anchor, options);
 
   const applyBlockType = (id, type) => {
     if (!documentModel.changeType(id, type)) return;
@@ -583,7 +506,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     const block = findBlock(activeBlockId);
     if (block?.type !== 'code' && block?.text.startsWith('/')) {
       openCommandMenu(activeBlockId, block.text.slice(1));
-    } else if (commandBlockId === activeBlockId) {
+    } else if (overlayController?.isCommandOpenFor(activeBlockId)) {
       closeCommandMenu();
     }
   };
@@ -653,25 +576,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       }
     }
 
-    if (commandBlockId) {
-      const commands = commandMatches(block.text.slice(1));
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        event.preventDefault();
-        const direction = event.key === 'ArrowDown' ? 1 : -1;
-        commandIndex = (commandIndex + direction + commands.length) % Math.max(1, commands.length);
-        openCommandMenu(block.id, block.text.slice(1));
-        return;
-      }
-      if (event.key === 'Enter' && commands.length > 0) {
-        event.preventDefault();
-        applyBlockType(block.id, commands[commandIndex].id);
-        return;
-      }
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        closeCommandMenu({ returnFocus: true });
-        return;
-      }
+    if (overlayController?.handleCommandKey(event, { blockId: block.id, query: block.text.slice(1) })) {
+      return;
     }
 
     if (event.key === 'Enter' && !event.shiftKey && block?.type !== 'code') {
@@ -1140,6 +1046,30 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     return discard;
   };
 
+  overlayController = createEditorOverlayController({
+    window,
+    document,
+    elements: { canvas, commandMenu, blockMenu },
+    commands: EDITOR_COMMANDS,
+    adapters: {
+      isMarkdown: () => activeDocument?.markdown !== false,
+      getBlock: findBlock,
+      getBlocks: () => documentSnapshot.blocks,
+      getWrapper: findWrapper,
+      focusBlock,
+    },
+    hooks: {
+      onCommand: applyBlockType,
+      onBlockAction: (id, action) => {
+        if (action === 'move-up') moveBlock(id, -1);
+        if (action === 'move-down') moveBlock(id, 1);
+        if (action === 'duplicate') duplicateBlock(id);
+        if (action === 'delete') removeBlock(id);
+      },
+    },
+  });
+  overlayController.start();
+
   canvas.addEventListener('input', handleCanvasInput);
   canvas.addEventListener('keydown', handleCanvasKeydown);
   canvas.addEventListener('click', handleCanvasClick);
@@ -1150,40 +1080,6 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   canvas.addEventListener('drop', handleDrop);
   document.addEventListener('selectionchange', captureSelection);
 
-  commandMenu.addEventListener('mousedown', (event) => event.preventDefault());
-  commandMenu.addEventListener('click', (event) => {
-    const command = event.target.closest('[data-command]')?.dataset.command;
-    if (command && commandBlockId) applyBlockType(commandBlockId, command);
-  });
-  blockMenu.addEventListener('click', (event) => {
-    const action = event.target.closest('[data-block-action]')?.dataset.blockAction;
-    const id = blockMenuId;
-    if (!action || !id) return;
-    closeBlockMenu();
-    if (action === 'move-up') moveBlock(id, -1);
-    if (action === 'move-down') moveBlock(id, 1);
-    if (action === 'duplicate') duplicateBlock(id);
-    if (action === 'delete') removeBlock(id);
-  });
-  blockMenu.addEventListener('keydown', (event) => {
-    const buttons = [...blockMenu.querySelectorAll('button:not(:disabled)')];
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      const id = blockMenuId;
-      closeBlockMenu();
-      if (id) focusBlock(id);
-      return;
-    }
-    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key) || buttons.length === 0) return;
-    event.preventDefault();
-    const current = buttons.indexOf(document.activeElement);
-    const next = event.key === 'Home'
-      ? 0
-      : event.key === 'End'
-        ? buttons.length - 1
-        : (current + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
-    buttons[next].focus();
-  });
   inlineToolbar.addEventListener('mousedown', (event) => event.preventDefault());
   inlineToolbar.addEventListener('click', (event) => {
     const command = event.target.closest('[data-inline-command]')?.dataset.inlineCommand;
@@ -1201,15 +1097,6 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       event.preventDefault();
       closeInlineToolbar();
       focusBlock(activeBlockId);
-    }
-  });
-
-  document.addEventListener('pointerdown', (event) => {
-    if (!commandMenu.hidden && !commandMenu.contains(event.target) && !canvas.contains(event.target)) {
-      closeCommandMenu();
-    }
-    if (!blockMenu.hidden && !blockMenu.contains(event.target) && !event.target.closest?.('[data-block-menu]')) {
-      closeBlockMenu();
     }
   });
 
@@ -1232,6 +1119,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     source,
     dispose() {
       disposed = true;
+      overlayController?.dispose();
       unsubscribeDocumentModel();
       documentModel.dispose();
       document.removeEventListener('selectionchange', captureSelection);
