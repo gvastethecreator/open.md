@@ -245,8 +245,8 @@ describe('Frontend Logic Tests', () => {
       expect(() => normalizeDocumentPayload('<p>Legacy</p>')).toThrow('Invalid document payload');
     });
 
-    it('keeps essential document counts and labels zoom explicitly', () => {
-      expect(getStatusMetricParts({
+    it('keeps essential document counts and only exposes a custom zoom', () => {
+      const defaultZoom = getStatusMetricParts({
         lineCount: 42,
         characterCount: 1280,
         zoomPercent: 100,
@@ -255,16 +255,31 @@ describe('Frontend Logic Tests', () => {
         readingProgress: 25,
         readingTimeMinutes: 8,
         showReadingStats: true,
-      })).toEqual({
-        visible: ['42 lines', '1,280 chars', 'Zoom 100%', 'Ln 9', '25%', '6 min left'],
-        accessible: [
-          '42 lines',
-          '1,280 characters',
-          'Zoom 100 percent',
-          'Line 9',
-          '25 percent through document',
-          '6 minutes left',
-        ],
+      });
+
+      expect(defaultZoom.visible).toEqual(['42 lines', '1,280 chars', 'Ln 9', '25%', '6 min left']);
+      expect(defaultZoom.accessible).toEqual([
+        '42 lines',
+        '1,280 characters',
+        'Line 9',
+        '25 percent through document',
+        '6 minutes left',
+      ]);
+      expect(defaultZoom.items.some(({ kind }) => kind === 'zoom')).toBe(false);
+
+      const customZoom = getStatusMetricParts({
+        lineCount: 1,
+        characterCount: 8,
+        zoomPercent: 125,
+        currentLine: 3,
+        showCurrentLine: true,
+        showReadingStats: false,
+      });
+      expect(customZoom.visible).toEqual(['1 line', '8 chars', 'Ln 3', '125%']);
+      expect(customZoom.items).toContainEqual({
+        kind: 'zoom',
+        visible: '125%',
+        accessible: 'Zoom 125 percent',
       });
     });
 

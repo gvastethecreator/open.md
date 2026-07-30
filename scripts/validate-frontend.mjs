@@ -87,6 +87,9 @@ const requiredAccessibleControls = [
   'id="toolbar-open-button"',
   'id="help-toggle-button"',
   'id="close-help-button"',
+  'id="about-help-title"',
+  'id="quick-start-title"',
+  'id="shortcuts-help-title"',
   'id="reading-tools-button"',
   'id="reading-tools-panel"',
   'id="typography-button"',
@@ -136,6 +139,23 @@ if (!stylesCss.includes('box-sizing: border-box') || !stylesCss.includes('prefer
 }
 if (!stylesCss.includes('--toolbar-height: 30px') || !stylesCss.includes('--motion-ease-out: cubic-bezier')) {
   throw new Error('src/styles.css must preserve the minimal status bar and semantic easing tokens');
+}
+if (
+  !stylesCss.includes('.status-metric--zoom')
+  || !stylesCss.includes('.iconoir-search::before')
+  || !stylesCss.includes('transition: font-size 180ms')
+) {
+  throw new Error('src/styles.css must preserve conditional animated zoom status');
+}
+if (
+  !stylesCss.includes('.toast.show.is-leaving .toast-message')
+  || !stylesCss.includes('transform: translateY(-5px)')
+  || !stylesCss.includes('transform: translateY(5px)')
+) {
+  throw new Error('src/styles.css must preserve directional toast text motion');
+}
+if (!stylesCss.includes('.help-project-facts') || !stylesCss.includes('.help-steps')) {
+  throw new Error('src/styles.css must preserve the About and Help composition');
 }
 if (!stylesCss.includes('--titlebar-height: 32px') || !stylesCss.includes('filter: blur(1px)')) {
   throw new Error('src/styles.css must preserve the compact custom title bar and minimap blur');

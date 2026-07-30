@@ -13,6 +13,7 @@ import {
   getLinkAction,
   getStatusMetricParts,
   getViewportMode,
+  getZoomStatusMetric,
 } from './core/reader.js';
 import { prepareMermaidDiagrams, renderMermaidDiagrams } from './mermaid-renderer.js';
 import { createDocumentSaveCoordinator } from './document-save-coordinator.js';
@@ -173,7 +174,7 @@ function cacheElements() {
 }
 
 function updateWindowTitle(filePath = null) {
-  const visibleTitle = isHelpVisible ? 'Help' : filePath ? getDisplayName(filePath) : 'Ready';
+  const visibleTitle = isHelpVisible ? 'About + Help' : filePath ? getDisplayName(filePath) : 'Ready';
   document.title = visibleTitle === 'Ready' ? 'open.md' : `open.md — ${visibleTitle}`;
   if (ui.windowFileTitle) {
     ui.windowFileTitle.textContent = visibleTitle;
@@ -226,7 +227,7 @@ function setStatusText(primary, context = '', title = [primary, context].filter(
 }
 function updateStatus(filePath = null) {
   if (isHelpVisible) {
-    setStatusText('Help', 'F1 to close');
+    setStatusText('About + Help', 'F1 to close');
     updateStatusMetrics();
     return;
   }
@@ -248,28 +249,100 @@ function updateStatus(filePath = null) {
   updateStatusMetrics();
 }
 
+function renderStatusMetricItems(items, accessibleLabel) {
+  if (!ui.statusMetrics) return;
+
+  const existingByKind = new Map(
+    [...ui.statusMetrics.querySelectorAll('.status-metric')]
+      .map((item) => [item.dataset.statusKind, item])
+  );
+  const nodes = items.map(({ kind, visible }) => {
+    const item = existingByKind.get(kind) || document.createElement('span');
+    item.className = `status-metric status-metric--${kind}`;
+    item.dataset.statusKind = kind;
+    if (kind === 'zoom') {
+      let icon = item.querySelector('i');
+      let value = item.querySelector('.status-metric-value');
+      if (!icon) {
+        icon = document.createElement('i');
+        icon.className = 'iconoir-search';
+        icon.setAttribute('aria-hidden', 'true');
+        item.append(icon);
+      }
+      if (!value) {
+        value = document.createElement('span');
+        value.className = 'status-metric-value';
+        item.append(value);
+      }
+      const changed = value.textContent && value.textContent !== visible;
+      value.textContent = visible;
+      if (
+        changed
+        && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+        && typeof value.animate === 'function'
+      ) {
+        value.getAnimations?.().forEach((animation) => animation.cancel());
+        value.animate([
+          { opacity: 0, filter: 'blur(0.6px)', transform: 'translateY(3px)' },
+          { opacity: 1, filter: 'blur(0)', transform: 'translateY(0)' },
+        ], {
+          duration: 160,
+          easing: 'cubic-bezier(0.2, 0, 0, 1)',
+        });
+      }
+    } else {
+      item.textContent = visible;
+    }
+    return item;
+  });
+
+  const currentKinds = [...ui.statusMetrics.querySelectorAll('.status-metric')]
+    .map((item) => item.dataset.statusKind);
+  const nextKinds = items.map(({ kind }) => kind);
+  if (
+    currentKinds.length !== nextKinds.length
+    || currentKinds.some((kind, index) => kind !== nextKinds[index])
+  ) {
+    ui.statusMetrics.replaceChildren(...nodes);
+  }
+  ui.statusMetrics.hidden = nodes.length === 0;
+  if (nodes.length === 0) {
+    ui.statusMetrics.removeAttribute('title');
+    ui.statusMetrics.removeAttribute('aria-label');
+    return;
+  }
+  ui.statusMetrics.title = accessibleLabel;
+  ui.statusMetrics.setAttribute('aria-label', accessibleLabel);
+}
+
 function updateStatusMetrics() {
   if (!ui.statusMetrics) return;
 
   if (isEditMode && editorSession) {
     const editorState = editorSession.current();
     const { cursor, stats } = editorState;
-    ui.statusMetrics.hidden = false;
-    ui.statusMetrics.textContent = cursor
-      ? `Ln ${cursor.line} · Col ${cursor.column}`
-      : `${stats.blocks} ${stats.blocks === 1 ? 'block' : 'blocks'} · ${stats.words} ${stats.words === 1 ? 'word' : 'words'}`;
-    ui.statusMetrics.title = cursor
-      ? `Line ${cursor.line}. Column ${cursor.column}. ${stats.blocks} blocks. ${stats.words} words. ${stats.characters} characters.`
-      : `${stats.blocks} blocks. ${stats.words} words. ${stats.characters} characters.`;
-    ui.statusMetrics.setAttribute('aria-label', ui.statusMetrics.title);
+    const zoom = getZoomStatusMetric(currentZoom * 100);
+    const items = cursor
+      ? [
+          { kind: 'current-line', visible: `Ln ${cursor.line}` },
+          ...(zoom ? [zoom] : []),
+          { kind: 'column', visible: `Col ${cursor.column}` },
+        ]
+      : [
+          { kind: 'blocks', visible: `${stats.blocks} ${stats.blocks === 1 ? 'block' : 'blocks'}` },
+          { kind: 'words', visible: `${stats.words} ${stats.words === 1 ? 'word' : 'words'}` },
+          ...(zoom ? [zoom] : []),
+        ];
+    const accessibleLabel = cursor
+      ? `Line ${cursor.line}. Column ${cursor.column}. ${stats.blocks} blocks. ${stats.words} words. ${stats.characters} characters.${zoom ? ` ${zoom.accessible}.` : ''}`
+      : `${stats.blocks} blocks. ${stats.words} words. ${stats.characters} characters.${zoom ? ` ${zoom.accessible}.` : ''}`;
+    renderStatusMetricItems(items, accessibleLabel);
     return;
   }
 
   const isAvailable = Boolean(currentDocument && currentFilePath && !isHelpVisible);
   if (!isAvailable) {
-    ui.statusMetrics.hidden = true;
-    ui.statusMetrics.textContent = '';
-    ui.statusMetrics.removeAttribute('aria-label');
+    renderStatusMetricItems([], '');
     return;
   }
 
@@ -284,10 +357,7 @@ function updateStatusMetrics() {
     showReadingStats: readingTools.stats,
   });
 
-  ui.statusMetrics.hidden = false;
-  ui.statusMetrics.textContent = metrics.visible.join(' · ');
-  ui.statusMetrics.title = metrics.accessible.join('. ');
-  ui.statusMetrics.setAttribute('aria-label', metrics.accessible.join('. '));
+  renderStatusMetricItems(metrics.items, metrics.accessible.join('. '));
 }
 
 function hasLoadedDocument() {
@@ -560,7 +630,7 @@ function syncViewportState() {
   document.body.classList.toggle('is-help-open', mode === 'help');
   ui.helpToggleButton?.setAttribute('aria-expanded', String(mode === 'help'));
   if (ui.helpToggleButton) {
-    const helpLabel = mode === 'help' ? 'Close help' : 'Open help';
+    const helpLabel = mode === 'help' ? 'Close About and Help' : 'Open About and Help';
     ui.helpToggleButton.setAttribute('aria-label', helpLabel);
     ui.helpToggleButton.title = `${helpLabel} (F1)`;
   }

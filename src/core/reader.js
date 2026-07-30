@@ -197,6 +197,17 @@ function formatMetricNumber(value) {
   return Math.max(0, Math.floor(Number(value) || 0)).toLocaleString('en-US');
 }
 
+export function getZoomStatusMetric(zoomPercent) {
+  const safeZoom = Math.max(1, Math.round(Number(zoomPercent) || 100));
+  return safeZoom === 100
+    ? null
+    : {
+        kind: 'zoom',
+        visible: `${safeZoom}%`,
+        accessible: `Zoom ${safeZoom} percent`,
+      };
+}
+
 export function getStatusMetricParts({
   lineCount,
   characterCount,
@@ -209,33 +220,50 @@ export function getStatusMetricParts({
 }) {
   const safeLineCount = Math.max(1, Math.floor(Number(lineCount) || 1));
   const safeCharacterCount = Math.max(0, Math.floor(Number(characterCount) || 0));
-  const safeZoom = Math.max(1, Math.round(Number(zoomPercent) || 100));
   const lineLabel = `${formatMetricNumber(safeLineCount)} ${safeLineCount === 1 ? 'line' : 'lines'}`;
   const characterValue = formatMetricNumber(safeCharacterCount);
   const characterLabel = `${characterValue} ${safeCharacterCount === 1 ? 'char' : 'chars'}`;
   const characterAccessibleLabel = `${characterValue} ${safeCharacterCount === 1 ? 'character' : 'characters'}`;
-  const visible = [lineLabel, characterLabel, `Zoom ${safeZoom}%`];
-  const accessible = [lineLabel, characterAccessibleLabel, `Zoom ${safeZoom} percent`];
+  const items = [
+    { kind: 'lines', visible: lineLabel, accessible: lineLabel },
+    { kind: 'characters', visible: characterLabel, accessible: characterAccessibleLabel },
+  ];
 
   if (showCurrentLine) {
     const safeCurrentLine = Math.max(1, Math.floor(Number(currentLine) || 1));
-    visible.push(`Ln ${safeCurrentLine}`);
-    accessible.push(`Line ${safeCurrentLine}`);
+    items.push({
+      kind: 'current-line',
+      visible: `Ln ${safeCurrentLine}`,
+      accessible: `Line ${safeCurrentLine}`,
+    });
   }
+
+  const zoom = getZoomStatusMetric(zoomPercent);
+  if (zoom) items.push(zoom);
 
   if (showReadingStats) {
     const safeProgress = Math.min(100, Math.max(0, Math.round(Number(readingProgress) || 0)));
     const remainingMinutes = getEstimatedMinutesRemaining(readingTimeMinutes, safeProgress);
-    visible.push(`${safeProgress}%`);
-    accessible.push(`${safeProgress} percent through document`);
+    items.push({
+      kind: 'progress',
+      visible: `${safeProgress}%`,
+      accessible: `${safeProgress} percent through document`,
+    });
 
     if (Number(readingTimeMinutes) > 0) {
-      visible.push(remainingMinutes > 0 ? `${remainingMinutes} min left` : 'read');
-      accessible.push(remainingMinutes > 0 ? `${remainingMinutes} minutes left` : 'Document read');
+      items.push({
+        kind: 'reading-time',
+        visible: remainingMinutes > 0 ? `${remainingMinutes} min left` : 'read',
+        accessible: remainingMinutes > 0 ? `${remainingMinutes} minutes left` : 'Document read',
+      });
     }
   }
 
-  return { visible, accessible };
+  return {
+    items,
+    visible: items.map(({ visible }) => visible),
+    accessible: items.map(({ accessible }) => accessible),
+  };
 }
 
 export function getWindowControlPresentation(isMaximized) {
