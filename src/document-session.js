@@ -376,9 +376,25 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
     }
   };
 
+  const prepareDiagrams = async (theme = 'default') => {
+    if (disposed || state.state !== 'ready' || !content.querySelector('.mermaid')) return null;
+    const candidate = generation;
+    try {
+      const prepared = await adapters.diagrams?.prepare?.(content, { reset: true, theme });
+      if (!isCurrent(candidate)) return null;
+      return prepared || null;
+    } catch (error) {
+      if (!isCurrent(candidate)) return null;
+      hooks.onDiagnostic?.('Mermaid theme preparation error', error);
+      hooks.onWarning?.('The diagram could not update for this theme');
+      return null;
+    }
+  };
+
   return Object.freeze({
     open,
     clear,
+    prepareDiagrams,
     refreshDiagrams,
     current: () => state,
     dispose() {

@@ -6,29 +6,29 @@ const testState = vi.hoisted(() => ({
   mermaid: {
     initialize: vi.fn(),
     reset: vi.fn(),
-    run: vi.fn(),
+    render: vi.fn(async (id, source) => ({
+      svg: `<svg data-id="${id}"><text>${source}</text></svg>`,
+      bindFunctions: vi.fn(),
+    })),
   },
 }));
 
+let prepareMermaidDiagrams;
 let renderMermaidDiagrams;
 
 function createContainer(diagrams = []) {
   return {
     querySelectorAll: vi.fn(() => diagrams),
+    contains: vi.fn((candidate) => diagrams.includes(candidate)),
   };
 }
 
 function createDiagram(source = 'graph TD; A-->B') {
-  const classes = new Set();
   return {
     dataset: {},
     textContent: source,
-    removeAttribute: vi.fn(),
-    classList: {
-      add: vi.fn((value) => classes.add(value)),
-      remove: vi.fn((value) => classes.delete(value)),
-      contains: (value) => classes.has(value),
-    },
+    innerHTML: source,
+    isConnected: true,
   };
 }
 
@@ -37,6 +37,10 @@ beforeEach(async () => {
   vi.resetAllMocks();
   testState.importCalls = 0;
   testState.rejectNextImport = false;
+  testState.mermaid.render.mockImplementation(async (id, source) => ({
+    svg: `<svg data-id="${id}"><text>${source}</text></svg>`,
+    bindFunctions: vi.fn(),
+  }));
   vi.doMock('mermaid', () => {
     testState.importCalls += 1;
     if (testState.rejectNextImport) {
@@ -45,7 +49,7 @@ beforeEach(async () => {
     }
     return { default: testState.mermaid };
   });
-  ({ renderMermaidDiagrams } = await import('./mermaid-renderer.js'));
+  ({ prepareMermaidDiagrams, renderMermaidDiagrams } = await import('./mermaid-renderer.js'));
 });
 
 describe('mermaid renderer boundary', () => {
@@ -54,10 +58,10 @@ describe('mermaid renderer boundary', () => {
 
     expect(testState.importCalls).toBe(0);
     expect(testState.mermaid.initialize).not.toHaveBeenCalled();
-    expect(testState.mermaid.run).not.toHaveBeenCalled();
+    expect(testState.mermaid.render).not.toHaveBeenCalled();
   });
 
-  it('loads Mermaid only for diagrams and keeps strict rendering options', async () => {
+  it('loads Mermaid lazily and keeps strict rendering options', async () => {
     const diagram = createDiagram();
 
     await expect(renderMermaidDiagrams(createContainer([diagram]), { theme: 'dark' })).resolves.toBe(true);
@@ -68,8 +72,31 @@ describe('mermaid renderer boundary', () => {
       securityLevel: 'strict',
       theme: 'dark',
     });
-    expect(testState.mermaid.run).toHaveBeenCalledWith({ nodes: [diagram], suppressErrors: true });
+    expect(testState.mermaid.render).toHaveBeenCalledWith(
+      expect.stringMatching(/^openmd-mermaid-\d+-0$/),
+      'graph TD; A-->B'
+    );
     expect(diagram.dataset.mermaidSource).toBe('graph TD; A-->B');
+    expect(diagram.dataset.mermaidTheme).toBe('dark');
+    expect(diagram.innerHTML).toContain('<svg');
+  });
+
+  it('prepares replacement SVGs without touching the visible diagram', async () => {
+    const diagram = createDiagram();
+    diagram.innerHTML = '<svg data-old="true"></svg>';
+    diagram.dataset.mermaidSource = 'graph TD; A-->B';
+
+    const prepared = await prepareMermaidDiagrams(
+      createContainer([diagram]),
+      { reset: true, theme: 'dark' }
+    );
+
+    expect(diagram.innerHTML).toBe('<svg data-old="true"></svg>');
+    expect(testState.mermaid.reset).toHaveBeenCalledOnce();
+    expect(prepared.theme).toBe('dark');
+    expect(prepared.commit()).toBe(true);
+    expect(diagram.innerHTML).toContain('graph TD; A-->B');
+    expect(prepared.commit()).toBe(false);
   });
 
   it('caches a successful Mermaid module load', async () => {
@@ -79,80 +106,81 @@ describe('mermaid renderer boundary', () => {
     expect(testState.importCalls).toBe(1);
   });
 
-  it('serializes consecutive themes without interleaving singleton operations', async () => {
+  it('serializes singleton configuration and makes an older prepared result stale', async () => {
     const events = [];
-    let releaseFirstRun;
-    let firstRunStarted;
-    const firstRunReady = new Promise((resolve) => {
-      firstRunStarted = resolve;
+    let releaseFirstRender;
+    let firstRenderStarted;
+    const firstRenderReady = new Promise((resolve) => {
+      firstRenderStarted = resolve;
     });
 
-    testState.mermaid.initialize.mockImplementation(({ theme }) => {
-      events.push(`initialize:${theme}`);
-    });
-    testState.mermaid.reset.mockImplementation(() => {
-      events.push('reset');
-    });
-    testState.mermaid.run.mockImplementation(() => {
-      const runNumber = testState.mermaid.run.mock.calls.length;
-      events.push(`run:start:${runNumber}`);
-      if (runNumber === 1) {
-        firstRunStarted();
+    testState.mermaid.initialize.mockImplementation(({ theme }) => events.push(`initialize:${theme}`));
+    testState.mermaid.reset.mockImplementation(() => events.push('reset'));
+    testState.mermaid.render.mockImplementation((id, source) => {
+      const renderNumber = testState.mermaid.render.mock.calls.length;
+      events.push(`render:start:${renderNumber}`);
+      if (renderNumber === 1) {
+        firstRenderStarted();
         return new Promise((resolve) => {
-          releaseFirstRun = () => {
-            events.push('run:end:1');
-            resolve();
+          releaseFirstRender = () => {
+            events.push('render:end:1');
+            resolve({ svg: `<svg>${source}</svg>` });
           };
         });
       }
-      events.push(`run:end:${runNumber}`);
-      return Promise.resolve();
+      events.push(`render:end:${renderNumber}`);
+      return Promise.resolve({ svg: `<svg>${source}</svg>` });
     });
 
-    const first = renderMermaidDiagrams(createContainer([createDiagram('graph TD; A-->B')]), { theme: 'default' });
-    await firstRunReady;
-    expect(events).toEqual(['initialize:default', 'run:start:1']);
-    const second = renderMermaidDiagrams(
-      createContainer([createDiagram('graph TD; C-->D')]),
+    const firstDiagram = createDiagram('graph TD; A-->B');
+    const first = prepareMermaidDiagrams(createContainer([firstDiagram]), { theme: 'default' });
+    await firstRenderReady;
+    const secondDiagram = createDiagram('graph TD; C-->D');
+    const second = prepareMermaidDiagrams(
+      createContainer([secondDiagram]),
       { reset: true, theme: 'dark' }
     );
-    releaseFirstRun();
-    await expect(first).resolves.toBe(false);
-    await expect(second).resolves.toBe(true);
+    releaseFirstRender();
+
+    await expect(first).resolves.toBeNull();
+    const preparedSecond = await second;
+    expect(preparedSecond.commit()).toBe(true);
     expect(events).toEqual([
       'initialize:default',
-      'run:start:1',
-      'run:end:1',
+      'render:start:1',
+      'render:end:1',
       'reset',
       'initialize:dark',
-      'run:start:2',
-      'run:end:2',
+      'render:start:2',
+      'render:end:2',
     ]);
   });
 
-  it('coalesces queued theme bursts to the latest requested render', async () => {
+  it('coalesces queued theme bursts to the latest requested preparation', async () => {
     const first = createDiagram('graph TD; A-->B');
     const second = createDiagram('graph TD; C-->D');
     const third = createDiagram('graph TD; E-->F');
 
     const results = await Promise.all([
-      renderMermaidDiagrams(createContainer([first]), { reset: true, theme: 'default' }),
-      renderMermaidDiagrams(createContainer([second]), { reset: true, theme: 'dark' }),
-      renderMermaidDiagrams(createContainer([third]), { reset: true, theme: 'default' }),
+      prepareMermaidDiagrams(createContainer([first]), { reset: true, theme: 'default' }),
+      prepareMermaidDiagrams(createContainer([second]), { reset: true, theme: 'dark' }),
+      prepareMermaidDiagrams(createContainer([third]), { reset: true, theme: 'default' }),
     ]);
 
-    expect(results).toEqual([false, false, true]);
-    expect(testState.mermaid.run).toHaveBeenCalledTimes(1);
-    expect(testState.mermaid.initialize).toHaveBeenLastCalledWith({
-      startOnLoad: false,
-      securityLevel: 'strict',
-      theme: 'default',
-    });
+    expect(results.slice(0, 2)).toEqual([null, null]);
+    expect(testState.mermaid.render).toHaveBeenCalledTimes(1);
+    expect(results[2].commit()).toBe(true);
     expect(third.dataset.mermaidTheme).toBe('default');
-    expect(first.classList.contains('is-theme-refreshing')).toBe(false);
-    expect(second.classList.contains('is-theme-refreshing')).toBe(false);
-    expect(third.classList.contains('is-theme-refreshing')).toBe(false);
-    expect(third.classList.remove).toHaveBeenCalledWith('is-theme-refreshing');
+  });
+
+  it('refuses to commit into a document that has been replaced', async () => {
+    const diagram = createDiagram();
+    const container = createContainer([diagram]);
+    const prepared = await prepareMermaidDiagrams(container, { theme: 'dark' });
+    diagram.isConnected = false;
+
+    expect(prepared.commit()).toBe(false);
+    expect(diagram.innerHTML).toBe('graph TD; A-->B');
   });
 
   it('clears a failed import so the next render retries successfully', async () => {
@@ -165,14 +193,11 @@ describe('mermaid renderer boundary', () => {
   });
 
   it('keeps the render queue usable after a failed operation', async () => {
-    const events = [];
-    let runCount = 0;
-    testState.mermaid.run.mockImplementation(() => {
-      runCount += 1;
-      events.push(`run:${runCount}`);
-      return runCount === 1
-        ? Promise.reject(new Error('Mermaid render failed'))
-        : Promise.resolve();
+    let renderCount = 0;
+    testState.mermaid.render.mockImplementation(async (_id, source) => {
+      renderCount += 1;
+      if (renderCount === 1) throw new Error('Mermaid render failed');
+      return { svg: `<svg>${source}</svg>` };
     });
 
     await expect(
@@ -181,19 +206,5 @@ describe('mermaid renderer boundary', () => {
     await expect(
       renderMermaidDiagrams(createContainer([createDiagram('graph TD; C-->D')]))
     ).resolves.toBe(true);
-    expect(events).toEqual(['run:1', 'run:2']);
-  });
-
-  it('resets diagram source before a theme rerender', async () => {
-    const diagram = createDiagram();
-    diagram.textContent = '<svg>old</svg>';
-    diagram.dataset.mermaidSource = 'graph TD; A-->B';
-
-    await renderMermaidDiagrams(createContainer([diagram]), { reset: true, theme: 'default' });
-
-    expect(testState.mermaid.reset).toHaveBeenCalled();
-    expect(diagram.textContent).toBe('graph TD; A-->B');
-    expect(diagram.removeAttribute).toHaveBeenCalledWith('data-processed');
-    expect(diagram.dataset.mermaidTheme).toBe('default');
   });
 });

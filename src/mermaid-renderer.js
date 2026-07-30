@@ -29,8 +29,9 @@ function getMermaidTheme(theme) {
   return theme === 'dark' ? 'dark' : 'default';
 }
 
-async function initializeMermaid(theme = 'default') {
+async function configureMermaid(theme, reset) {
   const mermaid = await loadMermaid();
+  if (reset) mermaid.reset?.();
   mermaid.initialize({
     ...STRICT_MERMAID_OPTIONS,
     theme: getMermaidTheme(theme),
@@ -38,68 +39,73 @@ async function initializeMermaid(theme = 'default') {
   return mermaid;
 }
 
-async function resetMermaid(theme = 'default') {
-  const mermaid = await loadMermaid();
-  mermaid.reset?.();
-  mermaid.initialize({
-    ...STRICT_MERMAID_OPTIONS,
-    theme: getMermaidTheme(theme),
-  });
-  return mermaid;
+function captureDiagramSource(diagram) {
+  if (!diagram.dataset.mermaidSource) {
+    diagram.dataset.mermaidSource = diagram.textContent || '';
+  }
+  return diagram.dataset.mermaidSource;
 }
 
-export async function renderMermaidDiagrams(container, { reset = false, theme = 'default' } = {}) {
+function isCurrentTarget(container, diagram) {
+  if (diagram.isConnected === false) return false;
+  return typeof container?.contains !== 'function' || container.contains(diagram);
+}
+
+export async function prepareMermaidDiagrams(
+  container,
+  { reset = false, theme = 'default' } = {}
+) {
   const diagrams = [...(container?.querySelectorAll?.('.mermaid') || [])];
-  if (diagrams.length === 0) return false;
+  if (diagrams.length === 0) return null;
+
   const requestRevision = ++mermaidRequestRevision;
   const resolvedTheme = getMermaidTheme(theme);
-
-  diagrams.forEach((diagram) => {
-    if (!diagram.dataset.mermaidSource) {
-      diagram.dataset.mermaidSource = diagram.textContent || '';
-    }
-    if (reset) {
-      diagram.dataset.mermaidRefreshRevision = String(requestRevision);
-      diagram.classList?.add('is-theme-refreshing');
-    }
-  });
-
-  const releaseThemeRefresh = () => {
-    diagrams.forEach((diagram) => {
-      if (diagram.dataset.mermaidRefreshRevision !== String(requestRevision)) return;
-      delete diagram.dataset.mermaidRefreshRevision;
-      diagram.classList?.remove('is-theme-refreshing');
-    });
-  };
+  const sources = diagrams.map(captureDiagramSource);
 
   return enqueueMermaidRender(async () => {
-    if (requestRevision !== mermaidRequestRevision) {
-      releaseThemeRefresh();
-      return false;
+    if (requestRevision !== mermaidRequestRevision) return null;
+
+    const mermaid = await configureMermaid(resolvedTheme, reset);
+    if (requestRevision !== mermaidRequestRevision) return null;
+
+    const renderResults = [];
+    for (let index = 0; index < diagrams.length; index += 1) {
+      const result = await mermaid.render(
+        `openmd-mermaid-${requestRevision}-${index}`,
+        sources[index]
+      );
+      if (requestRevision !== mermaidRequestRevision) return null;
+      renderResults.push(result);
     }
 
-    diagrams.forEach((diagram) => {
-      if (reset) {
-        diagram.textContent = diagram.dataset.mermaidSource;
-        diagram.removeAttribute('data-processed');
-      }
-    });
+    let committed = false;
+    return Object.freeze({
+      theme: resolvedTheme,
+      count: diagrams.length,
+      commit() {
+        if (committed || requestRevision !== mermaidRequestRevision) return false;
+        if (!diagrams.every((diagram) => isCurrentTarget(container, diagram))) return false;
 
-    try {
-      const mermaid = reset
-        ? await resetMermaid(resolvedTheme)
-        : await initializeMermaid(resolvedTheme);
-      if (requestRevision !== mermaidRequestRevision) return false;
-      await mermaid.run({ nodes: diagrams, suppressErrors: true });
-      const isLatest = requestRevision === mermaidRequestRevision;
-      if (isLatest) {
-        diagrams.forEach((diagram) => {
+        diagrams.forEach((diagram, index) => {
+          diagram.innerHTML = renderResults[index].svg;
+          diagram.dataset.processed = 'true';
           diagram.dataset.mermaidTheme = resolvedTheme;
         });
-      }
-      return isLatest;
-    } finally {
-      releaseThemeRefresh();
-    }
+        diagrams.forEach((diagram, index) => {
+          try {
+            renderResults[index].bindFunctions?.(diagram);
+          } catch (error) {
+            console.warn('Could not bind Mermaid diagram interactions:', error);
+          }
+        });
+        committed = true;
+        return true;
+      },
+    });
   });
+}
+
+export async function renderMermaidDiagrams(container, options = {}) {
+  const prepared = await prepareMermaidDiagrams(container, options);
+  return prepared?.commit() || false;
 }
