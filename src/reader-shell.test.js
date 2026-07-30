@@ -124,10 +124,12 @@ describe('reader shell', () => {
     const shell = mountReaderShell({ window, adapters });
     await shell.start({ origin: 'launch', items: [{ path: 'diagram.md' }] });
 
-    await expect(shell.prepareAppearance({ diagramTheme: 'dark' })).resolves.toBe(prepared);
+    const diagramTokens = { accent: '#62c6c8', background: '#111820' };
+    await expect(shell.prepareAppearance({ diagramTheme: 'dark', diagramTokens })).resolves.toBe(prepared);
     expect(adapters.diagrams.prepare).toHaveBeenCalledWith(document.querySelector('#content'), {
       reset: true,
       theme: 'dark',
+      tokens: diagramTokens,
     });
     expect(prepared.commit).not.toHaveBeenCalled();
 

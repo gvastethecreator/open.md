@@ -36,13 +36,13 @@ export function mountReaderShell({ window, adapters, hooks = {} }) {
       return openIntents.submit(intent);
     },
     preferences,
-    prepareAppearance({ diagramTheme = 'default' } = {}) {
+    prepareAppearance({ diagramTheme = 'default', diagramTokens = null } = {}) {
       if (disposed) return Promise.resolve(null);
-      return documentSession.prepareDiagrams(diagramTheme);
+      return documentSession.prepareDiagrams(diagramTheme, diagramTokens);
     },
-    refreshAppearance({ diagramTheme = 'default' } = {}) {
+    refreshAppearance({ diagramTheme = 'default', diagramTokens = null } = {}) {
       if (disposed) return Promise.resolve(false);
-      return documentSession.refreshDiagrams(diagramTheme);
+      return documentSession.refreshDiagrams(diagramTheme, diagramTokens);
     },
     reload() {
       if (disposed) return Promise.resolve({ status: 'disposed' });

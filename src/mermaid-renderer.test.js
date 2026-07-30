@@ -15,6 +15,7 @@ const testState = vi.hoisted(() => ({
 
 let prepareMermaidDiagrams;
 let renderMermaidDiagrams;
+let getMermaidConfig;
 
 function createContainer(diagrams = []) {
   return {
@@ -49,7 +50,7 @@ beforeEach(async () => {
     }
     return { default: testState.mermaid };
   });
-  ({ prepareMermaidDiagrams, renderMermaidDiagrams } = await import('./mermaid-renderer.js'));
+  ({ prepareMermaidDiagrams, renderMermaidDiagrams, getMermaidConfig } = await import('./mermaid-renderer.js'));
 });
 
 describe('mermaid renderer boundary', () => {
@@ -67,18 +68,83 @@ describe('mermaid renderer boundary', () => {
     await expect(renderMermaidDiagrams(createContainer([diagram]), { theme: 'dark' })).resolves.toBe(true);
 
     expect(testState.importCalls).toBe(1);
-    expect(testState.mermaid.initialize).toHaveBeenCalledWith({
+    expect(testState.mermaid.initialize).toHaveBeenCalledWith(expect.objectContaining({
       startOnLoad: false,
       securityLevel: 'strict',
-      theme: 'dark',
-    });
+      theme: 'base',
+      look: 'classic',
+      fontFamily: expect.stringContaining('Inter'),
+      themeVariables: expect.objectContaining({
+        background: '#111820',
+        primaryBorderColor: '#62c6c8',
+        primaryTextColor: '#e7edf1',
+      }),
+      flowchart: expect.objectContaining({ curve: 'basis', rankSpacing: 54 }),
+      sequence: expect.objectContaining({ mirrorActors: false, actorMargin: 72 }),
+    }));
     expect(testState.mermaid.render).toHaveBeenCalledWith(
       expect.stringMatching(/^openmd-mermaid-\d+-0$/),
       'graph TD; A-->B'
     );
     expect(diagram.dataset.mermaidSource).toBe('graph TD; A-->B');
     expect(diagram.dataset.mermaidTheme).toBe('dark');
+    expect(diagram.dataset.mermaidKind).toBe('flowchart');
+    expect(diagram.dataset.mermaidPalette).toBe('semantic');
     expect(diagram.innerHTML).toContain('<svg');
+  });
+
+  it('maps semantic document tokens into Mermaid without weakening strict mode', () => {
+    const config = getMermaidConfig('default', {
+      background: '#fafafa',
+      text: '#101820',
+      surface: '#eef2f4',
+      border: '#7b8790',
+      accent: '#176b70',
+      quote: '#53616d',
+      danger: '#b4232f',
+      codeBackground: '#e4e9ec',
+      syntaxString: '#176b3a',
+      syntaxNumber: '#8a4b12',
+      syntaxTitle: '#1458a0',
+      syntaxMeta: '#6841a5',
+    });
+
+    expect(config).toMatchObject({
+      securityLevel: 'strict',
+      theme: 'base',
+      themeVariables: {
+        background: '#fafafa',
+        primaryColor: '#eef2f4',
+        primaryBorderColor: '#176b70',
+        lineColor: '#53616d',
+      },
+    });
+  });
+
+  it('decorates committed SVGs with stable kind and scroll-region semantics', async () => {
+    const diagram = createDiagram('sequenceDiagram\nA->>B: Hello');
+    const attributes = new Map();
+    const svgAttributes = new Map();
+    const svg = {
+      dataset: {},
+      classList: { add: vi.fn() },
+      setAttribute: vi.fn((name, value) => svgAttributes.set(name, value)),
+      hasAttribute: vi.fn((name) => svgAttributes.has(name)),
+    };
+    diagram.setAttribute = vi.fn((name, value) => attributes.set(name, value));
+    diagram.querySelector = vi.fn(() => svg);
+
+    await expect(renderMermaidDiagrams(createContainer([diagram]))).resolves.toBe(true);
+
+    expect(diagram.dataset.mermaidKind).toBe('sequence');
+    expect(diagram.tabIndex).toBe(0);
+    expect(attributes).toMatchObject(new Map([
+      ['role', 'region'],
+      ['aria-label', 'Sequence diagram 1'],
+    ]));
+    expect(svg.classList.add).toHaveBeenCalledWith('openmd-mermaid-svg');
+    expect(svgAttributes.get('preserveAspectRatio')).toBe('xMidYMid meet');
+    expect(svgAttributes.get('aria-label')).toBe('Sequence diagram 1');
   });
 
   it('prepares replacement SVGs without touching the visible diagram', async () => {
@@ -114,7 +180,9 @@ describe('mermaid renderer boundary', () => {
       firstRenderStarted = resolve;
     });
 
-    testState.mermaid.initialize.mockImplementation(({ theme }) => events.push(`initialize:${theme}`));
+    testState.mermaid.initialize.mockImplementation(({ theme, themeVariables }) => (
+      events.push(`initialize:${theme}:${themeVariables.background}`)
+    ));
     testState.mermaid.reset.mockImplementation(() => events.push('reset'));
     testState.mermaid.render.mockImplementation((id, source) => {
       const renderNumber = testState.mermaid.render.mock.calls.length;
@@ -146,11 +214,11 @@ describe('mermaid renderer boundary', () => {
     const preparedSecond = await second;
     expect(preparedSecond.commit()).toBe(true);
     expect(events).toEqual([
-      'initialize:default',
+      'initialize:base:#f7f9fa',
       'render:start:1',
       'render:end:1',
       'reset',
-      'initialize:dark',
+      'initialize:base:#111820',
       'render:start:2',
       'render:end:2',
     ]);

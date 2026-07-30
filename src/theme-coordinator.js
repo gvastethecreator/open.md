@@ -82,9 +82,10 @@ export function createThemeCoordinator({
     const label = 'Theme: ' + theme.name;
     if (elements.select) {
       elements.select.value = String(currentIndex);
-      elements.select.title = label;
+      elements.select.dataset.tooltip = label;
       elements.select.setAttribute('aria-label', label);
-      elements.select.closest('.theme-field')?.setAttribute('title', label);
+      const field = elements.select.closest('.theme-field');
+      if (field) field.dataset.tooltip = label;
     }
     if (elements.name) elements.name.textContent = theme.name;
   };
@@ -131,7 +132,7 @@ export function createThemeCoordinator({
     const tokens = getThemeTokens(theme);
     const diagramTheme = isColorDark(tokens.background) ? 'dark' : 'default';
     const prepared = hooks.shouldPrepareDiagrams?.()
-      ? await hooks.prepareDiagrams?.(diagramTheme)
+      ? await hooks.prepareDiagrams?.(diagramTheme, tokens)
       : null;
     if (disposed || requestRevision !== revision) return false;
 

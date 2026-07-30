@@ -65,7 +65,11 @@ describe('Theme Coordinator', () => {
 
     const light = coordinator.applyName('Light', { silent: true, persist: false });
     await Promise.resolve();
-    expect(prepareDiagrams).toHaveBeenCalledWith('default');
+    expect(prepareDiagrams).toHaveBeenCalledWith('default', expect.objectContaining({
+      background: '#ffffff',
+      text: expect.any(String),
+      accent: expect.any(String),
+    }));
     const dark = coordinator.applyName('Dark', { silent: true, persist: false });
     first.resolve({ commit: lightCommit });
     await Promise.resolve();

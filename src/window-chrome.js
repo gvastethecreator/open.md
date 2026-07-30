@@ -19,7 +19,7 @@ export function createWindowChrome({ document, elements, nativeWindow, onError =
       if (icon) icon.className = presentation.iconClass;
       if (elements.maximize) {
         elements.maximize.setAttribute('aria-label', presentation.label);
-        elements.maximize.title = presentation.label;
+        elements.maximize.dataset.tooltip = presentation.label;
       }
       document.body.classList.toggle('is-window-maximized', maximized);
     } catch (error) {
