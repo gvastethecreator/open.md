@@ -353,16 +353,16 @@ document-change guards while the Open Intent controller owns request policy.
 ### ARC-22 — Own document view-state projection
 
 **Type:** AFK
-**Status:** Planned
+**Status:** Implemented
 **Blocked by:** ARC-17, ARC-18, and ARC-19.
 
 **What to build:** One Document View State module owns the current identity
 snapshot and loading/ready/failed/idle fan-out to title, URL, editor, save,
 navigation, viewport, and status adapters.
 
-- [ ] Loading a different path clears stale editor content and save state.
-- [ ] Ready, failed, idle, and replacement transitions publish one coherent snapshot.
-- [ ] Tests prove stale consumer state cannot survive replacement.
+- [x] Loading a different path clears stale editor content and save state.
+- [x] Ready, failed, idle, and replacement transitions publish one coherent snapshot.
+- [x] Tests prove stale consumer state cannot survive replacement.
 
 ### ARC-23 — Own application runtime adapters
 
