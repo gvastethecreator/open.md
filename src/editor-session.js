@@ -7,12 +7,8 @@ import {
   serializeEditorDocument,
 } from './editor-document.js';
 import { createEditorOverlayController } from './editor-overlay-controller.js';
+import { createEditorSelectionController } from './editor-selection-controller.js';
 
-const INLINE_COMMANDS = Object.freeze({
-  bold: 'bold',
-  italic: 'italic',
-  strike: 'strikeThrough',
-});
 const MAX_EDITABLE_CHARACTERS = 2 * 1024 * 1024;
 const MAX_EDITABLE_BLOCKS = 20_000;
 const BLOCK_DRAG_MIME = 'text/x-openmd-block';
@@ -31,12 +27,6 @@ function blockContent(wrapper) {
   return wrapper?.querySelector('[data-editor-content]') || null;
 }
 
-function isSelectionInside(selection, root) {
-  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return false;
-  const range = selection.getRangeAt(0);
-  return root.contains(range.commonAncestorContainer);
-}
-
 function caretOffset(element, selection) {
   if (!element || !selection || selection.rangeCount === 0) return 0;
   const range = selection.getRangeAt(0);
@@ -45,28 +35,6 @@ function caretOffset(element, selection) {
   before.selectNodeContents(element);
   before.setEnd(range.startContainer, range.startOffset);
   return before.toString().length;
-}
-
-function editorTextFromNode(node) {
-  if (!node) return '';
-  if (node.nodeType === 3) return node.nodeValue || '';
-  if (node.nodeType !== 1) return '';
-  if (node.tagName === 'BR') return '\n';
-
-  const content = [...node.childNodes].map(editorTextFromNode).join('');
-  return node.tagName === 'DIV' || node.tagName === 'P' ? `${content}\n` : content;
-}
-
-function textBeforeSelection(document, element, selection) {
-  if (!element || !selection || selection.rangeCount === 0) return '';
-  const active = selection.getRangeAt(0);
-  if (!element.contains(active.startContainer)) return '';
-  const before = document.createRange();
-  before.selectNodeContents(element);
-  before.setEnd(active.startContainer, active.startOffset);
-  const host = document.createElement('div');
-  host.append(before.cloneContents());
-  return [...host.childNodes].map(editorTextFromNode).join('').replace(/\n$/, '');
 }
 
 function markdownAroundSelection(document, element, selection) {
@@ -127,9 +95,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   let saveError = '';
   let activeBlockId = null;
   let overlayController = null;
-  let savedSelection = null;
+  let selectionController = null;
   let disposed = false;
-  let caretEchoVersion = 0;
   let blockLineCounts = new Map();
   let dragState = null;
   const blockAnimations = new Set();
@@ -235,39 +202,12 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     selection.removeAllRanges();
     selection.addRange(range);
     activeBlockId = id;
-    updateCursorFromSelection(selection);
+    selectionController?.capture();
     content.scrollIntoView?.({ block: 'nearest' });
   };
 
   const closeCommandMenu = (options) => overlayController?.closeCommand(options);
   const closeBlockMenu = (options) => overlayController?.closeBlock(options);
-
-  const closeInlineToolbar = () => {
-    inlineToolbar.hidden = true;
-    if (linkPopover) linkPopover.hidden = true;
-    savedSelection = null;
-  };
-
-  const positionFloating = (element, anchorRect, preferred = 'below') => {
-    element.hidden = false;
-    const rect = element.getBoundingClientRect();
-    const gap = 6;
-    const editorContext = element === inlineToolbar
-      ? contextLabel?.closest?.('.editor-context')?.getBoundingClientRect()
-      : null;
-    const safeTop = Math.max(40, (editorContext?.bottom || 34) + gap);
-    const safeBottom = window.innerHeight - 38;
-    const left = clamp(anchorRect.left, 8, window.innerWidth - rect.width - 8);
-    const above = anchorRect.top - rect.height - gap;
-    const below = anchorRect.bottom + gap;
-    const fitsAbove = above >= safeTop;
-    const fitsBelow = below + rect.height <= safeBottom;
-    const top = preferred === 'above'
-      ? fitsAbove ? above : fitsBelow ? below : clamp(above, safeTop, safeBottom - rect.height)
-      : fitsBelow ? below : fitsAbove ? above : clamp(below, safeTop, safeBottom - rect.height);
-    element.style.left = `${Math.round(left)}px`;
-    element.style.top = `${Math.round(top)}px`;
-  };
 
   const openCommandMenu = (blockId, query = '') => overlayController?.openCommand(blockId, query);
   const openBlockMenu = (blockId, anchor, options) => overlayController?.openBlock(blockId, anchor, options);
@@ -553,11 +493,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       return;
     }
     if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'k') {
-      const activeSelection = window.getSelection();
-      if (isSelectionInside(activeSelection, canvas)) {
+      if (selectionController?.openLinkFromCurrentSelection()) {
         event.preventDefault();
-        savedSelection = activeSelection.getRangeAt(0).cloneRange();
-        openLinkPopover();
       }
       return;
     }
@@ -567,11 +504,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
         : event.shiftKey && event.key.toLowerCase() === 'x'
           ? 'strike'
           : null;
-      const activeSelection = window.getSelection();
-      if (inlineCommand && isSelectionInside(activeSelection, canvas)) {
+      if (inlineCommand && selectionController?.applyFromCurrentSelection(inlineCommand)) {
         event.preventDefault();
-        savedSelection = activeSelection.getRangeAt(0).cloneRange();
-        applyInlineCommand(inlineCommand);
         return;
       }
     }
@@ -750,182 +684,6 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     focusBlock(sourceId);
   };
 
-  const hideCaretEcho = () => {
-    if (!caretEcho) return;
-    caretEchoVersion += 1;
-    caretEcho.classList.remove('is-moving');
-    caretEcho.hidden = true;
-    root.classList.remove('has-custom-caret');
-  };
-
-  const captureCaretEcho = (selection) => {
-    if (
-      !caretEcho
-      || mode !== 'edit'
-      || !selection
-      || selection.rangeCount === 0
-      || !selection.isCollapsed
-    ) {
-      hideCaretEcho();
-      return;
-    }
-
-    const range = selection.getRangeAt(0);
-    if (!canvas.contains(range.startContainer)) {
-      hideCaretEcho();
-      return;
-    }
-
-    const rects = typeof range.getClientRects === 'function' ? range.getClientRects() : null;
-    const rect = rects?.length > 0
-      ? rects[0]
-      : typeof range.getBoundingClientRect === 'function'
-        ? range.getBoundingClientRect()
-        : null;
-    if (!rect || !Number.isFinite(rect.left) || !Number.isFinite(rect.top) || rect.height <= 0) {
-      hideCaretEcho();
-      return;
-    }
-
-    caretEcho.style.left = `${Math.round(rect.left * 2) / 2}px`;
-    caretEcho.style.top = `${Math.round(rect.top * 2) / 2}px`;
-    caretEcho.style.height = `${Math.max(12, Math.min(32, rect.height))}px`;
-    caretEcho.hidden = false;
-    root.classList.add('has-custom-caret');
-    caretEcho.classList.remove('is-moving');
-    const version = ++caretEchoVersion;
-
-    window.requestAnimationFrame(() => {
-      if (version !== caretEchoVersion || caretEcho.hidden) return;
-      caretEcho.classList.add('is-moving');
-      caretEcho.addEventListener('animationend', () => {
-        if (version !== caretEchoVersion) return;
-        caretEcho.classList.remove('is-moving');
-      }, { once: true });
-    });
-  };
-
-  const updateInlineCommandStates = (range) => {
-    const node = range.commonAncestorContainer;
-    const element = node.nodeType === 1 ? node : node.parentElement;
-    inlineToolbar.querySelectorAll('[data-inline-command]').forEach((button) => {
-      const command = button.dataset.inlineCommand;
-      const selectors = {
-        bold: 'strong, b',
-        italic: 'em, i',
-        strike: 's, strike, del',
-        code: 'code',
-        link: 'a',
-      };
-      const active = Boolean(element?.closest?.(selectors[command]));
-      button.setAttribute('aria-pressed', String(active));
-    });
-  };
-
-  const updateCursorFromSelection = (selection) => {
-    if (mode !== 'edit' || !selection || selection.rangeCount === 0) {
-      setCursor(null);
-      return;
-    }
-
-    const range = selection.getRangeAt(0);
-    const node = range.startContainer;
-    if (!node) {
-      setCursor(null);
-      return;
-    }
-    const element = node.nodeType === 1 ? node : node.parentElement;
-    const content = element?.closest?.('[data-editor-content]');
-    const wrapper = content?.closest?.('[data-block-id]');
-    if (!content || !wrapper || !canvas.contains(content)) {
-      setCursor(null);
-      return;
-    }
-
-    const before = textBeforeSelection(document, content, selection);
-    const localLines = before.split('\n');
-    const blockStartLine = Number.parseInt(wrapper.dataset.sourceLineStart, 10) || 1;
-    const codeFenceOffset = activeDocument?.markdown !== false && wrapper.dataset.blockType === 'code' ? 1 : 0;
-    setCursor({
-      line: blockStartLine + codeFenceOffset + localLines.length - 1,
-      column: localLines.at(-1).length + 1,
-    });
-  };
-
-  const captureSelection = () => {
-    const selection = window.getSelection();
-    updateCursorFromSelection(selection);
-    captureCaretEcho(selection);
-    if (mode !== 'edit' || !isSelectionInside(selection, canvas)) {
-      if (!linkPopover || linkPopover.hidden) closeInlineToolbar();
-      return;
-    }
-    const range = selection.getRangeAt(0);
-    savedSelection = range.cloneRange();
-    updateInlineCommandStates(range);
-    const rect = range.getBoundingClientRect();
-    positionFloating(inlineToolbar, rect, 'above');
-  };
-
-  const restoreSelection = () => {
-    if (!savedSelection) return false;
-    const selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(savedSelection);
-    return true;
-  };
-
-  const syncSelectedBlock = () => {
-    if (!savedSelection) return;
-    const node = savedSelection.commonAncestorContainer;
-    const element = node.nodeType === 1 ? node : node.parentElement;
-    const wrapper = element?.closest?.('[data-block-id]');
-    if (wrapper) {
-      updateBlockFromElement(wrapper);
-      notify();
-    }
-  };
-
-  const applyInlineCommand = (command) => {
-    if (!restoreSelection()) return;
-    if (command === 'code') {
-      const selection = window.getSelection();
-      const range = selection.getRangeAt(0);
-      const code = document.createElement('code');
-      try {
-        range.surroundContents(code);
-      } catch {
-        code.append(range.extractContents());
-        range.insertNode(code);
-      }
-      selection.removeAllRanges();
-      const nextRange = document.createRange();
-      nextRange.selectNodeContents(code);
-      selection.addRange(nextRange);
-    } else {
-      document.execCommand(INLINE_COMMANDS[command], false);
-    }
-    syncSelectedBlock();
-    captureSelection();
-  };
-
-  const openLinkPopover = () => {
-    if (!savedSelection || !linkPopover || !linkInput) return;
-    linkInput.value = '';
-    linkPopover.hidden = false;
-    positionFloating(linkPopover, inlineToolbar.getBoundingClientRect());
-    linkInput.focus();
-  };
-
-  const applyLink = () => {
-    const href = linkInput?.value.trim();
-    if (!href || !restoreSelection()) return;
-    const safeHref = /^(?:https?:|mailto:|#|\.\.?\/)/i.test(href) ? href : `https://${href}`;
-    document.execCommand('createLink', false, safeHref);
-    syncSelectedBlock();
-    closeInlineToolbar();
-  };
-
   const enter = () => {
     if (disposed || !activeDocument) return false;
     const draft = drafts.get(activeDocument.path);
@@ -958,11 +716,9 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     }
     closeCommandMenu();
     closeBlockMenu();
-    closeInlineToolbar();
     clearDragState();
     cancelBlockAnimations();
-    hideCaretEcho();
-    setCursor(null);
+    selectionController?.clear();
     mode = 'read';
     saveState = 'idle';
     saveError = '';
@@ -1070,6 +826,32 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   });
   overlayController.start();
 
+  selectionController = createEditorSelectionController({
+    window,
+    document,
+    elements: {
+      root,
+      canvas,
+      inlineToolbar,
+      caretEcho,
+      linkPopover,
+      linkInput,
+      linkApply,
+    },
+    adapters: {
+      isEditing: () => mode === 'edit',
+      isMarkdown: () => activeDocument?.markdown !== false,
+      getActiveBlockId: () => activeBlockId,
+      setCursor,
+      updateBlockFromElement,
+    },
+    hooks: {
+      onDocumentChange: notify,
+      focusBlock,
+    },
+  });
+  selectionController.start();
+
   canvas.addEventListener('input', handleCanvasInput);
   canvas.addEventListener('keydown', handleCanvasKeydown);
   canvas.addEventListener('click', handleCanvasClick);
@@ -1078,27 +860,6 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   canvas.addEventListener('dragend', handleDragEnd);
   canvas.addEventListener('dragover', handleDragOver);
   canvas.addEventListener('drop', handleDrop);
-  document.addEventListener('selectionchange', captureSelection);
-
-  inlineToolbar.addEventListener('mousedown', (event) => event.preventDefault());
-  inlineToolbar.addEventListener('click', (event) => {
-    const command = event.target.closest('[data-inline-command]')?.dataset.inlineCommand;
-    if (!command) return;
-    if (command === 'link') openLinkPopover();
-    else applyInlineCommand(command);
-  });
-  linkApply?.addEventListener('click', applyLink);
-  linkInput?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      applyLink();
-    }
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      closeInlineToolbar();
-      focusBlock(activeBlockId);
-    }
-  });
 
   root.hidden = true;
   root.setAttribute('inert', '');
@@ -1120,16 +881,13 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     dispose() {
       disposed = true;
       overlayController?.dispose();
+      selectionController?.dispose();
       unsubscribeDocumentModel();
       documentModel.dispose();
-      document.removeEventListener('selectionchange', captureSelection);
       clearDragState();
       cancelBlockAnimations();
-      hideCaretEcho();
-      setCursor(null);
       closeCommandMenu();
       closeBlockMenu();
-      closeInlineToolbar();
     },
   });
 }

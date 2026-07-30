@@ -214,20 +214,20 @@ filtering, viewport-aware position, keyboard/outside dismissal and focus return.
 ### ARC-14 — Own editor selection and inline formatting
 
 **Type:** AFK
-**Status:** Ready
+**Status:** Implemented
 **Blocked by:** ARC-13.
 
 **What to build:** One Editor Selection controller owns captured range, cursor
 projection, inline toolbar state/actions, links and the animated caret echo.
 
-- [ ] Capture/restore and cursor reporting survive formatting actions.
-- [ ] Link apply/cancel and toolbar states keep focus and selection coherent.
-- [ ] Caret/reduced-motion/dispose paths leave no stale overlay or animation.
+- [x] Capture/restore and cursor reporting survive formatting actions.
+- [x] Link apply/cancel and toolbar states keep focus and selection coherent.
+- [x] Caret/reduced-motion/dispose paths leave no stale overlay or animation.
 
 ### ARC-15 — Own block drag and layout motion
 
 **Type:** AFK
-**Status:** Blocked
+**Status:** Ready
 **Blocked by:** ARC-12 and ARC-14.
 
 **What to build:** One Editor Block Interaction controller owns FLIP layout
