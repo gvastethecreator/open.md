@@ -162,8 +162,6 @@ export function createReaderControls({
     body.classList.toggle('is-line-guide', available && state.readingTools.lineGuide);
     body.classList.toggle('is-minimap', available && state.readingTools.minimap);
     body.classList.toggle('is-word-wrap', state.readingTools.wordWrap);
-    elements.content?.classList.toggle('hidden', sourceActive || isEditMode());
-    elements.sourceView?.classList.toggle('hidden', !sourceActive);
     updateReadingToolControls();
     hooks.onReadingToolsApplied?.({ ...state.readingTools, sourceActive });
   }

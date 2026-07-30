@@ -297,16 +297,16 @@ state behind a small render interface.
 ### ARC-18 — Own reader viewport and help projection
 
 **Type:** AFK
-**Status:** Planned
+**Status:** Implemented
 **Blocked by:** ARC-17.
 
 **What to build:** One Reader Viewport Controller owns empty/content/help stage
 visibility, inertness, page state, help focus capture/return, body classes, and
 scroll reset without owning document loading.
 
-- [ ] Empty, content, and help states project correct visibility and ARIA/inert state.
-- [ ] F1/Escape and replacement return focus deterministically without scroll jumps.
-- [ ] Narrow DOM tests cover repeated open/close and disposal.
+- [x] Empty, content, and help states project correct visibility and ARIA/inert state.
+- [x] F1/Escape and replacement return focus deterministically without scroll jumps.
+- [x] Narrow DOM tests cover repeated open/close and disposal.
 
 ### ARC-19 — Own editor save feedback presentation
 
@@ -340,7 +340,7 @@ mutation, and editor action adapters behind a small context interface.
 
 **Type:** AFK
 **Status:** Planned
-**Blocked by:** ARC-23 and ARC-25.
+**Blocked by:** ARC-23.
 
 **What to build:** One Document Ingress Controller owns picker, association
 event replay/acknowledgment, global drag safety, native drag-drop, and
