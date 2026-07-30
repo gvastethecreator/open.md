@@ -110,7 +110,8 @@ export function createResponsiveTypography({ window, root = window.document, onD
   const refresh = () => {
     if (disposed || !available) return false;
     try {
-      const elements = [...root.querySelectorAll(FIT_SELECTORS)];
+      const elements = [...root.querySelectorAll(FIT_SELECTORS)]
+        .filter((element) => !element.closest('.minimap-document'));
       elements.forEach(resetElement);
       const measurements = elements.map((element) => measureElement(window, element));
       elements.forEach((element, index) => {
