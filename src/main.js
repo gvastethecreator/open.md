@@ -31,6 +31,7 @@ import { createEditorFeedbackPresenter } from './editor-feedback-presenter.js';
 import { createDocumentContentActions } from './document-content-actions.js';
 import { createDocumentViewStateController } from './document-view-state.js';
 import { createDocumentIngressController } from './document-ingress-controller.js';
+import { createReaderKeyboardController } from './reader-keyboard-controller.js';
 
 let currentZoom = 1;
 const ZOOM_STEP = 0.1;
@@ -56,6 +57,7 @@ let editorFeedback = null;
 let documentContentActions = null;
 let documentViewState = null;
 let documentIngress = null;
+let readerKeyboard = null;
 
 const ui = {
   windowFileTitle: null,
@@ -795,70 +797,30 @@ function handleZoom(event) {
   }
 }
 
-function handleKeyboard(event) {
-  if (event.key === 'F1') {
-    event.preventDefault();
-    toggleHelp();
-    return;
-  }
-
-  if (event.key === 'Escape' && isHelpVisible()) {
-    event.preventDefault();
-    setHelpVisible(false);
-    return;
-  }
-
-  if (event.key === 'Escape' && readerControls?.isReadingToolsOpen()) {
-    event.preventDefault();
-    setReadingToolsOpen(false, { returnFocus: true });
-    return;
-  }
-
-  if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'e') {
-    event.preventDefault();
-    documentModeCoordinator?.toggleEdit();
-    return;
-  }
-
-  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 's' && isEditMode) {
-    event.preventDefault();
-    documentSaveCoordinator?.saveEditor();
-    return;
-  }
-
-  if (event.key === 'Escape' && readerControls?.isTypographyOpen()) {
-    event.preventDefault();
-    setTypographyOpen(false, { returnFocus: true });
-    return;
-  }
-
-  if (event.ctrlKey && event.key.toLowerCase() === 'o') {
-    event.preventDefault();
-    openFilePicker();
-    return;
-  }
-
-  if (event.ctrlKey && (event.key === '=' || event.key === '+')) {
-    event.preventDefault();
-    setZoom(currentZoom + ZOOM_STEP);
-  } else if (event.ctrlKey && event.key === '-') {
-    event.preventDefault();
-    setZoom(currentZoom - ZOOM_STEP);
-  } else if (event.ctrlKey && event.key === '0') {
-    event.preventDefault();
-    setZoom(1.0);
-  }
-
-  const isTypingField = ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target?.tagName)
-    || event.target?.isContentEditable;
-  if (!isTypingField && (event.key === 't' || event.key === 'T') && !event.metaKey && !event.altKey) {
-    event.preventDefault();
-    if (event.ctrlKey || event.shiftKey) {
-      cycleTheme(-1);
-    } else {
-      cycleTheme(1);
-    }
-  }
+function mountReaderKeyboard() {
+  readerKeyboard = createReaderKeyboardController({
+    window,
+    adapters: {
+      isHelpVisible,
+      isReadingToolsOpen: () => readerControls?.isReadingToolsOpen(),
+      isTypographyOpen: () => readerControls?.isTypographyOpen(),
+      isEditMode: () => isEditMode,
+    },
+    hooks: {
+      toggleHelp,
+      closeHelp: () => setHelpVisible(false),
+      closeReadingTools: () => setReadingToolsOpen(false, { returnFocus: true }),
+      closeTypography: () => setTypographyOpen(false, { returnFocus: true }),
+      toggleEdit: () => documentModeCoordinator?.toggleEdit(),
+      saveEditor: () => documentSaveCoordinator?.saveEditor(),
+      openFile: openFilePicker,
+      zoomIn: () => setZoom(currentZoom + ZOOM_STEP),
+      zoomOut: () => setZoom(currentZoom - ZOOM_STEP),
+      resetZoom: () => setZoom(1.0),
+      cycleTheme,
+    },
+  });
+  readerKeyboard.start();
 }
 
 function handleThemeSelection(event) {
@@ -890,7 +852,6 @@ function openFilePicker() {
 
 function registerEvents() {
   window.addEventListener('wheel', handleZoom, { passive: false });
-  window.addEventListener('keydown', handleKeyboard);
   window.addEventListener('beforeunload', (event) => {
     if (editorSession?.isDirty()) {
       event.preventDefault();
@@ -909,6 +870,7 @@ function registerEvents() {
     editorFeedback?.dispose();
     documentContentActions?.dispose();
     documentIngress?.dispose();
+    readerKeyboard?.dispose();
     responsiveTypography?.dispose();
     readerShell?.dispose();
     editorSession?.dispose();
@@ -954,6 +916,7 @@ async function init() {
   mountDocumentContentActions();
   mountDocumentIngress();
   mountContextMenu();
+  mountReaderKeyboard();
   const preferenceResult = await readerShell.preferences.load();
   if (preferenceResult.status === 'fallback') {
     console.warn('One or more saved preferences could not be restored:', preferenceResult.warnings);

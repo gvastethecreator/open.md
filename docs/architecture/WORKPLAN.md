@@ -381,16 +381,16 @@ adapters, and window adapters behind the existing Reader shell adapter shape.
 ### ARC-24 — Own reader keyboard shortcuts
 
 **Type:** AFK
-**Status:** Planned
+**Status:** Implemented
 **Blocked by:** ARC-16, ARC-17, ARC-18, and ARC-21.
 
 **What to build:** One Reader Keyboard Controller owns shortcut precedence,
 editable-target guards, Escape/focus behavior, open/save, zoom, theme, help,
 and mode commands behind injected callbacks.
 
-- [ ] F1, Escape, open, save, zoom, theme, and Edit shortcuts preserve precedence.
-- [ ] Inputs, selects, textareas, and contenteditable surfaces keep their text-editing behavior.
-- [ ] Keyboard tests cover reduced/error/unavailable states and disposal.
+- [x] F1, Escape, open, save, zoom, theme, and Edit shortcuts preserve precedence.
+- [x] Inputs, selects, textareas, and contenteditable surfaces keep their text-editing behavior.
+- [x] Keyboard tests cover reduced/error/unavailable states and disposal.
 
 ### ARC-25 — Own application lifecycle and teardown
 
