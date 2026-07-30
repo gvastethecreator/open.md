@@ -1,7 +1,7 @@
 # Architecture workplan
 
 Date: 2026-07-29
-Status: implemented and verified; packaged platform smoke limits recorded
+Status: ARC-01..05 verified; ARC-06..15 implementation in progress
 
 This ledger tracks the five accepted recommendations from the
 [architecture review](architecture-review-2026-07-29.md). Each slice used
@@ -96,3 +96,143 @@ Do not add a generic event bus, dependency-injection container, settings
 framework, or versioned wire protocol without a new concrete caller or
 compatibility need. Extend the existing deep owner when the new behavior shares
 its invariants; create another seam only when the deletion test proves it.
+
+## Batch 2026-07-30 — UI and editor ownership
+
+This execution batch tracks exactly ten implementation-ready improvements.
+Work the frontier top to bottom; the linear blocking edges keep repeated edits
+to the two current composition modules independently green.
+
+### ARC-06 — Own native window chrome lifecycle
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None — can start immediately.
+
+**What to build:** One Window Chrome module sets up native controls, reflects
+maximize state and disposes every native listener without exposing event
+ordering to the composition root.
+
+- [x] Fake-window behavior covers maximize, unmaximize, native actions and dispose.
+- [x] `main.js` no longer stores native-window listener cleanup.
+- [x] Shell checks and the focused module test pass.
+
+### ARC-07 — Own toast presentation lifecycle
+
+**Type:** AFK
+**Status:** Ready
+**Blocked by:** ARC-06.
+
+**What to build:** One Toast Presenter owns message replacement, shape morph,
+timeouts, rapid interruption, fallback and cleanup.
+
+- [ ] First show and visible replacement preserve one live accessible message.
+- [ ] Reduced motion and missing Web Animations degrade cleanly.
+- [ ] Rapid replacement/dispose leaves no stale node, timer or animation.
+
+### ARC-08 — Coordinate theme preparation and commit
+
+**Type:** AFK
+**Status:** Blocked
+**Blocked by:** ARC-07.
+
+**What to build:** One Theme Coordinator coalesces rapid requests, prepares
+diagrams/highlighting, commits tokens under the available transition and
+reports persistence/feedback through injected hooks.
+
+- [ ] Latest request wins without committing stale prepared diagrams.
+- [ ] Preparation failure leaves the current theme usable and the queue drainable.
+- [ ] Reduced-motion, fallback, interruption and dispose paths are tested.
+
+### ARC-09 — Coordinate document mode transitions
+
+**Type:** AFK
+**Status:** Blocked
+**Blocked by:** ARC-08.
+
+**What to build:** One Document Mode Coordinator owns Read/Edit/Source order,
+toggle semantics, rendered transition milestones and cancellation cleanup.
+
+- [ ] Read -> Edit -> Source -> Read and Read/Edit toggle preserve behavior.
+- [ ] Canceled dirty exit does not advance mode.
+- [ ] View Transition, fallback, interruption, reduced motion and dispose are green.
+
+### ARC-10 — Coordinate document mutations and save scheduling
+
+**Type:** AFK
+**Status:** Blocked
+**Blocked by:** ARC-09.
+
+**What to build:** One Document Save Coordinator owns editor debounce and the
+serialized read-task mutation path with deterministic rollback and feedback.
+
+- [ ] Autosave replaces stale timers and respects disabled/error/saving states.
+- [ ] Read-task saves serialize and roll back the exact failed checkbox/source.
+- [ ] Document replacement and disposal cannot commit stale follow-up work.
+
+### ARC-11 — Own reading navigation chrome
+
+**Type:** AFK
+**Status:** Blocked
+**Blocked by:** ARC-10.
+
+**What to build:** One Reading Navigation controller owns the active view,
+line guide, minimap document/viewport, scroll progress, pointer/keyboard input,
+resize observation, scheduling and disposal.
+
+- [ ] Read/Edit/Source line guides and minimap snapshots use the active view.
+- [ ] Pointer and keyboard navigation map to the real reader scroll owner.
+- [ ] Observer/RAF/listeners dispose cleanly and focused DOM tests pass.
+
+### ARC-12 — Deepen the editor document model
+
+**Type:** AFK
+**Status:** Blocked
+**Blocked by:** ARC-11.
+
+**What to build:** Extend the Editor Document module so canonical blocks,
+history, cursor, CRUD, split/merge and serialization live behind one model
+interface rather than inside the DOM session closure.
+
+- [ ] Model behavior covers Markdown/TXT mutation and independent undo/redo.
+- [ ] Editor session observes model snapshots instead of owning history arrays.
+- [ ] Existing editor user paths remain green.
+
+### ARC-13 — Own editor overlay lifecycle
+
+**Type:** AFK
+**Status:** Blocked
+**Blocked by:** ARC-12.
+
+**What to build:** One Editor Overlay controller owns command/block menus,
+filtering, viewport-aware position, keyboard/outside dismissal and focus return.
+
+- [ ] Commands and disabled states remain derived from current block context.
+- [ ] Edge placement, Escape, keyboard activation and outside dismissal are tested.
+- [ ] Disposal removes document listeners and temporary overlay state.
+
+### ARC-14 — Own editor selection and inline formatting
+
+**Type:** AFK
+**Status:** Blocked
+**Blocked by:** ARC-13.
+
+**What to build:** One Editor Selection controller owns captured range, cursor
+projection, inline toolbar state/actions, links and the animated caret echo.
+
+- [ ] Capture/restore and cursor reporting survive formatting actions.
+- [ ] Link apply/cancel and toolbar states keep focus and selection coherent.
+- [ ] Caret/reduced-motion/dispose paths leave no stale overlay or animation.
+
+### ARC-15 — Own block drag and layout motion
+
+**Type:** AFK
+**Status:** Blocked
+**Blocked by:** ARC-12 and ARC-14.
+
+**What to build:** One Editor Block Interaction controller owns FLIP layout
+motion and drag/drop identity, target geometry, reordering and cleanup.
+
+- [ ] Before/after targets and self-drop produce deterministic model operations.
+- [ ] Repeated drag/animation interruption leaves no stale class or animation.
+- [ ] Reduced motion, disposal and the complete editor suite pass.
