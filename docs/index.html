@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f7f9fa">
+  <meta name="description" content="open.md is a quiet Tauri desktop viewer for local Markdown and plain-text files.">
+  <link rel="canonical" href="https://gvastethecreator.github.io/open.md/">
+  <link rel="icon" type="image/png" href="assets/landing/app-icon-64.png">
+  <link rel="stylesheet" href="assets/landing/site.css">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="open.md — A quiet local Markdown reader">
+  <meta property="og:description" content="Read local Markdown and plain-text files in a focused desktop window.">
+  <meta property="og:url" content="https://gvastethecreator.github.io/open.md/">
+  <meta property="og:image" content="https://gvastethecreator.github.io/open.md/assets/landing/reader-desktop-dark.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <title>open.md — A quiet local Markdown reader</title>
+  <script src="assets/landing/site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <a class="wordmark" href="#top" aria-label="open.md home">
+      <img src="assets/landing/app-icon-64.png" width="28" height="28" alt="">
+      <span>open.md</span>
+    </a>
+    <nav class="site-nav" aria-label="Primary navigation">
+      <a href="#screens">Screens</a>
+      <a href="#how-it-reads">How it reads</a>
+      <a class="nav-repo" href="https://github.com/gvastethecreator/open.md">GitHub <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow">Local Markdown reader · 0.1.0</p>
+        <h1 id="hero-title">Read the file.<br>Keep the file.</h1>
+        <p class="hero-summary">open.md turns local Markdown and plain-text files into a focused desktop reading view. It does not modify the source or fetch remote images.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="https://github.com/gvastethecreator/open.md">View on GitHub <span aria-hidden="true">→</span></a>
+          <a class="text-link" href="#run-it">Run from source</a>
+        </div>
+        <p class="release-note"><strong>Early development.</strong> Hosted installers are not published yet.</p>
+        <dl class="hero-facts" aria-label="Project facts">
+          <div><dt>Files</dt><dd>.md · .markdown · .txt</dd></div>
+          <div><dt>Stack</dt><dd>Tauri · Rust · JavaScript</dd></div>
+        </dl>
+      </div>
+
+      <figure class="hero-artifact">
+        <img src="assets/landing/reader-desktop-dark.png" width="1440" height="900" alt="open.md displaying a dark Markdown document with a Mermaid diagram, local image, minimap, and reading status bar">
+        <figcaption><span>sample.md</span><span>Real application capture</span></figcaption>
+      </figure>
+    </section>
+
+    <section class="capability-strip" aria-label="Current capabilities">
+      <p><span>01</span> Markdown, code, Mermaid and local images</p>
+      <p><span>02</span> Themes, zoom, shortcuts and reading tools</p>
+      <p><span>03</span> File picker, drag and drop, and Open with</p>
+    </section>
+
+    <section class="screens section" id="screens" aria-labelledby="screens-title">
+      <div class="section-heading">
+        <p class="eyebrow">The actual interface</p>
+        <h2 id="screens-title">The document stays in charge.</h2>
+        <p>Controls stay at the edges until they are needed. The same reading structure holds in a narrow window.</p>
+      </div>
+
+      <div class="shot-tabs" role="tablist" aria-label="Application captures">
+        <button id="tab-read" type="button" role="tab" aria-selected="true" aria-controls="panel-read" data-shot-tab="panel-read">Read</button>
+        <button id="tab-help" type="button" role="tab" aria-selected="false" aria-controls="panel-help" tabindex="-1" data-shot-tab="panel-help">Use shortcuts</button>
+        <button id="tab-narrow" type="button" role="tab" aria-selected="false" aria-controls="panel-narrow" tabindex="-1" data-shot-tab="panel-narrow">Resize</button>
+      </div>
+
+      <div class="shot-panels">
+        <figure class="shot-panel" id="panel-read" role="tabpanel" aria-labelledby="tab-read" data-shot-panel>
+          <div class="shot-frame shot-frame-wide"><img src="assets/landing/reader-desktop-dark.png" width="1440" height="900" loading="lazy" alt="Dark reading view with rendered Markdown, Mermaid diagram, local image, minimap, and status bar"></div>
+          <figcaption><strong>Read.</strong> Rendered Markdown owns the window; reading progress and tools stay at the edge.</figcaption>
+        </figure>
+        <figure class="shot-panel" id="panel-help" role="tabpanel" aria-labelledby="tab-help" data-shot-panel>
+          <div class="shot-frame shot-frame-wide"><img src="assets/landing/reader-help-light.png" width="1440" height="900" loading="lazy" alt="Light help view listing file, view, navigation, and reading keyboard controls"></div>
+          <figcaption><strong>Recall.</strong> File, theme, zoom, navigation, and reading shortcuts live in one compact guide.</figcaption>
+        </figure>
+        <figure class="shot-panel" id="panel-narrow" role="tabpanel" aria-labelledby="tab-narrow" data-shot-panel>
+          <div class="shot-frame shot-frame-narrow"><img src="assets/landing/reader-narrow-dark.png" width="480" height="800" loading="lazy" alt="The same dark Markdown document displayed in a narrow open.md window"></div>
+          <figcaption><strong>Resize.</strong> The document keeps its hierarchy while the window narrows.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="motion-section" aria-labelledby="motion-title">
+      <div class="motion-copy">
+        <p class="eyebrow">Motion study · Grok Imagine</p>
+        <h2 id="motion-title">Six seconds from the captures.</h2>
+        <p>This generated study uses the three real screens above as references. It is an illustrative composition, not a screen recording; use the stills for interface details.</p>
+      </div>
+      <div class="video-shell" data-video-shell>
+        <video controls playsinline muted preload="metadata" poster="assets/landing/reader-desktop-dark.png" aria-label="Generated open.md motion study based on the application captures">
+          <source src="assets/landing/open-md-motion-study.mp4" type="video/mp4">
+          Your browser cannot play this video. <a href="assets/landing/open-md-motion-study.mp4">Download the MP4</a>.
+        </video>
+        <p class="video-error" hidden data-video-error>Video playback is unavailable. The real interface captures remain available above. <a href="assets/landing/open-md-motion-study.mp4">Download the MP4</a>.</p>
+      </div>
+    </section>
+
+    <section class="reading-path section" id="how-it-reads" aria-labelledby="path-title">
+      <div class="section-heading">
+        <p class="eyebrow">How it reads</p>
+        <h2 id="path-title">Open, read, adjust.</h2>
+      </div>
+      <ol class="path-list">
+        <li><span>01</span><div><h3>Open a local file.</h3><p>Choose it, drop it into the window, or use the operating system’s Open with flow.</p></div></li>
+        <li><span>02</span><div><h3>Read the rendered document.</h3><p>Markdown, highlighted code, Mermaid diagrams, and bounded local images share one reading surface.</p></div></li>
+        <li><span>03</span><div><h3>Adjust the view.</h3><p>Switch themes, zoom, inspect source, and keep your place with reading progress and a minimap.</p></div></li>
+      </ol>
+    </section>
+
+    <section class="run-section" id="run-it" aria-labelledby="run-title">
+      <div>
+        <p class="eyebrow">No installer yet</p>
+        <h2 id="run-title">Run open.md from source.</h2>
+        <p>The current milestone is for contributors and early testers. Install Rust, Bun, and the Tauri platform prerequisites first.</p>
+        <div class="run-links">
+          <a class="button button-light" href="https://github.com/gvastethecreator/open.md#quick-start">Open the quick start <span aria-hidden="true">→</span></a>
+          <a href="https://github.com/gvastethecreator/open.md/blob/main/docs/DEVELOPMENT.md">Read development notes</a>
+        </div>
+      </div>
+      <pre aria-label="Commands to run open.md from source"><code><span>$</span> bun install
+<span>$</span> bun run tauri dev</code></pre>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p><strong>open.md</strong> is MIT licensed and in early development.</p>
+    <nav aria-label="Footer navigation">
+      <a href="https://github.com/gvastethecreator/open.md">Repository</a>
+      <a href="https://github.com/gvastethecreator/open.md/issues">Issues</a>
+      <a href="https://github.com/gvastethecreator/open.md/blob/main/LICENSE">License</a>
+    </nav>
+  </footer>
+</body>
+</html>

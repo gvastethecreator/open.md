@@ -2,6 +2,8 @@
 
 A quiet desktop viewer for Markdown and plain-text files.
 
+[Project site](https://gvastethecreator.github.io/open.md/) · [Source and issues](https://github.com/gvastethecreator/open.md)
+
 `open.md` is a small Tauri desktop application for reading `.md`, `.markdown`,
 and `.txt` files. Drop a file onto the window, open it from the file picker, or
 use the operating system's **Open with** menu. The app renders local documents
@@ -50,6 +52,8 @@ repository does not currently publish installers or hosted release binaries.
 
 - [Development and checks](docs/DEVELOPMENT.md) — project layout, local
   commands, and CI expectations.
+- [GitHub Pages landing](docs/PAGES.md) — local preview, deployment, and media
+  provenance.
 - [File associations](docs/FILE_ASSOCIATIONS.md) — how packaged builds
   integrate with the operating system's **Open with** flow.
 - [Bundled themes](docs/THEMES.md) — source provenance and licensing for the
