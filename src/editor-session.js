@@ -8,12 +8,10 @@ import {
 } from './editor-document.js';
 import { createEditorOverlayController } from './editor-overlay-controller.js';
 import { createEditorSelectionController } from './editor-selection-controller.js';
+import { createEditorBlockInteractionController } from './editor-block-interaction-controller.js';
 
 const MAX_EDITABLE_CHARACTERS = 2 * 1024 * 1024;
 const MAX_EDITABLE_BLOCKS = 20_000;
-const BLOCK_DRAG_MIME = 'text/x-openmd-block';
-const BLOCK_LAYOUT_DURATION = 220;
-const BLOCK_LAYOUT_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
 function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
@@ -96,10 +94,9 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   let activeBlockId = null;
   let overlayController = null;
   let selectionController = null;
+  let blockInteractionController = null;
   let disposed = false;
   let blockLineCounts = new Map();
-  let dragState = null;
-  const blockAnimations = new Set();
   const drafts = new Map();
 
   const source = () => documentSnapshot.source;
@@ -136,61 +133,6 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   const findWrapper = (id) => [...canvas.querySelectorAll('[data-block-id]')]
     .find((wrapper) => wrapper.dataset.blockId === id) || null;
 
-  const cancelBlockAnimations = () => {
-    blockAnimations.forEach((animation) => animation.cancel());
-    blockAnimations.clear();
-  };
-
-  const captureBlockLayout = () => {
-    const layout = new Map([...canvas.querySelectorAll('[data-block-id]')].map((wrapper) => [
-      wrapper.dataset.blockId,
-      wrapper.getBoundingClientRect(),
-    ]));
-    cancelBlockAnimations();
-    return layout;
-  };
-
-  const trackBlockAnimation = (animation) => {
-    blockAnimations.add(animation);
-    animation.finished
-      .catch(() => undefined)
-      .finally(() => blockAnimations.delete(animation));
-  };
-
-  const animateBlockLayout = (previousLayout, { enteringId = null } = {}) => {
-    if (
-      !previousLayout
-      || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    ) return;
-
-    canvas.querySelectorAll('[data-block-id]').forEach((wrapper) => {
-      if (typeof wrapper.animate !== 'function') return;
-      const previous = previousLayout.get(wrapper.dataset.blockId);
-      const current = wrapper.getBoundingClientRect();
-      const deltaX = previous ? previous.left - current.left : 0;
-      const deltaY = previous ? previous.top - current.top : 0;
-      const entering = wrapper.dataset.blockId === enteringId && !previous;
-      if (!entering && Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) return;
-
-      const animation = wrapper.animate(
-        entering
-          ? [
-              { opacity: 0, transform: 'translateY(-5px) scale(0.985)' },
-              { opacity: 1, transform: 'translateY(0) scale(1)' },
-            ]
-          : [
-              { transform: `translate(${deltaX}px, ${deltaY}px)` },
-              { transform: 'translate(0, 0)' },
-            ],
-        {
-          duration: BLOCK_LAYOUT_DURATION,
-          easing: BLOCK_LAYOUT_EASING,
-        }
-      );
-      trackBlockAnimation(animation);
-    });
-  };
-
   const focusBlock = (id, position = 'end') => {
     const content = blockContent(findWrapper(id));
     if (!content) return;
@@ -205,6 +147,10 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     selectionController?.capture();
     content.scrollIntoView?.({ block: 'nearest' });
   };
+
+  const cancelBlockAnimations = () => blockInteractionController?.cancelAnimations();
+  const captureBlockLayout = () => blockInteractionController?.captureLayout();
+  const animateBlockLayout = (layout, options) => blockInteractionController?.animateLayout(layout, options);
 
   const closeCommandMenu = (options) => overlayController?.closeCommand(options);
   const closeBlockMenu = (options) => overlayController?.closeBlock(options);
@@ -564,125 +510,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     notify();
   };
 
-  const clearDropTargets = () => {
-    canvas.querySelectorAll('.is-drag-target-before, .is-drag-target-after').forEach((element) => {
-      element.classList.remove('is-drag-target-before', 'is-drag-target-after');
-    });
-  };
-
-  const clearDragState = () => {
-    clearDropTargets();
-    canvas.querySelectorAll('.is-dragging').forEach((element) => element.classList.remove('is-dragging'));
-    root.classList.remove('is-block-dragging');
-    dragState = null;
-  };
-
-  const hasBlockDragType = (dataTransfer) => (
-    [...(dataTransfer?.types || [])].includes(BLOCK_DRAG_MIME)
-  );
-
-  const getDropLocation = (event) => {
-    const wrappers = [...canvas.querySelectorAll('[data-block-id]')];
-    if (wrappers.length === 0) return null;
-    const directTarget = event.target.closest?.('[data-block-id]');
-    if (directTarget) {
-      const rect = directTarget.getBoundingClientRect();
-      return {
-        wrapper: directTarget,
-        position: event.clientY <= rect.top + (rect.height / 2) ? 'before' : 'after',
-      };
-    }
-
-    const nextWrapper = wrappers.find((wrapper) => {
-      const rect = wrapper.getBoundingClientRect();
-      return event.clientY <= rect.top + (rect.height / 2);
-    });
-    return nextWrapper
-      ? { wrapper: nextWrapper, position: 'before' }
-      : { wrapper: wrappers.at(-1), position: 'after' };
-  };
-
-  const handleDragStart = (event) => {
-    const handle = event.target.closest?.('[data-block-menu]');
-    const wrapper = handle?.closest('[data-block-id]');
-    if (!wrapper || !event.dataTransfer) {
-      event.preventDefault();
-      return;
-    }
-
-    closeBlockMenu();
-    closeCommandMenu();
-    const sourceId = wrapper.dataset.blockId;
-    dragState = { sourceId, targetId: null, position: null };
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData(BLOCK_DRAG_MIME, sourceId);
-    const rect = wrapper.getBoundingClientRect();
-    event.dataTransfer.setDragImage?.(
-      wrapper,
-      clamp(event.clientX - rect.left, 0, rect.width),
-      clamp(event.clientY - rect.top, 0, rect.height)
-    );
-    wrapper.classList.add('is-dragging');
-    root.classList.add('is-block-dragging');
-  };
-
-  const handleDragEnd = () => clearDragState();
-
-  const handleDragOver = (event) => {
-    if (!dragState && !hasBlockDragType(event.dataTransfer)) return;
-    const location = getDropLocation(event);
-    if (!location) return;
-    event.preventDefault();
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
-
-    const targetId = location.wrapper.dataset.blockId;
-    clearDropTargets();
-    if (targetId === dragState?.sourceId) {
-      dragState = { ...dragState, targetId: null, position: null };
-      return;
-    }
-    location.wrapper.classList.add(`is-drag-target-${location.position}`);
-    dragState = {
-      sourceId: dragState?.sourceId || null,
-      targetId,
-      position: location.position,
-    };
-  };
-
-  const handleDrop = (event) => {
-    if (!dragState && !hasBlockDragType(event.dataTransfer)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const location = getDropLocation(event);
-    const sourceId = event.dataTransfer?.getData(BLOCK_DRAG_MIME) || dragState?.sourceId;
-    const targetId = location?.wrapper.dataset.blockId || dragState?.targetId;
-    const position = location?.position || dragState?.position;
-    if (!sourceId || !targetId || !position || sourceId === targetId) {
-      clearDragState();
-      return;
-    }
-
-    const sourceIndex = documentSnapshot.blocks.findIndex((block) => block.id === sourceId);
-    const targetIndex = documentSnapshot.blocks.findIndex((block) => block.id === targetId);
-    if (sourceIndex < 0 || targetIndex < 0) {
-      clearDragState();
-      return;
-    }
-    let destination = targetIndex + (position === 'after' ? 1 : 0);
-    if (sourceIndex < destination) destination -= 1;
-    destination = clamp(destination, 0, documentSnapshot.blocks.length - 1);
-    clearDragState();
-    if (destination === sourceIndex) {
-      focusBlock(sourceId);
-      return;
-    }
-
-    const previousLayout = captureBlockLayout();
-    if (!documentModel.moveTo(sourceId, destination)) return;
-    render({ previousLayout });
-    notify();
-    focusBlock(sourceId);
-  };
+  const clearDragState = () => blockInteractionController?.clearDragState();
 
   const enter = () => {
     if (disposed || !activeDocument) return false;
@@ -852,14 +680,29 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   });
   selectionController.start();
 
+  blockInteractionController = createEditorBlockInteractionController({
+    window,
+    elements: { root, canvas },
+    adapters: {
+      getBlocks: () => documentSnapshot.blocks,
+      moveTo: (id, destination) => documentModel.moveTo(id, destination),
+      render: () => render(),
+      focusBlock,
+    },
+    hooks: {
+      closeTransientUi: () => {
+        closeBlockMenu();
+        closeCommandMenu();
+      },
+      onReorder: notify,
+    },
+  });
+  blockInteractionController.start();
+
   canvas.addEventListener('input', handleCanvasInput);
   canvas.addEventListener('keydown', handleCanvasKeydown);
   canvas.addEventListener('click', handleCanvasClick);
   canvas.addEventListener('change', handleCanvasChange);
-  canvas.addEventListener('dragstart', handleDragStart);
-  canvas.addEventListener('dragend', handleDragEnd);
-  canvas.addEventListener('dragover', handleDragOver);
-  canvas.addEventListener('drop', handleDrop);
 
   root.hidden = true;
   root.setAttribute('inert', '');
@@ -882,6 +725,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       disposed = true;
       overlayController?.dispose();
       selectionController?.dispose();
+      blockInteractionController?.dispose();
       unsubscribeDocumentModel();
       documentModel.dispose();
       clearDragState();

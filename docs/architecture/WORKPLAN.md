@@ -1,7 +1,7 @@
 # Architecture workplan
 
 Date: 2026-07-29
-Status: ARC-01..05 verified; ARC-06..15 implementation in progress
+Status: ARC-01..15 implemented and locally verified
 
 This ledger tracks the five accepted recommendations from the
 [architecture review](architecture-review-2026-07-29.md). Each slice used
@@ -227,12 +227,12 @@ projection, inline toolbar state/actions, links and the animated caret echo.
 ### ARC-15 — Own block drag and layout motion
 
 **Type:** AFK
-**Status:** Ready
+**Status:** Implemented
 **Blocked by:** ARC-12 and ARC-14.
 
 **What to build:** One Editor Block Interaction controller owns FLIP layout
 motion and drag/drop identity, target geometry, reordering and cleanup.
 
-- [ ] Before/after targets and self-drop produce deterministic model operations.
-- [ ] Repeated drag/animation interruption leaves no stale class or animation.
-- [ ] Reduced motion, disposal and the complete editor suite pass.
+- [x] Before/after targets and self-drop produce deterministic model operations.
+- [x] Repeated drag/animation interruption leaves no stale class or animation.
+- [x] Reduced motion, disposal and the complete editor suite pass.
