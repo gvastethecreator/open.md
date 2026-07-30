@@ -13,7 +13,6 @@ import {
   getLinkAction,
   getThemeTokens,
   getStatusMetricParts,
-  getViewportMode,
   getZoomStatusMetric,
 } from './core/reader.js';
 import { createDocumentSaveCoordinator } from './document-save-coordinator.js';
@@ -31,6 +30,7 @@ import { createWindowChrome } from './window-chrome.js';
 import { createContextMenuController } from './context-menu-controller.js';
 import { createTooltipController } from './tooltip-controller.js';
 import { createStatusPresenter } from './status-presenter.js';
+import { createReaderViewportController } from './reader-viewport-controller.js';
 
 let currentZoom = 1;
 const ZOOM_STEP = 0.1;
@@ -39,8 +39,6 @@ const MAX_ZOOM = 3.0;
 let dragDropUnlisten = null;
 let fileOpenRequestUnlisten = null;
 let currentFilePath = null;
-let isHelpVisible = false;
-let focusBeforeHelp = null;
 let currentDocument = null;
 let windowChrome = null;
 let readerShell = null;
@@ -57,6 +55,7 @@ let contextMenuController = null;
 let tooltipController = null;
 let statusPresenter = null;
 let readerControls = null;
+let readerViewport = null;
 
 const ui = {
   windowFileTitle: null,
@@ -171,7 +170,7 @@ function cacheElements() {
 }
 
 function updateWindowTitle(filePath = null) {
-  const visibleTitle = isHelpVisible ? 'About + Help' : filePath ? getDisplayName(filePath) : 'Ready';
+  const visibleTitle = isHelpVisible() ? 'About + Help' : filePath ? getDisplayName(filePath) : 'Ready';
   document.title = visibleTitle === 'Ready' ? 'open.md' : `open.md — ${visibleTitle}`;
   if (ui.windowFileTitle) {
     ui.windowFileTitle.textContent = visibleTitle;
@@ -213,8 +212,13 @@ function updateWindowUrl(filePath = null) {
 function setStatusText(primary, context = '', title = [primary, context].filter(Boolean).join(' · ')) {
   statusPresenter?.setIdentity({ primary, context, title });
 }
+
+function isHelpVisible() {
+  return readerViewport?.isHelpVisible() ?? false;
+}
+
 function updateStatus(filePath = null) {
-  if (isHelpVisible) {
+  if (isHelpVisible()) {
     setStatusText('About + Help', 'F1 to close');
     updateStatusMetrics();
     return;
@@ -262,7 +266,7 @@ function updateStatusMetrics() {
     return;
   }
 
-  const isAvailable = Boolean(currentDocument && currentFilePath && !isHelpVisible);
+  const isAvailable = Boolean(currentDocument && currentFilePath && !isHelpVisible());
   if (!isAvailable) {
     statusPresenter?.renderMetrics([], '');
     return;
@@ -318,88 +322,18 @@ async function setReadingTool(tool, nextValue) {
 }
 
 function syncViewportState() {
-  const mode = getViewportMode(Boolean(currentFilePath), isHelpVisible);
-  const readerMode = currentFilePath ? 'content' : 'empty';
-  const sourceActive = readerMode === 'content' && isSourceViewActive();
-
-  if (ui.emptyStage) {
-    ui.emptyStage.classList.toggle('hidden', readerMode !== 'empty');
-  }
-
-  if (ui.helpStage) {
-    ui.helpStage.setAttribute('aria-hidden', String(mode !== 'help'));
-    ui.helpStage.toggleAttribute('inert', mode !== 'help');
-  }
-
-  if (ui.documentStage) {
-    ui.documentStage.classList.toggle('hidden', readerMode !== 'content');
-  }
-
-  if (ui.content) {
-    ui.content.classList.toggle('hidden', readerMode !== 'content' || sourceActive);
-  }
-
-  if (ui.sourceView) {
-    ui.sourceView.classList.toggle('hidden', readerMode !== 'content' || !sourceActive);
-  }
-
-  if (ui.readerPage) {
-    ui.readerPage.setAttribute('aria-hidden', String(mode === 'help'));
-    ui.readerPage.toggleAttribute('inert', mode === 'help');
-  }
-
-  if (ui.viewport) {
-    ui.viewport.setAttribute('data-page', mode === 'help' ? '2' : '1');
-  }
-
-  document.body.classList.toggle('is-help-open', mode === 'help');
-  ui.helpToggleButton?.setAttribute('aria-expanded', String(mode === 'help'));
-  if (ui.helpToggleButton) {
-    const helpLabel = mode === 'help' ? 'Close About and Help' : 'Open About and Help';
-    ui.helpToggleButton.setAttribute('aria-label', helpLabel);
-    ui.helpToggleButton.dataset.tooltip = `${helpLabel} (F1)`;
-  }
+  readerViewport?.sync({
+    hasFilePath: Boolean(currentFilePath),
+    sourceActive: isSourceViewActive(),
+  });
 }
 
 function setHelpVisible(nextVisible, { manageFocus = true } = {}) {
-  if (nextVisible === isHelpVisible) return;
-
-  if (nextVisible && manageFocus) {
-    focusBeforeHelp = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
-  }
-
-  isHelpVisible = nextVisible;
-  if (nextVisible) {
-    setReadingToolsOpen(false);
-    setTypographyOpen(false);
-  }
-  syncViewportState();
-  updateStatus(currentFilePath);
-  updateWindowTitle(currentFilePath);
-
-  if (nextVisible) {
-    ui.helpStage?.scrollTo({ top: 0, behavior: 'auto' });
-  }
-  readingNavigation?.handleScroll();
-
-  if (!manageFocus) return;
-
-  if (nextVisible) {
-    queueMicrotask(() => ui.helpTitle?.focus());
-    return;
-  }
-
-  const returnTarget = focusBeforeHelp?.isConnected
-    ? focusBeforeHelp
-    : ui.helpToggleButton;
-  focusBeforeHelp = null;
-  queueMicrotask(() => returnTarget?.focus());
+  readerViewport?.setHelpVisible(nextVisible, { manageFocus });
 }
 
 function toggleHelp() {
-  setHelpVisible(!isHelpVisible);
+  readerViewport?.toggleHelp();
 }
 
 function setDragState(isActive) {
@@ -449,8 +383,7 @@ function cycleTheme(direction = 1) {
 
 function resetDocumentReadingState() {
   readingNavigation?.reset();
-  isHelpVisible = false;
-  focusBeforeHelp = null;
+  readerViewport?.reset();
 }
 
 function handleDocumentSessionState(snapshot) {
@@ -545,6 +478,36 @@ function mountApplicationReaderShell() {
   });
 }
 
+function mountReaderViewport() {
+  readerViewport = createReaderViewportController({
+    window,
+    document,
+    elements: {
+      viewport: ui.viewport,
+      readerPage: ui.readerPage,
+      content: ui.content,
+      sourceView: ui.sourceView,
+      helpStage: ui.helpStage,
+      helpTitle: ui.helpTitle,
+      documentStage: ui.documentStage,
+      emptyStage: ui.emptyStage,
+      helpToggleButton: ui.helpToggleButton,
+    },
+    hooks: {
+      closeTransientUi: () => readerControls?.closeTransient(),
+      onHelpChanged: () => {
+        updateStatus(currentFilePath);
+        updateWindowTitle(currentFilePath);
+        readingNavigation?.handleScroll();
+      },
+    },
+  });
+  readerViewport.sync({
+    hasFilePath: Boolean(currentFilePath),
+    sourceActive: isSourceViewActive(),
+  });
+}
+
 function mountReaderControls() {
   readerControls = createReaderControls({
     window,
@@ -569,10 +532,14 @@ function mountReaderControls() {
       isEditMode: () => isEditMode,
     },
     hooks: {
-      isHelpVisible: () => isHelpVisible,
+      isHelpVisible,
       captureViewScroll: (mode) => readingNavigation?.captureViewScroll(mode),
       restoreViewScroll: (mode) => readingNavigation?.restoreViewScroll(mode),
-      onReadingToolsApplied: () => {
+      onReadingToolsApplied: ({ sourceActive }) => {
+        readerViewport?.sync({
+          hasFilePath: Boolean(currentFilePath),
+          sourceActive,
+        });
         documentModeCoordinator?.refresh();
         readingNavigation?.refreshTools();
         responsiveTypography?.schedule();
@@ -784,7 +751,7 @@ function mountReadingNavigation() {
       getDocument: () => currentDocument,
       getFilePath: () => currentFilePath,
       getMode: () => isEditMode ? 'edit' : isSourceViewActive() ? 'source' : 'read',
-      isHelpVisible: () => isHelpVisible,
+      isHelpVisible,
       isLineGuideEnabled: () => readerControls?.current().readingTools.lineGuide,
       isMinimapEnabled: () => readerControls?.current().readingTools.minimap,
       getEditorCursorLine: () => editorSession?.current().cursor?.line,
@@ -1056,7 +1023,7 @@ function sourceContextItems(target) {
 }
 
 function resolveDocumentContextMenu({ target }) {
-  if (!(target instanceof Element) || isHelpVisible || !hasLoadedDocument()) return null;
+  if (!(target instanceof Element) || isHelpVisible() || !hasLoadedDocument()) return null;
   if (isEditMode) return editContextItems(target);
   if (isSourceViewActive()) return sourceContextItems(target);
   return readContextItems(target);
@@ -1145,7 +1112,7 @@ function handleKeyboard(event) {
     return;
   }
 
-  if (event.key === 'Escape' && isHelpVisible) {
+  if (event.key === 'Escape' && isHelpVisible()) {
     event.preventDefault();
     setHelpVisible(false);
     return;
@@ -1336,6 +1303,7 @@ function registerEvents() {
     tooltipController?.dispose();
     statusPresenter?.dispose();
     readerControls?.dispose();
+    readerViewport?.dispose();
     responsiveTypography?.dispose();
     readerShell?.dispose();
     editorSession?.dispose();
@@ -1371,6 +1339,7 @@ async function init() {
     onDiagnostic: (message, error) => console.warn(`${message}:`, error),
   });
   mountApplicationReaderShell();
+  mountReaderViewport();
   mountReaderControls();
   mountApplicationEditor();
   mountDocumentSaveCoordinator();
