@@ -22,7 +22,6 @@ import {
   getThemeTokens,
   getViewportMode,
   getVisibleSourceLineRange,
-  getWindowControlPresentation,
   isColorDark,
   normalizeDocumentPayload,
   setMarkdownTaskChecked,
@@ -38,6 +37,7 @@ import {
   normalizeFontIndex,
 } from './reader-preferences.js';
 import { createResponsiveTypography } from './responsive-typography.js';
+import { createWindowChrome } from './window-chrome.js';
 
 let currentZoom = 1;
 const ZOOM_STEP = 0.1;
@@ -60,7 +60,6 @@ let fontPreferences = { sans: 0, mono: 0 };
 let isTypographyOpen = false;
 let isAlwaysOnTop = false;
 let isAutoSaveEnabled = true;
-let nativeWindow = null;
 let currentSourceLine = 1;
 let currentReadingProgress = 0;
 let readingUiRafId = null;
@@ -70,7 +69,7 @@ let isMinimapDocumentDirty = true;
 let minimapCloneRevision = 0;
 let minimapContentHeight = 0;
 let viewScrollPositions = { rendered: 0, source: 0 };
-let windowChromeUnlisteners = [];
+let windowChrome = null;
 let readerShell = null;
 let editorSession = null;
 let isEditMode = false;
@@ -213,45 +212,20 @@ function updateWindowTitle(filePath = null) {
 
 async function setupWindowChrome() {
   if (!window.__TAURI_INTERNALS__) return;
-
-  nativeWindow = getCurrentWindow();
-  const syncMaximizePresentation = async () => {
-    const maximized = await nativeWindow.isMaximized();
-    const presentation = getWindowControlPresentation(maximized);
-    const icon = ui.windowMaximizeButton?.querySelector('i');
-    if (icon) icon.className = presentation.iconClass;
-    if (ui.windowMaximizeButton) {
-      ui.windowMaximizeButton.setAttribute('aria-label', presentation.label);
-      ui.windowMaximizeButton.title = presentation.label;
-    }
-    document.body.classList.toggle('is-window-maximized', maximized);
-  };
-
-  const runWindowAction = async (action, failureMessage, afterAction = null) => {
-    try {
-      await action();
-      await afterAction?.();
-    } catch (error) {
-      console.error(failureMessage, error);
-      showToast(failureMessage, 'error');
-    }
-  };
-
-  const toggleMaximize = () => runWindowAction(
-    () => nativeWindow.toggleMaximize(),
-    'Could not resize the window',
-    syncMaximizePresentation
-  );
-
-  ui.windowMinimizeButton?.addEventListener('click', () => {
-    runWindowAction(() => nativeWindow.minimize(), 'Could not minimize the window');
+  windowChrome = createWindowChrome({
+    document,
+    elements: {
+      minimize: ui.windowMinimizeButton,
+      maximize: ui.windowMaximizeButton,
+      close: ui.windowCloseButton,
+    },
+    nativeWindow: getCurrentWindow(),
+    onError: (message, error) => {
+      console.error(message, error);
+      showToast(message);
+    },
   });
-  ui.windowMaximizeButton?.addEventListener('click', toggleMaximize);
-  ui.windowCloseButton?.addEventListener('click', () => {
-    runWindowAction(() => nativeWindow.close(), 'Could not close the window');
-  });
-  await syncMaximizePresentation();
-  windowChromeUnlisteners.push(await nativeWindow.onResized(syncMaximizePresentation));
+  await windowChrome.start();
 }
 
 function updateWindowUrl(filePath = null) {
@@ -2232,8 +2206,7 @@ function registerEvents() {
     responsiveTypography?.dispose();
     readerShell?.dispose();
     editorSession?.dispose();
-    windowChromeUnlisteners.forEach((unlisten) => unlisten());
-    windowChromeUnlisteners = [];
+    windowChrome?.dispose();
   });
   window.addEventListener('resize', queueReadingUiUpdate, { passive: true });
   window.addEventListener('resize', handleScroll, { passive: true });
