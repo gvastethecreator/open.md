@@ -35,6 +35,7 @@ import { createThemeCoordinator } from './theme-coordinator.js';
 import { createWindowChrome } from './window-chrome.js';
 import { createContextMenuController } from './context-menu-controller.js';
 import { createTooltipController } from './tooltip-controller.js';
+import { createStatusPresenter } from './status-presenter.js';
 
 let currentZoom = 1;
 const ZOOM_STEP = 0.1;
@@ -64,6 +65,7 @@ let toastPresenter = null;
 let themeCoordinator = null;
 let contextMenuController = null;
 let tooltipController = null;
+let statusPresenter = null;
 let syntaxHighlighterPromise = null;
 
 const ui = {
@@ -219,16 +221,7 @@ function updateWindowUrl(filePath = null) {
 }
 
 function setStatusText(primary, context = '', title = [primary, context].filter(Boolean).join(' · ')) {
-  const primaryElement = ui.statusPrimary || document.getElementById('status-pill');
-  const contextElement = ui.statusContext || document.getElementById('status-context');
-  if (!primaryElement) return;
-
-  primaryElement.textContent = primary;
-  primaryElement.dataset.tooltip = title;
-  if (contextElement) {
-    contextElement.textContent = context;
-    contextElement.dataset.tooltip = title;
-  }
+  statusPresenter?.setIdentity({ primary, context, title });
 }
 function updateStatus(filePath = null) {
   if (isHelpVisible) {
@@ -254,72 +247,6 @@ function updateStatus(filePath = null) {
   updateStatusMetrics();
 }
 
-function renderStatusMetricItems(items, accessibleLabel) {
-  if (!ui.statusMetrics) return;
-
-  const existingByKind = new Map(
-    [...ui.statusMetrics.querySelectorAll('.status-metric')]
-      .map((item) => [item.dataset.statusKind, item])
-  );
-  const nodes = items.map(({ kind, visible }) => {
-    const item = existingByKind.get(kind) || document.createElement('span');
-    item.className = `status-metric status-metric--${kind}`;
-    item.dataset.statusKind = kind;
-    if (kind === 'zoom') {
-      let icon = item.querySelector('i');
-      let value = item.querySelector('.status-metric-value');
-      if (!icon) {
-        icon = document.createElement('i');
-        icon.className = 'iconoir-search';
-        icon.setAttribute('aria-hidden', 'true');
-        item.append(icon);
-      }
-      if (!value) {
-        value = document.createElement('span');
-        value.className = 'status-metric-value';
-        item.append(value);
-      }
-      const changed = value.textContent && value.textContent !== visible;
-      value.textContent = visible;
-      if (
-        changed
-        && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-        && typeof value.animate === 'function'
-      ) {
-        value.getAnimations?.().forEach((animation) => animation.cancel());
-        value.animate([
-          { opacity: 0, filter: 'blur(0.6px)', transform: 'translateY(3px)' },
-          { opacity: 1, filter: 'blur(0)', transform: 'translateY(0)' },
-        ], {
-          duration: 160,
-          easing: 'cubic-bezier(0.2, 0, 0, 1)',
-        });
-      }
-    } else {
-      item.textContent = visible;
-    }
-    return item;
-  });
-
-  const currentKinds = [...ui.statusMetrics.querySelectorAll('.status-metric')]
-    .map((item) => item.dataset.statusKind);
-  const nextKinds = items.map(({ kind }) => kind);
-  if (
-    currentKinds.length !== nextKinds.length
-    || currentKinds.some((kind, index) => kind !== nextKinds[index])
-  ) {
-    ui.statusMetrics.replaceChildren(...nodes);
-  }
-  ui.statusMetrics.hidden = nodes.length === 0;
-  if (nodes.length === 0) {
-    delete ui.statusMetrics.dataset.tooltip;
-    ui.statusMetrics.removeAttribute('aria-label');
-    return;
-  }
-  ui.statusMetrics.dataset.tooltip = accessibleLabel;
-  ui.statusMetrics.setAttribute('aria-label', accessibleLabel);
-}
-
 function updateStatusMetrics() {
   if (!ui.statusMetrics) return;
 
@@ -341,13 +268,13 @@ function updateStatusMetrics() {
     const accessibleLabel = cursor
       ? `Line ${cursor.line}. Column ${cursor.column}. ${stats.blocks} blocks. ${stats.words} words. ${stats.characters} characters.${zoom ? ` ${zoom.accessible}.` : ''}`
       : `${stats.blocks} blocks. ${stats.words} words. ${stats.characters} characters.${zoom ? ` ${zoom.accessible}.` : ''}`;
-    renderStatusMetricItems(items, accessibleLabel);
+    statusPresenter?.renderMetrics(items, accessibleLabel);
     return;
   }
 
   const isAvailable = Boolean(currentDocument && currentFilePath && !isHelpVisible);
   if (!isAvailable) {
-    renderStatusMetricItems([], '');
+    statusPresenter?.renderMetrics([], '');
     return;
   }
 
@@ -362,7 +289,7 @@ function updateStatusMetrics() {
     showReadingStats: readingTools.stats,
   });
 
-  renderStatusMetricItems(metrics.items, metrics.accessible.join('. '));
+  statusPresenter?.renderMetrics(metrics.items, metrics.accessible.join('. '));
 }
 
 function hasLoadedDocument() {
@@ -1661,6 +1588,7 @@ function registerEvents() {
     toastPresenter?.dispose();
     contextMenuController?.dispose();
     tooltipController?.dispose();
+    statusPresenter?.dispose();
     responsiveTypography?.dispose();
     readerShell?.dispose();
     editorSession?.dispose();
@@ -1698,6 +1626,15 @@ function registerEvents() {
 
 async function init() {
   cacheElements();
+  statusPresenter = createStatusPresenter({
+    window,
+    document,
+    elements: {
+      primary: ui.statusPrimary,
+      context: ui.statusContext,
+      metrics: ui.statusMetrics,
+    },
+  });
   mountTooltips();
   responsiveTypography = createResponsiveTypography({
     window,

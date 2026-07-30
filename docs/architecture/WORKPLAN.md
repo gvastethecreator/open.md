@@ -257,3 +257,159 @@ This is closure work for ARC-06..15, not an eleventh ticket.
   15/15 Rust tests.
 - Existing-Chrome post-refactor smoke remains unclaimed because `mcporter` is
   unavailable on this host; no isolated browser was substituted.
+
+## Batch 2026-07-30 — Composition-root policy seams
+
+This execution batch tracks exactly ten distinct improvements left after
+ARC-01..15. Work the frontier in the order below; each ticket keeps
+`main.js` as the composition root while moving one invariant set behind a
+tested module interface.
+
+### ARC-16 — Own reader controls and preference projection
+
+**Type:** AFK
+**Status:** Planned
+**Blocked by:** None — can start immediately.
+
+**What to build:** One Reader Controls module owns reading-tools and typography
+panels, preference-to-DOM projection, focus return, source scroll memory, and
+always-on-top/auto-save actions while `reader-preferences.js` remains the
+persisted model owner.
+
+- [ ] Load and apply a preference snapshot without leaking panel/ARIA policy to the root.
+- [ ] Toggle controls preserve document availability, focus return, scroll memory, and volatile feedback.
+- [ ] Focused DOM tests and the existing preference/shell suites pass.
+
+### ARC-17 — Own status presentation
+
+**Type:** AFK
+**Status:** Planned
+**Blocked by:** None — can start immediately.
+
+**What to build:** One Status Presenter renders identity, Read metrics, Edit
+metrics, accessible labels, reusable metric nodes, zoom motion, and clear
+state behind a small render interface.
+
+- [ ] Metric order and DOM identity remain stable across Read/Edit updates.
+- [ ] Reduced-motion and missing-animation paths leave no stale animations.
+- [ ] Focused presenter tests cover empty, document, cursor, and clear states.
+
+### ARC-18 — Own reader viewport and help projection
+
+**Type:** AFK
+**Status:** Planned
+**Blocked by:** ARC-17.
+
+**What to build:** One Reader Viewport Controller owns empty/content/help stage
+visibility, inertness, page state, help focus capture/return, body classes, and
+scroll reset without owning document loading.
+
+- [ ] Empty, content, and help states project correct visibility and ARIA/inert state.
+- [ ] F1/Escape and replacement return focus deterministically without scroll jumps.
+- [ ] Narrow DOM tests cover repeated open/close and disposal.
+
+### ARC-19 — Own editor save feedback presentation
+
+**Type:** AFK
+**Status:** Planned
+**Blocked by:** ARC-17 and ARC-18.
+
+**What to build:** One Editor Feedback Presenter maps editor snapshots to save
+button state, icon, label, tooltip, ARIA, body state classes, and mode/metric
+hooks while save scheduling remains in `document-save-coordinator.js`.
+
+- [ ] Saved, dirty, saving, error, and recovered states render complete feedback.
+- [ ] Mode changes close transient context UI and refresh the correct navigation/status hooks.
+- [ ] Focused presenter tests cover every state and repeated transitions.
+
+### ARC-20 — Own document content actions
+
+**Type:** AFK
+**Status:** Planned
+**Blocked by:** ARC-16 and ARC-18.
+
+**What to build:** One Document Content Actions module resolves Read/Source/Edit
+context actions and owns selection capture, clipboard fallback, paste, task
+mutation, and editor action adapters behind a small context interface.
+
+- [ ] Links, code, tasks, images, tables, diagrams, selections, source, and blocks keep their action sets.
+- [ ] Clipboard failure restores selection/focus and reports a user-facing error.
+- [ ] Focused action tests execute representative actions in all three modes.
+
+### ARC-21 — Own document ingress adapters
+
+**Type:** AFK
+**Status:** Planned
+**Blocked by:** ARC-23 and ARC-25.
+
+**What to build:** One Document Ingress Controller owns picker, association
+event replay/acknowledgment, global drag safety, native drag-drop, and
+document-change guards while the Open Intent controller owns request policy.
+
+- [ ] Preview/no-native mode remains usable and native association replay stays FIFO/idempotent.
+- [ ] Drag/drop and picker refuse document replacement while a dirty edit is blocked.
+- [ ] Listener teardown and failure fallback are tested.
+
+### ARC-22 — Own document view-state projection
+
+**Type:** AFK
+**Status:** Planned
+**Blocked by:** ARC-17, ARC-18, and ARC-19.
+
+**What to build:** One Document View State module owns the current identity
+snapshot and loading/ready/failed/idle fan-out to title, URL, editor, save,
+navigation, viewport, and status adapters.
+
+- [ ] Loading a different path clears stale editor content and save state.
+- [ ] Ready, failed, idle, and replacement transitions publish one coherent snapshot.
+- [ ] Tests prove stale consumer state cannot survive replacement.
+
+### ARC-23 — Own application runtime adapters
+
+**Type:** AFK
+**Status:** Planned
+**Blocked by:** None — can start immediately.
+
+**What to build:** One Application Runtime Adapters module owns native/preview
+document open/save, native command guards, lazy syntax highlighting, diagram
+adapters, and window adapters behind the existing Reader shell adapter shape.
+
+- [ ] DEV preview open/save delay/failure behavior remains deterministic.
+- [ ] Browser preview reports the stable native-access error and does not call Tauri.
+- [ ] Adapter tests cover both environment branches and lazy syntax loading.
+
+### ARC-24 — Own reader keyboard shortcuts
+
+**Type:** AFK
+**Status:** Planned
+**Blocked by:** ARC-16, ARC-17, ARC-18, and ARC-21.
+
+**What to build:** One Reader Keyboard Controller owns shortcut precedence,
+editable-target guards, Escape/focus behavior, open/save, zoom, theme, help,
+and mode commands behind injected callbacks.
+
+- [ ] F1, Escape, open, save, zoom, theme, and Edit shortcuts preserve precedence.
+- [ ] Inputs, selects, textareas, and contenteditable surfaces keep their text-editing behavior.
+- [ ] Keyboard tests cover reduced/error/unavailable states and disposal.
+
+### ARC-25 — Own application lifecycle and teardown
+
+**Type:** AFK
+**Status:** Planned
+**Blocked by:** ARC-16 through ARC-24.
+
+**What to build:** One Application Lifecycle module owns event registration,
+startup ordering, beforeunload cleanup, partial-start failure isolation, and
+idempotent disposal while `main.js` supplies concrete mounts and adapters.
+
+- [ ] Startup order is explicit and a failed optional adapter does not strand the shell.
+- [ ] Beforeunload and disposal release every listener/controller exactly once.
+- [ ] Fake-mount lifecycle tests cover success, partial failure, and repeated dispose.
+
+### Batch closure rule
+
+This is not a generic extraction exercise. A ticket closes only when its
+module owns behavior behind a smaller interface, its focused tests cross that
+interface, the old root policy is removed, and the relevant integration gate
+remains green. Do not add an event bus, settings framework, or new public
+runtime contract as part of this batch.
