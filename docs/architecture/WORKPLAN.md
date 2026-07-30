@@ -395,16 +395,16 @@ and mode commands behind injected callbacks.
 ### ARC-25 — Own application lifecycle and teardown
 
 **Type:** AFK
-**Status:** Planned
+**Status:** Implemented
 **Blocked by:** ARC-16 through ARC-24.
 
 **What to build:** One Application Lifecycle module owns event registration,
 startup ordering, beforeunload cleanup, partial-start failure isolation, and
 idempotent disposal while `main.js` supplies concrete mounts and adapters.
 
-- [ ] Startup order is explicit and a failed optional adapter does not strand the shell.
-- [ ] Beforeunload and disposal release every listener/controller exactly once.
-- [ ] Fake-mount lifecycle tests cover success, partial failure, and repeated dispose.
+- [x] Startup order is explicit and a failed optional adapter does not strand the shell.
+- [x] Beforeunload and disposal release every listener/controller exactly once.
+- [x] Fake-mount lifecycle tests cover success, partial failure, and repeated dispose.
 
 ### Batch closure rule
 
