@@ -16,7 +16,8 @@ the surface immediately.
 The document becomes a block canvas. The source file remains Markdown or text;
 there is no private document format. While the caret is in the editor, the
 status bar shows its source line and visible column. The gear in the title bar
-can show source-line numbers and the minimap in Edit as well as Read.
+can show source-line numbers and the minimap in Edit as well as Read. Word wrap
+is on by default and can be changed there for Read, Edit and Source.
 
 ## Work with blocks
 

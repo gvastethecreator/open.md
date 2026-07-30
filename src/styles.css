@@ -65,6 +65,7 @@
   --toolbar-bg: #f3f6f7;
   --danger-color: #b4232f;
   --shadow-color: rgba(24, 33, 43, 0.14);
+  --content-depth-filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.1));
   --radius-xs: 2px;
   --radius-sm: 4px;
   --radius-md: 6px;
@@ -153,6 +154,7 @@
 .iconoir-view-structure-up::before { -webkit-mask-image: url("../node_modules/iconoir/icons/regular/view-structure-up.svg"); mask-image: url("../node_modules/iconoir/icons/regular/view-structure-up.svg"); }
 .iconoir-numbered-list-left::before { -webkit-mask-image: url("../node_modules/iconoir/icons/regular/numbered-list-left.svg"); mask-image: url("../node_modules/iconoir/icons/regular/numbered-list-left.svg"); }
 .iconoir-map::before { -webkit-mask-image: url("../node_modules/iconoir/icons/regular/map.svg"); mask-image: url("../node_modules/iconoir/icons/regular/map.svg"); }
+.iconoir-wrap-text::before { -webkit-mask-image: url("../node_modules/iconoir/icons/regular/wrap-text.svg"); mask-image: url("../node_modules/iconoir/icons/regular/wrap-text.svg"); }
 .iconoir-code::before { -webkit-mask-image: url("../node_modules/iconoir/icons/regular/code.svg"); mask-image: url("../node_modules/iconoir/icons/regular/code.svg"); }
 .iconoir-clock::before { -webkit-mask-image: url("../node_modules/iconoir/icons/regular/clock.svg"); mask-image: url("../node_modules/iconoir/icons/regular/clock.svg"); }
 .iconoir-minus::before { -webkit-mask-image: url("../node_modules/iconoir/icons/regular/minus.svg"); mask-image: url("../node_modules/iconoir/icons/regular/minus.svg"); }
@@ -883,6 +885,50 @@ body.is-line-guide .line-gutter {
   white-space: inherit;
 }
 
+body.is-word-wrap .source-view {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap !important;
+}
+
+body.is-word-wrap .source-view code {
+  width: 100%;
+  min-width: 0;
+}
+
+body:not(.is-word-wrap) :is(.markdown-body, .source-view, .editor-view) {
+  overflow-x: auto;
+}
+
+body:not(.is-word-wrap) .markdown-body,
+body:not(.is-word-wrap) .editor-block-content {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+body:not(.is-word-wrap) .markdown-body :where(
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  p,
+  li,
+  dt,
+  dd,
+  th,
+  td,
+  summary,
+  figcaption
+) {
+  overflow-wrap: normal;
+  white-space: nowrap !important;
+}
+
+body:not(.is-word-wrap) .editor-block-content {
+  white-space: pre;
+}
+
 .editor-view {
   width: min(100%, var(--document-frame-width));
   min-height: 100%;
@@ -1253,6 +1299,41 @@ body.is-line-guide .editor-end-hint {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   caret-color: var(--ui-accent);
+}
+
+#content > :where(
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  p,
+  blockquote,
+  ul,
+  ol,
+  dl,
+  .table-scroll,
+  pre,
+  details,
+  hr,
+  img,
+  .mermaid
+),
+#source-content,
+#editor-view :where(
+  .editor-context,
+  .editor-block-content,
+  .editor-list-marker,
+  .editor-divider,
+  .editor-end-hint,
+  .editor-gutter-button
+),
+#editor-command-menu,
+#editor-block-menu,
+#editor-inline-toolbar,
+#editor-link-popover {
+  filter: var(--content-depth-filter);
 }
 
 .editor-view.has-custom-caret .editor-block-content {

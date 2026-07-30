@@ -458,8 +458,8 @@ function setReadingToolsOpen(nextOpen, { returnFocus = false } = {}) {
 
 function updateReadingToolControls() {
   const available = hasLoadedDocument();
-  const hasActiveTool = available && ['lineGuide', 'minimap', 'stats']
-    .some((tool) => Boolean(readingTools[tool]));
+  const hasActiveTool = available && ['lineGuide', 'minimap', 'stats', 'wordWrap']
+    .some((tool) => readingTools[tool] !== DEFAULT_READING_TOOLS[tool]);
 
   if (ui.readingToolsButton) {
     ui.readingToolsButton.classList.toggle('is-active', hasActiveTool);
@@ -481,11 +481,13 @@ function applyReadingTools() {
   document.body.classList.toggle('is-source-view', sourceActive);
   document.body.classList.toggle('is-line-guide', lineGuideActive);
   document.body.classList.toggle('is-minimap', minimapActive);
+  document.body.classList.toggle('is-word-wrap', readingTools.wordWrap);
   documentModeCoordinator?.refresh();
   ui.content?.classList.toggle('hidden', sourceActive || isEditMode);
   ui.sourceView?.classList.toggle('hidden', !sourceActive);
 
   readingNavigation?.refreshTools();
+  responsiveTypography?.schedule();
   updateReadingToolControls();
   updateStatus(currentFilePath);
 }
@@ -515,6 +517,7 @@ async function setReadingTool(tool, nextValue) {
     minimap: 'Minimap',
     source: 'Source view',
     stats: 'Reading stats',
+    wordWrap: 'Word wrap',
   };
   showToast(`${labels[tool]} ${next ? 'on' : 'off'}`);
 }
