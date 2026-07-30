@@ -24,6 +24,7 @@
 
   --titlebar-height: 32px;
   --toolbar-height: 30px;
+  --window-control-width: 38px;
   --content-scale: 1;
   --bg-color: #f7f9fa;
   --text-color: #18212b;
@@ -94,7 +95,6 @@
 .iconoir-folder::before { -webkit-mask-image: url("../node_modules/iconoir/icons/regular/folder.svg"); mask-image: url("../node_modules/iconoir/icons/regular/folder.svg"); }
 .iconoir-xmark::before { -webkit-mask-image: url("../node_modules/iconoir/icons/regular/xmark.svg"); mask-image: url("../node_modules/iconoir/icons/regular/xmark.svg"); }
 .iconoir-nav-arrow-up::before { -webkit-mask-image: url("../node_modules/iconoir/icons/regular/nav-arrow-up.svg"); mask-image: url("../node_modules/iconoir/icons/regular/nav-arrow-up.svg"); }
-.iconoir-more-horiz::before { -webkit-mask-image: url("../node_modules/iconoir/icons/regular/more-horiz.svg"); mask-image: url("../node_modules/iconoir/icons/regular/more-horiz.svg"); }
 .iconoir-edit-pencil::before { -webkit-mask-image: url("../node_modules/iconoir/icons/regular/edit-pencil.svg"); mask-image: url("../node_modules/iconoir/icons/regular/edit-pencil.svg"); }
 .iconoir-book::before { -webkit-mask-image: url("../node_modules/iconoir/icons/regular/book.svg"); mask-image: url("../node_modules/iconoir/icons/regular/book.svg"); }
 .iconoir-floppy-disk::before { -webkit-mask-image: url("../node_modules/iconoir/icons/regular/floppy-disk.svg"); mask-image: url("../node_modules/iconoir/icons/regular/floppy-disk.svg"); }
@@ -330,13 +330,14 @@ body.has-scroll-after .app-shell::after {
 
 .window-controls {
   height: 100%;
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, var(--window-control-width));
   flex: 0 0 auto;
   align-items: stretch;
 }
 
 .window-control {
-  width: 38px;
+  width: var(--window-control-width);
   height: 100%;
   padding: 0;
   display: grid;
@@ -353,8 +354,18 @@ body.has-scroll-after .app-shell::after {
 }
 
 .window-control > i {
-  font-size: 14px;
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  transition: transform var(--motion-fast) var(--motion-ease-out);
 }
+
+.window-control > .iconoir-minus { font-size: 14px; }
+.window-control > .iconoir-square { font-size: 12px; }
+.window-control > .iconoir-multi-window,
+.window-control > .iconoir-xmark { font-size: 13px; }
 
 .window-control:hover,
 .window-control:focus-visible {
@@ -371,6 +382,8 @@ body.has-scroll-after .app-shell::after {
   color: var(--danger-color);
   background: color-mix(in srgb, var(--danger-color) 7%, transparent);
 }
+
+.window-control:active > i { transform: scale(0.9); }
 
 .viewport {
   width: 100%;
@@ -527,6 +540,40 @@ body.has-scroll-after .app-shell::after {
 .primary-button:active {
   transform: translateY(0);
   transition-duration: 80ms;
+}
+
+#empty-open-button {
+  border-color: color-mix(in srgb, var(--ui-accent) 90%, #101820);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--ui-accent) 96%, #ffffff) 0%,
+    var(--ui-accent) 48%,
+    color-mix(in srgb, var(--ui-accent) 90%, #101820) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 16%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #101820 18%, transparent),
+    0 2px 6px color-mix(in srgb, var(--ui-accent) 11%, transparent);
+}
+
+#empty-open-button:hover {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--ui-accent) 94%, #ffffff) 0%,
+    color-mix(in srgb, var(--ui-accent) 97%, #101820) 48%,
+    color-mix(in srgb, var(--ui-accent) 87%, #101820) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 18%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #101820 21%, transparent),
+    0 3px 8px color-mix(in srgb, var(--ui-accent) 13%, transparent);
+}
+
+#empty-open-button:active {
+  box-shadow:
+    inset 0 1px 2px color-mix(in srgb, #101820 22%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #ffffff 8%, transparent),
+    0 1px 4px color-mix(in srgb, var(--ui-accent) 10%, transparent);
 }
 
 .secondary-button {
@@ -787,6 +834,34 @@ kbd {
   box-shadow: inset 2px 0 0 color-mix(in srgb, var(--ui-accent) 64%, transparent);
 }
 
+.editor-caret-echo {
+  position: fixed;
+  z-index: 68;
+  width: 2px;
+  border-radius: 999px;
+  opacity: 0;
+  background: var(--ui-accent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ui-accent) 10%, transparent);
+  pointer-events: none;
+  transform: translateX(-1px) scaleY(1);
+  transform-origin: center;
+}
+
+.editor-caret-echo.is-moving {
+  animation: editor-caret-echo 140ms var(--motion-ease-out) both;
+}
+
+@keyframes editor-caret-echo {
+  from {
+    opacity: 0.46;
+    transform: translateX(-1px) scaleY(0.72);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-1px) scaleY(1);
+  }
+}
+
 .editor-block-content:empty::before {
   color: color-mix(in srgb, var(--ui-muted) 62%, transparent);
   content: attr(data-placeholder);
@@ -1005,12 +1080,23 @@ kbd {
   padding: 3px;
   display: flex;
   align-items: center;
-  gap: 1px;
+  gap: 2px;
+  border-color: color-mix(in srgb, var(--border-color) 82%, var(--ui-muted));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-color) 99%, #ffffff) 0%,
+    color-mix(in srgb, var(--bg-color) 96%, var(--toolbar-bg)) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 42%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--shadow-color) 16%, transparent),
+    0 8px 22px color-mix(in srgb, var(--shadow-color) 64%, transparent);
+  animation: editor-formatting-enter 140ms var(--motion-ease-out) both;
 }
 
 .editor-inline-toolbar > button {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   display: grid;
   place-items: center;
@@ -1019,12 +1105,47 @@ kbd {
   color: var(--text-color);
   background: transparent;
   font: inherit;
+  transition:
+    color var(--motion-fast) var(--motion-ease-standard),
+    background-color var(--motion-fast) var(--motion-ease-standard),
+    box-shadow var(--motion-fast) var(--motion-ease-standard),
+    transform var(--motion-fast) var(--motion-ease-out);
 }
 
 .editor-inline-toolbar > button:hover,
 .editor-inline-toolbar > button:focus-visible {
-  background: color-mix(in srgb, var(--ui-accent) 9%, transparent);
-  outline: none;
+  color: var(--ui-accent);
+  background: color-mix(in srgb, var(--ui-accent) 8%, transparent);
+}
+
+.editor-inline-toolbar > button:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--ui-accent) 56%, var(--border-color));
+  outline-offset: -1px;
+}
+
+.editor-inline-toolbar > button:hover { transform: translateY(-0.5px); }
+
+.editor-inline-toolbar > button:active {
+  background: color-mix(in srgb, var(--ui-accent) 12%, transparent);
+  transform: scale(0.95);
+  transition-duration: 80ms;
+}
+
+.editor-inline-toolbar > button[aria-pressed="true"] {
+  color: var(--ui-accent);
+  background: color-mix(in srgb, var(--ui-accent) 10%, transparent);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--ui-accent) 42%, transparent);
+}
+
+@keyframes editor-formatting-enter {
+  from {
+    opacity: 0;
+    transform: translateY(3px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .editor-link-popover {
@@ -1643,35 +1764,22 @@ body.is-dragging .drop-indicator__box {
 }
 
 .toolbar-command-area {
-  position: relative;
-  width: 180px;
+  width: auto;
   height: 28px;
-  flex: 0 0 180px;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
 }
 
 .mode-toggle-button,
 .editor-save-button {
-  position: absolute;
-  top: 1px;
-  height: 26px;
-  padding: 0 8px;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  border: 0;
-  border-radius: var(--radius-xs);
   color: var(--ui-muted);
-  background: transparent;
-  font: inherit;
-  font-weight: 620;
 }
-
-.mode-toggle-button { left: 0; }
-.editor-save-button { left: 60px; }
 
 .mode-toggle-button:hover:not(:disabled),
 .mode-toggle-button:focus-visible,
-.mode-toggle-button[aria-pressed="true"],
+.mode-toggle-button[data-mode="edit"],
+.mode-toggle-button[data-mode="source"],
 .editor-save-button:hover:not(:disabled),
 .editor-save-button:focus-visible {
   color: var(--ui-accent);
@@ -1692,63 +1800,25 @@ body.has-editor-save-error .status-context { color: var(--danger-color); }
 
 body.is-editor-saving .editor-save-button > i { animation: editor-spin 800ms linear infinite; }
 
-body.is-edit-mode .toolbar-actions,
-body.is-edit-mode .actions-toggle-button { display: none; }
+.mode-toggle-button > i.is-mode-changing {
+  animation: editor-mode-swap 160ms var(--motion-ease-out) both;
+}
 
 @keyframes editor-spin { to { transform: rotate(360deg); } }
 
-.actions-toggle-button {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 1;
-  color: var(--ui-muted);
-  opacity: 0.62;
+@keyframes editor-mode-swap {
+  from { opacity: 0.46; transform: translateY(1px) scale(0.82); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .toolbar-actions {
-  position: absolute;
-  top: 0;
-  right: 0;
+  position: static;
   display: flex;
   align-items: center;
   gap: 2px;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(3px);
-  transition:
-    opacity var(--motion-base) var(--motion-ease-out),
-    transform var(--motion-base) var(--motion-ease-out);
-}
-
-body.is-reading-tools-open .toolbar-actions,
-body.is-typography-open .toolbar-actions {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(0);
-}
-
-.app-toolbar:hover .toolbar-actions,
-.app-toolbar:focus-within .toolbar-actions,
-body.is-actions-pinned .toolbar-actions {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateY(0);
-}
-
-.app-toolbar:hover .actions-toggle-button,
-.app-toolbar:focus-within .actions-toggle-button,
-body.is-actions-pinned .actions-toggle-button {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-2px);
-}
-
-body.is-reading-tools-open .actions-toggle-button,
-body.is-typography-open .actions-toggle-button {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateY(-2px);
+  transform: none;
 }
 
 .toolbar-button {
@@ -2109,18 +2179,15 @@ body.is-typography-open .actions-toggle-button {
 
 @media (max-width: 460px) {
   .status-separator,
-  .status-context {
+  .status-context,
+  .status-metrics {
     display: none;
   }
 
   .status-primary {
-    max-width: 22vw;
+    max-width: 100%;
   }
 
-  .toolbar-command-area { width: 138px; flex-basis: 138px; }
-  .mode-toggle-button,
-  .editor-save-button { padding-inline: 6px; }
-  .editor-save-button { left: 58px; }
   .editor-block { grid-template-columns: 34px minmax(0, 1fr); margin-left: calc(var(--block-indent) * 14px); }
 
   body.is-line-guide .markdown-body,
@@ -2164,5 +2231,15 @@ body.is-typography-open .actions-toggle-button {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     transition-delay: 0s !important;
+  }
+
+  .editor-caret-echo { display: none !important; }
+
+  #empty-open-button:hover,
+  #empty-open-button:active,
+  .editor-inline-toolbar > button:hover,
+  .editor-inline-toolbar > button:active,
+  .window-control:active > i {
+    transform: none !important;
   }
 }

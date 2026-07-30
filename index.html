@@ -155,38 +155,34 @@
       </div>
 
       <div class="toolbar-command-area">
-        <button
-          id="edit-mode-button"
-          class="mode-toggle-button"
-          type="button"
-          aria-pressed="false"
-          aria-label="Enter edit mode"
-          title="Edit document (Ctrl+Shift+E)"
-          disabled
-        >
-          <i class="iconoir-edit-pencil" aria-hidden="true"></i>
-          <span id="edit-mode-label">Edit</span>
-        </button>
-
-        <button
-          id="editor-save-button"
-          class="editor-save-button"
-          type="button"
-          aria-label="Save document"
-          title="Save document (Ctrl+S)"
-          hidden
-        >
-          <i class="iconoir-check" aria-hidden="true"></i>
-          <span id="editor-save-label">Saved</span>
-        </button>
-
-        <button id="actions-toggle-button" class="actions-toggle-button icon-button" type="button" aria-controls="toolbar-actions" aria-expanded="false" aria-label="Show actions" title="Show actions">
-          <i class="iconoir-more-horiz" aria-hidden="true"></i>
-        </button>
-
         <div id="toolbar-actions" class="toolbar-actions">
           <button id="toolbar-open-button" class="toolbar-button icon-button" type="button" aria-label="Open file" title="Open file (Ctrl+O)">
             <i class="iconoir-folder" aria-hidden="true"></i>
+          </button>
+
+          <button
+            id="edit-mode-button"
+            class="mode-toggle-button toolbar-button icon-button"
+            type="button"
+            aria-label="Read mode. Switch to Edit mode"
+            title="Read mode · Next: Edit"
+            data-mode="read"
+            disabled
+          >
+            <i class="iconoir-book" aria-hidden="true"></i>
+            <span id="edit-mode-label" class="sr-only">Read mode</span>
+          </button>
+
+          <button
+            id="editor-save-button"
+            class="editor-save-button toolbar-button icon-button"
+            type="button"
+            aria-label="Save document"
+            title="Save document (Ctrl+S)"
+            hidden
+          >
+            <i class="iconoir-check" aria-hidden="true"></i>
+            <span id="editor-save-label" class="sr-only">Saved</span>
           </button>
 
           <div id="reading-tools-shell" class="reading-tools-shell">
@@ -303,12 +299,14 @@
     </div>
 
     <div id="editor-inline-toolbar" class="editor-inline-toolbar" role="toolbar" aria-label="Text formatting" hidden>
-      <button type="button" data-inline-command="bold" aria-label="Bold" title="Bold (Ctrl+B)"><i class="iconoir-bold" aria-hidden="true"></i></button>
-      <button type="button" data-inline-command="italic" aria-label="Italic" title="Italic (Ctrl+I)"><i class="iconoir-italic" aria-hidden="true"></i></button>
-      <button type="button" data-inline-command="strike" aria-label="Strikethrough" title="Strikethrough"><span aria-hidden="true">S</span></button>
-      <button type="button" data-inline-command="code" aria-label="Inline code" title="Inline code"><i class="iconoir-code" aria-hidden="true"></i></button>
-      <button type="button" data-inline-command="link" aria-label="Add link" title="Add link (Ctrl+K)"><i class="iconoir-link" aria-hidden="true"></i></button>
+      <button type="button" data-inline-command="bold" aria-label="Bold" aria-pressed="false" title="Bold (Ctrl+B)"><i class="iconoir-bold" aria-hidden="true"></i></button>
+      <button type="button" data-inline-command="italic" aria-label="Italic" aria-pressed="false" title="Italic (Ctrl+I)"><i class="iconoir-italic" aria-hidden="true"></i></button>
+      <button type="button" data-inline-command="strike" aria-label="Strikethrough" aria-pressed="false" title="Strikethrough"><span aria-hidden="true">S</span></button>
+      <button type="button" data-inline-command="code" aria-label="Inline code" aria-pressed="false" title="Inline code"><i class="iconoir-code" aria-hidden="true"></i></button>
+      <button type="button" data-inline-command="link" aria-label="Add link" aria-pressed="false" title="Add link (Ctrl+K)"><i class="iconoir-link" aria-hidden="true"></i></button>
     </div>
+
+    <span id="editor-caret-echo" class="editor-caret-echo" aria-hidden="true" hidden></span>
 
     <form id="editor-link-popover" class="editor-link-popover" hidden>
       <label for="editor-link-input">Link</label>

@@ -9,6 +9,7 @@ import {
   getDisplayName,
   getFileKind,
   getCurrentLineFromAnchors,
+  getDocumentModePresentation,
   getEstimatedMinutesRemaining,
   getLineGutterLeft,
   getMarkdownSourceTokenRanges,
@@ -261,6 +262,29 @@ describe('Frontend Logic Tests', () => {
         source: false,
         stats: false,
       });
+    });
+
+    it('cycles the document mode presentation through read, edit, and source', () => {
+      expect(getDocumentModePresentation('read')).toMatchObject({
+        mode: 'read',
+        label: 'Read',
+        iconClass: 'iconoir-book',
+        nextMode: 'edit',
+        ariaLabel: 'Read mode. Switch to Edit mode',
+      });
+      expect(getDocumentModePresentation('edit')).toMatchObject({
+        mode: 'edit',
+        label: 'Edit',
+        iconClass: 'iconoir-edit-pencil',
+        nextMode: 'source',
+      });
+      expect(getDocumentModePresentation('source')).toMatchObject({
+        mode: 'source',
+        label: 'Source',
+        iconClass: 'iconoir-code',
+        nextMode: 'read',
+      });
+      expect(getDocumentModePresentation('unknown').mode).toBe('read');
     });
 
     it('keeps persisted font choices inside their available preset range', () => {

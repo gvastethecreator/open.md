@@ -76,6 +76,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     commandMenu,
     blockMenu,
     inlineToolbar,
+    caretEcho,
     linkPopover,
     linkInput,
     linkApply,
@@ -104,6 +105,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   let history = [''];
   let historyIndex = 0;
   let disposed = false;
+  let caretEchoVersion = 0;
   const drafts = new Map();
 
   const source = () => serializeEditorDocument(blocks, {
@@ -182,7 +184,10 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     element.hidden = false;
     const rect = element.getBoundingClientRect();
     const gap = 6;
-    const safeTop = 40;
+    const editorContext = element === inlineToolbar
+      ? contextLabel?.closest?.('.editor-context')?.getBoundingClientRect()
+      : null;
+    const safeTop = Math.max(40, (editorContext?.bottom || 34) + gap);
     const safeBottom = window.innerHeight - 38;
     const left = clamp(anchorRect.left, 8, window.innerWidth - rect.width - 8);
     const above = anchorRect.top - rect.height - gap;
@@ -700,14 +705,88 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     focusBlock(sourceId);
   };
 
+  const hideCaretEcho = () => {
+    if (!caretEcho) return;
+    caretEchoVersion += 1;
+    caretEcho.classList.remove('is-moving');
+    caretEcho.hidden = true;
+  };
+
+  const captureCaretEcho = (selection) => {
+    if (
+      !caretEcho
+      || mode !== 'edit'
+      || !selection
+      || selection.rangeCount === 0
+      || !selection.isCollapsed
+      || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    ) {
+      hideCaretEcho();
+      return;
+    }
+
+    const range = selection.getRangeAt(0);
+    if (!canvas.contains(range.startContainer)) {
+      hideCaretEcho();
+      return;
+    }
+
+    const rects = typeof range.getClientRects === 'function' ? range.getClientRects() : null;
+    const rect = rects?.length > 0
+      ? rects[0]
+      : typeof range.getBoundingClientRect === 'function'
+        ? range.getBoundingClientRect()
+        : null;
+    if (!rect || !Number.isFinite(rect.left) || !Number.isFinite(rect.top) || rect.height <= 0) {
+      hideCaretEcho();
+      return;
+    }
+
+    caretEcho.style.left = `${Math.round(rect.left * 2) / 2}px`;
+    caretEcho.style.top = `${Math.round(rect.top * 2) / 2}px`;
+    caretEcho.style.height = `${Math.max(12, Math.min(32, rect.height))}px`;
+    caretEcho.hidden = false;
+    caretEcho.classList.remove('is-moving');
+    const version = ++caretEchoVersion;
+
+    window.requestAnimationFrame(() => {
+      if (version !== caretEchoVersion || caretEcho.hidden) return;
+      caretEcho.classList.add('is-moving');
+      caretEcho.addEventListener('animationend', () => {
+        if (version !== caretEchoVersion) return;
+        caretEcho.classList.remove('is-moving');
+        caretEcho.hidden = true;
+      }, { once: true });
+    });
+  };
+
+  const updateInlineCommandStates = (range) => {
+    const node = range.commonAncestorContainer;
+    const element = node.nodeType === 1 ? node : node.parentElement;
+    inlineToolbar.querySelectorAll('[data-inline-command]').forEach((button) => {
+      const command = button.dataset.inlineCommand;
+      const selectors = {
+        bold: 'strong, b',
+        italic: 'em, i',
+        strike: 's, strike, del',
+        code: 'code',
+        link: 'a',
+      };
+      const active = Boolean(element?.closest?.(selectors[command]));
+      button.setAttribute('aria-pressed', String(active));
+    });
+  };
+
   const captureSelection = () => {
     const selection = window.getSelection();
+    captureCaretEcho(selection);
     if (mode !== 'edit' || !isSelectionInside(selection, canvas)) {
       if (!linkPopover || linkPopover.hidden) closeInlineToolbar();
       return;
     }
     const range = selection.getRangeAt(0);
     savedSelection = range.cloneRange();
+    updateInlineCommandStates(range);
     const rect = range.getBoundingClientRect();
     positionFloating(inlineToolbar, rect, 'above');
   };
@@ -807,6 +886,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     closeCommandMenu();
     closeBlockMenu();
     closeInlineToolbar();
+    hideCaretEcho();
     mode = 'read';
     saveState = 'idle';
     saveError = '';
@@ -983,6 +1063,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     dispose() {
       disposed = true;
       document.removeEventListener('selectionchange', captureSelection);
+      hideCaretEcho();
       closeCommandMenu();
       closeBlockMenu();
       closeInlineToolbar();
