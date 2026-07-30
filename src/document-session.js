@@ -320,6 +320,15 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
       });
 
       try {
+        await adapters.syntax?.highlight?.(content);
+      } catch (error) {
+        if (!isCurrent(candidate)) return { status: 'superseded', path };
+        hooks.onDiagnostic?.('Syntax highlighting error', error);
+        hooks.onWarning?.('Code remains readable without syntax colors');
+      }
+      if (!isCurrent(candidate)) return { status: 'superseded', path };
+
+      try {
         await adapters.diagrams?.render?.(content, { theme: hooks.getDiagramTheme?.() || 'default' });
       } catch (error) {
         if (!isCurrent(candidate)) return { status: 'superseded', path };

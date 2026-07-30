@@ -5,6 +5,7 @@ const STRICT_MERMAID_OPTIONS = Object.freeze({
 
 let mermaidModulePromise = null;
 let mermaidRenderQueue = Promise.resolve();
+let mermaidRequestRevision = 0;
 
 function loadMermaid() {
   if (!mermaidModulePromise) {
@@ -50,23 +51,55 @@ async function resetMermaid(theme = 'default') {
 export async function renderMermaidDiagrams(container, { reset = false, theme = 'default' } = {}) {
   const diagrams = [...(container?.querySelectorAll?.('.mermaid') || [])];
   if (diagrams.length === 0) return false;
+  const requestRevision = ++mermaidRequestRevision;
+  const resolvedTheme = getMermaidTheme(theme);
+
+  diagrams.forEach((diagram) => {
+    if (!diagram.dataset.mermaidSource) {
+      diagram.dataset.mermaidSource = diagram.textContent || '';
+    }
+    if (reset) {
+      diagram.dataset.mermaidRefreshRevision = String(requestRevision);
+      diagram.classList?.add('is-theme-refreshing');
+    }
+  });
+
+  const releaseThemeRefresh = () => {
+    diagrams.forEach((diagram) => {
+      if (diagram.dataset.mermaidRefreshRevision !== String(requestRevision)) return;
+      delete diagram.dataset.mermaidRefreshRevision;
+      diagram.classList?.remove('is-theme-refreshing');
+    });
+  };
 
   return enqueueMermaidRender(async () => {
-    diagrams.forEach((diagram) => {
-      if (!diagram.dataset.mermaidSource) {
-        diagram.dataset.mermaidSource = diagram.textContent || '';
-      }
+    if (requestRevision !== mermaidRequestRevision) {
+      releaseThemeRefresh();
+      return false;
+    }
 
+    diagrams.forEach((diagram) => {
       if (reset) {
         diagram.textContent = diagram.dataset.mermaidSource;
         diagram.removeAttribute('data-processed');
       }
     });
 
-    const mermaid = reset
-      ? await resetMermaid(theme)
-      : await initializeMermaid(theme);
-    await mermaid.run({ nodes: diagrams, suppressErrors: true });
-    return true;
+    try {
+      const mermaid = reset
+        ? await resetMermaid(resolvedTheme)
+        : await initializeMermaid(resolvedTheme);
+      if (requestRevision !== mermaidRequestRevision) return false;
+      await mermaid.run({ nodes: diagrams, suppressErrors: true });
+      const isLatest = requestRevision === mermaidRequestRevision;
+      if (isLatest) {
+        diagrams.forEach((diagram) => {
+          diagram.dataset.mermaidTheme = resolvedTheme;
+        });
+      }
+      return isLatest;
+    } finally {
+      releaseThemeRefresh();
+    }
   });
 }
