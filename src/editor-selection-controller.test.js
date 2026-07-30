@@ -4,9 +4,9 @@ import { createEditorSelectionController } from './editor-selection-controller.j
 
 function fixture({ reduced = false } = {}) {
   const dom = new JSDOM(`<!doctype html><html><body>
-    <main id="root"><div id="canvas"><div data-block-id="one" data-source-line-start="3" data-block-type="paragraph">
+    <section class="reader-page"><main id="root"><div id="canvas"><div data-block-id="one" data-source-line-start="3" data-block-type="paragraph">
       <div data-editor-content contenteditable="true">Hello <strong>bold</strong> world</div>
-    </div></div></main>
+    </div></div></main></section>
     <div id="toolbar" hidden><button data-inline-command="bold"></button><button data-inline-command="italic"></button>
       <button data-inline-command="code"></button><button data-inline-command="link"></button></div>
     <div id="caret" hidden></div><div id="link" hidden><input id="href"><button id="apply">Apply</button></div>
@@ -25,6 +25,15 @@ function fixture({ reduced = false } = {}) {
     linkInput: document.querySelector('#href'),
     linkApply: document.querySelector('#apply'),
   };
+  const readerPage = document.querySelector('.reader-page');
+  readerPage.getBoundingClientRect = () => ({
+    left: 0,
+    top: 0,
+    right: 500,
+    bottom: 400,
+    width: 500,
+    height: 400,
+  });
   elements.inlineToolbar.getBoundingClientRect = () => ({ left: 10, top: 10, right: 150, bottom: 40, width: 140, height: 30 });
   Object.defineProperty(dom.window, 'innerWidth', { configurable: true, value: 500 });
   Object.defineProperty(dom.window, 'innerHeight', { configurable: true, value: 400 });
@@ -55,6 +64,7 @@ function fixture({ reduced = false } = {}) {
     updateBlockFromElement,
     onDocumentChange,
     focusBlock,
+    readerPage,
     content: document.querySelector('[data-editor-content]'),
   };
 }
@@ -120,6 +130,44 @@ describe('Editor Selection Controller', () => {
     await new Promise((resolve) => reduced.dom.window.setTimeout(resolve, 20));
     expect(reduced.elements.caretEcho.hidden).toBe(false);
     expect(reduced.elements.caretEcho.classList.contains('is-moving')).toBe(false);
+  });
+
+  it('keeps collapsed caret geometry attached to its range while the reader scrolls', () => {
+    const view = fixture();
+    const range = selectText(view, view.content.firstChild, 2, 2, {
+      left: 101,
+      top: 120,
+      width: 0,
+      height: 20,
+      right: 101,
+      bottom: 140,
+    });
+    let rect = {
+      left: 101,
+      top: 72,
+      width: 0,
+      height: 20,
+      right: 101,
+      bottom: 92,
+    };
+    range.getClientRects = () => [rect];
+    range.getBoundingClientRect = () => rect;
+
+    view.readerPage.dispatchEvent(new view.dom.window.Event('scroll'));
+
+    expect(view.elements.caretEcho.style.top).toBe('72px');
+    expect(view.elements.caretEcho.classList.contains('is-moving')).toBe(false);
+
+    rect = { ...rect, top: -48, bottom: -28 };
+    view.readerPage.dispatchEvent(new view.dom.window.Event('scroll'));
+    expect(view.elements.caretEcho.hidden).toBe(true);
+    expect(view.elements.root.classList.contains('has-custom-caret')).toBe(false);
+
+    rect = { ...rect, top: 56, bottom: 76 };
+    view.readerPage.dispatchEvent(new view.dom.window.Event('scroll'));
+    expect(view.elements.caretEcho.hidden).toBe(false);
+    expect(view.elements.caretEcho.style.top).toBe('56px');
+    expect(view.elements.root.classList.contains('has-custom-caret')).toBe(true);
   });
 
   it('clears saved selection, caret and listeners on dispose', () => {

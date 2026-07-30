@@ -49,9 +49,11 @@ export function createEditorSelectionController({
   let savedRange = null;
   let caretVersion = 0;
   let caretFrameId = null;
+  let caretSyncFrameId = null;
   let caretAnimationEnd = null;
   let started = false;
   let disposed = false;
+  const scrollContainer = root.closest('.reader-page');
 
   const position = (element, anchorRect, preferred = 'above') => {
     element.hidden = false;
@@ -80,13 +82,28 @@ export function createEditorSelectionController({
     caretEcho?.classList.remove('is-moving');
   };
 
+  const cancelCaretSync = () => {
+    if (caretSyncFrameId !== null) window.cancelAnimationFrame?.(caretSyncFrameId);
+    caretSyncFrameId = null;
+  };
+
   const hideCaret = () => {
     cancelCaretMotion();
     if (caretEcho) caretEcho.hidden = true;
     root.classList.remove('has-custom-caret');
   };
 
-  const captureCaret = (selection) => {
+  const isCaretVisibleInScrollContainer = (rect) => {
+    if (!scrollContainer) return true;
+    const clip = scrollContainer.getBoundingClientRect();
+    if (clip.width <= 0 || clip.height <= 0) return true;
+    return rect.bottom > clip.top
+      && rect.top < clip.bottom
+      && rect.right >= clip.left
+      && rect.left <= clip.right;
+  };
+
+  const captureCaret = (selection, { animate = true } = {}) => {
     if (
       !caretEcho
       || !adapters.isEditing?.()
@@ -108,7 +125,13 @@ export function createEditorSelectionController({
       : typeof range.getBoundingClientRect === 'function'
         ? range.getBoundingClientRect()
         : null;
-    if (!rect || !Number.isFinite(rect.left) || !Number.isFinite(rect.top) || rect.height <= 0) {
+    if (
+      !rect
+      || !Number.isFinite(rect.left)
+      || !Number.isFinite(rect.top)
+      || rect.height <= 0
+      || !isCaretVisibleInScrollContainer(rect)
+    ) {
       hideCaret();
       return;
     }
@@ -118,7 +141,7 @@ export function createEditorSelectionController({
     caretEcho.style.height = `${Math.max(12, Math.min(32, rect.height))}px`;
     caretEcho.hidden = false;
     root.classList.add('has-custom-caret');
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    if (!animate || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
     const version = ++caretVersion;
     caretFrameId = window.requestAnimationFrame?.(() => {
       caretFrameId = null;
@@ -131,6 +154,22 @@ export function createEditorSelectionController({
       };
       caretEcho.addEventListener('animationend', caretAnimationEnd, { once: true });
     }) ?? null;
+  };
+
+  const scheduleCaretSync = () => {
+    if (disposed || caretSyncFrameId !== null) return;
+    if (typeof window.requestAnimationFrame !== 'function') {
+      captureCaret(window.getSelection(), { animate: false });
+      return;
+    }
+    let ranSynchronously = false;
+    const frameId = window.requestAnimationFrame(() => {
+      ranSynchronously = true;
+      caretSyncFrameId = null;
+      if (disposed) return;
+      captureCaret(window.getSelection(), { animate: false });
+    });
+    if (!ranSynchronously) caretSyncFrameId = frameId;
   };
 
   const updateCursor = (selection) => {
@@ -181,6 +220,7 @@ export function createEditorSelectionController({
 
   const capture = () => {
     if (disposed) return;
+    cancelCaretSync();
     const selection = window.getSelection();
     updateCursor(selection);
     captureCaret(selection);
@@ -302,6 +342,8 @@ export function createEditorSelectionController({
     if (started || disposed) return;
     started = true;
     document.addEventListener('selectionchange', capture);
+    scrollContainer?.addEventListener('scroll', scheduleCaretSync, { passive: true });
+    window.addEventListener('resize', scheduleCaretSync, { passive: true });
     inlineToolbar.addEventListener('mousedown', onToolbarMouseDown);
     inlineToolbar.addEventListener('click', onToolbarClick);
     linkApply?.addEventListener('click', onLinkApply);
@@ -312,10 +354,13 @@ export function createEditorSelectionController({
     if (disposed) return;
     disposed = true;
     document.removeEventListener('selectionchange', capture);
+    scrollContainer?.removeEventListener('scroll', scheduleCaretSync);
+    window.removeEventListener('resize', scheduleCaretSync);
     inlineToolbar.removeEventListener('mousedown', onToolbarMouseDown);
     inlineToolbar.removeEventListener('click', onToolbarClick);
     linkApply?.removeEventListener('click', onLinkApply);
     linkInput?.removeEventListener('keydown', onLinkKeyDown);
+    cancelCaretSync();
     clear();
   };
 
