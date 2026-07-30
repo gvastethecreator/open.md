@@ -32,6 +32,7 @@ import { createDocumentContentActions } from './document-content-actions.js';
 import { createDocumentViewStateController } from './document-view-state.js';
 import { createDocumentIngressController } from './document-ingress-controller.js';
 import { createReaderKeyboardController } from './reader-keyboard-controller.js';
+import { createApplicationLifecycleController } from './application-lifecycle.js';
 
 let currentZoom = 1;
 const ZOOM_STEP = 0.1;
@@ -58,6 +59,7 @@ let documentContentActions = null;
 let documentViewState = null;
 let documentIngress = null;
 let readerKeyboard = null;
+let applicationLifecycle = null;
 
 const ui = {
   windowFileTitle: null,
@@ -850,79 +852,48 @@ function openFilePicker() {
   return documentIngress?.openPicker();
 }
 
-function registerEvents() {
-  window.addEventListener('wheel', handleZoom, { passive: false });
-  window.addEventListener('beforeunload', (event) => {
-    if (editorSession?.isDirty()) {
-      event.preventDefault();
-      event.returnValue = '';
-    }
-    readingNavigation?.dispose();
-    documentModeCoordinator?.dispose();
-    documentSaveCoordinator?.dispose();
-    themeCoordinator?.dispose();
-    toastPresenter?.dispose();
-    contextMenuController?.dispose();
-    tooltipController?.dispose();
-    statusPresenter?.dispose();
-    readerControls?.dispose();
-    readerViewport?.dispose();
-    editorFeedback?.dispose();
-    documentContentActions?.dispose();
-    documentIngress?.dispose();
-    readerKeyboard?.dispose();
-    responsiveTypography?.dispose();
-    readerShell?.dispose();
-    editorSession?.dispose();
-    windowChrome?.dispose();
-  });
-  document.addEventListener('click', handleLinkClick);
-
-  ui.emptyOpenButton?.addEventListener('click', openFilePicker);
-  ui.toolbarOpenButton?.addEventListener('click', openFilePicker);
-  ui.helpToggleButton?.addEventListener('click', toggleHelp);
-  ui.closeHelpButton?.addEventListener('click', () => setHelpVisible(false));
-  ui.content?.addEventListener('change', (event) => documentContentActions?.handleReadTaskToggle(event));
-  ui.editModeButton?.addEventListener('click', () => documentModeCoordinator?.cycle());
-  ui.editorSaveButton?.addEventListener('click', () => documentSaveCoordinator?.saveEditor());
-  document.getElementById('theme-select')?.addEventListener('change', handleThemeSelection);
+function applicationEvents() {
+  return [
+    { target: window, type: 'wheel', listener: handleZoom, options: { passive: false } },
+    { target: document, type: 'click', listener: handleLinkClick },
+    { target: ui.emptyOpenButton, type: 'click', listener: openFilePicker },
+    { target: ui.toolbarOpenButton, type: 'click', listener: openFilePicker },
+    { target: ui.helpToggleButton, type: 'click', listener: toggleHelp },
+    { target: ui.closeHelpButton, type: 'click', listener: () => setHelpVisible(false) },
+    { target: ui.content, type: 'change', listener: (event) => documentContentActions?.handleReadTaskToggle(event) },
+    { target: ui.editModeButton, type: 'click', listener: () => documentModeCoordinator?.cycle() },
+    { target: ui.editorSaveButton, type: 'click', listener: () => documentSaveCoordinator?.saveEditor() },
+    { target: document.getElementById('theme-select'), type: 'change', listener: handleThemeSelection },
+  ];
 }
 
-async function init() {
-  cacheElements();
-  statusPresenter = createStatusPresenter({
-    window,
-    document,
-    elements: {
-      primary: ui.statusPrimary,
-      context: ui.statusContext,
-      metrics: ui.statusMetrics,
-    },
-  });
-  mountTooltips();
-  responsiveTypography = createResponsiveTypography({
-    window,
-    root: document,
-    onDiagnostic: (message, error) => console.warn(`${message}:`, error),
-  });
-  mountApplicationReaderShell();
-  mountReaderViewport();
-  mountReaderControls();
-  mountApplicationEditor();
-  mountDocumentSaveCoordinator();
-  mountDocumentViewState();
-  mountDocumentModeCoordinator();
-  mountReadingNavigation();
-  mountDocumentContentActions();
-  mountDocumentIngress();
-  mountContextMenu();
-  mountReaderKeyboard();
+function applicationDisposables() {
+  return [
+    () => windowChrome?.dispose(),
+    () => editorSession?.dispose(),
+    () => readerShell?.dispose(),
+    () => responsiveTypography?.dispose(),
+    () => editorFeedback?.dispose(),
+    () => readerViewport?.dispose(),
+    () => readerControls?.dispose(),
+    () => statusPresenter?.dispose(),
+    () => tooltipController?.dispose(),
+    () => toastPresenter?.dispose(),
+    () => themeCoordinator?.dispose(),
+    () => documentSaveCoordinator?.dispose(),
+    () => documentModeCoordinator?.dispose(),
+    () => readingNavigation?.dispose(),
+    () => documentContentActions?.dispose(),
+    () => documentIngress?.dispose(),
+    () => readerKeyboard?.dispose(),
+  ];
+}
+
+async function startApplication() {
   const preferenceResult = await readerShell.preferences.load();
   if (preferenceResult.status === 'fallback') {
     console.warn('One or more saved preferences could not be restored:', preferenceResult.warnings);
   }
-  syncViewportState();
-  registerEvents();
   await documentIngress?.start();
   await setupWindowChrome();
   await initThemes();
@@ -942,6 +913,56 @@ async function init() {
     origin: 'launch',
     items: initialFilePaths.map((path) => ({ path })),
   } : null);
+}
+
+async function init() {
+  applicationLifecycle = createApplicationLifecycleController({
+    window,
+    document,
+    mounts: [
+      cacheElements,
+      () => {
+        statusPresenter = createStatusPresenter({
+          window,
+          document,
+          elements: {
+            primary: ui.statusPrimary,
+            context: ui.statusContext,
+            metrics: ui.statusMetrics,
+          },
+        });
+      },
+      mountTooltips,
+      () => {
+        responsiveTypography = createResponsiveTypography({
+          window,
+          root: document,
+          onDiagnostic: (message, error) => console.warn(`${message}:`, error),
+        });
+      },
+      mountApplicationReaderShell,
+      mountReaderViewport,
+      mountReaderControls,
+      mountApplicationEditor,
+      mountDocumentSaveCoordinator,
+      mountDocumentViewState,
+      mountDocumentModeCoordinator,
+      mountReadingNavigation,
+      mountDocumentContentActions,
+      mountDocumentIngress,
+      mountContextMenu,
+      mountReaderKeyboard,
+      syncViewportState,
+    ],
+    events: applicationEvents,
+    startup: startApplication,
+    disposables: applicationDisposables,
+    isDirty: () => Boolean(editorSession?.isDirty()),
+    hooks: {
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  });
+  await applicationLifecycle.start();
 }
 
 if (typeof window !== 'undefined' && !window.__VITEST__) {
