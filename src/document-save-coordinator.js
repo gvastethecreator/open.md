@@ -16,6 +16,7 @@ export function createDocumentSaveCoordinator({
   let currentPath = null;
   let currentDocument = null;
   let documentRevision = 0;
+  let editorSaveGeneration = 0;
   let taskTail = Promise.resolve();
   let disposed = false;
   const pendingTasks = new Set();
@@ -46,6 +47,7 @@ export function createDocumentSaveCoordinator({
   };
 
   const replaceDocument = ({ path = null, document = null } = {}) => {
+    if (path !== currentPath) editorSaveGeneration += 1;
     documentRevision += 1;
     currentPath = path;
     currentDocument = document;
@@ -55,11 +57,11 @@ export function createDocumentSaveCoordinator({
 
   const saveEditor = async ({ automatic = false } = {}) => {
     if (disposed || !adapters.isEditing?.()) return { status: 'unavailable' };
-    const saveRevision = documentRevision;
+    const saveGeneration = editorSaveGeneration;
     const savePath = currentPath;
     const isStale = () => (
       disposed
-      || saveRevision !== documentRevision
+      || saveGeneration !== editorSaveGeneration
       || savePath !== currentPath
     );
     let result;
@@ -174,6 +176,7 @@ export function createDocumentSaveCoordinator({
   const dispose = () => {
     if (disposed) return;
     disposed = true;
+    editorSaveGeneration += 1;
     documentRevision += 1;
     clearAutoSave();
     invalidatePendingTasks();
