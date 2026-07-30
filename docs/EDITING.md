@@ -9,6 +9,10 @@ Open a supported file, then select the mode icon in the status bar or press
 Edit and Source; its tooltip names the current mode and the next one. On macOS,
 use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd>.
 
+Mode changes morph the document surface between its Read, Edit and Source
+geometry while the window chrome stays fixed. Reduced-motion preferences switch
+the surface immediately.
+
 The document becomes a block canvas. The source file remains Markdown or text;
 there is no private document format. While the caret is in the editor, the
 status bar shows its source line and visible column. The gear in the title bar

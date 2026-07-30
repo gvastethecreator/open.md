@@ -78,6 +78,10 @@ let isCyclingDocumentMode = false;
 let autoSaveTimeoutId = null;
 let responsiveTypography = null;
 let readTaskSaveChain = Promise.resolve();
+let activeDocumentModeTransition = null;
+let modeMorphFallbackTimeoutId = null;
+let modeMorphGeneration = 0;
+let documentModeChangeGeneration = 0;
 
 const ui = {
   windowFileTitle: null,
@@ -976,6 +980,83 @@ function getActiveDocumentMode() {
   return isSourceViewActive() ? 'source' : 'read';
 }
 
+function getDocumentModeSurface(mode = getActiveDocumentMode()) {
+  if (mode === 'edit') return ui.editorView;
+  if (mode === 'source') return ui.sourceView;
+  return ui.content;
+}
+
+function finishDocumentModeMorph(generation) {
+  if (generation !== modeMorphGeneration) return;
+  clearTimeout(modeMorphFallbackTimeoutId);
+  modeMorphFallbackTimeoutId = null;
+  activeDocumentModeTransition = null;
+  document.body.classList.remove('is-mode-morphing');
+  delete document.body.dataset.modeMorphFrom;
+  delete document.body.dataset.modeMorphTo;
+}
+
+async function withDocumentModeMorph(update) {
+  activeDocumentModeTransition?.skipTransition?.();
+  clearTimeout(modeMorphFallbackTimeoutId);
+  modeMorphFallbackTimeoutId = null;
+
+  const initialMode = getActiveDocumentMode();
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  if (reduceMotion) return update();
+
+  const generation = ++modeMorphGeneration;
+  document.body.classList.add('is-mode-morphing');
+  document.body.dataset.modeMorphFrom = initialMode;
+
+  const runFallback = async () => {
+    try {
+      const result = await update();
+      const nextMode = getActiveDocumentMode();
+      document.body.dataset.modeMorphTo = nextMode;
+      if (nextMode === initialMode) {
+        finishDocumentModeMorph(generation);
+        return result;
+      }
+      replayOneShotAnimation(getDocumentModeSurface(nextMode), 'is-mode-morph-entering');
+      modeMorphFallbackTimeoutId = setTimeout(() => finishDocumentModeMorph(generation), 380);
+      return result;
+    } catch (error) {
+      finishDocumentModeMorph(generation);
+      throw error;
+    }
+  };
+
+  if (typeof document.startViewTransition !== 'function') return runFallback();
+
+  let updateResult;
+  let transition;
+  try {
+    transition = document.startViewTransition(async () => {
+      updateResult = await update();
+      document.body.dataset.modeMorphTo = getActiveDocumentMode();
+    });
+  } catch {
+    return runFallback();
+  }
+
+  activeDocumentModeTransition = transition;
+  transition.finished.then(
+    () => finishDocumentModeMorph(generation),
+    () => finishDocumentModeMorph(generation)
+  );
+
+  try {
+    await transition.updateCallbackDone;
+    if (getActiveDocumentMode() === initialMode) transition.skipTransition();
+    return updateResult;
+  } catch (error) {
+    transition.skipTransition();
+    finishDocumentModeMorph(generation);
+    throw error;
+  }
+}
+
 function replayOneShotAnimation(element, className) {
   if (!element || !className) return;
   element.classList.remove(className);
@@ -1137,38 +1218,46 @@ function mountApplicationEditor() {
 
 async function toggleEditMode() {
   if (!editorSession || !currentFilePath) return;
-  setHelpVisible(false);
-  setReadingToolsOpen(false);
-  setTypographyOpen(false);
-  if (!editorSession.isEditing() && readingTools.source) {
-    await setReadingTool('source', false);
-  }
-  editorSession.toggle();
+  return performDocumentModeChange(async () => {
+    if (!editorSession.isEditing() && readingTools.source) {
+      await setReadingTool('source', false);
+    }
+    return editorSession.toggle();
+  });
 }
 
-async function cycleDocumentMode() {
-  if (!editorSession || !currentFilePath) return;
+async function performDocumentModeChange(update) {
   const initialMode = getActiveDocumentMode();
+  const changeGeneration = ++documentModeChangeGeneration;
   setHelpVisible(false);
   setReadingToolsOpen(false);
   setTypographyOpen(false);
   isCyclingDocumentMode = true;
 
   try {
+    return await withDocumentModeMorph(() => update(initialMode));
+  } finally {
+    if (changeGeneration === documentModeChangeGeneration) {
+      isCyclingDocumentMode = false;
+      updateDocumentModeControl({ forceAnimation: getActiveDocumentMode() !== initialMode });
+    }
+  }
+}
+
+async function cycleDocumentMode() {
+  if (!editorSession || !currentFilePath) return;
+  return performDocumentModeChange(async (initialMode) => {
     if (initialMode === 'edit') {
-      if (!editorSession.exit()) return;
+      if (!editorSession.exit()) return false;
       await setReadingTool('source', true);
-      return;
+      return true;
     }
     if (initialMode === 'source') {
       await setReadingTool('source', false);
-      return;
+      return true;
     }
-    editorSession.enter();
-  } finally {
-    isCyclingDocumentMode = false;
-    updateDocumentModeControl({ forceAnimation: getActiveDocumentMode() !== initialMode });
-  }
+    return editorSession.enter();
+  });
 }
 
 async function saveEditedDocument({ automatic = false } = {}) {
@@ -1853,6 +1942,8 @@ function registerEvents() {
       fileOpenRequestUnlisten();
     }
     minimapResizeObserver?.disconnect();
+    activeDocumentModeTransition?.skipTransition?.();
+    clearTimeout(modeMorphFallbackTimeoutId);
     clearTimeout(autoSaveTimeoutId);
     responsiveTypography?.dispose();
     readerShell?.dispose();
