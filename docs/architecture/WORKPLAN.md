@@ -201,20 +201,20 @@ interface rather than inside the DOM session closure.
 ### ARC-13 — Own editor overlay lifecycle
 
 **Type:** AFK
-**Status:** Ready
+**Status:** Implemented
 **Blocked by:** ARC-12.
 
 **What to build:** One Editor Overlay controller owns command/block menus,
 filtering, viewport-aware position, keyboard/outside dismissal and focus return.
 
-- [ ] Commands and disabled states remain derived from current block context.
-- [ ] Edge placement, Escape, keyboard activation and outside dismissal are tested.
-- [ ] Disposal removes document listeners and temporary overlay state.
+- [x] Commands and disabled states remain derived from current block context.
+- [x] Edge placement, Escape, keyboard activation and outside dismissal are tested.
+- [x] Disposal removes document listeners and temporary overlay state.
 
 ### ARC-14 — Own editor selection and inline formatting
 
 **Type:** AFK
-**Status:** Blocked
+**Status:** Ready
 **Blocked by:** ARC-13.
 
 **What to build:** One Editor Selection controller owns captured range, cursor
