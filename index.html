@@ -52,6 +52,14 @@
             <aside id="line-gutter" class="line-gutter" aria-hidden="true" hidden></aside>
             <article id="content" class="markdown-body" tabindex="-1"></article>
             <pre id="source-view" class="source-view hidden" tabindex="-1" aria-label="Raw document source"><code id="source-content"></code></pre>
+            <section id="editor-view" class="editor-view" aria-label="Document editor" hidden inert>
+              <header class="editor-context" aria-live="polite">
+                <span id="editor-context-label">Block editor</span>
+                <span id="editor-context-hint" class="editor-context-hint">Type <kbd>/</kbd> for blocks</span>
+              </header>
+              <div id="editor-canvas" class="editor-canvas" aria-label="Editable document blocks"></div>
+              <p class="editor-end-hint"><kbd>Ctrl</kbd> + <kbd>S</kbd> saves · <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd> returns to reading</p>
+            </section>
           </div>
         </section>
 
@@ -83,6 +91,19 @@
                   <div><dt><kbd>T</kbd></dt><dd>Next theme</dd></div>
                   <div><dt><kbd>Shift</kbd> + <kbd>T</kbd></dt><dd>Previous theme</dd></div>
                   <div><dt><kbd>Ctrl</kbd> + <kbd>+</kbd>/<kbd>-</kbd>/<kbd>0</kbd></dt><dd>Adjust or reset zoom</dd></div>
+                </dl>
+              </section>
+
+              <section class="help-panel" aria-labelledby="editing-help-title">
+                <h2 id="editing-help-title">Editing</h2>
+                <dl class="help-shortcuts">
+                  <div><dt><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd></dt><dd>Switch between read and edit</dd></div>
+                  <div><dt><kbd>Ctrl</kbd> + <kbd>S</kbd></dt><dd>Save changes to the open file</dd></div>
+                  <div><dt><kbd>/</kbd></dt><dd>Insert headings, lists, tasks, quotes, code or a divider</dd></div>
+                  <div><dt><kbd>Ctrl</kbd> + <kbd>B</kbd> / <kbd>I</kbd></dt><dd>Format selected text</dd></div>
+                  <div><dt><kbd>Tab</kbd> / <kbd>Shift</kbd> + <kbd>Tab</kbd></dt><dd>Indent or outdent a list block</dd></div>
+                  <div><dt><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd></dt><dd>Move the current block</dd></div>
+                  <div><dt><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>M</kbd></dt><dd>Open block actions</dd></div>
                 </dl>
               </section>
 
@@ -134,6 +155,31 @@
       </div>
 
       <div class="toolbar-command-area">
+        <button
+          id="edit-mode-button"
+          class="mode-toggle-button"
+          type="button"
+          aria-pressed="false"
+          aria-label="Enter edit mode"
+          title="Edit document (Ctrl+Shift+E)"
+          disabled
+        >
+          <i class="iconoir-edit-pencil" aria-hidden="true"></i>
+          <span id="edit-mode-label">Edit</span>
+        </button>
+
+        <button
+          id="editor-save-button"
+          class="editor-save-button"
+          type="button"
+          aria-label="Save document"
+          title="Save document (Ctrl+S)"
+          hidden
+        >
+          <i class="iconoir-check" aria-hidden="true"></i>
+          <span id="editor-save-label">Saved</span>
+        </button>
+
         <button id="actions-toggle-button" class="actions-toggle-button icon-button" type="button" aria-controls="toolbar-actions" aria-expanded="false" aria-label="Show actions" title="Show actions">
           <i class="iconoir-more-horiz" aria-hidden="true"></i>
         </button>
@@ -210,7 +256,7 @@
 
               <button id="sans-font-button" class="typography-option" type="button" data-font-kind="sans">
                 <i class="iconoir-type" aria-hidden="true"></i>
-                <span><strong>Sans</strong><small id="sans-font-name">System</small></span>
+                <span><strong>Sans</strong><small id="sans-font-name">Inter</small></span>
                 <i class="iconoir-nav-arrow-right" aria-hidden="true"></i>
               </button>
 
@@ -246,6 +292,29 @@
         </div>
       </div>
     </nav>
+
+    <div id="editor-command-menu" class="editor-menu editor-command-menu" role="listbox" aria-label="Block types" hidden></div>
+
+    <div id="editor-block-menu" class="editor-menu editor-block-menu" role="menu" aria-label="Block options" hidden>
+      <button type="button" role="menuitem" data-block-action="move-up"><i class="iconoir-arrow-up" aria-hidden="true"></i><span>Move up</span></button>
+      <button type="button" role="menuitem" data-block-action="move-down"><i class="iconoir-arrow-down" aria-hidden="true"></i><span>Move down</span></button>
+      <button type="button" role="menuitem" data-block-action="duplicate"><i class="iconoir-copy" aria-hidden="true"></i><span>Duplicate</span></button>
+      <button type="button" role="menuitem" data-block-action="delete" class="is-danger"><i class="iconoir-trash" aria-hidden="true"></i><span>Delete</span></button>
+    </div>
+
+    <div id="editor-inline-toolbar" class="editor-inline-toolbar" role="toolbar" aria-label="Text formatting" hidden>
+      <button type="button" data-inline-command="bold" aria-label="Bold" title="Bold (Ctrl+B)"><i class="iconoir-bold" aria-hidden="true"></i></button>
+      <button type="button" data-inline-command="italic" aria-label="Italic" title="Italic (Ctrl+I)"><i class="iconoir-italic" aria-hidden="true"></i></button>
+      <button type="button" data-inline-command="strike" aria-label="Strikethrough" title="Strikethrough"><span aria-hidden="true">S</span></button>
+      <button type="button" data-inline-command="code" aria-label="Inline code" title="Inline code"><i class="iconoir-code" aria-hidden="true"></i></button>
+      <button type="button" data-inline-command="link" aria-label="Add link" title="Add link (Ctrl+K)"><i class="iconoir-link" aria-hidden="true"></i></button>
+    </div>
+
+    <form id="editor-link-popover" class="editor-link-popover" hidden>
+      <label for="editor-link-input">Link</label>
+      <input id="editor-link-input" type="url" inputmode="url" autocomplete="url" placeholder="https://example.com" />
+      <button id="editor-link-apply" type="button">Apply</button>
+    </form>
 
     <div id="drop-indicator" class="drop-indicator" aria-hidden="true">
       <div class="drop-indicator__box">

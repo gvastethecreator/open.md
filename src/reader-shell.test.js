@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { mountReaderShell } from './reader-shell.js';
 
 const indexHtml = readFileSync('index.html', 'utf8');
@@ -93,6 +93,21 @@ describe('reader shell', () => {
     expect(document.querySelector('#content .error h1')?.textContent).toBe('Could not open the file');
     expect(document.querySelector('#content .error p')?.textContent).toContain('Disk unavailable');
     expect(document.querySelector('#content')?.hasAttribute('aria-busy')).toBe(false);
+
+    shell.dispose();
+  });
+
+  it('reloads the active document through the same session seam after a save', async () => {
+    renderFixture();
+    let title = 'Before';
+    const openDocument = vi.fn(async () => payload(title));
+    const shell = mountReaderShell({ window, adapters: createAdapters(openDocument) });
+    await shell.start({ origin: 'launch', items: [{ path: 'sample.md' }] });
+    title = 'After';
+
+    await expect(shell.reload()).resolves.toMatchObject({ status: 'ready', path: 'sample.md' });
+    expect(openDocument).toHaveBeenCalledTimes(2);
+    expect(document.querySelector('#content h1')?.textContent).toBe('After');
 
     shell.dispose();
   });

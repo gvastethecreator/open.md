@@ -1,7 +1,9 @@
 use pulldown_cmark::{html, CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use serde::Serialize;
 use std::fs;
+use std::io::Write;
 use std::path::{Component, Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
 use syntect::highlighting::ThemeSet;
 use syntect::html::highlighted_html_for_string;
@@ -13,6 +15,7 @@ const READING_WORDS_PER_MINUTE: usize = 220;
 
 static SYNTAX_SET: OnceLock<SyntaxSet> = OnceLock::new();
 static THEME_SET: OnceLock<ThemeSet> = OnceLock::new();
+static SAVE_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,6 +29,7 @@ pub(crate) struct DocumentPayload {
 }
 
 pub(crate) fn open_document(file_path: &Path) -> Result<DocumentPayload, String> {
+    recover_interrupted_save(file_path)?;
     let canonical_path = fs::canonicalize(file_path).map_err(user_friendly_read_error)?;
 
     if !is_supported_document(&canonical_path) {
@@ -56,6 +60,148 @@ pub(crate) fn open_document(file_path: &Path) -> Result<DocumentPayload, String>
         Some("md") | Some("markdown")
     );
     Ok(build_document_payload(&content, is_markdown))
+}
+
+pub(crate) fn save_document(file_path: &Path, content: &str) -> Result<DocumentPayload, String> {
+    recover_interrupted_save(file_path)?;
+    let canonical_path = fs::canonicalize(file_path).map_err(user_friendly_write_error)?;
+    if !is_supported_document(&canonical_path) {
+        return Err(
+            "Unsupported file format. Save a .md, .markdown or .txt file instead.".to_string(),
+        );
+    }
+
+    let content_size = content.len() as u64;
+    if content_size > MAX_RENDERABLE_FILE_SIZE_BYTES {
+        return Err(format!(
+            "The edited document is too large to save ({}). Current limit: {}.",
+            file_size_label(content_size),
+            file_size_label(MAX_RENDERABLE_FILE_SIZE_BYTES)
+        ));
+    }
+
+    let parent = canonical_path
+        .parent()
+        .ok_or_else(|| "The document folder is unavailable.".to_string())?;
+    let file_name = canonical_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "The document name is invalid.".to_string())?;
+    let nonce = SAVE_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let temporary_path = parent.join(format!(
+        ".{file_name}.openmd-{}-{nonce}.tmp",
+        std::process::id()
+    ));
+
+    let result: Result<(), String> = (|| {
+        let mut temporary = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary_path)
+            .map_err(user_friendly_write_error)?;
+        temporary
+            .write_all(content.as_bytes())
+            .and_then(|_| temporary.sync_all())
+            .map_err(user_friendly_write_error)?;
+
+        if let Ok(metadata) = fs::metadata(&canonical_path) {
+            fs::set_permissions(&temporary_path, metadata.permissions())
+                .map_err(user_friendly_write_error)?;
+        }
+
+        replace_document_file(&temporary_path, &canonical_path, nonce)?;
+        Ok(())
+    })();
+
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary_path);
+    }
+    result?;
+
+    let is_markdown = matches!(
+        canonical_path
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .map(|extension| extension.to_ascii_lowercase())
+            .as_deref(),
+        Some("md") | Some("markdown")
+    );
+    Ok(build_document_payload(content, is_markdown))
+}
+
+#[cfg(not(target_os = "windows"))]
+fn replace_document_file(
+    temporary_path: &Path,
+    destination: &Path,
+    _nonce: u64,
+) -> Result<(), String> {
+    fs::rename(temporary_path, destination).map_err(user_friendly_write_error)
+}
+
+#[cfg(target_os = "windows")]
+fn replace_document_file(
+    temporary_path: &Path,
+    destination: &Path,
+    nonce: u64,
+) -> Result<(), String> {
+    let parent = destination
+        .parent()
+        .ok_or_else(|| "The document folder is unavailable.".to_string())?;
+    let file_name = destination
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "The document name is invalid.".to_string())?;
+    let backup_path = parent.join(format!(
+        ".{file_name}.openmd-{}-{nonce}.backup",
+        std::process::id()
+    ));
+
+    fs::rename(destination, &backup_path).map_err(user_friendly_write_error)?;
+    if let Err(error) = fs::rename(temporary_path, destination) {
+        let _ = fs::rename(&backup_path, destination);
+        return Err(user_friendly_write_error(error));
+    }
+    fs::remove_file(backup_path).map_err(user_friendly_write_error)
+}
+
+#[cfg(not(target_os = "windows"))]
+fn recover_interrupted_save(_destination: &Path) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(target_os = "windows")]
+fn recover_interrupted_save(destination: &Path) -> Result<(), String> {
+    if destination.exists() {
+        return Ok(());
+    }
+    let Some(parent) = destination.parent() else {
+        return Ok(());
+    };
+    let Some(file_name) = destination.file_name().and_then(|name| name.to_str()) else {
+        return Ok(());
+    };
+    let prefix = format!(".{file_name}.openmd-");
+    let mut backups = match fs::read_dir(parent) {
+        Ok(entries) => entries
+            .filter_map(Result::ok)
+            .filter(|entry| {
+                let name = entry.file_name();
+                let name = name.to_string_lossy();
+                name.starts_with(&prefix) && name.ends_with(".backup")
+            })
+            .collect::<Vec<_>>(),
+        Err(_) => return Ok(()),
+    };
+    backups.sort_by_key(|entry| {
+        entry
+            .metadata()
+            .and_then(|metadata| metadata.modified())
+            .ok()
+    });
+    let Some(latest) = backups.pop() else {
+        return Ok(());
+    };
+    fs::rename(latest.path(), destination).map_err(user_friendly_write_error)
 }
 
 pub(crate) fn read_document_image(
@@ -162,6 +308,19 @@ fn user_friendly_read_error(error: std::io::Error) -> String {
             "You do not have permission to read this file.".to_string()
         }
         _ => format!("Could not read the file: {error}"),
+    }
+}
+
+fn user_friendly_write_error(error: std::io::Error) -> String {
+    match error.kind() {
+        std::io::ErrorKind::NotFound => "The file is no longer available.".to_string(),
+        std::io::ErrorKind::PermissionDenied => {
+            "The file is read-only or open.md does not have permission to save it.".to_string()
+        }
+        std::io::ErrorKind::AlreadyExists => {
+            "A temporary save file already exists. Try saving again.".to_string()
+        }
+        _ => format!("The file could not be saved: {error}"),
     }
 }
 
@@ -339,7 +498,7 @@ mod tests {
     use super::{
         build_document_payload, file_size_label, image_mime_type, is_supported_document,
         open_document, read_document_image, render_markdown, safe_relative_image_path,
-        MAX_LOCAL_IMAGE_SIZE_BYTES, MAX_RENDERABLE_FILE_SIZE_BYTES,
+        save_document, MAX_LOCAL_IMAGE_SIZE_BYTES, MAX_RENDERABLE_FILE_SIZE_BYTES,
     };
     use std::fs::{self, File};
     use std::path::{Path, PathBuf};
@@ -410,6 +569,69 @@ mod tests {
             .unwrap_err()
             .contains("Unsupported file format"));
         assert!(open_document(&oversized).unwrap_err().contains("too large"));
+    }
+
+    #[test]
+    fn saves_supported_documents_and_returns_the_updated_render_contract() {
+        let fixture = FixtureDirectory::new("save-document");
+        let markdown_path = fixture.path().join("guide.md");
+        fs::write(&markdown_path, "# Before").expect("fixture should be written");
+
+        let saved = save_document(&markdown_path, "# After\n\n- [x] Saved")
+            .expect("supported document should save");
+
+        assert_eq!(
+            fs::read_to_string(&markdown_path).unwrap(),
+            "# After\n\n- [x] Saved"
+        );
+        assert_eq!(saved.source, "# After\n\n- [x] Saved");
+        assert!(saved.html.contains("<h1>After</h1>"));
+        assert_eq!(saved.line_count, 3);
+        assert!(!fixture.path().read_dir().unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .contains("openmd-")
+        }));
+    }
+
+    #[test]
+    fn rejects_unsupported_missing_and_oversized_save_targets_without_changing_files() {
+        let fixture = FixtureDirectory::new("save-rejections");
+        let unsupported = fixture.path().join("page.html");
+        let supported = fixture.path().join("notes.md");
+        let missing = fixture.path().join("missing.md");
+        fs::write(&unsupported, "keep").unwrap();
+        fs::write(&supported, "keep").unwrap();
+        let oversized = "x".repeat(MAX_RENDERABLE_FILE_SIZE_BYTES as usize + 1);
+
+        assert!(save_document(&unsupported, "replace")
+            .unwrap_err()
+            .contains("Unsupported"));
+        assert!(save_document(&missing, "replace")
+            .unwrap_err()
+            .contains("no longer"));
+        assert!(save_document(&supported, &oversized)
+            .unwrap_err()
+            .contains("too large"));
+        assert_eq!(fs::read_to_string(&unsupported).unwrap(), "keep");
+        assert_eq!(fs::read_to_string(&supported).unwrap(), "keep");
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn recovers_a_backup_left_between_windows_replace_steps() {
+        let fixture = FixtureDirectory::new("recover-save");
+        let document_path = fixture.path().join("notes.md");
+        let backup_path = fixture.path().join(".notes.md.openmd-123-1.backup");
+        fs::write(&backup_path, "# Recovered").unwrap();
+
+        let recovered = open_document(&document_path).expect("backup should be restored");
+
+        assert_eq!(recovered.source, "# Recovered");
+        assert_eq!(fs::read_to_string(&document_path).unwrap(), "# Recovered");
+        assert!(!backup_path.exists());
     }
 
     #[test]

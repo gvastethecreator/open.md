@@ -1,0 +1,55 @@
+# Editing files
+
+`open.md` can edit an open Markdown or plain-text file without changing its format.
+
+## Enter edit mode
+
+Open a supported file, then select **Edit** in the status bar or press
+<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd>. On macOS, use <kbd>Cmd</kbd>
+instead of <kbd>Ctrl</kbd>.
+
+The document becomes a block canvas. The source file remains Markdown or text;
+there is no private document format.
+
+## Work with blocks
+
+Type `/` in an empty block to choose:
+
+- text or headings 1–3;
+- bulleted or numbered lists;
+- a to-do item;
+- a quote;
+- fenced code;
+- a divider.
+
+Use the controls left of a block to insert, drag, move, duplicate or delete it.
+Select text to show the inline toolbar for bold, italic, strikethrough, code and
+links. <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>1</kbd> through <kbd>3</kbd>
+changes the current block to a heading.
+
+Press <kbd>Tab</kbd> or <kbd>Shift</kbd> + <kbd>Tab</kbd> to change list
+indentation. <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>↑</kbd> or <kbd>↓</kbd>
+moves the current block without leaving the keyboard. Use <kbd>Alt</kbd> +
+<kbd>Shift</kbd> + <kbd>M</kbd> to open its move, duplicate and delete actions.
+For selected text, <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>X</kbd> toggles
+strikethrough and <kbd>Ctrl</kbd> + <kbd>E</kbd> toggles inline code.
+
+## Save and recover
+
+Press <kbd>Ctrl</kbd> + <kbd>S</kbd> or select **Save** in the status bar. The
+status shows unsaved, saving, saved and failed states. A failed save leaves the
+draft in the editor so you can retry or copy it elsewhere.
+
+Opening another file or returning to reading with unsaved work asks for
+confirmation. Closing the window also triggers the platform's unsaved-work
+warning.
+
+## Current limits
+
+Editing covers the common Markdown blocks above. Existing heading levels 4–6
+are preserved. Complex tables, embedded HTML, footnotes, nested rich blocks,
+Mermaid diagrams and image authoring do not have dedicated visual controls; use
+Source view for exact syntax edits. New-file creation, Save As, collaboration,
+comments and cloud sync are outside this mode. To keep the app responsive,
+documents over 2 MiB or 20,000 lines remain available in Read and Source views
+but do not open in the block editor.

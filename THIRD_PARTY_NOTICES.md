@@ -1,5 +1,13 @@
 # Third-party notices
 
+## Inter typeface
+
+`src/assets/fonts/` includes the normal and italic Inter variable webfonts from
+[`rsms/inter`](https://github.com/rsms/inter). Inter is copyright 2016 The
+Inter Project Authors and licensed under the SIL Open Font License, Version
+1.1. The complete upstream license is bundled at
+`src/assets/fonts/LICENSE.txt`.
+
 ## Gogh theme catalogue
 
 `src/themes.json` incorporates the `data/themes.json` catalogue from
