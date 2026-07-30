@@ -13,6 +13,8 @@ flowchart LR
   SHELL --> SESSION[Document session]
   SHELL --> OPEN[Open intent controller]
   SHELL --> PREFS[Reader preferences]
+  SHELL --> UI[UI lifecycle coordinators]
+  UI --> EDITOR[Editor document + interaction controllers]
   OPEN --> SESSION
   SESSION --> ACCESS[Native document access]
   SESSION --> MERMAID[Mermaid renderer]
@@ -82,6 +84,30 @@ flowchart LR
 - Invariant: a failed native pin operation cannot leave the model or persisted
   value claiming that the window is pinned.
 
+### UI lifecycle coordinators
+
+- `src/main.js` composes window chrome, theme, toast, document-mode, save, and
+  reading-navigation modules through injected DOM/native adapters and hooks.
+- Each module owns its timers, listeners, transition/RAF state and disposal;
+  the composition root does not coordinate their private revisions or queues.
+- Invariant: replacement or disposal invalidates stale visual and save work
+  before it can commit back into the current document.
+- Invariant: theme selection, public state and persistence advance only after
+  diagram preparation and the visual token commit succeed together.
+
+### Editor document and interactions
+
+- `src/editor-document.js` owns canonical blocks, Markdown/TXT serialization,
+  cursor snapshots, bounded history, CRUD, split/merge and reorder operations.
+- `src/editor-session.js` renders model snapshots and composes dedicated
+  overlay, selection, and block-interaction controllers.
+- Overlay, selection and block controllers own their document listeners,
+  transient state, keyboard/focus rules, animation handles and disposal.
+- Invariant: the DOM is a projection of the editor model; it does not own an
+  independent block or undo/redo history.
+- Cursor-only updates reuse the frozen source/block/stat projection; moving the
+  caret cannot serialize or clone the full document.
+
 ## Cross-boundary rules
 
 - The frontend never reads local files directly; Tauri document access is the
@@ -97,6 +123,13 @@ flowchart LR
   same user feedback.
 - Reader preferences may continue in volatile memory after a storage failure;
   native window state remains pessimistic.
+- Theme and document-mode transitions cancel each other through public
+  coordinator interfaces; neither module reaches into the other's state.
+- Read-task saves serialize per document revision. A replacement can finish an
+  old disk request, but its stale result cannot replace current UI/model state.
+- Editor saves use document identity separately from reload revisions: another
+  path or disposal invalidates the result, while the save's own same-path
+  reload may complete and report success.
 
 ## Verification map
 
@@ -104,6 +137,10 @@ flowchart LR
 - Document lifecycle: `src/document-session.test.js`
 - Open policy: `src/open-intent-controller.test.js` and Rust queue tests
 - Preferences: `src/reader-preferences.test.js`
+- Window/theme/mode/save/navigation lifecycle: focused controller tests under
+  `src/*-coordinator.test.js` and `src/reading-navigation-controller.test.js`
+- Editor model and interactions: `src/editor-document.test.js`,
+  `src/editor-session.test.js`, and `src/editor-*-controller.test.js`
 - Filesystem and rendering policy: Rust tests in
   `src-tauri/src/document_access.rs`
 - Static repository contracts: `scripts/validate-frontend.mjs`

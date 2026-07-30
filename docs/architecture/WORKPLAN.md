@@ -1,6 +1,6 @@
 # Architecture workplan
 
-Date: 2026-07-29
+Date: 2026-07-29; updated 2026-07-30
 Status: ARC-01..15 implemented and locally verified
 
 This ledger tracks the five accepted recommendations from the
@@ -236,3 +236,24 @@ motion and drag/drop identity, target geometry, reordering and cleanup.
 - [x] Before/after targets and self-drop produce deterministic model operations.
 - [x] Repeated drag/animation interruption leaves no stale class or animation.
 - [x] Reduced motion, disposal and the complete editor suite pass.
+
+### Independent-review hardening
+
+This is closure work for ARC-06..15, not an eleventh ticket.
+
+- `8e4a539` makes confirmed theme state transactional with prepared diagrams,
+  blocks stale mode-morph markers after async cancellation, preserves true
+  toast opacity during rapid replacement, and makes native resize observation
+  fail soft.
+- `98ce8eb` disables mode changes while a document is loading/failed, invalidates
+  cross-document editor saves, and reuses the editor's structural snapshot for
+  cursor-only updates.
+- `50f5231` keeps same-path reload completion current while retaining stale
+  invalidation for a different path or disposal.
+- The 20,000-block cursor pressure check completed 25 cursor changes in 0.24 ms
+  total and reused the frozen block/stat projections.
+- Final local gate: 364 themes, four public-shell scenarios, 155/155 frontend
+  tests in 21 files, production build/bundle budgets, Rust fmt/check, and
+  15/15 Rust tests.
+- Existing-Chrome post-refactor smoke remains unclaimed because `mcporter` is
+  unavailable on this host; no isolated browser was substituted.

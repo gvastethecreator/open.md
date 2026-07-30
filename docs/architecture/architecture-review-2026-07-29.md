@@ -1,14 +1,37 @@
 # Architecture review — open.md
 
-Date: 2026-07-29
-Repository revision: `60d1949e6b121e9f809d1c5e4f8c0293bec9f0a7` (`main`)
-Status: ARC-01 through ARC-05 accepted, implemented, and verified; packaged cross-platform smoke remains a platform gate
+Date: 2026-07-29; execution update: 2026-07-30
+Repository revision: architecture baseline `60d1949`; ARC-06..15 + review-hardening checkpoint `50f5231` on `codex/arc-01-05-architecture`
+Status: ARC-01 through ARC-15 accepted, implemented, independently re-reviewed, and locally verified; packaged cross-platform smoke remains a platform gate
 Canonical source: this Markdown file
 Historical visual companion (review baseline only): `.scratch/reports/architecture-open-md/index.html`
+Current visual companion: [`.scratch/reports/architecture-open-md-2026-07-30/index.html`](../../.scratch/reports/architecture-open-md-2026-07-30/index.html)
 
 > Architecture terms stay in English to match the project contract: **module**, **interface**, **implementation**, **depth**, **deep**, **shallow**, **seam**, **adapter**, **leverage**, and **locality**.
 
 ## Summary
+
+Current outcome (2026-07-30):
+
+- Ten additional lifecycle/model owners were implemented as ARC-06 through
+  ARC-15. `src/main.js` fell from 2,324 to 1,383 physical lines and
+  `src/editor-session.js` from 1,317 to 741 without changing the public reader
+  shell contract.
+- The final local gate passed 155 frontend tests in 21 files, four executable
+  reader-shell checks, the static/page checks, the production build and bundle
+  budgets, Rust formatting/checking, and 15 Rust tests.
+- The first adversarial review blocked closure with six confirmed defects and
+  one initialization risk. Three hardening commits closed all seven; the fresh
+  re-review reports zero P1, P2, or P3 defect.
+- The completion ledger is the [architecture workplan](WORKPLAN.md). Settled
+  ownership is also recorded in [CONTEXT.md](../../CONTEXT.md) and the
+  [development guide](../DEVELOPMENT.md).
+- Post-refactor live-browser proof is not claimed: the required existing-Chrome
+  bridge was unavailable on this host. The earlier UI slice has live desktop
+  proof; the architecture batch is covered by executable DOM tests and the
+  complete local gate.
+
+Historical review baseline:
 
 - At the reviewed revision, the app was healthy: 47 frontend tests, 13 Rust
   tests, the static frontend check, and the production build passed.
@@ -592,7 +615,369 @@ This review remains the index; settled decisions fan out as follows:
 
 ## Acceptance outcome
 
-ARC-01 through ARC-05 are accepted and implemented on
-`codex/arc-01-05-architecture`. The implementation commits are recorded in
-the workplan above. The independent review passed; merge readiness is limited
-only by the explicitly deferred packaged platform smoke gates.
+ARC-01 through ARC-15 are accepted and implemented on
+`codex/arc-01-05-architecture`. ARC-01..05 retain their original evidence;
+ARC-06..15 are closed by the execution update below. Merge readiness remains
+limited by the explicitly deferred packaged platform smoke and the documented
+post-refactor live-browser evidence gap.
+
+## Execution update — ARC-06 through ARC-15
+
+### Completion mode
+
+- Scope: exactly ten implementation tickets, no dependency or wire-contract
+  changes, no generic event bus or dependency-injection layer.
+- Method: one RED-to-GREEN behavior slice per ticket, focused verification per
+  commit, then `bun run verify` at the integrated checkpoint.
+- Ownership constraint: `.vscode/tasks.json` remained user-owned and was not
+  staged or changed by this batch.
+- Canonical supporting artifacts: [workplan](WORKPLAN.md),
+  [domain context](../../CONTEXT.md), [development map](../DEVELOPMENT.md), and
+  [self-contained visual companion](../../.scratch/reports/architecture-open-md-2026-07-30/index.html).
+
+### Batch evidence ledger
+
+| Evidence | Observed fact | Source / command |
+|---|---|---|
+| E-15 | `src/main.js` measured 2,324 lines and `src/editor-session.js` 1,317 before this batch. | Source inventory at `3f8e53f` |
+| E-16 | The integrated checkpoint measures 1,383 and 741 lines respectively. | Source inventory at `50f5231` |
+| E-17 | Ten consecutive UI changes touched `main.js`; five editor changes touched `editor-session.js`. | Bounded Git co-change audit |
+| E-18 | The frontend now has 21 test files and 155 passing tests, plus four public-shell scenarios. | `bun run verify` |
+| E-19 | Static frontend validation covers 364 themes; all page references and the production build pass. | `bun run verify` |
+| E-20 | Initial boot JS is 250,767 B raw / 73,199 B gzip; Mermaid remains deferred at 3,440,891 B raw / 968,996 B gzip. | Production build bundle gate |
+| E-21 | Rust formatting/checking and all 15 Rust tests pass. | `bun run verify` |
+| E-22 | Existing-Chrome verification could not start because `mcporter` was unavailable in the host environment. | `mcporter list chrome-devtools --schema` |
+| E-23 | Independent re-review found 0 P1, 0 P2, and 0 P3 confirmed defects; 52/52 focused tests and syntax/diff checks passed. | Fresh read-only review of `8e4a539`, `98ce8eb`, `50f5231` |
+
+### Ticket outcomes
+
+#### ARC-06 — Own native window chrome lifecycle
+
+**Status:** Implemented in `bae87b4`.
+
+**Initial evidence:** `main.js` stored native-window state, action handlers,
+maximize presentation, resize subscription, and unlistener cleanup.
+
+**Implemented:** `createWindowChrome` owns native actions, maximize state, DOM
+and native listeners, and deterministic disposal behind one composition call.
+
+**Before / After:** root-managed native event order and cleanup → one deep
+window-chrome lifecycle owner.
+
+**Verification:** two focused module scenarios, four public-shell scenarios,
+static checks, and the integrated 155-test gate.
+
+**Documentation / decision:** UI lifecycle ownership is recorded in
+`CONTEXT.md`; the Tauri command interface stays unchanged.
+
+**Residual risk:** packaged Tauri smoke is still required to prove platform
+window events, which a fake native adapter cannot reproduce.
+
+#### ARC-07 — Own toast presentation lifecycle
+
+**Status:** Implemented in `8976268`.
+
+**Initial evidence:** toast message identity, replacement revision, timeout,
+animation handles, fallback, and disposal occupied the composition root.
+
+**Implemented:** `createToastPresenter` owns one accessible live message,
+shape-morph replacement, rapid interruption, timeout, reduced-motion and
+missing-WAAPI fallbacks, and cleanup.
+
+**Before / After:** callers coordinated DOM, timer, and animation state →
+callers issue one product message to a presenter.
+
+**Verification:** four focused lifecycle tests plus shell/integrated gates.
+
+**Documentation / decision:** kept product copy outside the presenter; the
+module owns presentation, not notification policy.
+
+**Residual risk:** live visual cadence was proven before extraction, not again
+after the architecture batch because the required browser bridge was absent.
+
+#### ARC-08 — Coordinate theme preparation and commit
+
+**Status:** Implemented in `2e2b147`.
+
+**Initial evidence:** theme queue/revision state, Mermaid preparation, syntax
+tokens, persistence, wipe transition, and feedback were interleaved in
+`main.js`.
+
+**Implemented:** `createThemeCoordinator` coalesces rapid requests, prepares
+dependent rendering before commit, rejects stale work, persists through a
+hook, and cleans up transitions.
+
+**Before / After:** mutable theme choreography in the root → one latest-wins
+prepare/commit interface with injected render and persistence adapters.
+
+**Verification:** latest-wins, preparation failure, queue recovery,
+fallback/reduced-motion, interruption and dispose paths; full gate green.
+
+**Documentation / decision:** diagram and highlighting owners remain separate;
+the coordinator controls ordering without absorbing their implementation.
+
+**Residual risk:** a preparation failure intentionally keeps the current visual
+theme usable; its error feedback still depends on the caller's toast adapter.
+
+#### ARC-09 — Coordinate document mode transitions
+
+**Status:** Implemented in `a130ed3`.
+
+**Initial evidence:** mode order, toggle rules, dirty-edit exit, View
+Transition state, fallback animation, and icon state shared six mutable root
+bindings.
+
+**Implemented:** `createDocumentModeCoordinator` owns Read/Edit/Source order,
+toggle semantics, serialized rapid requests, rendered milestones,
+interruption, fallback, reduced motion, and disposal.
+
+**Before / After:** event handlers each knew transition state → handlers request
+a mode from one coordinator.
+
+**Verification:** Read → Edit → Source → Read, toggle, canceled dirty exit,
+interruption, fallback, reduced motion, and dispose tests; full gate green.
+
+**Documentation / decision:** mode transitions cancel through public
+coordinator interfaces; theme and mode owners do not reach into each other.
+
+**Residual risk:** browser-native View Transition paint order remains a live
+visual gate even though both native and fallback lifecycles execute in tests.
+
+#### ARC-10 — Coordinate document mutations and save scheduling
+
+**Status:** Implemented in `e40dc94`.
+
+**Initial evidence:** editor debounce and read-task serialization used separate
+timers/chains and duplicated stale-document and rollback rules.
+
+**Implemented:** `createDocumentSaveCoordinator` owns debounce replacement,
+autosave state, manual feedback, serialized checkbox saves, exact rollback, and
+document-revision invalidation.
+
+**Before / After:** two save schedulers in `main.js` → one mutation/save owner
+with injected persistence and UI adapters.
+
+**Verification:** autosave on/off/error/saving states, timer replacement,
+serialized tasks, failure rollback, stale replacement, and disposal tests;
+full gate green.
+
+**Documentation / decision:** a replaced document may let an already-started
+disk request finish, but stale completion cannot mutate the current UI/model.
+
+**Residual risk:** filesystem durability still belongs to the existing native
+safe-save path and needs packaged-runtime proof.
+
+#### ARC-11 — Own reading navigation chrome
+
+**Status:** Implemented in `c7837b4`.
+
+**Initial evidence:** line guides, gutter, minimap clone/geometry, progress,
+scroll memory, pointer/keyboard input, RAFs, resize observation, and disposal
+spanned roughly 380 root lines.
+
+**Implemented:** `createReadingNavigationController` derives all navigation
+chrome from one active Read/Edit/Source view and owns scheduling and cleanup.
+
+**Before / After:** root helpers shared eight mutable bindings → one active-view
+controller emits metrics through a narrow hook.
+
+**Verification:** view switching, lines, minimap sanitization/viewport,
+pointer/keyboard navigation, resize scheduling, and deterministic disposal;
+full gate green.
+
+**Documentation / decision:** the controller owns presentation state but not
+document content or mode policy.
+
+**Residual risk:** dense documents and very narrow packaged windows still need
+live minimap pressure testing after the browser bridge returns.
+
+#### ARC-12 — Deepen the editor document model
+
+**Status:** Implemented in `8c3bb05`.
+
+**Initial evidence:** blocks, history arrays, cursor, CRUD, split/merge,
+reordering, and serialization lived inside the DOM session closure.
+
+**Implemented:** `createEditorDocumentModel` owns frozen snapshots, canonical
+blocks, bounded history, cursor, Markdown/TXT serialization, CRUD,
+split/merge, duplicate, move, undo, and redo.
+
+**Before / After:** DOM session was both model and projection → session renders
+and subscribes to an independent model.
+
+**Verification:** seven model scenarios plus 17 editor-session scenarios and
+the integrated 155-test suite.
+
+**Documentation / decision:** the DOM is explicitly a projection; it cannot
+own an independent document or undo/redo history.
+
+**Residual risk:** the current block model is intentionally document-local;
+collaborative or persisted operation logs would require a new concrete need.
+
+#### ARC-13 — Own editor overlay lifecycle
+
+**Status:** Implemented in `9727d50`.
+
+**Initial evidence:** command and block menus mixed filtering, disabled states,
+viewport placement, focus return, keyboard handling, outside dismissal, and
+document listeners inside the session.
+
+**Implemented:** `createEditorOverlayController` owns both menu lifecycles with
+current-block/model adapters and mutation hooks.
+
+**Before / After:** two embedded overlay state machines → one disposable
+overlay owner with a narrow session interface.
+
+**Verification:** filtering/order, edge placement, keyboard activation,
+Escape, outside dismissal, focus return, disabled states, and dispose tests;
+full gate green.
+
+**Documentation / decision:** model commands stay in the model; the overlay
+only derives presentation and routes intent.
+
+**Residual risk:** selection-toolbar collision pressure belongs to ARC-14 and
+still benefits from live narrow-window proof.
+
+#### ARC-14 — Own editor selection and inline formatting
+
+**Status:** Implemented in `7feff0f`.
+
+**Initial evidence:** captured ranges, cursor projection, toolbar state,
+formatting commands, link popover, caret echo, animations, and listeners shared
+session-local mutable state.
+
+**Implemented:** `createEditorSelectionController` owns capture/restore,
+format state/actions, link apply/cancel, cursor reporting, caret motion,
+reduced-motion fallback, interruption, and disposal.
+
+**Before / After:** selection behavior was inseparable from session rendering →
+one controller consumes model-sync and focus adapters.
+
+**Verification:** selection restore, cursor projection, inline actions, link
+flow, toolbar state, caret cleanup, reduced motion, and disposal; full gate
+green.
+
+**Documentation / decision:** the controller may preserve a browser range but
+canonical text stays in the editor model.
+
+**Residual risk:** cross-browser Selection API edge cases require packaged
+WebView/browser coverage beyond jsdom.
+
+#### ARC-15 — Own block drag and layout motion
+
+**Status:** Implemented in `332eecd`.
+
+**Initial evidence:** FLIP animation and HTML5 drag/drop shared layout
+snapshots, drag identity, target geometry, reorder calls, CSS classes, and
+animation handles inside the session.
+
+**Implemented:** `createEditorBlockInteractionController` owns before/after
+drop intent, self-drop handling, layout capture/animation, interruption,
+reduced motion, and cleanup. Duplicate, move, and delete reuse the same layout
+motion owner.
+
+**Before / After:** session-local geometry and drag state → model callbacks plus
+one interaction lifecycle controller.
+
+**Verification:** before/after targets, self-drop, reorder identity, repeated
+interruption, reduced motion, disposal, and the full editor/integrated suites.
+
+**Documentation / decision:** HTML5 drag/drop remains the input adapter; model
+identity and reorder semantics remain independent of DOM geometry.
+
+**Residual risk:** pointer feel and cross-WebView drag imagery need live
+packaged verification; deterministic geometry and cleanup are covered.
+
+### Independent adversarial review
+
+The first independent pass rejected the initial `332eecd` checkpoint. It found
+three high-severity defects, three medium defects, and one initialization risk:
+
+- Edit could remain available while a new document was loading or had failed.
+- Theme preparation failure could split DOM tokens, diagram theme, public
+  state, selector copy, and persistence.
+- Cursor movement rebuilt and serialized the complete editor document.
+- Editor-save completion could publish after replacement or disposal.
+- Async mode work could restore morph markers after cancellation.
+- Toast interruption treated a true opacity of zero as fully visible.
+- A failed native resize subscription could abort the remaining app init.
+
+Closure commits:
+
+- `8e4a539` makes theme publication transactional, adds post-await morph guards,
+  preserves zero opacity, and makes resize observation fail soft.
+- `98ce8eb` requires a loaded document for mode entry, invalidates
+  cross-document saves at coordinator and session seams, and reuses the frozen
+  editor projection for cursor-only updates.
+- `50f5231` fixes a self-found overcorrection by separating editor identity
+  generation from same-path reload revision, preserving valid save feedback.
+
+The fresh read-only re-review reports 0 P1, 0 P2, and 0 P3 confirmed defects.
+Its focused suite passed 52/52; seven changed modules passed `node --check`;
+`git diff --check` was clean. Its independent 20,000-block cursor pressure run
+measured 0.235 ms for 25 moves while source, blocks, and stats retained identity.
+
+One non-blocking proof gap remains: the complete runtime sequence
+`editorSession.onSaved → readerShell.reload → handleDocumentSessionState →
+DocumentSaveCoordinator` is covered at its individual seams and with an
+equivalent same-path regression scenario, but not by one end-to-end integration
+test. This joins the live-browser and packaged-runtime gates below; it is not a
+confirmed defect.
+
+### Integrated verification
+
+| Check | Result | Evidence / limit |
+|---|---|---|
+| `bun run verify` | Passed | Static frontend (364 themes), four shell scenarios, 155/155 frontend tests in 21 files, production build/bundle budgets, Rust fmt/check, 15/15 Rust tests. |
+| Composition/deletion audit | Passed | `main.js` 2,324 → 1,383 lines; `editor-session.js` 1,317 → 741; every extracted module owns listeners, scheduling, model state, or interaction policy. |
+| Diff hygiene | Passed | No generated build output or user-owned `.vscode/tasks.json` entered the implementation commits. |
+| Independent adversarial re-review | Passed | 0 P1/P2/P3 confirmed defects; 52/52 focused tests, seven syntax checks, clean diff check, and independent cursor pressure measurement. |
+| Live UI proof before batch | Passed | Read/Edit/Source cycling, active transition identity, rapid interruption cleanup, reduced/no-View-Transition fallback, and zero hover geometry shift were captured at `3f8e53f`. |
+| Post-refactor existing-Chrome smoke | Unavailable | `mcporter` is not installed/available in this host shell. Per the browser verification contract, no isolated browser was substituted. |
+| Packaged Tauri smoke | Deferred | Browser/jsdom proof cannot establish native bridge, window events, file associations, or cross-platform timing. |
+
+Windows Cargo emitted only the known incremental-cache access warning, linker
+library messages, and the Vite large-chunk warning. The commands exited zero;
+bundle budgets remained inside the project gate.
+
+### Decisions and tradeoffs
+
+- Deep modules were selected by the deletion test. Removing any one would
+  recreate ordering, listener/timer cleanup, model invariants, or interaction
+  geometry in a caller.
+- Each owner has one production composition caller. Ports are limited to real
+  native, persistence, renderer, model, and DOM adapters.
+- Existing public shell, Tauri commands, storage keys, file contracts, and
+  Markdown/TXT canonical formats remain unchanged.
+- No generic event bus, DI container, settings framework, or animation
+  framework was introduced.
+- The architecture favors explicit coordinators over hidden global state. This
+  adds module files while reducing the two prior change hubs by 1,517 lines.
+
+### Prioritized workplan outcome
+
+All ten tickets are complete in dependency order. Acceptance, commit, and
+focused proof remain in the [workplan](WORKPLAN.md). The next release gates are
+not new architecture tickets:
+
+1. Restore the existing-Chrome verification bridge and rerun desktop/narrow
+   Read/Edit/Source, theme, minimap, selection, toast, and drag smoke.
+2. Run packaged Windows smoke for native window chrome, safe-save, and file
+   associations.
+3. Run macOS/Linux packaged file-open timing smoke before cross-platform
+   release.
+
+### Batch residual risks
+
+- jsdom proves lifecycle semantics but not browser/WebView paint, Selection
+  API, HTML5 drag imagery, or View Transition composition.
+- The same-path save/reload pieces are covered separately and through an
+  equivalent coordinator scenario, not by one complete runtime integration
+  test across session, shell, main composition, and save coordinator.
+- The local full gate does not prove packaged Tauri command/event wiring.
+- Native open routing retains platform timing branches and the prior in-memory
+  replay/TOCTOU constraints documented above.
+- The large deferred Mermaid chunk is within the current budget, but its load
+  cost remains visible on first diagram use.
+- Future UI work can recreate root concentration if it bypasses these owners;
+  use the workplan follow-up rule and deletion test before adding another seam.
