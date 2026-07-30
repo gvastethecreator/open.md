@@ -75,6 +75,29 @@ describe('editor session', () => {
     expect(session.source()).toBe('- [ ] ');
   });
 
+  it('reports undo and redo history restores without rendering toolbar buttons', async () => {
+    const onHistoryRestore = vi.fn();
+    const { session } = mount(undefined, { onHistoryRestore });
+    session.setDocument({ path: 'sample.md', source: 'Before', markdown: true });
+    session.enter();
+    const content = document.querySelector('[data-editor-content]');
+    content.textContent = 'After';
+    content.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+
+    content.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true }));
+    await Promise.resolve();
+    expect(session.source()).toBe('Before');
+    expect(onHistoryRestore).toHaveBeenLastCalledWith('undo');
+
+    document.querySelector('[data-editor-content]').dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'y', ctrlKey: true, bubbles: true })
+    );
+    await Promise.resolve();
+    expect(session.source()).toBe('After');
+    expect(onHistoryRestore).toHaveBeenLastCalledWith('redo');
+    expect(document.querySelector('[data-history-action]')).toBeNull();
+  });
+
   it('keeps native checkbox semantics while its completion label follows state', () => {
     const { session } = mount();
     session.setDocument({ path: 'sample.md', source: '- [ ] Ship the release', markdown: true });
@@ -266,10 +289,11 @@ describe('editor session', () => {
     expect(echo.classList.contains('is-moving')).toBe(true);
 
     echo.dispatchEvent(new Event('animationend'));
-    expect(echo.hidden).toBe(true);
+    expect(echo.hidden).toBe(false);
+    expect(echo.classList.contains('is-moving')).toBe(false);
   });
 
-  it('keeps the caret echo hidden when reduced motion is preferred', async () => {
+  it('keeps the 2px caret echo visible when reduced motion is preferred', async () => {
     const { session } = mount();
     session.setDocument({ path: 'sample.md', source: 'Before', markdown: true });
     session.enter();
@@ -289,7 +313,7 @@ describe('editor session', () => {
 
     try {
       document.dispatchEvent(new Event('selectionchange'));
-      expect(document.getElementById('editor-caret-echo').hidden).toBe(true);
+      expect(document.getElementById('editor-caret-echo').hidden).toBe(false);
     } finally {
       vi.unstubAllGlobals();
     }

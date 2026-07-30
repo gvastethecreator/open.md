@@ -482,6 +482,21 @@ fn render_markdown(content: &str) -> String {
                 Event::Text(ref text) if in_code_block => {
                     code_block_content.push_str(text);
                 }
+                Event::TaskListMarker(checked) => {
+                    let source_line = source_line_for_offset(&line_starts, source_range.start);
+                    let checked_attribute = if checked { " checked" } else { "" };
+                    output.push(Event::Html(
+                        format!(
+                            "<input type=\"checkbox\" data-source-line=\"{source_line}\" aria-label=\"{}\"{checked_attribute}>",
+                            if checked {
+                                "Mark task incomplete"
+                            } else {
+                                "Mark task complete"
+                            }
+                        )
+                        .into(),
+                    ));
+                }
                 _ => output.push(event),
             }
 
@@ -654,6 +669,15 @@ mod tests {
         let mermaid = render_markdown("```mermaid\ngraph TD\nA-->B\n```");
         assert!(mermaid.contains("<div class=\"mermaid\">"));
         assert!(mermaid.contains("graph TD"));
+
+        let tasks = render_markdown("- [ ] First\n- [x] Second");
+        assert!(tasks.contains(
+            "<input type=\"checkbox\" data-source-line=\"1\" aria-label=\"Mark task complete\">"
+        ));
+        assert!(tasks.contains(
+            "<input type=\"checkbox\" data-source-line=\"2\" aria-label=\"Mark task incomplete\" checked>"
+        ));
+        assert!(!tasks.contains("disabled"));
     }
 
     #[test]

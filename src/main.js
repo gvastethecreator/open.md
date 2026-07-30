@@ -24,6 +24,8 @@ import {
   getVisibleSourceLineRange,
   getWindowControlPresentation,
   isColorDark,
+  normalizeDocumentPayload,
+  setMarkdownTaskChecked,
 } from './core/reader.js';
 import { renderMermaidDiagrams } from './mermaid-renderer.js';
 import { createEditorSession } from './editor-session.js';
@@ -35,6 +37,7 @@ import {
   createOptionalWebPreferenceStore,
   normalizeFontIndex,
 } from './reader-preferences.js';
+import { createResponsiveTypography } from './responsive-typography.js';
 
 let currentZoom = 1;
 const ZOOM_STEP = 0.1;
@@ -56,6 +59,7 @@ let isReadingToolsOpen = false;
 let fontPreferences = { sans: 0, mono: 0 };
 let isTypographyOpen = false;
 let isAlwaysOnTop = false;
+let isAutoSaveEnabled = true;
 let nativeWindow = null;
 let currentSourceLine = 1;
 let currentReadingProgress = 0;
@@ -71,6 +75,9 @@ let readerShell = null;
 let editorSession = null;
 let isEditMode = false;
 let isCyclingDocumentMode = false;
+let autoSaveTimeoutId = null;
+let responsiveTypography = null;
+let readTaskSaveChain = Promise.resolve();
 
 const ui = {
   windowFileTitle: null,
@@ -110,6 +117,7 @@ const ui = {
   typographyPanel: null,
   fontButtons: [],
   alwaysOnTopButton: null,
+  autoSaveToggle: null,
   editorView: null,
   editorCanvas: null,
   editModeButton: null,
@@ -165,6 +173,7 @@ function cacheElements() {
   ui.typographyPanel = document.getElementById('typography-panel');
   ui.fontButtons = [...document.querySelectorAll('[data-font-kind]')];
   ui.alwaysOnTopButton = document.getElementById('always-on-top-button');
+  ui.autoSaveToggle = document.getElementById('auto-save-toggle');
   ui.editorView = document.getElementById('editor-view');
   ui.editorCanvas = document.getElementById('editor-canvas');
   ui.editModeButton = document.getElementById('edit-mode-button');
@@ -288,6 +297,8 @@ function updateThemeCopy() {
     select.title = themeLabel;
     select.setAttribute('aria-label', themeLabel);
     select.closest('.theme-field')?.setAttribute('title', themeLabel);
+    const name = document.getElementById('theme-name');
+    if (name) name.textContent = themes[currentThemeIndex].name;
   }
 }
 function setStatusText(primary, context = '', title = [primary, context].filter(Boolean).join(' · ')) {
@@ -312,14 +323,7 @@ function updateStatus(filePath = null) {
   if (filePath) {
     if (isEditMode) {
       const editorState = editorSession?.current();
-      const context = editorState?.saveState === 'saving'
-        ? 'Editing · Saving…'
-        : editorState?.saveState === 'error'
-          ? 'Editing · Save failed'
-          : editorState?.dirty
-            ? 'Editing · Unsaved'
-            : 'Editing · Saved';
-      setStatusText(getDisplayName(filePath), context);
+      setStatusText(getDisplayName(filePath), 'Editing');
       updateStatusMetrics();
       return;
     }
@@ -393,8 +397,10 @@ function handlePreferenceSnapshot(snapshot) {
   readingTools = { ...snapshot.readingTools };
   fontPreferences = { ...snapshot.fonts };
   isAlwaysOnTop = snapshot.alwaysOnTop;
+  isAutoSaveEnabled = snapshot.autoSave;
   applyFontPreferences();
   updateAlwaysOnTopControl();
+  updateAutoSaveControl();
   applyReadingTools();
 
   if (snapshot.themeName && themes.length > 0) {
@@ -436,7 +442,7 @@ function applyFontPreferences() {
   updateFontControls();
   isMinimapDocumentDirty = true;
   queueReadingUiUpdate();
-
+  responsiveTypography?.schedule();
 }
 
 async function cycleFont(kind) {
@@ -457,7 +463,7 @@ function setTypographyOpen(nextOpen, { returnFocus = false } = {}) {
   ui.typographyButton?.setAttribute('aria-expanded', String(isTypographyOpen));
 
   if (ui.typographyButton) {
-    const label = isTypographyOpen ? 'Close typography options' : 'Open typography options';
+    const label = isTypographyOpen ? 'Close appearance options' : 'Open appearance options';
     ui.typographyButton.setAttribute('aria-label', label);
     ui.typographyButton.title = label;
   }
@@ -470,6 +476,23 @@ function setTypographyOpen(nextOpen, { returnFocus = false } = {}) {
   if (!isTypographyOpen && returnFocus) {
     queueMicrotask(() => ui.typographyButton?.focus());
   }
+}
+
+function updateAutoSaveControl() {
+  ui.autoSaveToggle?.setAttribute('aria-checked', String(isAutoSaveEnabled));
+  if (ui.autoSaveToggle) {
+    const label = `Auto-save: ${isAutoSaveEnabled ? 'on' : 'off'}`;
+    ui.autoSaveToggle.setAttribute('aria-label', label);
+    ui.autoSaveToggle.title = label;
+  }
+}
+
+async function toggleAutoSave() {
+  const result = await readerShell.preferences.update({ autoSave: !isAutoSaveEnabled });
+  reportPreferenceResult(result);
+  if (!isAutoSaveEnabled) clearTimeout(autoSaveTimeoutId);
+  showToast(`Auto-save ${isAutoSaveEnabled ? 'on' : 'off'}`);
+  if (isAutoSaveEnabled) scheduleAutoSave(editorSession?.current());
 }
 
 function updateAlwaysOnTopControl() {
@@ -504,14 +527,14 @@ async function toggleAlwaysOnTop() {
 }
 
 function setReadingToolsOpen(nextOpen, { returnFocus = false } = {}) {
-  const canOpen = hasLoadedDocument() && !isHelpVisible && !isEditMode;
+  const canOpen = !isHelpVisible;
   isReadingToolsOpen = Boolean(nextOpen && canOpen);
   if (isReadingToolsOpen) setTypographyOpen(false);
   document.body.classList.toggle('is-reading-tools-open', isReadingToolsOpen);
   ui.readingToolsButton?.setAttribute('aria-expanded', String(isReadingToolsOpen));
 
   if (ui.readingToolsButton) {
-    const label = isReadingToolsOpen ? 'Close reading tools' : 'Open reading tools';
+    const label = isReadingToolsOpen ? 'Close view options' : 'Open view options';
     ui.readingToolsButton.setAttribute('aria-label', label);
     ui.readingToolsButton.title = label;
   }
@@ -527,13 +550,12 @@ function setReadingToolsOpen(nextOpen, { returnFocus = false } = {}) {
 }
 
 function updateReadingToolControls() {
-  const available = hasLoadedDocument() && !isEditMode;
-  const hasActiveTool = available && Object.values(readingTools).some(Boolean);
+  const available = hasLoadedDocument();
+  const hasActiveTool = available && ['lineGuide', 'minimap', 'stats']
+    .some((tool) => Boolean(readingTools[tool]));
 
   if (ui.readingToolsButton) {
-    ui.readingToolsButton.disabled = !available;
     ui.readingToolsButton.classList.toggle('is-active', hasActiveTool);
-    if (!available) ui.readingToolsButton.title = 'Open a file to use reading tools';
   }
 
   ui.readingToolToggles.forEach((toggle) => {
@@ -541,15 +563,13 @@ function updateReadingToolControls() {
     toggle.disabled = !available;
     toggle.setAttribute('aria-checked', String(Boolean(readingTools[tool])));
   });
-
-  if (!available) setReadingToolsOpen(false);
 }
 
 function applyReadingTools() {
   const available = hasLoadedDocument();
   const sourceActive = available && readingTools.source && !isEditMode;
-  const lineGuideActive = available && readingTools.lineGuide && !isEditMode;
-  const minimapActive = available && readingTools.minimap && !isEditMode;
+  const lineGuideActive = available && readingTools.lineGuide;
+  const minimapActive = available && readingTools.minimap;
 
   document.body.classList.toggle('is-source-view', sourceActive);
   document.body.classList.toggle('is-line-guide', lineGuideActive);
@@ -883,9 +903,16 @@ function openDocumentAdapter(path) {
   return preview ? Promise.resolve({ ...preview }) : invokeDocumentCommand('get_file_content', { path });
 }
 
-function saveDocumentAdapter(path, source) {
+async function saveDocumentAdapter(path, source) {
   const preview = getPreviewDocument(path);
   if (!preview) return invokeDocumentCommand('save_file_content', { path, content: source });
+  if (window.__OPENMD_PREVIEW_SAVE_FAILURE__) {
+    throw new Error('Preview save failure');
+  }
+  const previewDelay = Number(window.__OPENMD_PREVIEW_SAVE_DELAY_MS__) || 0;
+  if (previewDelay > 0) {
+    await new Promise((resolve) => window.setTimeout(resolve, Math.min(previewDelay, 3_000)));
+  }
   const escaped = source
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -899,7 +926,7 @@ function saveDocumentAdapter(path, source) {
     wordCount: words,
     readingTimeMinutes: words === 0 ? 0 : Math.max(1, Math.ceil(words / 220)),
   });
-  return Promise.resolve({ ...preview });
+  return { ...preview };
 }
 
 function mountApplicationReaderShell() {
@@ -987,6 +1014,24 @@ function updateDocumentModeControl({ forceAnimation = false } = {}) {
   if (ui.editModeLabel) ui.editModeLabel.textContent = `${presentation.label} mode`;
 }
 
+function scheduleAutoSave(snapshot = editorSession?.current()) {
+  clearTimeout(autoSaveTimeoutId);
+  autoSaveTimeoutId = null;
+  if (
+    !isAutoSaveEnabled
+    || !snapshot
+    || snapshot.mode !== 'edit'
+    || !snapshot.dirty
+    || snapshot.saveState === 'saving'
+    || snapshot.saveState === 'error'
+  ) return;
+
+  autoSaveTimeoutId = setTimeout(() => {
+    autoSaveTimeoutId = null;
+    saveEditedDocument({ automatic: true });
+  }, 650);
+}
+
 function handleEditorState(snapshot) {
   const nextEditMode = snapshot.mode === 'edit';
   const modeChanged = nextEditMode !== isEditMode;
@@ -1002,9 +1047,18 @@ function handleEditorState(snapshot) {
     ui.editorSaveButton.hidden = !isEditMode;
     ui.editorSaveButton.disabled = snapshot.saveState === 'saving' || !snapshot.dirty;
     ui.editorSaveButton.classList.toggle('is-error', snapshot.saveState === 'error');
+    ui.editorSaveButton.dataset.state = snapshot.saveState === 'error'
+      ? 'error'
+      : snapshot.saveState === 'saving'
+        ? 'saving'
+        : snapshot.dirty
+          ? 'unsaved'
+          : 'saved';
     const icon = ui.editorSaveButton.querySelector('i');
     if (icon) {
-      icon.className = snapshot.saveState === 'saving' || snapshot.saveState === 'error'
+      icon.className = snapshot.saveState === 'error'
+        ? 'iconoir-warning-triangle'
+        : snapshot.saveState === 'saving'
         ? 'iconoir-refresh'
         : snapshot.dirty
           ? 'iconoir-floppy-disk'
@@ -1015,9 +1069,9 @@ function handleEditorState(snapshot) {
     ui.editorSaveLabel.textContent = snapshot.saveState === 'saving'
       ? 'Saving…'
       : snapshot.saveState === 'error'
-        ? 'Retry'
+        ? 'Save failed'
         : snapshot.dirty
-          ? 'Save'
+          ? 'Unsaved'
           : snapshot.saveState === 'recovered'
             ? 'Recovered'
             : 'Saved';
@@ -1025,7 +1079,9 @@ function handleEditorState(snapshot) {
   if (ui.editorSaveButton) {
     ui.editorSaveButton.title = snapshot.saveState === 'error'
       ? `Save failed: ${snapshot.error}. Activate to retry.`
-      : 'Save document (Ctrl+S)';
+      : snapshot.dirty
+        ? 'Unsaved changes · Save now (Ctrl+S)'
+        : 'Document saved';
     ui.editorSaveButton.setAttribute('aria-label', snapshot.saveState === 'saving'
       ? 'Saving document'
       : snapshot.saveState === 'error'
@@ -1035,6 +1091,9 @@ function handleEditorState(snapshot) {
           : 'Document saved');
   }
 
+  scheduleAutoSave(snapshot);
+  if (isEditMode) markMinimapDirty();
+  responsiveTypography?.schedule();
   if (modeChanged) applyReadingTools();
   else updateStatus(currentFilePath);
 }
@@ -1060,11 +1119,14 @@ function mountApplicationEditor() {
     },
     hooks: {
       onStateChange: handleEditorState,
-      onCursorChange: updateStatusMetrics,
+      onCursorChange: () => {
+        updateStatusMetrics();
+        if (readingTools.lineGuide) queueReadingUiUpdate();
+      },
       onSaved: async () => {
-        showToast('Changes saved');
         await readerShell?.reload();
       },
+      onHistoryRestore: (action) => showToast(action === 'redo' ? 'Redone' : 'Undone'),
       onDraftPreserved: (path) => showToast(`Unsaved draft kept for ${getDisplayName(path)}`),
       onUnavailable: showToast,
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
@@ -1109,10 +1171,55 @@ async function cycleDocumentMode() {
   }
 }
 
-async function saveEditedDocument() {
+async function saveEditedDocument({ automatic = false } = {}) {
   if (!editorSession?.isEditing()) return;
   const result = await editorSession.save();
   if (result.status === 'failed') showToast('Could not save. Your changes are still here.');
+  if (!automatic && result.status === 'saved') showToast('Changes saved');
+}
+
+function handleReadTaskToggle(event) {
+  const checkbox = event.target instanceof Element
+    ? event.target.closest('.markdown-body input[type="checkbox"][data-source-line]')
+    : null;
+  if (!checkbox || isEditMode || !currentDocument || !currentFilePath) return;
+
+  const sourceLine = Number.parseInt(checkbox.dataset.sourceLine, 10);
+  const requestedChecked = checkbox.checked;
+  checkbox.disabled = true;
+  checkbox.setAttribute('aria-busy', 'true');
+
+  const operation = readTaskSaveChain.then(async () => {
+    const update = setMarkdownTaskChecked(currentDocument.source, sourceLine, requestedChecked);
+    if (!update) throw new Error(`Task source line ${sourceLine} is no longer available`);
+    if (!update.changed) return;
+
+    const savedDocument = normalizeDocumentPayload(
+      await saveDocumentAdapter(currentFilePath, update.source)
+    );
+    currentDocument = savedDocument;
+    editorSession?.setDocument({
+      path: currentFilePath,
+      source: savedDocument.source,
+      markdown: getFileKind(currentFilePath) === 'Markdown',
+    });
+    if (ui.sourceContent) ui.sourceContent.textContent = savedDocument.source;
+    checkbox.setAttribute('aria-label', requestedChecked ? 'Mark task incomplete' : 'Mark task complete');
+    markMinimapDirty();
+    responsiveTypography?.schedule();
+    updateStatus(currentFilePath);
+    showToast(requestedChecked ? 'Task completed' : 'Task reopened');
+  }).catch((error) => {
+    checkbox.checked = !requestedChecked;
+    checkbox.setAttribute('aria-label', requestedChecked ? 'Mark task complete' : 'Mark task incomplete');
+    console.error('Could not save the task state:', error);
+    showToast('Could not save this task. The previous state was restored.');
+  }).finally(() => {
+    checkbox.disabled = false;
+    checkbox.removeAttribute('aria-busy');
+  });
+
+  readTaskSaveChain = operation;
 }
 
 function handleLinkClick(event) {
@@ -1169,12 +1276,38 @@ function handleZoom(event) {
   }
 }
 
+function getActiveDocumentView({ minimap = false } = {}) {
+  if (isEditMode) return minimap ? ui.editorView : ui.editorCanvas;
+  return isSourceViewActive() ? ui.sourceView : ui.content;
+}
+
 function getRenderedLineAnchors() {
-  if (!ui.content || !ui.documentStage) return [];
+  if (!ui.documentStage) return [];
 
   const stageTop = ui.documentStage.getBoundingClientRect().top;
   const seenLines = new Set();
-  return [...ui.content.querySelectorAll('.source-line-anchor[data-source-line]')]
+  const anchors = isEditMode
+    ? [...(ui.editorCanvas?.querySelectorAll('[data-source-line-start]') || [])].flatMap((wrapper) => {
+        const content = wrapper.querySelector('[data-editor-content]');
+        if (!content) return [];
+        const sourceStart = Number.parseInt(wrapper.dataset.sourceLineStart, 10);
+        const sourceCount = Math.max(1, Number.parseInt(wrapper.dataset.sourceLineCount, 10) || 1);
+        const styles = getComputedStyle(content);
+        const lineHeight = Number.parseFloat(styles.lineHeight)
+          || Math.min(Math.max(content.getBoundingClientRect().height, 16), 32);
+        const top = content.getBoundingClientRect().top - stageTop;
+        const isCode = wrapper.dataset.blockType === 'code' && getFileKind(currentFilePath) === 'Markdown';
+        const visibleCount = isCode
+          ? Math.max(1, content.textContent.split('\n').length)
+          : sourceCount;
+        const visibleStart = sourceStart + (isCode ? 1 : 0);
+        return Array.from({ length: visibleCount }, (_value, index) => ({
+          line: visibleStart + index,
+          top: top + (index * lineHeight),
+          lineHeight,
+        }));
+      })
+    : [...(ui.content?.querySelectorAll('.source-line-anchor[data-source-line]') || [])]
     .map((anchor) => {
       let visualTarget = anchor.nextElementSibling;
       while (visualTarget?.classList.contains('source-line-anchor')) {
@@ -1191,7 +1324,9 @@ function getRenderedLineAnchors() {
           ? targetLineHeight
           : Math.min(Math.max(targetRect.height, 16), 28),
       };
-    })
+    });
+
+  return anchors
     .filter((anchor) => {
       if (!Number.isFinite(anchor.line) || anchor.line < 1 || seenLines.has(anchor.line)) return false;
       seenLines.add(anchor.line);
@@ -1212,7 +1347,7 @@ function createLineNumber(line, top, isCurrent = false, lineHeight = 20) {
 
 function positionLineGutter() {
   if (!ui.lineGutter || !ui.documentStage) return;
-  const activeView = isSourceViewActive() ? ui.sourceView : ui.content;
+  const activeView = getActiveDocumentView();
   if (!activeView) return;
 
   const viewRect = activeView.getBoundingClientRect();
@@ -1222,11 +1357,13 @@ function positionLineGutter() {
   const digitWidth = String(currentDocument?.lineCount || 1).length * (compact ? 6 : 7);
   ui.lineGutter.style.width = `${Math.max(compact ? 29 : 34, digitWidth + 8)}px`;
   const gutterRect = ui.lineGutter.getBoundingClientRect();
-  const gap = compact ? 8 : 12;
+  const gap = isEditMode ? (compact ? 30 : 38) : (compact ? 8 : 12);
   const left = getLineGutterLeft({
     viewLeft: viewRect.left,
     stageLeft: stageRect.left,
-    paddingLeft: Number.parseFloat(viewStyles.paddingLeft) || 0,
+    paddingLeft: isEditMode
+      ? 38 + (Number.parseFloat(viewStyles.paddingLeft) || 0)
+      : Number.parseFloat(viewStyles.paddingLeft) || 0,
     gutterWidth: gutterRect.width || 34,
     gap,
   });
@@ -1261,7 +1398,9 @@ function renderLineGuide() {
   } else {
     const anchors = getRenderedLineAnchors();
     const readingOffset = scrollTop + Math.min(48, clientHeight * 0.08);
-    nextCurrentLine = getCurrentLineFromAnchors(anchors, readingOffset);
+    nextCurrentLine = isEditMode
+      ? editorSession?.current().cursor?.line || currentSourceLine
+      : getCurrentLineFromAnchors(anchors, readingOffset);
     const visibleStart = scrollTop - 18;
     const visibleEnd = scrollTop + clientHeight + 18;
     let lastVisibleTop = Number.NEGATIVE_INFINITY;
@@ -1313,6 +1452,7 @@ function sanitizeMinimapClone(clone) {
     element.removeAttribute('autofocus');
     element.removeAttribute('aria-live');
     element.removeAttribute('aria-controls');
+    element.removeAttribute('contenteditable');
     if (element.matches('a')) element.removeAttribute('href');
     if (element.matches('audio, video')) element.removeAttribute('controls');
   });
@@ -1339,7 +1479,7 @@ function renderMinimapDocument() {
     || !ui.readerPage
   ) return;
 
-  const activeView = isSourceViewActive() ? ui.sourceView : ui.content;
+  const activeView = getActiveDocumentView({ minimap: true });
   if (!activeView) return;
   const trackRect = ui.documentMinimap.getBoundingClientRect();
   const viewRect = activeView.getBoundingClientRect();
@@ -1465,7 +1605,7 @@ function setupReadingResizeObserver() {
     isMinimapDocumentDirty = true;
     queueReadingUiUpdate();
   });
-  [ui.documentStage, ui.content, ui.sourceView].filter(Boolean).forEach((element) => {
+  [ui.documentStage, ui.content, ui.sourceView, ui.editorView, ui.editorCanvas].filter(Boolean).forEach((element) => {
     minimapResizeObserver.observe(element);
   });
 }
@@ -1591,7 +1731,6 @@ function handleThemeSelection(event) {
   const index = parseInt(event.target.value, 10);
   if (!isNaN(index) && index >= 0 && index < themes.length) {
     applyTheme(themes[index]);
-    setReadingToolsOpen(false);
   }
 }
 
@@ -1714,6 +1853,8 @@ function registerEvents() {
       fileOpenRequestUnlisten();
     }
     minimapResizeObserver?.disconnect();
+    clearTimeout(autoSaveTimeoutId);
+    responsiveTypography?.dispose();
     readerShell?.dispose();
     editorSession?.dispose();
     windowChromeUnlisteners.forEach((unlisten) => unlisten());
@@ -1737,10 +1878,12 @@ function registerEvents() {
   ui.closeHelpButton?.addEventListener('click', () => setHelpVisible(false));
   ui.scrollToTop?.addEventListener('click', scrollToTop);
   ui.readerPage?.addEventListener('scroll', handleScroll, { passive: true });
+  ui.content?.addEventListener('change', handleReadTaskToggle);
   ui.helpStage?.addEventListener('scroll', handleScroll, { passive: true });
   ui.readingToolsButton?.addEventListener('click', toggleReadingTools);
   ui.typographyButton?.addEventListener('click', toggleTypography);
   ui.alwaysOnTopButton?.addEventListener('click', toggleAlwaysOnTop);
+  ui.autoSaveToggle?.addEventListener('click', toggleAutoSave);
   ui.editModeButton?.addEventListener('click', cycleDocumentMode);
   ui.editorSaveButton?.addEventListener('click', saveEditedDocument);
   ui.readingToolToggles.forEach((toggle) => {
@@ -1759,6 +1902,11 @@ function registerEvents() {
 
 async function init() {
   cacheElements();
+  responsiveTypography = createResponsiveTypography({
+    window,
+    root: document,
+    onDiagnostic: (message, error) => console.warn(`${message}:`, error),
+  });
   mountApplicationReaderShell();
   mountApplicationEditor();
   const preferenceResult = await readerShell.preferences.load();

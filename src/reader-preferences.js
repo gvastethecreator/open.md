@@ -3,6 +3,7 @@ const STORAGE_KEYS = Object.freeze({
   readingTools: 'openmd-reading-tools-v1',
   fonts: 'openmd-font-preferences-v1',
   alwaysOnTop: 'openmd-always-on-top',
+  autoSave: 'openmd-auto-save',
 });
 
 export const FONT_PRESETS = Object.freeze({
@@ -31,6 +32,7 @@ function freezeSnapshot(value) {
     readingTools: Object.freeze({ ...value.readingTools }),
     fonts: Object.freeze({ ...value.fonts }),
     alwaysOnTop: value.alwaysOnTop,
+    autoSave: value.autoSave,
   });
 }
 
@@ -39,6 +41,7 @@ export const DEFAULT_READER_PREFERENCES = freezeSnapshot({
   readingTools: DEFAULT_READING_TOOLS,
   fonts: { sans: 0, mono: 0 },
   alwaysOnTop: false,
+  autoSave: true,
 });
 
 export function normalizeReadingTools(value) {
@@ -155,6 +158,11 @@ export function createReaderPreferences({ store, windowPin = null }) {
       if (raw === 'false') return false;
       throw new Error('Saved always-on-top value is invalid');
     }, warnings);
+    const autoSave = read(STORAGE_KEYS.autoSave, true, (raw) => {
+      if (raw === 'true') return true;
+      if (raw === 'false') return false;
+      throw new Error('Saved auto-save value is invalid');
+    }, warnings);
 
     if (alwaysOnTop && windowPin) {
       try {
@@ -166,7 +174,7 @@ export function createReaderPreferences({ store, windowPin = null }) {
       }
     }
 
-    state = freezeSnapshot({ themeName, readingTools, fonts, alwaysOnTop });
+    state = freezeSnapshot({ themeName, readingTools, fonts, alwaysOnTop, autoSave });
     notify();
     return {
       status: warnings.length > 0 ? 'fallback' : 'loaded',
@@ -203,12 +211,14 @@ export function createReaderPreferences({ store, windowPin = null }) {
       ? normalizeFonts({ ...state.fonts, ...patch.fonts })
       : state.fonts;
     const nextAlwaysOnTop = changesAlwaysOnTop ? patch.alwaysOnTop : state.alwaysOnTop;
+    const nextAutoSave = typeof patch.autoSave === 'boolean' ? patch.autoSave : state.autoSave;
 
     state = freezeSnapshot({
       themeName: nextThemeName,
       readingTools: nextReadingTools,
       fonts: nextFonts,
       alwaysOnTop: nextAlwaysOnTop,
+      autoSave: nextAutoSave,
     });
 
     if (Object.hasOwn(patch, 'themeName')) {
@@ -222,6 +232,9 @@ export function createReaderPreferences({ store, windowPin = null }) {
     }
     if (changesAlwaysOnTop) {
       write(STORAGE_KEYS.alwaysOnTop, String(state.alwaysOnTop), warnings);
+    }
+    if (typeof patch.autoSave === 'boolean') {
+      write(STORAGE_KEYS.autoSave, String(state.autoSave), warnings);
     }
 
     notify();

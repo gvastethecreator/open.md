@@ -13,10 +13,84 @@
   <body>
     <header id="app-titlebar" class="app-titlebar">
       <div id="titlebar-drag-region" class="titlebar-drag-region" data-tauri-drag-region>
-        <img class="titlebar-icon" src="/src/assets/app-icon.png" alt="" aria-hidden="true" data-tauri-drag-region />
+        <img class="titlebar-icon" src="/src/assets/app-icon.png" width="256" height="256" alt="" aria-hidden="true" data-tauri-drag-region />
         <span class="titlebar-app-name" data-tauri-drag-region>open.md</span>
         <span class="titlebar-separator" aria-hidden="true" data-tauri-drag-region>—</span>
         <span id="window-file-title" class="window-file-title" data-tauri-drag-region>Ready</span>
+        <button
+          id="editor-save-button"
+          class="titlebar-save-state"
+          type="button"
+          aria-label="Document saved"
+          title="Document saved"
+          hidden
+        >
+          <i class="iconoir-check" aria-hidden="true"></i>
+          <span id="editor-save-label">Saved</span>
+        </button>
+      </div>
+
+      <div class="titlebar-actions" role="group" aria-label="Window options">
+        <div id="reading-tools-shell" class="reading-tools-shell titlebar-options-shell">
+          <button
+            id="reading-tools-button"
+            class="titlebar-tool-button icon-button"
+            type="button"
+            aria-controls="reading-tools-panel"
+            aria-expanded="false"
+            aria-label="Open view options"
+            title="View options"
+          >
+            <i class="iconoir-settings" aria-hidden="true"></i>
+          </button>
+
+          <section id="reading-tools-panel" class="reading-tools-panel" aria-label="View options" aria-hidden="true" inert>
+            <header class="reading-tools-header">
+              <span>View options</span>
+              <span><kbd>Esc</kbd> to close</span>
+            </header>
+
+            <p class="options-section-label">Document</p>
+
+            <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="lineGuide">
+              <i class="iconoir-numbered-list-left" aria-hidden="true"></i>
+              <span><strong>Line guide</strong><small>Source lines at left</small></span>
+              <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+            </button>
+
+            <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="minimap">
+              <i class="iconoir-map" aria-hidden="true"></i>
+              <span><strong>Minimap</strong><small>Document overview</small></span>
+              <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+            </button>
+
+            <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="stats">
+              <i class="iconoir-clock" aria-hidden="true"></i>
+              <span><strong>Reading stats</strong><small>Progress and time left</small></span>
+              <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+            </button>
+
+            <p class="options-section-label">Editing</p>
+
+            <button id="auto-save-toggle" class="reading-tool-toggle" type="button" role="switch" aria-checked="true" data-preference-toggle="autoSave">
+              <i class="iconoir-cloud-sync" aria-hidden="true"></i>
+              <span><strong>Auto-save</strong><small>Save after you pause typing</small></span>
+              <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+            </button>
+          </section>
+        </div>
+
+        <button
+          id="always-on-top-button"
+          class="titlebar-tool-button icon-button"
+          type="button"
+          role="switch"
+          aria-checked="false"
+          aria-label="Always on top: off"
+          title="Always on top: off"
+        >
+          <i class="iconoir-pin" aria-hidden="true"></i>
+        </button>
       </div>
 
       <div class="window-controls" role="group" aria-label="Window controls">
@@ -37,7 +111,7 @@
         <section id="reader-page" class="reader-page t-page" data-page-id="1">
           <section id="empty-stage" class="empty-stage" aria-labelledby="empty-title">
             <div class="empty-content">
-              <img class="empty-logo" src="/src/assets/app-icon.png" alt="" aria-hidden="true" />
+              <img class="empty-logo" src="/src/assets/app-icon.png" width="256" height="256" alt="" aria-hidden="true" />
               <h1 id="empty-title">Open a file</h1>
               <p class="empty-copy">Markdown and text, kept local and easy to read.</p>
               <button id="empty-open-button" class="primary-button" type="button">
@@ -173,64 +247,6 @@
             <span id="edit-mode-label" class="sr-only">Read mode</span>
           </button>
 
-          <button
-            id="editor-save-button"
-            class="editor-save-button toolbar-button icon-button"
-            type="button"
-            aria-label="Save document"
-            title="Save document (Ctrl+S)"
-            hidden
-          >
-            <i class="iconoir-check" aria-hidden="true"></i>
-            <span id="editor-save-label" class="sr-only">Saved</span>
-          </button>
-
-          <div id="reading-tools-shell" class="reading-tools-shell">
-            <button
-              id="reading-tools-button"
-              class="toolbar-button icon-button"
-              type="button"
-              aria-controls="reading-tools-panel"
-              aria-expanded="false"
-              aria-label="Open reading tools"
-              title="Reading tools"
-              disabled
-            >
-              <i class="iconoir-view-structure-up" aria-hidden="true"></i>
-            </button>
-
-            <section id="reading-tools-panel" class="reading-tools-panel" aria-label="Reading tools" aria-hidden="true" inert>
-              <header class="reading-tools-header">
-                <span>Reading tools</span>
-                <span><kbd>Esc</kbd> to close</span>
-              </header>
-
-              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="lineGuide">
-                <i class="iconoir-numbered-list-left" aria-hidden="true"></i>
-                <span><strong>Line guide</strong><small>Source lines at left</small></span>
-                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
-              </button>
-
-              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="minimap">
-                <i class="iconoir-map" aria-hidden="true"></i>
-                <span><strong>Minimap</strong><small>Document overview</small></span>
-                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
-              </button>
-
-              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="source">
-                <i class="iconoir-code" aria-hidden="true"></i>
-                <span><strong>Source</strong><small>Unformatted text</small></span>
-                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
-              </button>
-
-              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="stats">
-                <i class="iconoir-clock" aria-hidden="true"></i>
-                <span><strong>Reading stats</strong><small>Progress and time left</small></span>
-                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
-              </button>
-            </section>
-          </div>
-
           <div id="typography-shell" class="typography-shell">
             <button
               id="typography-button"
@@ -238,17 +254,25 @@
               type="button"
               aria-controls="typography-panel"
               aria-expanded="false"
-              aria-label="Open typography options"
-              title="Typography"
+              aria-label="Open appearance options"
+              title="Appearance"
             >
-              <i class="iconoir-type" aria-hidden="true"></i>
+              <i class="iconoir-palette" aria-hidden="true"></i>
             </button>
 
-            <section id="typography-panel" class="typography-panel" aria-label="Typography" aria-hidden="true" inert>
+            <section id="typography-panel" class="typography-panel" aria-label="Appearance" aria-hidden="true" inert>
               <header class="typography-header">
-                <span>Typography</span>
-                <span>Click to cycle</span>
+                <span>Appearance</span>
+                <span>Theme and type</span>
               </header>
+
+              <label class="theme-field appearance-theme-field" title="Choose theme">
+                <i class="iconoir-palette" aria-hidden="true"></i>
+                <span><strong>Theme</strong><small id="theme-name">Choose a color theme</small></span>
+                <select id="theme-select" class="theme-select" aria-label="Choose theme"></select>
+              </label>
+
+              <p class="appearance-section-label">Fonts</p>
 
               <button id="sans-font-button" class="typography-option" type="button" data-font-kind="sans">
                 <i class="iconoir-type" aria-hidden="true"></i>
@@ -263,24 +287,6 @@
               </button>
             </section>
           </div>
-
-          <button
-            id="always-on-top-button"
-            class="toolbar-button icon-button"
-            type="button"
-            role="switch"
-            aria-checked="false"
-            aria-label="Always on top: off"
-            title="Always on top: off"
-          >
-            <i class="iconoir-pin" aria-hidden="true"></i>
-          </button>
-
-          <label class="theme-field icon-button" title="Choose theme">
-            <span class="sr-only">Theme</span>
-            <i class="iconoir-palette" aria-hidden="true"></i>
-            <select id="theme-select" class="theme-select" aria-label="Choose theme"></select>
-          </label>
 
           <button id="help-toggle-button" class="toolbar-button icon-button" type="button" aria-controls="help-stage" aria-expanded="false" aria-label="Open help" title="Help (F1)">
             <i class="iconoir-help-circle" aria-hidden="true"></i>

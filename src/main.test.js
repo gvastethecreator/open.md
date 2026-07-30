@@ -18,6 +18,7 @@ import {
   getMinimapViewportGeometry,
   getReadingProgress,
   getScrollEdgeState,
+  setMarkdownTaskChecked,
   getStatusMetricParts,
   getViewportMode,
   getVisibleSourceLineRange,
@@ -262,6 +263,20 @@ describe('Frontend Logic Tests', () => {
         source: false,
         stats: false,
       });
+    });
+
+    it('updates only the task marker at the rendered source line', () => {
+      const source = '# Tasks\r\n\r\n- [ ] First\r\n  1. [X] Nested\r\n- plain';
+      expect(setMarkdownTaskChecked(source, 3, true)).toEqual({
+        source: '# Tasks\r\n\r\n- [x] First\r\n  1. [X] Nested\r\n- plain',
+        changed: true,
+      });
+      expect(setMarkdownTaskChecked(source, 4, false)).toEqual({
+        source: '# Tasks\r\n\r\n- [ ] First\r\n  1. [ ] Nested\r\n- plain',
+        changed: true,
+      });
+      expect(setMarkdownTaskChecked(source, 5, true)).toBeNull();
+      expect(setMarkdownTaskChecked(source, 99, true)).toBeNull();
     });
 
     it('cycles the document mode presentation through read, edit, and source', () => {

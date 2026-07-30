@@ -12,6 +12,7 @@ const KEYS = {
   tools: 'openmd-reading-tools-v1',
   fonts: 'openmd-font-preferences-v1',
   alwaysOnTop: 'openmd-always-on-top',
+  autoSave: 'openmd-auto-save',
 };
 
 describe('reader preferences', () => {
@@ -21,6 +22,7 @@ describe('reader preferences', () => {
       [KEYS.tools]: JSON.stringify({ lineGuide: true, minimap: 'true', source: false, stats: true }),
       [KEYS.fonts]: JSON.stringify({ sans: 2, mono: 1 }),
       [KEYS.alwaysOnTop]: 'true',
+      [KEYS.autoSave]: 'false',
     });
     const setAlwaysOnTop = vi.fn(async () => undefined);
     const preferences = createReaderPreferences({ store, windowPin: { setAlwaysOnTop } });
@@ -33,6 +35,7 @@ describe('reader preferences', () => {
       readingTools: { lineGuide: true, minimap: false, source: false, stats: true },
       fonts: { sans: 2, mono: 1 },
       alwaysOnTop: true,
+      autoSave: false,
     });
     expect(setAlwaysOnTop).toHaveBeenCalledWith(true);
   });
@@ -63,18 +66,34 @@ describe('reader preferences', () => {
     await preferences.update({ themeName: 'Paper' });
     await preferences.update({ readingTools: { source: true, stats: true } });
     await preferences.update({ fonts: { sans: 1, mono: 2 } });
+    await preferences.update({ autoSave: false });
 
     expect(preferences.current()).toMatchObject({
       themeName: 'Paper',
       readingTools: { source: true, stats: true },
       fonts: { sans: 1, mono: 2 },
+      autoSave: false,
     });
     expect(store.dump()).toMatchObject({
       [KEYS.theme]: 'Paper',
       [KEYS.tools]: JSON.stringify({ lineGuide: false, minimap: false, source: true, stats: true }),
       [KEYS.fonts]: JSON.stringify({ sans: 1, mono: 2 }),
+      [KEYS.autoSave]: 'false',
     });
-    expect(listener).toHaveBeenCalledTimes(4);
+    expect(listener).toHaveBeenCalledTimes(5);
+  });
+
+  it('defaults auto-save on and repairs an invalid stored value', async () => {
+    const defaults = createReaderPreferences({ store: createMemoryPreferenceStore() });
+    await defaults.load();
+    expect(defaults.current().autoSave).toBe(true);
+
+    const invalid = createReaderPreferences({
+      store: createMemoryPreferenceStore({ [KEYS.autoSave]: 'sometimes' }),
+    });
+    const result = await invalid.load();
+    expect(result.status).toBe('fallback');
+    expect(invalid.current().autoSave).toBe(true);
   });
 
   it('rolls back an always-on-top change when the native adapter fails', async () => {

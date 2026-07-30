@@ -11,7 +11,8 @@ use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd>.
 
 The document becomes a block canvas. The source file remains Markdown or text;
 there is no private document format. While the caret is in the editor, the
-status bar shows its source line and visible column.
+status bar shows its source line and visible column. The gear in the title bar
+can show source-line numbers and the minimap in Edit as well as Read.
 
 ## Work with blocks
 
@@ -38,9 +39,20 @@ strikethrough and <kbd>Ctrl</kbd> + <kbd>E</kbd> toggles inline code.
 
 ## Save and recover
 
-Press <kbd>Ctrl</kbd> + <kbd>S</kbd> or select the save icon in the status bar.
-The status shows unsaved, saving, saved and failed states. A failed save leaves
+Auto-save is on by default and runs after you pause typing. Turn it off from the
+gear in the title bar when you want manual control. Press <kbd>Ctrl</kbd> +
+<kbd>S</kbd> or select the save badge beside the file name to save immediately.
+The badge shows unsaved, saving, saved and failed states. A failed save leaves
 the draft in the editor so you can retry or copy it elsewhere.
+
+Undo and redo stay available through the platform shortcuts. They confirm the
+action with a short toast instead of occupying permanent toolbar space.
+
+## Reading tasks
+
+Task checkboxes can be changed directly in Read mode. Each change is saved back
+to the matching Markdown source line. If saving fails, the checkbox returns to
+its previous state and the document remains unchanged.
 
 Opening another file or returning to reading with unsaved work asks for
 confirmation. Closing the window also triggers the platform's unsaved-work
