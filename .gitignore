@@ -52,3 +52,4 @@ desktop.ini
 # Local-only audit reports (not for the public repo)
 .local/
 .scratch/
+.snapshots/
