@@ -105,4 +105,20 @@ describe('editor document model', () => {
     expect(snapshots.at(-1).cursor).toEqual({ line: 2, column: 4 });
     unsubscribe();
   });
+
+  it('reuses the structural document projection across cursor-only updates', () => {
+    const source = Array.from({ length: 2_000 }, (_, index) => `Line ${index + 1}`).join('\n');
+    const model = createEditorDocumentModel({ source, markdown: false });
+    const before = model.snapshot();
+
+    for (let index = 0; index < 25; index += 1) {
+      model.setCursor({ line: index + 1, column: 2 });
+    }
+
+    const after = model.snapshot();
+    expect(after.cursor).toEqual({ line: 25, column: 2 });
+    expect(after.source).toBe(before.source);
+    expect(after.blocks).toBe(before.blocks);
+    expect(after.stats).toBe(before.stats);
+  });
 });

@@ -55,13 +55,22 @@ export function createDocumentSaveCoordinator({
 
   const saveEditor = async ({ automatic = false } = {}) => {
     if (disposed || !adapters.isEditing?.()) return { status: 'unavailable' };
+    const saveRevision = documentRevision;
+    const savePath = currentPath;
+    const isStale = () => (
+      disposed
+      || saveRevision !== documentRevision
+      || savePath !== currentPath
+    );
     let result;
     try {
       result = await adapters.saveEditor();
     } catch (error) {
+      if (isStale()) return { status: 'stale' };
       hooks.onDiagnostic?.('Could not save the edited document', error);
       result = { status: 'failed', error };
     }
+    if (isStale()) return { status: 'stale' };
     if (result?.status === 'failed') {
       hooks.notify?.('Could not save. Your changes are still here.');
     } else if (!automatic && result?.status === 'saved') {

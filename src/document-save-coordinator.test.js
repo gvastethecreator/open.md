@@ -73,6 +73,20 @@ describe('Document Save Coordinator', () => {
     expect(view.notify).toHaveBeenNthCalledWith(2, 'Could not save. Your changes are still here.');
   });
 
+  it('suppresses stale editor-save results and feedback after document replacement', async () => {
+    const pending = deferred();
+    const view = fixture({ saveEditor: vi.fn(() => pending.promise) });
+    view.coordinator.replaceDocument({ path: 'old.md', document: payload('Old') });
+    const saving = view.coordinator.saveEditor();
+    await Promise.resolve();
+
+    view.coordinator.replaceDocument({ path: 'new.md', document: payload('New') });
+    pending.resolve({ status: 'saved' });
+
+    await expect(saving).resolves.toMatchObject({ status: 'stale' });
+    expect(view.notify).not.toHaveBeenCalled();
+  });
+
   it('serializes task saves and rolls back the exact failed checkbox and source', async () => {
     const saveDocument = vi.fn()
       .mockRejectedValueOnce(new Error('disk full'))

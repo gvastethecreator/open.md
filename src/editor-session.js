@@ -560,23 +560,27 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     if (disposed || mode !== 'edit' || !activeDocument || saveState === 'saving') {
       return { status: 'unavailable' };
     }
+    const savingDocument = activeDocument;
+    const savingPath = savingDocument.path;
     const nextSource = source();
     if (nextSource === savedSource) return { status: 'unchanged', source: nextSource };
     saveState = 'saving';
     saveError = '';
     notify();
     try {
-      const result = await adapters.save(activeDocument.path, nextSource);
+      const result = await adapters.save(savingPath, nextSource);
+      if (disposed || activeDocument !== savingDocument) return { status: 'stale' };
       savedSource = nextSource;
-      drafts.delete(activeDocument.path);
+      drafts.delete(savingPath);
       saveState = 'saved';
       notify();
-      await hooks.onSaved?.({ path: activeDocument.path, source: nextSource, result });
+      await hooks.onSaved?.({ path: savingPath, source: nextSource, result });
       return { status: 'saved', source: nextSource, result };
     } catch (error) {
+      if (disposed || activeDocument !== savingDocument) return { status: 'stale' };
       saveState = 'error';
       saveError = errorMessage(error);
-      drafts.set(activeDocument.path, { source: nextSource, savedSource });
+      drafts.set(savingPath, { source: nextSource, savedSource });
       notify();
       hooks.onDiagnostic?.('Could not save the document', error);
       return { status: 'failed', error };
