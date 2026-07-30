@@ -133,21 +133,21 @@ timeouts, rapid interruption, fallback and cleanup.
 ### ARC-08 — Coordinate theme preparation and commit
 
 **Type:** AFK
-**Status:** Ready
+**Status:** Implemented
 **Blocked by:** ARC-07.
 
 **What to build:** One Theme Coordinator coalesces rapid requests, prepares
 diagrams/highlighting, commits tokens under the available transition and
 reports persistence/feedback through injected hooks.
 
-- [ ] Latest request wins without committing stale prepared diagrams.
-- [ ] Preparation failure leaves the current theme usable and the queue drainable.
-- [ ] Reduced-motion, fallback, interruption and dispose paths are tested.
+- [x] Latest request wins without committing stale prepared diagrams.
+- [x] Preparation failure leaves the current theme usable and the queue drainable.
+- [x] Reduced-motion, fallback, interruption and dispose paths are tested.
 
 ### ARC-09 — Coordinate document mode transitions
 
 **Type:** AFK
-**Status:** Blocked
+**Status:** Ready
 **Blocked by:** ARC-08.
 
 **What to build:** One Document Mode Coordinator owns Read/Edit/Source order,
