@@ -52,7 +52,13 @@ export function createWindowChrome({ document, elements, nativeWindow, onError =
     elements.maximize?.addEventListener('click', maximize);
     elements.close?.addEventListener('click', close);
     await syncMaximizePresentation();
-    const nextUnlisten = await nativeWindow.onResized(syncMaximizePresentation);
+    let nextUnlisten = null;
+    try {
+      nextUnlisten = await nativeWindow.onResized(syncMaximizePresentation);
+    } catch (error) {
+      reportFailure('Could not watch the window state', error);
+      return true;
+    }
     if (disposed) {
       nextUnlisten?.();
     } else {

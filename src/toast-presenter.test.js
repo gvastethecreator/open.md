@@ -90,4 +90,24 @@ describe('Toast Presenter', () => {
     expect(toast.querySelectorAll('.toast-message--previous')).toHaveLength(0);
     expect(animations.every((animation) => animation.cancel.mock.calls.length > 0)).toBe(true);
   });
+
+  it('keeps a truly transparent message from winning rapid replacement visibility', () => {
+    const { dom, toast } = fixture();
+    const presenter = createToastPresenter({ window: dom.window, document: dom.window.document, element: toast });
+    presenter.show('One');
+    presenter.show('Two');
+    const current = toast.querySelector('.toast-message');
+    const visiblePrevious = toast.querySelector('.toast-message--previous');
+    const computedStyle = vi.spyOn(dom.window, 'getComputedStyle').mockImplementation((element) => ({
+      opacity: element === current ? '0' : element === visiblePrevious ? '0.75' : '1',
+      filter: 'none',
+      borderRadius: '10px',
+    }));
+
+    presenter.show('Three');
+
+    expect(toast.querySelector('.toast-message--previous')?.textContent).toBe('One');
+    computedStyle.mockRestore();
+    presenter.dispose();
+  });
 });

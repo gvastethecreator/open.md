@@ -9,6 +9,8 @@ const DEFAULT_CURATED_NAMES = ['Paper', 'Github Light', 'Github Dark', 'Ayu Ligh
 function applyThemeTokens(document, theme, preparedDiagrams) {
   const root = document.documentElement;
   const tokens = getThemeTokens(theme);
+  const diagramsCommitted = preparedDiagrams?.commit?.();
+  if (diagramsCommitted === false) throw new Error('Prepared diagrams became stale before theme commit');
   const properties = {
     '--bg-color': tokens.background,
     '--text-color': tokens.text,
@@ -46,7 +48,6 @@ function applyThemeTokens(document, theme, preparedDiagrams) {
   root.style.colorScheme = dark ? 'dark' : 'light';
   root.dataset.themeName = theme.name;
   root.dataset.themeTone = dark ? 'dark' : 'light';
-  preparedDiagrams?.commit?.();
 }
 
 export function createThemeCoordinator({
@@ -64,6 +65,7 @@ export function createThemeCoordinator({
   const themes = [...availableThemes]
     .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
   let currentIndex = -1;
+  let requestedIndex = -1;
   let revision = 0;
   let pendingRequest = null;
   let drainPromise = null;
@@ -72,7 +74,11 @@ export function createThemeCoordinator({
 
   const updateCopy = () => {
     const theme = themes[currentIndex];
-    if (!theme) return;
+    if (!theme) {
+      if (elements.select) elements.select.value = '';
+      if (elements.name) elements.name.textContent = '';
+      return;
+    }
     const label = 'Theme: ' + theme.name;
     if (elements.select) {
       elements.select.value = String(currentIndex);
@@ -121,7 +127,7 @@ export function createThemeCoordinator({
     }) ?? null;
   });
 
-  const commitRequest = async ({ theme, silent, requestRevision }) => {
+  const commitRequest = async ({ index, theme, silent, persist, requestRevision }) => {
     const tokens = getThemeTokens(theme);
     const diagramTheme = isColorDark(tokens.background) ? 'dark' : 'default';
     const prepared = hooks.shouldPrepareDiagrams?.()
@@ -131,11 +137,37 @@ export function createThemeCoordinator({
 
     const root = document.documentElement;
     let committed = false;
+    let commitFailure = null;
     const commit = () => {
-      if (committed || disposed) return;
-      applyThemeTokens(document, theme, prepared);
-      committed = true;
-      hooks.onCommit?.(theme);
+      if (committed || disposed || requestRevision !== revision) return;
+      try {
+        applyThemeTokens(document, theme, prepared);
+        currentIndex = index;
+        requestedIndex = index;
+        updateCopy();
+        committed = true;
+        try {
+          hooks.onCommit?.(theme);
+        } catch (error) {
+          hooks.onError?.('Could not finish the selected theme', error);
+        }
+        if (persist) {
+          Promise.resolve()
+            .then(() => hooks.persist?.(theme.name))
+            .then((result) => hooks.onPersistResult?.(result))
+            .catch((error) => hooks.onError?.('Could not persist the selected theme', error));
+        }
+        if (!silent) {
+          try {
+            hooks.notify?.('Theme: ' + theme.name);
+          } catch (error) {
+            hooks.onError?.('Could not announce the selected theme', error);
+          }
+        }
+      } catch (error) {
+        commitFailure = error;
+        throw error;
+      }
     };
     const canWipe = !silent
       && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
@@ -143,9 +175,12 @@ export function createThemeCoordinator({
 
     if (!canWipe) {
       root.classList.add('is-theme-changing');
-      commit();
-      await settleFallback();
-      root.classList.remove('is-theme-changing');
+      try {
+        commit();
+        await settleFallback();
+      } finally {
+        root.classList.remove('is-theme-changing');
+      }
       return committed;
     }
 
@@ -154,10 +189,15 @@ export function createThemeCoordinator({
     let transition;
     try {
       transition = document.startViewTransition(commit);
-    } catch {
-      commit();
-      root.classList.remove('is-theme-changing', 'is-theme-wiping');
-      return committed;
+    } catch (error) {
+      try {
+        if (!commitFailure) commit();
+      } finally {
+        root.classList.remove('is-theme-changing', 'is-theme-wiping');
+      }
+      if (commitFailure) throw commitFailure;
+      if (!committed) throw error;
+      return true;
     }
     activeTransition = transition;
     try {
@@ -175,6 +215,7 @@ export function createThemeCoordinator({
       if (activeTransition === transition) activeTransition = null;
       root.classList.remove('is-theme-wiping');
     }
+    if (commitFailure) throw commitFailure;
     return committed;
   };
 
@@ -185,6 +226,10 @@ export function createThemeCoordinator({
       try {
         await commitRequest(request);
       } catch (error) {
+        if (request.requestRevision === revision) {
+          requestedIndex = currentIndex;
+          updateCopy();
+        }
         hooks.onError?.('Could not apply the selected theme', error);
       }
     }
@@ -205,16 +250,9 @@ export function createThemeCoordinator({
     if (disposed || !Number.isInteger(index) || !themes[index]) return Promise.resolve(false);
     const theme = themes[index];
     const requestRevision = ++revision;
-    pendingRequest = { theme, silent, requestRevision };
+    requestedIndex = index;
+    pendingRequest = { index, theme, silent, persist, requestRevision };
     activeTransition?.skipTransition?.();
-    currentIndex = index;
-    updateCopy();
-    if (persist) {
-      Promise.resolve(hooks.persist?.(theme.name))
-        .then((result) => hooks.onPersistResult?.(result))
-        .catch((error) => hooks.onError?.('Could not persist the selected theme', error));
-    }
-    if (!silent) hooks.notify?.('Theme: ' + theme.name);
     return scheduleDrain();
   };
 
@@ -224,17 +262,17 @@ export function createThemeCoordinator({
   };
 
   const start = (savedThemeName = null) => {
-    currentIndex = getPreferredThemeIndex(themes, savedThemeName);
+    const initialIndex = getPreferredThemeIndex(themes, savedThemeName);
     populate();
-    updateCopy();
-    return currentIndex >= 0
-      ? applyIndex(currentIndex, { silent: true, persist: false })
+    return initialIndex >= 0
+      ? applyIndex(initialIndex, { silent: true, persist: false })
       : Promise.resolve(false);
   };
 
   const cycle = (direction = 1) => {
     if (themes.length === 0 || disposed) return Promise.resolve(false);
-    const nextIndex = (currentIndex + direction + themes.length) % themes.length;
+    const baseIndex = requestedIndex >= 0 ? requestedIndex : currentIndex;
+    const nextIndex = (baseIndex + direction + themes.length) % themes.length;
     return applyIndex(nextIndex);
   };
 

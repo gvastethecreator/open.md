@@ -137,4 +137,40 @@ describe('Theme Coordinator', () => {
     active.resolve();
     await pending;
   });
+
+  it('keeps confirmed theme state, copy and persistence atomic when preparation fails', async () => {
+    const { dom, elements } = fixture();
+    const persist = vi.fn(async () => ({ status: 'saved' }));
+    const onError = vi.fn();
+    const prepareDiagrams = vi.fn()
+      .mockResolvedValueOnce(null)
+      .mockRejectedValueOnce(new Error('diagram failed'))
+      .mockResolvedValueOnce(null);
+    const coordinator = createThemeCoordinator({
+      window: dom.window,
+      document: dom.window.document,
+      themes: THEMES,
+      elements,
+      hooks: { prepareDiagrams, shouldPrepareDiagrams: () => true, persist, onError },
+    });
+
+    await coordinator.start('Light');
+    expect(coordinator.current().name).toBe('Light');
+    expect(dom.window.document.documentElement.dataset.themeName).toBe('Light');
+
+    await coordinator.applyName('Dark');
+    expect(onError).toHaveBeenCalledOnce();
+    expect(coordinator.current().name).toBe('Light');
+    expect(coordinator.diagramTheme()).toBe('default');
+    expect(dom.window.document.documentElement.dataset.themeName).toBe('Light');
+    expect(elements.name.textContent).toBe('Light');
+    expect(elements.select.value).toBe('1');
+    expect(persist).not.toHaveBeenCalled();
+
+    await coordinator.applyName('Dark');
+    expect(coordinator.current().name).toBe('Dark');
+    expect(elements.name.textContent).toBe('Dark');
+    expect(persist).toHaveBeenCalledOnce();
+    expect(persist).toHaveBeenCalledWith('Dark');
+  });
 });

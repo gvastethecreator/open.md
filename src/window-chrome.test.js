@@ -84,4 +84,30 @@ describe('Window Chrome', () => {
     await settle();
     expect(onError).toHaveBeenCalledWith('Could not minimize the window', failure);
   });
+
+  it('keeps controls usable when resize subscription is unavailable', async () => {
+    const fixture = createFixture();
+    const failure = new Error('listener unavailable');
+    const onError = vi.fn();
+    const nativeWindow = {
+      isMaximized: vi.fn(async () => false),
+      minimize: vi.fn(async () => {}),
+      toggleMaximize: vi.fn(async () => {}),
+      close: vi.fn(async () => {}),
+      onResized: vi.fn(async () => { throw failure; }),
+    };
+    const chrome = createWindowChrome({
+      document: fixture.document,
+      elements: fixture.elements,
+      nativeWindow,
+      onError,
+    });
+
+    await expect(chrome.start()).resolves.toBe(true);
+    fixture.elements.minimize.click();
+    await settle();
+
+    expect(onError).toHaveBeenCalledWith('Could not watch the window state', failure);
+    expect(nativeWindow.minimize).toHaveBeenCalledOnce();
+  });
 });

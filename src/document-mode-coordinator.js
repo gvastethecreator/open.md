@@ -107,6 +107,7 @@ export function createDocumentModeCoordinator({
     const runFallback = async () => {
       try {
         const result = await update();
+        if (disposed || generation !== morphGeneration) return result;
         const nextMode = current();
         document.body.dataset.modeMorphTo = nextMode;
         if (nextMode === initialMode) {
@@ -130,6 +131,7 @@ export function createDocumentModeCoordinator({
     try {
       transition = document.startViewTransition(async () => {
         updateResult = await update();
+        if (disposed || generation !== morphGeneration) return;
         document.body.dataset.modeMorphTo = current();
       });
     } catch {
@@ -146,6 +148,7 @@ export function createDocumentModeCoordinator({
 
     try {
       await transition.updateCallbackDone;
+      if (disposed || generation !== morphGeneration) return updateResult;
       if (current() === initialMode) transition.skipTransition?.();
       return updateResult;
     } catch (error) {
