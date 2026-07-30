@@ -941,8 +941,6 @@ function replaceToastMessage(toast, messageElement, nextMessage) {
     text: outgoingElement.textContent,
     opacity: outgoingStyle.opacity,
     filter: outgoingStyle.filter,
-    transform: outgoingStyle.transform,
-    clipPath: outgoingStyle.clipPath,
   };
   const canMorph = toast.classList.contains('show')
     && messageElement.textContent !== nextMessage
@@ -961,13 +959,13 @@ function replaceToastMessage(toast, messageElement, nextMessage) {
   previousMessage.classList.add('toast-message--previous');
   previousMessage.setAttribute('aria-hidden', 'true');
   previousMessage.textContent = outgoingVisual.text;
-  toast.appendChild(previousMessage);
   messageElement.textContent = nextMessage;
 
   const targetBox = toast.getBoundingClientRect();
   const currentRadius = getComputedStyle(toast).borderRadius;
   toast.style.width = `${visibleBox.width}px`;
   toast.style.height = `${visibleBox.height}px`;
+  toast.appendChild(previousMessage);
 
   const shape = toast.animate([
     {
@@ -977,9 +975,9 @@ function replaceToastMessage(toast, messageElement, nextMessage) {
     },
     {
       width: `${(visibleBox.width + targetBox.width) / 2}px`,
-      height: `${Math.max(visibleBox.height, targetBox.height) + 2}px`,
-      borderRadius: '12px',
-      offset: 0.48,
+      height: `${(visibleBox.height + targetBox.height) / 2}px`,
+      borderRadius: '8px',
+      offset: 0.5,
     },
     {
       width: `${targetBox.width}px`,
@@ -987,7 +985,7 @@ function replaceToastMessage(toast, messageElement, nextMessage) {
       borderRadius: currentRadius,
     },
   ], {
-    duration: 240,
+    duration: 260,
     easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
     fill: 'both',
   });
@@ -995,21 +993,19 @@ function replaceToastMessage(toast, messageElement, nextMessage) {
     {
       opacity: outgoingVisual.opacity,
       filter: outgoingVisual.filter,
-      transform: outgoingVisual.transform,
-      clipPath: outgoingVisual.clipPath,
     },
-    { opacity: 0, filter: 'blur(1px)', transform: 'translateY(-2px)', clipPath: 'inset(48% 4% round 7px)' },
+    { opacity: 0, filter: 'blur(0.6px)' },
   ], {
-    duration: 110,
-    easing: 'cubic-bezier(0.4, 0, 0.8, 0.2)',
+    duration: 120,
+    easing: 'cubic-bezier(0.4, 0, 0.6, 1)',
     fill: 'both',
   });
   const next = messageElement.animate([
-    { opacity: 0, filter: 'blur(1px)', transform: 'translateY(2px)', clipPath: 'inset(48% 4% round 7px)' },
-    { opacity: 1, filter: 'blur(0)', transform: 'translateY(0)', clipPath: 'inset(0 round 2px)' },
+    { opacity: 0, filter: 'blur(0.6px)' },
+    { opacity: 1, filter: 'blur(0)' },
   ], {
-    duration: 156,
-    delay: 84,
+    duration: 180,
+    delay: 58,
     easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
     fill: 'both',
   });
