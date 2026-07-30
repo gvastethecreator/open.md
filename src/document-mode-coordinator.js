@@ -170,7 +170,7 @@ export function createDocumentModeCoordinator({
     control.setAttribute('aria-label', available
       ? presentation.ariaLabel
       : 'Open a file to change document mode');
-    control.title = available
+    control.dataset.tooltip = available
       ? `${presentation.title} · Ctrl+Shift+E toggles Read/Edit`
       : 'Open a file to change document mode';
 

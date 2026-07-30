@@ -1585,6 +1585,156 @@ body.is-line-guide .editor-end-hint {
   box-shadow: 0 14px 34px color-mix(in srgb, var(--shadow-color) 82%, transparent);
 }
 
+.app-context-menu {
+  position: fixed;
+  z-index: 96;
+  width: min(224px, calc(100vw - 16px));
+  max-height: min(410px, calc(100dvh - 80px));
+  padding: 5px;
+  overflow: auto;
+  border: var(--ui-border-width) solid color-mix(in srgb, var(--text-color) 8%, transparent);
+  border-radius: var(--radius-sm);
+  color: var(--text-color);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-color) 99%, white), color-mix(in srgb, var(--bg-color) 97%, var(--toolbar-bg)));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, white 12%, transparent),
+    0 16px 42px color-mix(in srgb, var(--shadow-color) 88%, transparent),
+    0 2px 8px color-mix(in srgb, var(--shadow-color) 45%, transparent);
+  filter: var(--content-depth-filter);
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  will-change: opacity, transform;
+}
+
+.app-context-menu[hidden] { display: none; }
+
+.app-context-menu-item {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 7px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  outline: none;
+  color: var(--text-color);
+  background: transparent;
+  font: inherit;
+  font-size: 0.74rem;
+  line-height: 1.2;
+  text-align: left;
+  cursor: default;
+  transition:
+    color var(--motion-fast) var(--motion-ease-standard),
+    background-color var(--motion-fast) var(--motion-ease-standard),
+    box-shadow var(--motion-fast) var(--motion-ease-standard);
+}
+
+.app-context-menu-item > i {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  color: var(--ui-muted);
+  font-size: 15px;
+  transition: color var(--motion-fast) var(--motion-ease-standard);
+}
+
+.app-context-menu-item > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-context-menu-item > kbd {
+  padding: 0;
+  border: 0;
+  color: color-mix(in srgb, var(--ui-muted) 76%, transparent);
+  background: transparent;
+  font: 500 0.58rem/1 var(--font-sans);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.app-context-menu-item:hover,
+.app-context-menu-item:focus-visible {
+  background: color-mix(in srgb, var(--ui-accent) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-accent) 10%, transparent);
+}
+
+.app-context-menu-item:hover > i,
+.app-context-menu-item:focus-visible > i { color: var(--ui-accent); }
+
+.app-context-menu-item:disabled {
+  opacity: 0.34;
+  pointer-events: none;
+}
+
+.app-context-menu-item.is-danger { color: var(--danger-color); }
+.app-context-menu-item.is-danger > i { color: currentColor; }
+.app-context-menu-item.is-danger:hover,
+.app-context-menu-item.is-danger:focus-visible {
+  background: color-mix(in srgb, var(--danger-color) 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger-color) 10%, transparent);
+}
+
+.app-context-menu-separator {
+  height: 1px;
+  margin: 4px 7px;
+  background: color-mix(in srgb, var(--text-color) 8%, transparent);
+}
+
+.clipboard-helper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app-tooltip {
+  position: fixed;
+  z-index: 112;
+  width: max-content;
+  max-width: min(260px, calc(100vw - 16px));
+  padding: 6px 8px;
+  border: var(--ui-border-width) solid color-mix(in srgb, var(--bg-color) 10%, transparent);
+  border-radius: var(--radius-sm);
+  color: var(--bg-color);
+  background: color-mix(in srgb, var(--text-color) 95%, var(--bg-color));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--bg-color) 9%, transparent),
+    0 8px 24px color-mix(in srgb, var(--shadow-color) 80%, transparent);
+  font: 570 0.66rem/1.3 var(--font-sans);
+  letter-spacing: 0.01em;
+  text-align: center;
+  text-wrap: balance;
+  pointer-events: none;
+  will-change: opacity, transform;
+}
+
+.app-tooltip[hidden] { display: none; }
+
+.app-tooltip::after {
+  position: absolute;
+  left: var(--tooltip-arrow-offset);
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  background: inherit;
+  content: "";
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.app-tooltip[data-side="top"]::after { bottom: -3px; }
+.app-tooltip[data-side="bottom"]::after { top: -3px; }
+
 .editor-menu {
   width: min(286px, calc(100vw - 16px));
   max-height: min(330px, calc(100dvh - 80px));
@@ -2298,14 +2448,31 @@ summary {
 }
 
 .mermaid {
+  position: relative;
+  isolation: isolate;
   max-width: 100%;
   margin-bottom: 1em;
-  padding: 18px;
+  padding: clamp(20px, 3.2vw, 30px);
   overflow: auto;
   border: var(--document-line-width) solid var(--document-line-color);
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--panel-bg) 68%, var(--bg-color));
+  border-radius: var(--radius-md);
+  background:
+    radial-gradient(
+      circle at 14% -16%,
+      color-mix(in srgb, var(--ui-accent) 5%, transparent),
+      transparent 48%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--panel-bg) 66%, var(--bg-color)),
+      color-mix(in srgb, var(--bg-color) 96%, var(--panel-bg))
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text-color) 3%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--bg-color) 44%, transparent);
   text-align: center;
+  scrollbar-gutter: stable both-edges;
+  overscroll-behavior: contain;
   transition:
     opacity var(--motion-base) var(--motion-ease-out),
     filter var(--motion-base) var(--motion-ease-out),
@@ -2314,8 +2481,127 @@ summary {
 }
 
 .mermaid svg {
+  display: block;
   max-width: 100%;
   height: auto;
+  margin-inline: auto;
+  overflow: visible;
+  color: var(--text-color);
+  font-family: var(--font-sans) !important;
+  text-rendering: geometricPrecision;
+}
+
+.mermaid:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--ui-accent) 18%, transparent);
+  box-shadow:
+    inset 0 0 0 var(--focus-ring-width) var(--focus-ring-color),
+    inset 0 1px 0 color-mix(in srgb, var(--text-color) 3%, transparent);
+}
+
+.mermaid svg text,
+.mermaid svg .label,
+.mermaid svg .nodeLabel,
+.mermaid svg .edgeLabel,
+.mermaid svg .messageText,
+.mermaid svg .loopText,
+.mermaid svg foreignObject > div {
+  font-family: var(--font-sans) !important;
+  font-variation-settings: "wght" 540;
+  letter-spacing: -0.005em;
+}
+
+.mermaid svg foreignObject > div,
+.mermaid svg .nodeLabel p,
+.mermaid svg .edgeLabel p {
+  line-height: 1.25;
+}
+
+.mermaid svg .nodeLabel p,
+.mermaid svg .edgeLabel p { margin: 0; }
+
+.mermaid svg :is(
+  .node > rect,
+  .node > circle,
+  .node > ellipse,
+  .node > polygon,
+  .node > path,
+  rect.actor,
+  .classGroup rect,
+  .statediagram-state rect,
+  .entityBox
+) {
+  stroke-width: 1.35px !important;
+  filter: drop-shadow(0 2px 3px color-mix(in srgb, var(--shadow-color) 42%, transparent));
+}
+
+.mermaid svg :is(.node > rect, rect.actor, .classGroup rect, .statediagram-state rect) {
+  rx: 7px;
+  ry: 7px;
+}
+
+.mermaid svg .cluster rect {
+  rx: 10px;
+  ry: 10px;
+  stroke-width: 1.2px !important;
+  stroke-dasharray: 3 3;
+}
+
+.mermaid svg :is(.edgePath path, .flowchart-link, .messageLine0, .messageLine1, .transition) {
+  stroke-width: 1.45px !important;
+  opacity: 0.86;
+}
+
+.mermaid svg :is(.arrowheadPath, marker path) {
+  opacity: 0.9;
+}
+
+.mermaid svg .edgeLabel,
+.mermaid svg .edgeLabel rect,
+.mermaid svg .labelBkg {
+  border-radius: 4px;
+  background: var(--bg-color) !important;
+  fill: var(--bg-color) !important;
+}
+
+.mermaid svg g.edgeLabel {
+  font-size: 0.92em;
+}
+
+.mermaid svg .actor-line {
+  stroke-dasharray: 3 5;
+  opacity: 0.56;
+}
+
+.mermaid svg :is(.messageText, .loopText, .stateLabel, .relation) {
+  font-weight: 540 !important;
+}
+
+.mermaid svg :is(.activation0, .activation1, .activation2, .note) {
+  filter: drop-shadow(0 2px 3px color-mix(in srgb, var(--shadow-color) 36%, transparent));
+}
+
+.mermaid svg .note {
+  rx: 6px;
+  ry: 6px;
+}
+
+.mermaid[data-mermaid-kind="class"] svg .classGroup line,
+.mermaid[data-mermaid-kind="entity"] svg .relationshipLine {
+  opacity: 0.58;
+}
+
+.mermaid::-webkit-scrollbar { width: 9px; height: 9px; }
+.mermaid::-webkit-scrollbar-track { background: transparent; }
+.mermaid::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ui-muted) 38%, transparent);
+  background-clip: padding-box;
+}
+.mermaid::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--ui-muted) 58%, transparent);
+  background-clip: padding-box;
 }
 
 .copy-code-btn {

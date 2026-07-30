@@ -114,7 +114,7 @@ function enhanceCodeBlocks({ window, document, content, clipboard, onToast, onDi
     button.className = 'copy-code-btn';
     button.type = 'button';
     button.setAttribute('aria-label', 'Copy code block');
-    button.title = 'Copy code';
+    button.dataset.tooltip = 'Copy code';
     const icon = document.createElement('i');
     icon.className = 'iconoir-copy';
     icon.setAttribute('aria-hidden', 'true');
@@ -128,20 +128,20 @@ function enhanceCodeBlocks({ window, document, content, clipboard, onToast, onDi
         await clipboard.writeText(code.innerText);
         icon.className = 'iconoir-check';
         button.setAttribute('aria-label', 'Code copied');
-        button.title = 'Copied';
+        button.dataset.tooltip = 'Copied';
         onToast?.('Code copied');
       } catch (error) {
         onDiagnostic?.('Could not copy code', error);
         icon.className = 'iconoir-refresh';
         button.setAttribute('aria-label', 'Retry copying code');
-        button.title = 'Retry copy';
+        button.dataset.tooltip = 'Retry copy';
         onToast?.('Could not copy the code');
       }
 
       window.setTimeout(() => {
         icon.className = 'iconoir-copy';
         button.setAttribute('aria-label', 'Copy code block');
-        button.title = 'Copy code';
+        button.dataset.tooltip = 'Copy code';
       }, 2000);
     });
 
@@ -297,7 +297,10 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
       if (!isCurrent(candidate)) return { status: 'superseded', path };
 
       content.innerHTML = openedDocument.html;
-      content.querySelectorAll('img').forEach((image) => image.setAttribute('loading', 'lazy'));
+      content.querySelectorAll('img').forEach((image) => {
+        image.setAttribute('loading', 'lazy');
+        image.dataset.documentSource = image.getAttribute('src') || '';
+      });
       renderSource(
         document,
         sourceContent,
@@ -329,7 +332,11 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
       if (!isCurrent(candidate)) return { status: 'superseded', path };
 
       try {
-        await adapters.diagrams?.render?.(content, { theme: hooks.getDiagramTheme?.() || 'default' });
+        const diagramTokens = hooks.getDiagramTokens?.();
+        await adapters.diagrams?.render?.(content, {
+          theme: hooks.getDiagramTheme?.() || 'default',
+          ...(diagramTokens ? { tokens: diagramTokens } : {}),
+        });
       } catch (error) {
         if (!isCurrent(candidate)) return { status: 'superseded', path };
         hooks.onDiagnostic?.('Mermaid render error', error);
@@ -361,11 +368,15 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
     }
   };
 
-  const refreshDiagrams = async (theme = 'default') => {
+  const refreshDiagrams = async (theme = 'default', tokens = null) => {
     if (disposed || state.state !== 'ready' || !content.querySelector('.mermaid')) return false;
     const candidate = generation;
     try {
-      const rendered = await adapters.diagrams?.render?.(content, { reset: true, theme });
+      const rendered = await adapters.diagrams?.render?.(content, {
+        reset: true,
+        theme,
+        ...(tokens ? { tokens } : {}),
+      });
       if (!isCurrent(candidate)) return false;
       return Boolean(rendered);
     } catch (error) {
@@ -376,11 +387,15 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
     }
   };
 
-  const prepareDiagrams = async (theme = 'default') => {
+  const prepareDiagrams = async (theme = 'default', tokens = null) => {
     if (disposed || state.state !== 'ready' || !content.querySelector('.mermaid')) return null;
     const candidate = generation;
     try {
-      const prepared = await adapters.diagrams?.prepare?.(content, { reset: true, theme });
+      const prepared = await adapters.diagrams?.prepare?.(content, {
+        reset: true,
+        theme,
+        ...(tokens ? { tokens } : {}),
+      });
       if (!isCurrent(candidate)) return null;
       return prepared || null;
     } catch (error) {

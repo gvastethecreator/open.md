@@ -61,6 +61,9 @@ describe('Frontend Logic Tests', () => {
 
       for (const theme of allThemes) {
         const tokens = getThemeTokens(theme);
+        const lightCodeSurface = !isColorDark(tokens.codeBackground);
+        const codeTextMinimum = lightCodeSurface ? 7 : 4.5;
+        const syntaxMinimum = lightCodeSurface ? 6 : 4.5;
         const checks = [
           ['text/background', getContrastRatio(tokens.text, tokens.background), 4.5],
           ['link/background', getContrastRatio(tokens.link, tokens.background), 4.5],
@@ -68,16 +71,16 @@ describe('Frontend Logic Tests', () => {
           ['accent foreground/accent', getContrastRatio(tokens.accentForeground, tokens.accent), 4.5],
           ['quote/background', getContrastRatio(tokens.quote, tokens.background), 4.5],
           ['text/surface', getContrastRatio(tokens.text, tokens.surface), 4.5],
-          ['code text/code background', getContrastRatio(tokens.codeText, tokens.codeBackground), 4.5],
-          ['syntax comment/code background', getContrastRatio(tokens.syntaxComment, tokens.codeBackground), 4.5],
-          ['syntax keyword/code background', getContrastRatio(tokens.syntaxKeyword, tokens.codeBackground), 4.5],
-          ['syntax string/code background', getContrastRatio(tokens.syntaxString, tokens.codeBackground), 4.5],
-          ['syntax number/code background', getContrastRatio(tokens.syntaxNumber, tokens.codeBackground), 4.5],
-          ['syntax title/code background', getContrastRatio(tokens.syntaxTitle, tokens.codeBackground), 4.5],
-          ['syntax property/code background', getContrastRatio(tokens.syntaxProperty, tokens.codeBackground), 4.5],
-          ['syntax meta/code background', getContrastRatio(tokens.syntaxMeta, tokens.codeBackground), 4.5],
-          ['syntax addition/code background', getContrastRatio(tokens.syntaxAddition, tokens.codeBackground), 4.5],
-          ['syntax deletion/code background', getContrastRatio(tokens.syntaxDeletion, tokens.codeBackground), 4.5],
+          ['code text/code background', getContrastRatio(tokens.codeText, tokens.codeBackground), codeTextMinimum],
+          ['syntax comment/code background', getContrastRatio(tokens.syntaxComment, tokens.codeBackground), syntaxMinimum],
+          ['syntax keyword/code background', getContrastRatio(tokens.syntaxKeyword, tokens.codeBackground), syntaxMinimum],
+          ['syntax string/code background', getContrastRatio(tokens.syntaxString, tokens.codeBackground), syntaxMinimum],
+          ['syntax number/code background', getContrastRatio(tokens.syntaxNumber, tokens.codeBackground), syntaxMinimum],
+          ['syntax title/code background', getContrastRatio(tokens.syntaxTitle, tokens.codeBackground), syntaxMinimum],
+          ['syntax property/code background', getContrastRatio(tokens.syntaxProperty, tokens.codeBackground), syntaxMinimum],
+          ['syntax meta/code background', getContrastRatio(tokens.syntaxMeta, tokens.codeBackground), syntaxMinimum],
+          ['syntax addition/code background', getContrastRatio(tokens.syntaxAddition, tokens.codeBackground), syntaxMinimum],
+          ['syntax deletion/code background', getContrastRatio(tokens.syntaxDeletion, tokens.codeBackground), syntaxMinimum],
         ];
 
         for (const [label, ratio, minimum] of checks) {

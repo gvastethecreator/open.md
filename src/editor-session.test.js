@@ -271,6 +271,30 @@ describe('editor session', () => {
     expect(session.source()).toBe('One\nTwo');
   });
 
+  it('exposes content-aware block state and actions to the shared context menu', () => {
+    const { session } = mount();
+    session.setDocument({ path: 'sample.md', source: 'One\nTwo\nThree', markdown: true });
+    session.enter();
+
+    const blocks = [...document.querySelectorAll('[data-block-id]')];
+    expect(session.contextFor(blocks[0].querySelector('[data-editor-content]'))).toMatchObject({
+      blockId: blocks[0].dataset.blockId,
+      blockType: 'paragraph',
+      canMoveUp: false,
+      canMoveDown: true,
+      canDelete: true,
+      hasSelection: false,
+    });
+    expect(session.contextFor(blocks[1].querySelector('[data-editor-content]'))).toMatchObject({
+      canMoveUp: true,
+      canMoveDown: true,
+    });
+
+    expect(session.performBlockAction(blocks[1].dataset.blockId, 'duplicate')).toBe(true);
+    expect(session.source()).toBe('One\nTwo\nTwo\nThree');
+    expect(session.performBlockAction('missing', 'delete')).toBe(false);
+  });
+
   it('uses explicit before and after targets when dragging blocks in either direction', () => {
     const { session } = mount();
     session.setDocument({ path: 'sample.md', source: 'One\nTwo\nThree', markdown: true });

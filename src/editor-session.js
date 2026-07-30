@@ -178,10 +178,11 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   const removeBlock = (id, focusId = null) => {
     const previousLayout = captureBlockLayout();
     const result = documentModel.remove(id);
-    if (!result?.changed) return;
+    if (!result?.changed) return false;
     render({ previousLayout, enteringId: result.enteringId });
     notify();
     focusBlock(focusId || result.focusId);
+    return true;
   };
 
   const moveBlock = (id, delta) => {
@@ -191,21 +192,58 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     const sourceIndex = visibleBlocks.findIndex((block) => block.id === id);
     const direction = Math.sign(Math.trunc(Number(delta) || 0));
     const target = visibleBlocks[sourceIndex + direction];
-    if (sourceIndex < 0 || !direction || !target) return;
+    if (sourceIndex < 0 || !direction || !target) return false;
     const previousLayout = captureBlockLayout();
-    if (!documentModel.moveRelative(id, target.id, direction < 0 ? 'before' : 'after')) return;
+    if (!documentModel.moveRelative(id, target.id, direction < 0 ? 'before' : 'after')) return false;
     render({ previousLayout });
     notify();
     focusBlock(id);
+    return true;
   };
 
   const duplicateBlock = (id) => {
     const previousLayout = captureBlockLayout();
     const copy = documentModel.duplicate(id);
-    if (!copy) return;
+    if (!copy) return false;
     render({ previousLayout, enteringId: copy.id });
     notify();
     focusBlock(copy.id);
+    return true;
+  };
+
+  const contextFor = (target) => {
+    const wrapper = target?.closest?.('[data-block-id]');
+    if (!wrapper || !canvas.contains(wrapper)) return null;
+    const block = findBlock(wrapper.dataset.blockId);
+    if (!block) return null;
+    const visibleBlocks = documentSnapshot.blocks.filter((candidate) => (
+      candidate.type !== 'paragraph' || candidate.text !== ''
+    ));
+    const visibleIndex = visibleBlocks.findIndex((candidate) => candidate.id === block.id);
+    const selection = window.getSelection();
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    const hasSelection = Boolean(
+      range
+      && !selection.isCollapsed
+      && canvas.contains(range.commonAncestorContainer)
+    );
+    return Object.freeze({
+      blockId: block.id,
+      blockType: block.type,
+      hasSelection,
+      selectionText: hasSelection ? selection.toString() : '',
+      canMoveUp: visibleIndex > 0,
+      canMoveDown: visibleIndex >= 0 && visibleIndex < visibleBlocks.length - 1,
+      canDelete: !(documentSnapshot.blocks.length === 1 && block.text === ''),
+    });
+  };
+
+  const performBlockAction = (id, action) => {
+    if (action === 'move-up') return moveBlock(id, -1);
+    if (action === 'move-down') return moveBlock(id, 1);
+    if (action === 'duplicate') return duplicateBlock(id);
+    if (action === 'delete') return removeBlock(id);
+    return false;
   };
 
   const updateBlockFromElement = (wrapper) => {
@@ -239,7 +277,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     add.tabIndex = -1;
     add.dataset.addBlock = '';
     add.setAttribute('aria-label', `Add block after ${editorBlockLabel(block.type)}`);
-    add.title = 'Add block';
+    add.dataset.tooltip = 'Add block';
     const addIcon = document.createElement('i');
     addIcon.className = 'iconoir-plus';
     addIcon.setAttribute('aria-hidden', 'true');
@@ -251,7 +289,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     menu.dataset.blockMenu = '';
     menu.draggable = !isSpacer;
     menu.setAttribute('aria-label', `Options for ${editorBlockLabel(block.type)} block ${index + 1}`);
-    menu.title = isSpacer ? 'Open block options' : 'Drag or open block options';
+    menu.dataset.tooltip = isSpacer ? 'Open block options' : 'Drag or open block options';
     const menuIcon = document.createElement('i');
     menuIcon.className = 'iconoir-menu-scale';
     menuIcon.setAttribute('aria-hidden', 'true');
@@ -657,12 +695,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     },
     hooks: {
       onCommand: applyBlockType,
-      onBlockAction: (id, action) => {
-        if (action === 'move-up') moveBlock(id, -1);
-        if (action === 'move-down') moveBlock(id, 1);
-        if (action === 'duplicate') duplicateBlock(id);
-        if (action === 'delete') removeBlock(id);
-      },
+      onBlockAction: performBlockAction,
     },
   });
   overlayController.start();
@@ -733,6 +766,10 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     isDirty: dirty,
     current: snapshot,
     source,
+    contextFor,
+    applyInlineCommand: (command) => selectionController?.applyFromCurrentSelection(command) || false,
+    openLinkFromSelection: () => selectionController?.openLinkFromCurrentSelection() || false,
+    performBlockAction,
     dispose() {
       disposed = true;
       overlayController?.dispose();

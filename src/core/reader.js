@@ -445,7 +445,14 @@ export function getThemeTokens(theme = {}) {
     codeBackground = background;
   }
 
-  const codeText = chooseAccessibleColor([theme.foreground, text], codeBackground);
+  const isLightCodeSurface = !isColorDark(codeBackground);
+  const codeTextMinimum = isLightCodeSurface ? 7 : 4.5;
+  const syntaxMinimum = isLightCodeSurface ? 6 : 4.5;
+  const codeText = chooseAccessibleColor(
+    [theme.foreground, text],
+    codeBackground,
+    codeTextMinimum,
+  );
 
   return {
     background,
@@ -460,15 +467,15 @@ export function getThemeTokens(theme = {}) {
     shadow: isColorDark(background) ? 'rgba(0, 0, 0, 0.42)' : 'rgba(15, 23, 42, 0.16)',
     codeBackground,
     codeText,
-    syntaxComment: chooseAdaptiveColor([theme.color_08, quote, text], codeBackground),
-    syntaxKeyword: chooseAdaptiveColor([theme.color_06, theme.color_05, accent, text], codeBackground),
-    syntaxString: chooseAdaptiveColor([theme.color_03, theme.color_07, accent, text], codeBackground),
-    syntaxNumber: chooseAdaptiveColor([theme.color_02, theme.color_06, danger, text], codeBackground),
-    syntaxTitle: chooseAdaptiveColor([theme.color_05, theme.color_07, accent, text], codeBackground),
-    syntaxProperty: chooseAdaptiveColor([theme.color_07, theme.color_05, accent, text], codeBackground),
-    syntaxMeta: chooseAdaptiveColor([theme.color_06, theme.color_02, accent, text], codeBackground),
-    syntaxAddition: chooseAdaptiveColor([theme.color_03, theme.color_07, text], codeBackground),
-    syntaxDeletion: chooseAdaptiveColor([theme.color_02, danger, text], codeBackground),
+    syntaxComment: chooseAdaptiveColor([theme.color_08, quote, text], codeBackground, syntaxMinimum),
+    syntaxKeyword: chooseAdaptiveColor([theme.color_06, theme.color_05, accent, text], codeBackground, syntaxMinimum),
+    syntaxString: chooseAdaptiveColor([theme.color_03, theme.color_07, accent, text], codeBackground, syntaxMinimum),
+    syntaxNumber: chooseAdaptiveColor([theme.color_02, theme.color_06, danger, text], codeBackground, syntaxMinimum),
+    syntaxTitle: chooseAdaptiveColor([theme.color_05, theme.color_07, accent, text], codeBackground, syntaxMinimum),
+    syntaxProperty: chooseAdaptiveColor([theme.color_07, theme.color_05, accent, text], codeBackground, syntaxMinimum),
+    syntaxMeta: chooseAdaptiveColor([theme.color_06, theme.color_02, accent, text], codeBackground, syntaxMinimum),
+    syntaxAddition: chooseAdaptiveColor([theme.color_03, theme.color_07, text], codeBackground, syntaxMinimum),
+    syntaxDeletion: chooseAdaptiveColor([theme.color_02, danger, text], codeBackground, syntaxMinimum),
   };
 }
 

@@ -11,6 +11,7 @@ import {
   getEstimatedMinutesRemaining,
   getFileKind,
   getLinkAction,
+  getThemeTokens,
   getStatusMetricParts,
   getViewportMode,
   getZoomStatusMetric,
@@ -32,6 +33,8 @@ import { createDocumentModeCoordinator } from './document-mode-coordinator.js';
 import { createToastPresenter } from './toast-presenter.js';
 import { createThemeCoordinator } from './theme-coordinator.js';
 import { createWindowChrome } from './window-chrome.js';
+import { createContextMenuController } from './context-menu-controller.js';
+import { createTooltipController } from './tooltip-controller.js';
 
 let currentZoom = 1;
 const ZOOM_STEP = 0.1;
@@ -59,6 +62,8 @@ let documentModeCoordinator = null;
 let readingNavigation = null;
 let toastPresenter = null;
 let themeCoordinator = null;
+let contextMenuController = null;
+let tooltipController = null;
 let syntaxHighlighterPromise = null;
 
 const ui = {
@@ -178,7 +183,7 @@ function updateWindowTitle(filePath = null) {
   document.title = visibleTitle === 'Ready' ? 'open.md' : `open.md — ${visibleTitle}`;
   if (ui.windowFileTitle) {
     ui.windowFileTitle.textContent = visibleTitle;
-    ui.windowFileTitle.title = visibleTitle;
+    ui.windowFileTitle.dataset.tooltip = visibleTitle;
   }
 }
 
@@ -219,10 +224,10 @@ function setStatusText(primary, context = '', title = [primary, context].filter(
   if (!primaryElement) return;
 
   primaryElement.textContent = primary;
-  primaryElement.title = title;
+  primaryElement.dataset.tooltip = title;
   if (contextElement) {
     contextElement.textContent = context;
-    contextElement.title = title;
+    contextElement.dataset.tooltip = title;
   }
 }
 function updateStatus(filePath = null) {
@@ -307,11 +312,11 @@ function renderStatusMetricItems(items, accessibleLabel) {
   }
   ui.statusMetrics.hidden = nodes.length === 0;
   if (nodes.length === 0) {
-    ui.statusMetrics.removeAttribute('title');
+    delete ui.statusMetrics.dataset.tooltip;
     ui.statusMetrics.removeAttribute('aria-label');
     return;
   }
-  ui.statusMetrics.title = accessibleLabel;
+  ui.statusMetrics.dataset.tooltip = accessibleLabel;
   ui.statusMetrics.setAttribute('aria-label', accessibleLabel);
 }
 
@@ -404,7 +409,7 @@ function updateFontControls() {
     if (button) {
       const label = `${kindLabel} font: ${current.name}. Activate for ${next.name}`;
       button.setAttribute('aria-label', label);
-      button.title = label;
+      button.dataset.tooltip = label;
     }
   }
 }
@@ -443,7 +448,7 @@ function setTypographyOpen(nextOpen, { returnFocus = false } = {}) {
   if (ui.typographyButton) {
     const label = isTypographyOpen ? 'Close appearance options' : 'Open appearance options';
     ui.typographyButton.setAttribute('aria-label', label);
-    ui.typographyButton.title = label;
+    ui.typographyButton.dataset.tooltip = label;
   }
 
   if (ui.typographyPanel) {
@@ -461,7 +466,7 @@ function updateAutoSaveControl() {
   if (ui.autoSaveToggle) {
     const label = `Auto-save: ${isAutoSaveEnabled ? 'on' : 'off'}`;
     ui.autoSaveToggle.setAttribute('aria-label', label);
-    ui.autoSaveToggle.title = label;
+    ui.autoSaveToggle.dataset.tooltip = label;
   }
 }
 
@@ -478,7 +483,7 @@ function updateAlwaysOnTopControl() {
   ui.alwaysOnTopButton?.setAttribute('aria-checked', String(isAlwaysOnTop));
   if (ui.alwaysOnTopButton) {
     ui.alwaysOnTopButton.setAttribute('aria-label', label);
-    ui.alwaysOnTopButton.title = label;
+    ui.alwaysOnTopButton.dataset.tooltip = label;
   }
 }
 
@@ -513,7 +518,7 @@ function setReadingToolsOpen(nextOpen, { returnFocus = false } = {}) {
   if (ui.readingToolsButton) {
     const label = isReadingToolsOpen ? 'Close view options' : 'Open view options';
     ui.readingToolsButton.setAttribute('aria-label', label);
-    ui.readingToolsButton.title = label;
+    ui.readingToolsButton.dataset.tooltip = label;
   }
 
   if (ui.readingToolsPanel) {
@@ -632,7 +637,7 @@ function syncViewportState() {
   if (ui.helpToggleButton) {
     const helpLabel = mode === 'help' ? 'Close About and Help' : 'Open About and Help';
     ui.helpToggleButton.setAttribute('aria-label', helpLabel);
-    ui.helpToggleButton.title = `${helpLabel} (F1)`;
+    ui.helpToggleButton.dataset.tooltip = `${helpLabel} (F1)`;
   }
 }
 
@@ -694,7 +699,10 @@ async function initThemes() {
       },
       hooks: {
         shouldPrepareDiagrams: () => Boolean(currentFilePath && ui.content?.querySelector('.mermaid')),
-        prepareDiagrams: (diagramTheme) => readerShell?.prepareAppearance({ diagramTheme }),
+        prepareDiagrams: (diagramTheme, diagramTokens) => readerShell?.prepareAppearance({
+          diagramTheme,
+          diagramTokens,
+        }),
         persist: (themeName) => readerShell.preferences.update({ themeName }),
         onPersistResult: reportPreferenceResult,
         notify: showToast,
@@ -784,6 +792,11 @@ function handleDocumentSessionState(snapshot) {
 
 function activeDiagramTheme() {
   return themeCoordinator?.diagramTheme() || 'default';
+}
+
+function activeDiagramTokens() {
+  const theme = themeCoordinator?.current();
+  return theme ? getThemeTokens(theme) : null;
 }
 
 async function highlightDocumentCode(container) {
@@ -876,6 +889,7 @@ function mountApplicationReaderShell() {
     },
     hooks: {
       getDiagramTheme: activeDiagramTheme,
+      getDiagramTokens: activeDiagramTokens,
       isSourceActive: isSourceViewActive,
       chooseAnotherFile: openFilePicker,
       onDocumentCommitted: ({ path, document: openedDocument }) => {
@@ -897,6 +911,7 @@ function mountApplicationReaderShell() {
 function handleEditorState(snapshot) {
   const nextEditMode = snapshot.mode === 'edit';
   const modeChanged = nextEditMode !== isEditMode;
+  if (modeChanged) contextMenuController?.close({ immediate: true });
   isEditMode = nextEditMode;
   document.body.classList.toggle('is-edit-mode', isEditMode);
   document.body.classList.toggle('has-unsaved-changes', snapshot.dirty);
@@ -939,7 +954,7 @@ function handleEditorState(snapshot) {
             : 'Saved';
   }
   if (ui.editorSaveButton) {
-    ui.editorSaveButton.title = snapshot.saveState === 'error'
+    ui.editorSaveButton.dataset.tooltip = snapshot.saveState === 'error'
       ? `Save failed: ${snapshot.error}. Activate to retry.`
       : snapshot.dirty
         ? 'Unsaved changes · Save now (Ctrl+S)'
@@ -1104,6 +1119,280 @@ function handleReadTaskToggle(event) {
     sourceLine,
     checked: checkbox.checked,
   });
+}
+
+function selectedTextWithin(root) {
+  const selection = window.getSelection();
+  if (!root || !selection || selection.rangeCount === 0 || selection.isCollapsed) return '';
+  const range = selection.getRangeAt(0);
+  return root.contains(range.commonAncestorContainer) ? selection.toString() : '';
+}
+
+function selectContents(element) {
+  if (!element) return;
+  const range = document.createRange();
+  range.selectNodeContents(element);
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+  element.focus?.({ preventScroll: true });
+}
+
+async function writeClipboardText(value, successMessage) {
+  const text = String(value ?? '');
+  try {
+    if (typeof navigator.clipboard?.writeText === 'function') {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const active = document.activeElement;
+      const selection = window.getSelection();
+      const ranges = selection
+        ? Array.from({ length: selection.rangeCount }, (_, index) => selection.getRangeAt(index).cloneRange())
+        : [];
+      const helper = document.createElement('textarea');
+      helper.className = 'clipboard-helper';
+      helper.value = text;
+      helper.setAttribute('aria-hidden', 'true');
+      document.body.append(helper);
+      helper.select();
+      const copied = document.execCommand?.('copy');
+      helper.remove();
+      selection?.removeAllRanges();
+      ranges.forEach((range) => selection?.addRange(range));
+      active?.focus?.({ preventScroll: true });
+      if (!copied) throw new Error('Clipboard access is unavailable');
+    }
+    showToast(successMessage);
+    return true;
+  } catch (error) {
+    console.error('Could not write to the clipboard:', error);
+    showToast('Could not copy to the clipboard');
+    return false;
+  }
+}
+
+async function pasteClipboardText() {
+  try {
+    if (typeof navigator.clipboard?.readText !== 'function') {
+      throw new Error('Clipboard reading is unavailable');
+    }
+    const text = await navigator.clipboard.readText();
+    if (!document.execCommand?.('insertText', false, text)) {
+      throw new Error('The active editor did not accept pasted text');
+    }
+    showToast('Pasted');
+  } catch (error) {
+    console.error('Could not paste from the clipboard:', error);
+    showToast('Could not paste from the clipboard');
+  }
+}
+
+function editContextItems(target) {
+  const context = editorSession?.contextFor(target);
+  if (!context) return null;
+  const wrapper = target.closest('[data-block-id]');
+  const blockText = wrapper?.querySelector('[data-editor-content]')?.innerText || '';
+  const items = [];
+
+  if (context.hasSelection) {
+    items.push(
+      {
+        id: 'copy-selection',
+        label: 'Copy selection',
+        icon: 'iconoir-copy',
+        shortcut: 'Ctrl+C',
+        onSelect: () => writeClipboardText(context.selectionText, 'Selection copied'),
+      },
+      {
+        id: 'cut-selection',
+        label: 'Cut selection',
+        icon: 'iconoir-edit-pencil',
+        shortcut: 'Ctrl+X',
+        onSelect: () => {
+          if (!document.execCommand?.('cut')) showToast('Could not cut the selection');
+        },
+      },
+      { type: 'separator' },
+      { id: 'bold', label: 'Bold', icon: 'iconoir-bold', onSelect: () => editorSession.applyInlineCommand('bold') },
+      { id: 'italic', label: 'Italic', icon: 'iconoir-italic', onSelect: () => editorSession.applyInlineCommand('italic') },
+      { id: 'strike', label: 'Strikethrough', icon: 'iconoir-text', onSelect: () => editorSession.applyInlineCommand('strike') },
+      { id: 'inline-code', label: 'Inline code', icon: 'iconoir-code', onSelect: () => editorSession.applyInlineCommand('code') },
+      { id: 'link', label: 'Add link', icon: 'iconoir-link', shortcut: 'Ctrl+K', onSelect: () => editorSession.openLinkFromSelection() },
+    );
+  } else {
+    items.push({
+      id: 'copy-block',
+      label: 'Copy block',
+      icon: 'iconoir-copy',
+      onSelect: () => writeClipboardText(blockText, 'Block copied'),
+    });
+  }
+
+  items.push(
+    {
+      id: 'paste',
+      label: 'Paste text',
+      icon: 'iconoir-page-down',
+      shortcut: 'Ctrl+V',
+      onSelect: pasteClipboardText,
+    },
+    { type: 'separator' },
+    {
+      id: 'move-up',
+      label: 'Move block up',
+      icon: 'iconoir-arrow-up',
+      shortcut: 'Alt+Shift+↑',
+      disabled: !context.canMoveUp,
+      onSelect: () => editorSession.performBlockAction(context.blockId, 'move-up'),
+    },
+    {
+      id: 'move-down',
+      label: 'Move block down',
+      icon: 'iconoir-arrow-down',
+      shortcut: 'Alt+Shift+↓',
+      disabled: !context.canMoveDown,
+      onSelect: () => editorSession.performBlockAction(context.blockId, 'move-down'),
+    },
+    {
+      id: 'duplicate',
+      label: 'Duplicate block',
+      icon: 'iconoir-copy',
+      onSelect: () => editorSession.performBlockAction(context.blockId, 'duplicate'),
+    },
+    {
+      id: 'delete',
+      label: 'Delete block',
+      icon: 'iconoir-trash',
+      danger: true,
+      disabled: !context.canDelete,
+      onSelect: () => editorSession.performBlockAction(context.blockId, 'delete'),
+    },
+  );
+
+  return {
+    label: `${context.blockType} block actions`,
+    context,
+    items,
+  };
+}
+
+function readContextItems(target) {
+  if (!ui.content?.contains(target)) return null;
+  const selectedText = selectedTextWithin(ui.content);
+  const link = target.closest('a[href]');
+  const code = target.closest('pre')?.querySelector('code');
+  const checkbox = target.closest('input[type="checkbox"][data-source-line]');
+  const image = target.closest('img');
+  const diagram = target.closest('.mermaid[data-mermaid-source]');
+  const table = target.closest('table');
+  const items = [];
+
+  if (selectedText) {
+    items.push({
+      id: 'copy-selection',
+      label: 'Copy selection',
+      icon: 'iconoir-copy',
+      shortcut: 'Ctrl+C',
+      onSelect: () => writeClipboardText(selectedText, 'Selection copied'),
+    });
+  }
+  if (link) {
+    if (items.length) items.push({ type: 'separator' });
+    items.push(
+      { id: 'open-link', label: 'Open link', icon: 'iconoir-link', onSelect: () => link.click() },
+      { id: 'copy-link', label: 'Copy link', icon: 'iconoir-copy', onSelect: () => writeClipboardText(link.href, 'Link copied') },
+    );
+  } else if (code) {
+    if (items.length) items.push({ type: 'separator' });
+    items.push({ id: 'copy-code', label: 'Copy code', icon: 'iconoir-code', onSelect: () => writeClipboardText(code.innerText, 'Code copied') });
+  } else if (checkbox) {
+    if (items.length) items.push({ type: 'separator' });
+    items.push({
+      id: 'toggle-task',
+      label: checkbox.checked ? 'Mark task incomplete' : 'Mark task complete',
+      icon: 'iconoir-check-square',
+      onSelect: () => checkbox.click(),
+    });
+  } else if (diagram) {
+    if (items.length) items.push({ type: 'separator' });
+    items.push(
+      {
+        id: 'copy-diagram-source',
+        label: 'Copy diagram source',
+        icon: 'iconoir-code',
+        onSelect: () => writeClipboardText(diagram.dataset.mermaidSource, 'Diagram source copied'),
+      },
+      {
+        id: 'copy-diagram-svg',
+        label: 'Copy diagram SVG',
+        icon: 'iconoir-copy',
+        onSelect: () => writeClipboardText(diagram.querySelector('svg')?.outerHTML || '', 'Diagram SVG copied'),
+      },
+    );
+  } else if (table) {
+    if (items.length) items.push({ type: 'separator' });
+    items.push({
+      id: 'copy-table',
+      label: 'Copy table',
+      icon: 'iconoir-copy',
+      onSelect: () => writeClipboardText(table.innerText, 'Table copied'),
+    });
+  } else if (image) {
+    const source = image.dataset.documentSource || image.getAttribute('src');
+    if (items.length) items.push({ type: 'separator' });
+    if (source) items.push({ id: 'copy-image-source', label: 'Copy image source', icon: 'iconoir-copy', onSelect: () => writeClipboardText(source, 'Image source copied') });
+    if (image.alt) items.push({ id: 'copy-image-description', label: 'Copy image description', icon: 'iconoir-text', onSelect: () => writeClipboardText(image.alt, 'Image description copied') });
+  }
+
+  if (items.length) items.push({ type: 'separator' });
+  items.push(
+    { id: 'copy-document', label: 'Copy document', icon: 'iconoir-copy', onSelect: () => writeClipboardText(ui.content.innerText, 'Document copied') },
+    { id: 'select-document', label: 'Select all', icon: 'iconoir-page', shortcut: 'Ctrl+A', onSelect: () => selectContents(ui.content) },
+  );
+  return { label: 'Reading actions', items };
+}
+
+function sourceContextItems(target) {
+  if (!ui.sourceView?.contains(target)) return null;
+  const selectedText = selectedTextWithin(ui.sourceView);
+  return {
+    label: 'Source actions',
+    items: [
+      ...(selectedText ? [{ id: 'copy-selection', label: 'Copy selection', icon: 'iconoir-copy', shortcut: 'Ctrl+C', onSelect: () => writeClipboardText(selectedText, 'Selection copied') }, { type: 'separator' }] : []),
+      { id: 'copy-source', label: 'Copy source', icon: 'iconoir-code', onSelect: () => writeClipboardText(currentDocument?.source || ui.sourceContent?.textContent || '', 'Source copied') },
+      { id: 'select-source', label: 'Select all', icon: 'iconoir-page', shortcut: 'Ctrl+A', onSelect: () => selectContents(ui.sourceContent) },
+    ],
+  };
+}
+
+function resolveDocumentContextMenu({ target }) {
+  if (!(target instanceof Element) || isHelpVisible || !hasLoadedDocument()) return null;
+  if (isEditMode) return editContextItems(target);
+  if (isSourceViewActive()) return sourceContextItems(target);
+  return readContextItems(target);
+}
+
+function mountContextMenu() {
+  contextMenuController = createContextMenuController({
+    window,
+    document,
+    resolveContext: resolveDocumentContextMenu,
+    hooks: {
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  });
+  contextMenuController.start();
+}
+
+function mountTooltips() {
+  tooltipController = createTooltipController({
+    window,
+    document,
+    hooks: {
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  });
+  tooltipController.start();
 }
 
 function handleLinkClick(event) {
@@ -1370,6 +1659,8 @@ function registerEvents() {
     documentSaveCoordinator?.dispose();
     themeCoordinator?.dispose();
     toastPresenter?.dispose();
+    contextMenuController?.dispose();
+    tooltipController?.dispose();
     responsiveTypography?.dispose();
     readerShell?.dispose();
     editorSession?.dispose();
@@ -1407,6 +1698,7 @@ function registerEvents() {
 
 async function init() {
   cacheElements();
+  mountTooltips();
   responsiveTypography = createResponsiveTypography({
     window,
     root: document,
@@ -1417,6 +1709,7 @@ async function init() {
   mountDocumentSaveCoordinator();
   mountDocumentModeCoordinator();
   mountReadingNavigation();
+  mountContextMenu();
   const preferenceResult = await readerShell.preferences.load();
   if (preferenceResult.status === 'fallback') {
     console.warn('One or more saved preferences could not be restored:', preferenceResult.warnings);
