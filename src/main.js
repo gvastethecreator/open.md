@@ -8,6 +8,7 @@ import allThemes from './themes.runtime.json';
 import {
   calculateNewZoom,
   getCurrentLineFromAnchors,
+  getDocumentModePresentation,
   getDisplayName,
   getEstimatedMinutesRemaining,
   getFileKind,
@@ -69,6 +70,7 @@ let windowChromeUnlisteners = [];
 let readerShell = null;
 let editorSession = null;
 let isEditMode = false;
+let isCyclingDocumentMode = false;
 
 const ui = {
   windowFileTitle: null,
@@ -96,7 +98,6 @@ const ui = {
   toast: null,
   toolbar: null,
   toolbarActions: null,
-  actionsToggleButton: null,
   statusPrimary: null,
   statusContext: null,
   statusMetrics: null,
@@ -118,6 +119,7 @@ const ui = {
   editorCommandMenu: null,
   editorBlockMenu: null,
   editorInlineToolbar: null,
+  editorCaretEcho: null,
   editorLinkPopover: null,
   editorLinkInput: null,
   editorLinkApply: null,
@@ -151,7 +153,6 @@ function cacheElements() {
   ui.toast = document.getElementById('toast');
   ui.toolbar = document.getElementById('app-toolbar');
   ui.toolbarActions = document.getElementById('toolbar-actions');
-  ui.actionsToggleButton = document.getElementById('actions-toggle-button');
   ui.statusPrimary = document.getElementById('status-pill');
   ui.statusContext = document.getElementById('status-context');
   ui.statusMetrics = document.getElementById('status-metrics');
@@ -173,6 +174,7 @@ function cacheElements() {
   ui.editorCommandMenu = document.getElementById('editor-command-menu');
   ui.editorBlockMenu = document.getElementById('editor-block-menu');
   ui.editorInlineToolbar = document.getElementById('editor-inline-toolbar');
+  ui.editorCaretEcho = document.getElementById('editor-caret-echo');
   ui.editorLinkPopover = document.getElementById('editor-link-popover');
   ui.editorLinkInput = document.getElementById('editor-link-input');
   ui.editorLinkApply = document.getElementById('editor-link-apply');
@@ -547,6 +549,7 @@ function applyReadingTools() {
   document.body.classList.toggle('is-source-view', sourceActive);
   document.body.classList.toggle('is-line-guide', lineGuideActive);
   document.body.classList.toggle('is-minimap', minimapActive);
+  updateDocumentModeControl();
   ui.content?.classList.toggle('hidden', sourceActive || isEditMode);
   ui.sourceView?.classList.toggle('hidden', !sourceActive);
 
@@ -662,7 +665,6 @@ function setHelpVisible(nextVisible, { manageFocus = true } = {}) {
   syncViewportState();
   updateStatus(currentFilePath);
   updateWindowTitle(currentFilePath);
-  setActionsPinned(false);
 
   if (nextVisible) {
     ui.helpStage?.scrollTo({ top: 0, behavior: 'auto' });
@@ -937,6 +939,49 @@ function mountApplicationReaderShell() {
   });
 }
 
+function getActiveDocumentMode() {
+  if (isEditMode) return 'edit';
+  return isSourceViewActive() ? 'source' : 'read';
+}
+
+function replayOneShotAnimation(element, className) {
+  if (!element || !className) return;
+  element.classList.remove(className);
+  requestAnimationFrame(() => {
+    if (!element.isConnected) return;
+    element.classList.add(className);
+    element.addEventListener('animationend', () => element.classList.remove(className), { once: true });
+  });
+}
+
+function updateDocumentModeControl({ forceAnimation = false } = {}) {
+  if (!ui.editModeButton) return;
+  const presentation = getDocumentModePresentation(getActiveDocumentMode());
+  const previousMode = ui.editModeButton.dataset.mode;
+  const available = hasLoadedDocument();
+
+  ui.editModeButton.disabled = !available;
+  ui.editModeButton.dataset.mode = presentation.mode;
+  ui.editModeButton.setAttribute('aria-label', available
+    ? presentation.ariaLabel
+    : 'Open a file to change document mode');
+  ui.editModeButton.title = available
+    ? `${presentation.title} · Ctrl+Shift+E toggles Read/Edit`
+    : 'Open a file to change document mode';
+
+  const icon = ui.editModeButton.querySelector('i');
+  if (icon) {
+    icon.className = presentation.iconClass;
+    if (
+      !isCyclingDocumentMode
+      && (forceAnimation || (previousMode && previousMode !== presentation.mode))
+    ) {
+      replayOneShotAnimation(icon, 'is-mode-changing');
+    }
+  }
+  if (ui.editModeLabel) ui.editModeLabel.textContent = `${presentation.label} mode`;
+}
+
 function handleEditorState(snapshot) {
   const nextEditMode = snapshot.mode === 'edit';
   const modeChanged = nextEditMode !== isEditMode;
@@ -946,15 +991,7 @@ function handleEditorState(snapshot) {
   document.body.classList.toggle('is-editor-saving', snapshot.saveState === 'saving');
   document.body.classList.toggle('has-editor-save-error', snapshot.saveState === 'error');
 
-  if (ui.editModeButton) {
-    ui.editModeButton.disabled = !snapshot.path;
-    ui.editModeButton.setAttribute('aria-pressed', String(isEditMode));
-    ui.editModeButton.setAttribute('aria-label', isEditMode ? 'Return to read mode' : 'Enter edit mode');
-    ui.editModeButton.title = `${isEditMode ? 'Read document' : 'Edit document'} (Ctrl+Shift+E)`;
-    const icon = ui.editModeButton.querySelector('i');
-    if (icon) icon.className = isEditMode ? 'iconoir-book' : 'iconoir-edit-pencil';
-  }
-  if (ui.editModeLabel) ui.editModeLabel.textContent = isEditMode ? 'Read' : 'Edit';
+  updateDocumentModeControl();
 
   if (ui.editorSaveButton) {
     ui.editorSaveButton.hidden = !isEditMode;
@@ -1006,6 +1043,7 @@ function mountApplicationEditor() {
       commandMenu: ui.editorCommandMenu,
       blockMenu: ui.editorBlockMenu,
       inlineToolbar: ui.editorInlineToolbar,
+      caretEcho: ui.editorCaretEcho,
       linkPopover: ui.editorLinkPopover,
       linkInput: ui.editorLinkInput,
       linkApply: ui.editorLinkApply,
@@ -1034,11 +1072,35 @@ async function toggleEditMode() {
   setHelpVisible(false);
   setReadingToolsOpen(false);
   setTypographyOpen(false);
-  setActionsPinned(false);
   if (!editorSession.isEditing() && readingTools.source) {
     await setReadingTool('source', false);
   }
   editorSession.toggle();
+}
+
+async function cycleDocumentMode() {
+  if (!editorSession || !currentFilePath) return;
+  const initialMode = getActiveDocumentMode();
+  setHelpVisible(false);
+  setReadingToolsOpen(false);
+  setTypographyOpen(false);
+  isCyclingDocumentMode = true;
+
+  try {
+    if (initialMode === 'edit') {
+      if (!editorSession.exit()) return;
+      await setReadingTool('source', true);
+      return;
+    }
+    if (initialMode === 'source') {
+      await setReadingTool('source', false);
+      return;
+    }
+    editorSession.enter();
+  } finally {
+    isCyclingDocumentMode = false;
+    updateDocumentModeControl({ forceAnimation: getActiveDocumentMode() !== initialMode });
+  }
 }
 
 async function saveEditedDocument() {
@@ -1436,20 +1498,6 @@ function scrollToTop() {
   });
 }
 
-function setActionsPinned(nextPinned) {
-  document.body.classList.toggle('is-actions-pinned', nextPinned);
-  ui.actionsToggleButton?.setAttribute('aria-expanded', String(nextPinned));
-  if (ui.actionsToggleButton) {
-    const label = nextPinned ? 'Hide actions' : 'Show actions';
-    ui.actionsToggleButton.setAttribute('aria-label', label);
-    ui.actionsToggleButton.title = label;
-  }
-}
-
-function toggleActions() {
-  setActionsPinned(!document.body.classList.contains('is-actions-pinned'));
-}
-
 function toggleReadingTools() {
   setReadingToolsOpen(!isReadingToolsOpen);
 }
@@ -1465,17 +1513,6 @@ function handleFontCycle(event) {
 function handleReadingToolToggle(event) {
   const tool = event.currentTarget.dataset.readingTool;
   setReadingTool(tool, event.currentTarget.getAttribute('aria-checked') !== 'true');
-}
-
-function setupActionRevealMode() {
-  if (!ui.actionsToggleButton || !window.matchMedia) return;
-  const hoverQuery = window.matchMedia('(hover: hover)');
-  const syncToggle = () => {
-    ui.actionsToggleButton.hidden = hoverQuery.matches;
-    if (hoverQuery.matches) setActionsPinned(false);
-  };
-  syncToggle();
-  hoverQuery.addEventListener?.('change', syncToggle);
 }
 
 function handleKeyboard(event) {
@@ -1515,12 +1552,6 @@ function handleKeyboard(event) {
     return;
   }
 
-  if (event.key === 'Escape' && document.body.classList.contains('is-actions-pinned')) {
-    event.preventDefault();
-    setActionsPinned(false);
-    return;
-  }
-
   if (event.ctrlKey && event.key.toLowerCase() === 'o') {
     event.preventDefault();
     openFilePicker();
@@ -1555,7 +1586,6 @@ function handleThemeSelection(event) {
   if (!isNaN(index) && index >= 0 && index < themes.length) {
     applyTheme(themes[index]);
     setReadingToolsOpen(false);
-    setActionsPinned(false);
   }
 }
 
@@ -1598,7 +1628,6 @@ async function setupFileAssociationEvents() {
 async function openFilePicker() {
   if (editorSession && !editorSession.canChangeDocument()) return;
   setReadingToolsOpen(false);
-  setActionsPinned(false);
   try {
     const selected = await open({
       multiple: true,
@@ -1694,12 +1723,6 @@ function registerEvents() {
     if (isTypographyOpen && !ui.typographyShell?.contains(event.target)) {
       setTypographyOpen(false);
     }
-    if (
-      document.body.classList.contains('is-actions-pinned')
-      && !ui.toolbar?.contains(event.target)
-    ) {
-      setActionsPinned(false);
-    }
   });
 
   ui.emptyOpenButton?.addEventListener('click', openFilePicker);
@@ -1709,11 +1732,10 @@ function registerEvents() {
   ui.scrollToTop?.addEventListener('click', scrollToTop);
   ui.readerPage?.addEventListener('scroll', handleScroll, { passive: true });
   ui.helpStage?.addEventListener('scroll', handleScroll, { passive: true });
-  ui.actionsToggleButton?.addEventListener('click', toggleActions);
   ui.readingToolsButton?.addEventListener('click', toggleReadingTools);
   ui.typographyButton?.addEventListener('click', toggleTypography);
   ui.alwaysOnTopButton?.addEventListener('click', toggleAlwaysOnTop);
-  ui.editModeButton?.addEventListener('click', toggleEditMode);
+  ui.editModeButton?.addEventListener('click', cycleDocumentMode);
   ui.editorSaveButton?.addEventListener('click', saveEditedDocument);
   ui.readingToolToggles.forEach((toggle) => {
     toggle.addEventListener('click', handleReadingToolToggle);
@@ -1741,7 +1763,6 @@ async function init() {
   registerEvents();
   await setupFileAssociationEvents();
   await setupWindowChrome();
-  setupActionRevealMode();
   setupReadingResizeObserver();
   await initThemes();
   const queryFilePath = new URLSearchParams(window.location.search).get('file');

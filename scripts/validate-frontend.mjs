@@ -87,7 +87,6 @@ const requiredAccessibleControls = [
   'id="toolbar-open-button"',
   'id="help-toggle-button"',
   'id="close-help-button"',
-  'id="actions-toggle-button"',
   'id="reading-tools-button"',
   'id="reading-tools-panel"',
   'id="typography-button"',

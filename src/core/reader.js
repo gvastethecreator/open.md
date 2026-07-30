@@ -224,6 +224,28 @@ export function getWindowControlPresentation(isMaximized) {
     : { label: 'Maximize', iconClass: 'iconoir-square' };
 }
 
+const DOCUMENT_MODE_PRESENTATIONS = Object.freeze({
+  read: Object.freeze({ label: 'Read', iconClass: 'iconoir-book', nextMode: 'edit' }),
+  edit: Object.freeze({ label: 'Edit', iconClass: 'iconoir-edit-pencil', nextMode: 'source' }),
+  source: Object.freeze({ label: 'Source', iconClass: 'iconoir-code', nextMode: 'read' }),
+});
+
+export function getDocumentModePresentation(mode) {
+  const normalizedMode = Object.hasOwn(DOCUMENT_MODE_PRESENTATIONS, mode) ? mode : 'read';
+  const current = DOCUMENT_MODE_PRESENTATIONS[normalizedMode];
+  const next = DOCUMENT_MODE_PRESENTATIONS[current.nextMode];
+
+  return {
+    mode: normalizedMode,
+    label: current.label,
+    iconClass: current.iconClass,
+    nextMode: current.nextMode,
+    nextLabel: next.label,
+    ariaLabel: `${current.label} mode. Switch to ${next.label} mode`,
+    title: `${current.label} mode · Next: ${next.label}`,
+  };
+}
+
 export function getVisibleSourceLineRange({ scrollTop, clientHeight, lineHeight, paddingTop, lineCount }) {
   const safeLineHeight = Math.max(1, Number(lineHeight) || 1);
   const safeLineCount = Math.max(1, Math.floor(Number(lineCount) || 1));

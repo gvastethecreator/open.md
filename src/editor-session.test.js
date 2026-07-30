@@ -32,6 +32,7 @@ function mount(save = vi.fn(async () => ({ source: '' }))) {
       commandMenu: document.getElementById('editor-command-menu'),
       blockMenu: document.getElementById('editor-block-menu'),
       inlineToolbar: document.getElementById('editor-inline-toolbar'),
+      caretEcho: document.getElementById('editor-caret-echo'),
       linkPopover: document.getElementById('editor-link-popover'),
       linkInput: document.getElementById('editor-link-input'),
       linkApply: document.getElementById('editor-link-apply'),
@@ -174,6 +175,100 @@ describe('editor session', () => {
     expect(session.exit()).toBe(false);
     expect(session.current().mode).toBe('edit');
     expect(confirm).toHaveBeenCalledOnce();
+  });
+
+  it('echoes collapsed caret movement at the rendered selection geometry', async () => {
+    const { session } = mount();
+    session.setDocument({ path: 'sample.md', source: 'Before', markdown: true });
+    session.enter();
+    await Promise.resolve();
+    const content = document.querySelector('[data-editor-content]');
+    const range = {
+      startContainer: content.firstChild,
+      commonAncestorContainer: content.firstChild,
+      getClientRects: () => [{ left: 120, top: 40, width: 0, height: 22 }],
+    };
+    vi.spyOn(window, 'getSelection').mockReturnValue({
+      rangeCount: 1,
+      isCollapsed: true,
+      getRangeAt: () => range,
+      removeAllRanges: vi.fn(),
+      addRange: vi.fn(),
+    });
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback();
+      return 1;
+    });
+
+    document.dispatchEvent(new Event('selectionchange'));
+    const echo = document.getElementById('editor-caret-echo');
+    expect(echo.hidden).toBe(false);
+    expect(echo.style.left).toBe('120px');
+    expect(echo.style.top).toBe('40px');
+    expect(echo.style.height).toBe('22px');
+    expect(echo.classList.contains('is-moving')).toBe(true);
+
+    echo.dispatchEvent(new Event('animationend'));
+    expect(echo.hidden).toBe(true);
+  });
+
+  it('keeps the caret echo hidden when reduced motion is preferred', async () => {
+    const { session } = mount();
+    session.setDocument({ path: 'sample.md', source: 'Before', markdown: true });
+    session.enter();
+    await Promise.resolve();
+    const content = document.querySelector('[data-editor-content]');
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })));
+    vi.spyOn(window, 'getSelection').mockReturnValue({
+      rangeCount: 1,
+      isCollapsed: true,
+      getRangeAt: () => ({
+        startContainer: content.firstChild,
+        getClientRects: () => [{ left: 120, top: 40, width: 0, height: 22 }],
+      }),
+      removeAllRanges: vi.fn(),
+      addRange: vi.fn(),
+    });
+
+    try {
+      document.dispatchEvent(new Event('selectionchange'));
+      expect(document.getElementById('editor-caret-echo').hidden).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('marks formatting active only when the selected markup owns that style', async () => {
+    const { session } = mount();
+    session.setDocument({ path: 'sample.md', source: '# Heading\n\nA **bold** word', markdown: true });
+    session.enter();
+    await Promise.resolve();
+
+    const heading = document.querySelector('[data-editor-content]');
+    const strong = document.querySelector('[data-editor-content] strong');
+    let currentRange = {
+      commonAncestorContainer: heading.firstChild,
+      cloneRange() { return this; },
+      getBoundingClientRect: () => ({ left: 80, right: 120, top: 80, bottom: 100, height: 20 }),
+    };
+    vi.spyOn(window, 'getSelection').mockReturnValue({
+      rangeCount: 1,
+      isCollapsed: false,
+      getRangeAt: () => currentRange,
+      removeAllRanges: vi.fn(),
+      addRange: vi.fn(),
+    });
+
+    document.dispatchEvent(new Event('selectionchange'));
+    expect(document.querySelector('[data-inline-command="bold"]').getAttribute('aria-pressed')).toBe('false');
+
+    currentRange = {
+      commonAncestorContainer: strong.firstChild,
+      cloneRange() { return this; },
+      getBoundingClientRect: () => ({ left: 90, right: 130, top: 120, bottom: 140, height: 20 }),
+    };
+    document.dispatchEvent(new Event('selectionchange'));
+    expect(document.querySelector('[data-inline-command="bold"]').getAttribute('aria-pressed')).toBe('true');
   });
 
   it('keeps very large documents in read/source mode instead of rendering unsafe block counts', () => {

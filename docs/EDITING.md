@@ -4,9 +4,10 @@
 
 ## Enter edit mode
 
-Open a supported file, then select **Edit** in the status bar or press
-<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd>. On macOS, use <kbd>Cmd</kbd>
-instead of <kbd>Ctrl</kbd>.
+Open a supported file, then select the mode icon in the status bar or press
+<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd>. The icon moves through Read,
+Edit and Source; its tooltip names the current mode and the next one. On macOS,
+use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd>.
 
 The document becomes a block canvas. The source file remains Markdown or text;
 there is no private document format.
@@ -36,9 +37,9 @@ strikethrough and <kbd>Ctrl</kbd> + <kbd>E</kbd> toggles inline code.
 
 ## Save and recover
 
-Press <kbd>Ctrl</kbd> + <kbd>S</kbd> or select **Save** in the status bar. The
-status shows unsaved, saving, saved and failed states. A failed save leaves the
-draft in the editor so you can retry or copy it elsewhere.
+Press <kbd>Ctrl</kbd> + <kbd>S</kbd> or select the save icon in the status bar.
+The status shows unsaved, saving, saved and failed states. A failed save leaves
+the draft in the editor so you can retry or copy it elsewhere.
 
 Opening another file or returning to reading with unsaved work asks for
 confirmation. Closing the window also triggers the platform's unsaved-work
