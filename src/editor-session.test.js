@@ -43,6 +43,48 @@ function mount(save = vi.fn(async () => ({ source: '' })), hooks = {}) {
   return { session, save };
 }
 
+function blockRect(top, height = 36) {
+  return {
+    x: 0,
+    y: top,
+    top,
+    right: 600,
+    bottom: top + height,
+    left: 0,
+    width: 600,
+    height,
+    toJSON: () => ({}),
+  };
+}
+
+function createBlockDataTransfer() {
+  const data = new Map();
+  return {
+    effectAllowed: 'none',
+    dropEffect: 'none',
+    types: [],
+    setDragImage: vi.fn(),
+    setData(type, value) {
+      data.set(type, value);
+      if (!this.types.includes(type)) this.types.push(type);
+    },
+    getData(type) {
+      return data.get(type) || '';
+    },
+  };
+}
+
+function dispatchBlockDrag(target, type, dataTransfer, { clientX = 4, clientY = 4 } = {}) {
+  const event = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperties(event, {
+    dataTransfer: { value: dataTransfer },
+    clientX: { value: clientX },
+    clientY: { value: clientY },
+  });
+  target.dispatchEvent(event);
+  return event;
+}
+
 describe('editor session', () => {
   it('enters with the canonical source, becomes dirty and saves through its adapter', async () => {
     const { session, save } = mount();
@@ -207,6 +249,78 @@ describe('editor session', () => {
     document.querySelectorAll('[data-block-menu]')[2].click();
     document.querySelector('[data-block-action="delete"]').click();
     expect(session.source()).toBe('One\nTwo');
+  });
+
+  it('uses explicit before and after targets when dragging blocks in either direction', () => {
+    const { session } = mount();
+    session.setDocument({ path: 'sample.md', source: 'One\nTwo\nThree', markdown: true });
+    session.enter();
+
+    let wrappers = [...document.querySelectorAll('[data-block-id]')];
+    let transfer = createBlockDataTransfer();
+    dispatchBlockDrag(wrappers[0].querySelector('[data-block-menu]'), 'dragstart', transfer);
+    vi.spyOn(wrappers[2], 'getBoundingClientRect').mockReturnValue(blockRect(80));
+    const afterEvent = dispatchBlockDrag(wrappers[2], 'dragover', transfer, { clientY: 115 });
+    expect(afterEvent.defaultPrevented).toBe(true);
+    expect(wrappers[2].classList.contains('is-drag-target-after')).toBe(true);
+    dispatchBlockDrag(wrappers[2], 'drop', transfer, { clientY: 115 });
+    expect(session.source()).toBe('Two\nThree\nOne');
+    expect(document.querySelector('.is-dragging, .is-drag-target-after')).toBeNull();
+
+    wrappers = [...document.querySelectorAll('[data-block-id]')];
+    transfer = createBlockDataTransfer();
+    dispatchBlockDrag(wrappers[2].querySelector('[data-block-menu]'), 'dragstart', transfer);
+    vi.spyOn(wrappers[0], 'getBoundingClientRect').mockReturnValue(blockRect(0));
+    dispatchBlockDrag(wrappers[0], 'dragover', transfer, { clientY: 2 });
+    expect(wrappers[0].classList.contains('is-drag-target-before')).toBe(true);
+    dispatchBlockDrag(wrappers[0], 'drop', transfer, { clientY: 2 });
+    expect(session.source()).toBe('One\nTwo\nThree');
+  });
+
+  it('animates block insertion and reflow when motion is allowed, then bypasses it when reduced', () => {
+    const originalAnimate = window.Element.prototype.animate;
+    const originalMatchMedia = window.matchMedia;
+    const animate = vi.fn(() => ({
+      cancel: vi.fn(),
+      finished: Promise.resolve(),
+    }));
+    Object.defineProperty(window.Element.prototype, 'animate', { configurable: true, value: animate });
+    window.matchMedia = vi.fn(() => ({ matches: false }));
+    const rects = vi.spyOn(window.HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function rect() {
+      if (this.matches?.('[data-block-id]')) {
+        const siblings = [...this.parentElement.querySelectorAll(':scope > [data-block-id]')];
+        return blockRect(siblings.indexOf(this) * 40);
+      }
+      return blockRect(0, 0);
+    });
+    const { session } = mount();
+
+    try {
+      session.setDocument({ path: 'sample.md', source: 'One\nTwo', markdown: true });
+      session.enter();
+      document.querySelector('[data-block-menu]').click();
+      document.querySelector('[data-block-action="duplicate"]').click();
+      expect(animate).toHaveBeenCalled();
+      expect(animate.mock.calls.some(([frames]) => frames[0]?.opacity === 0)).toBe(true);
+
+      animate.mockClear();
+      window.matchMedia = vi.fn(() => ({ matches: true }));
+      document.querySelector('[data-block-menu]').click();
+      document.querySelector('[data-block-action="duplicate"]').click();
+      expect(animate).not.toHaveBeenCalled();
+    } finally {
+      session.dispose();
+      rects.mockRestore();
+      window.matchMedia = originalMatchMedia;
+      if (originalAnimate) {
+        Object.defineProperty(window.Element.prototype, 'animate', {
+          configurable: true,
+          value: originalAnimate,
+        });
+      } else {
+        delete window.Element.prototype.animate;
+      }
+    }
   });
 
   it('indents list blocks and reorders blocks from the keyboard', () => {

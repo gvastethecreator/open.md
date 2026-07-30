@@ -835,7 +835,10 @@ async function commitThemeRequest(request) {
     return true;
   }
 
-  activeDocumentModeTransition?.skipTransition?.();
+  if (activeDocumentModeTransition) {
+    activeDocumentModeTransition.skipTransition?.();
+    finishDocumentModeMorph(modeMorphGeneration);
+  }
   root.classList.add('is-theme-changing', 'is-theme-wiping');
   let transition;
   try {
@@ -1611,8 +1614,8 @@ function handleZoom(event) {
   }
 }
 
-function getActiveDocumentView({ minimap = false } = {}) {
-  if (isEditMode) return minimap ? ui.editorView : ui.editorCanvas;
+function getActiveDocumentView() {
+  if (isEditMode) return ui.editorCanvas;
   return isSourceViewActive() ? ui.sourceView : ui.content;
 }
 
@@ -1823,20 +1826,16 @@ function renderMinimapDocument() {
     || !ui.readerPage
   ) return;
 
-  const activeView = getActiveDocumentView({ minimap: true });
+  const activeView = getActiveDocumentView();
   if (!activeView) return;
   const trackRect = ui.documentMinimap.getBoundingClientRect();
   const viewRect = activeView.getBoundingClientRect();
   const viewStyles = getComputedStyle(activeView);
-  if (trackRect.width <= 0 || trackRect.height <= 0 || viewRect.width <= 0) return;
+  const trackWidth = ui.documentMinimap.clientWidth || trackRect.width;
+  const trackHeight = ui.documentMinimap.clientHeight || trackRect.height;
+  if (trackWidth <= 0 || trackHeight <= 0 || viewRect.width <= 0) return;
 
   const documentWidth = Math.max(1, viewRect.width);
-  const documentHeight = Math.max(
-    1,
-    activeView.scrollHeight,
-    viewRect.height,
-    ui.readerPage.scrollHeight
-  );
   const clone = activeView.cloneNode(true);
   sanitizeMinimapClone(clone);
   clone.style.width = `${documentWidth}px`;
@@ -1845,14 +1844,22 @@ function renderMinimapDocument() {
   clone.style.margin = '0';
 
   ui.minimapDocument.style.width = `${documentWidth}px`;
-  ui.minimapDocument.style.height = `${documentHeight}px`;
   ui.minimapDocument.style.fontSize = viewStyles.fontSize;
   ui.minimapDocument.style.lineHeight = viewStyles.lineHeight;
-  const scale = Math.min(trackRect.width / documentWidth, trackRect.height / documentHeight);
-  minimapContentHeight = documentHeight * scale;
-  ui.minimapDocument.style.left = `${(trackRect.width - (documentWidth * scale)) / 2}px`;
-  ui.minimapDocument.style.transform = `scale(${scale})`;
+  ui.minimapDocument.style.transform = 'none';
   ui.minimapDocument.replaceChildren(clone);
+  const documentHeight = Math.max(
+    1,
+    activeView.scrollHeight,
+    viewRect.height,
+    clone.scrollHeight,
+    clone.offsetHeight
+  );
+  ui.minimapDocument.style.height = `${documentHeight}px`;
+  const scale = Math.min(trackWidth / documentWidth, trackHeight / documentHeight);
+  minimapContentHeight = documentHeight * scale;
+  ui.minimapDocument.style.left = `${(trackWidth - (documentWidth * scale)) / 2}px`;
+  ui.minimapDocument.style.transform = `scale(${scale})`;
   isMinimapDocumentDirty = false;
 }
 
