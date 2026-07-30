@@ -681,6 +681,27 @@ mod tests {
     }
 
     #[test]
+    fn comprehensive_example_exercises_supported_rich_content() {
+        let example_path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/a-quiet-place.md");
+        let example = open_document(&example_path).expect("example document should open");
+
+        assert!(example.html.contains("<table>"));
+        assert!(example.html.contains("<div class=\"mermaid\">"));
+        assert!(example.html.contains("type=\"checkbox\""));
+        assert!(example.html.contains("<del>completed ideas</del>"));
+        assert!(example.html.contains(
+            "<img src=\"assets/quiet-desk.webp\" alt=\"A blank notebook and pencil beside a rain-covered window\""
+        ));
+        assert!(example.html.contains("footnote-reference"));
+        assert!(example.line_count > 70);
+
+        let image = read_document_image(&example_path, "assets/quiet-desk.webp")
+            .expect("example image should load through the safe resource policy");
+        assert!(!image.is_empty());
+    }
+
+    #[test]
     fn document_and_resource_file_policies_are_explicit() {
         assert!(is_supported_document(Path::new("README.MD")));
         assert!(is_supported_document(Path::new("notes.TxT")));

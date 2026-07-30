@@ -62,6 +62,13 @@ Opening another file or returning to reading with unsaved work asks for
 confirmation. Closing the window also triggers the platform's unsaved-work
 warning.
 
+## Example document
+
+Open `examples/a-quiet-place.md` to exercise the main reading and source
+features in one file. It includes headings, inline formatting, task and nested
+lists, a wide table, a local image, a Mermaid diagram, code, a footnote and
+Unicode text.
+
 ## Current limits
 
 Editing covers the common Markdown blocks above. Existing heading levels 4–6
