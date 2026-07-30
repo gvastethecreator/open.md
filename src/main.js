@@ -27,7 +27,7 @@ import {
   normalizeDocumentPayload,
   setMarkdownTaskChecked,
 } from './core/reader.js';
-import { renderMermaidDiagrams } from './mermaid-renderer.js';
+import { prepareMermaidDiagrams, renderMermaidDiagrams } from './mermaid-renderer.js';
 import { createEditorSession } from './editor-session.js';
 import { orderNativeOpenRequests } from './open-intent-controller.js';
 import { mountReaderShell } from './reader-shell.js';
@@ -82,8 +82,12 @@ let activeDocumentModeTransition = null;
 let modeMorphFallbackTimeoutId = null;
 let modeMorphGeneration = 0;
 let documentModeChangeGeneration = 0;
-let themeTransitionFrameId = null;
-let themeTransitionReleaseFrameId = null;
+let activeThemeTransition = null;
+let pendingThemeRequest = null;
+let themeApplicationPromise = null;
+let themeRequestRevision = 0;
+let toastMorphRevision = 0;
+let toastMorphAnimations = [];
 let syntaxHighlighterPromise = null;
 
 const ui = {
@@ -746,21 +750,13 @@ async function initThemes() {
   }
 }
 
-function applyTheme(theme, { silent = false, persist = true } = {}) {
-  if (!theme) return;
+function prefersReducedMotion() {
+  return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+}
 
+function commitThemeVisuals(theme, preparedDiagrams = null) {
   const root = document.documentElement;
   const tokens = getThemeTokens(theme);
-  root.classList.add('is-theme-changing');
-  if (themeTransitionFrameId !== null) cancelAnimationFrame(themeTransitionFrameId);
-  if (themeTransitionReleaseFrameId !== null) cancelAnimationFrame(themeTransitionReleaseFrameId);
-  themeTransitionFrameId = requestAnimationFrame(() => {
-    themeTransitionFrameId = null;
-    themeTransitionReleaseFrameId = requestAnimationFrame(() => {
-      themeTransitionReleaseFrameId = null;
-      root.classList.remove('is-theme-changing');
-    });
-  });
   root.style.setProperty('--bg-color', tokens.background);
   root.style.setProperty('--text-color', tokens.text);
   root.style.setProperty('--border-color', tokens.border);
@@ -796,6 +792,106 @@ function applyTheme(theme, { silent = false, persist = true } = {}) {
   root.style.colorScheme = isDark ? 'dark' : 'light';
   root.dataset.themeName = theme.name;
   root.dataset.themeTone = isDark ? 'dark' : 'light';
+  preparedDiagrams?.commit?.();
+  isMinimapDocumentDirty = true;
+  queueReadingUiUpdate();
+}
+
+async function commitThemeRequest(request) {
+  const { theme, silent, revision } = request;
+  const tokens = getThemeTokens(theme);
+  const diagramTheme = isColorDark(tokens.background) ? 'dark' : 'default';
+  const preparedDiagrams = currentFilePath && ui.content?.querySelector('.mermaid')
+    ? await readerShell?.prepareAppearance({ diagramTheme })
+    : null;
+
+  if (revision !== themeRequestRevision) return false;
+
+  const root = document.documentElement;
+  let didCommit = false;
+  const commit = () => {
+    commitThemeVisuals(theme, preparedDiagrams);
+    didCommit = true;
+  };
+  const canWipe = !silent
+    && !prefersReducedMotion()
+    && typeof document.startViewTransition === 'function';
+
+  if (!canWipe) {
+    root.classList.add('is-theme-changing');
+    commit();
+    await new Promise((resolve) => {
+      let frameId = null;
+      const timeoutId = setTimeout(() => {
+        if (frameId !== null) cancelAnimationFrame(frameId);
+        resolve();
+      }, 64);
+      frameId = requestAnimationFrame(() => {
+        clearTimeout(timeoutId);
+        resolve();
+      });
+    });
+    root.classList.remove('is-theme-changing');
+    return true;
+  }
+
+  activeDocumentModeTransition?.skipTransition?.();
+  root.classList.add('is-theme-changing', 'is-theme-wiping');
+  let transition;
+  try {
+    transition = document.startViewTransition(commit);
+  } catch {
+    if (!didCommit) commit();
+    root.classList.remove('is-theme-changing', 'is-theme-wiping');
+    return true;
+  }
+  activeThemeTransition = transition;
+
+  try {
+    await transition.ready;
+  } catch {
+    // A newer requested theme may intentionally skip this transition.
+  } finally {
+    root.classList.remove('is-theme-changing');
+  }
+
+  try {
+    await transition.finished;
+  } catch {
+    // The committed theme remains valid when the visual transition is skipped.
+  } finally {
+    if (activeThemeTransition === transition) activeThemeTransition = null;
+    root.classList.remove('is-theme-wiping');
+  }
+  return true;
+}
+
+async function drainThemeRequests() {
+  while (pendingThemeRequest) {
+    const request = pendingThemeRequest;
+    pendingThemeRequest = null;
+    await commitThemeRequest(request);
+  }
+}
+
+function scheduleThemeDrain() {
+  if (themeApplicationPromise) return themeApplicationPromise;
+  themeApplicationPromise = Promise.resolve()
+    .then(drainThemeRequests)
+    .catch((error) => console.error('Could not apply the selected theme:', error))
+    .finally(() => {
+      themeApplicationPromise = null;
+      if (pendingThemeRequest) scheduleThemeDrain();
+    });
+  return themeApplicationPromise;
+}
+
+function applyTheme(theme, { silent = false, persist = true } = {}) {
+  if (!theme) return Promise.resolve(false);
+
+  const revision = ++themeRequestRevision;
+  pendingThemeRequest = { theme, silent, revision };
+  activeThemeTransition?.skipTransition?.();
 
   currentThemeIndex = themes.findIndex((item) => item.name === theme.name);
 
@@ -809,14 +905,120 @@ function applyTheme(theme, { silent = false, persist = true } = {}) {
   if (!silent) {
     showToast(`Theme: ${theme.name}`);
   }
+  return scheduleThemeDrain();
+}
 
-  if (currentFilePath && ui.content?.querySelector('.mermaid')) {
-    readerShell?.refreshAppearance({ diagramTheme: isDark ? 'dark' : 'default' })
-      .then(markMinimapDirty)
-      .catch((error) => console.error('Could not refresh document appearance:', error));
+function cancelToastMorph(toast) {
+  if (!toast) return;
+  toastMorphAnimations.forEach((animation) => animation.cancel());
+  toastMorphAnimations = [];
+  toast.querySelectorAll('.toast-message--previous').forEach((element) => element.remove());
+  toast.style.removeProperty('width');
+  toast.style.removeProperty('height');
+}
+
+function ensureToastMessage(toast) {
+  let message = toast.querySelector('.toast-message');
+  if (message) return message;
+  message = document.createElement('span');
+  message.className = 'toast-message';
+  if (toast.textContent) message.textContent = toast.textContent;
+  toast.replaceChildren(message);
+  return message;
+}
+
+function replaceToastMessage(toast, messageElement, nextMessage) {
+  const visibleBox = toast.getBoundingClientRect();
+  const outgoingElement = [messageElement, ...toast.querySelectorAll('.toast-message--previous')]
+    .reduce((mostVisible, candidate) => (
+      Number.parseFloat(getComputedStyle(candidate).opacity)
+        > Number.parseFloat(getComputedStyle(mostVisible).opacity)
+        ? candidate
+        : mostVisible
+    ), messageElement);
+  const outgoingStyle = getComputedStyle(outgoingElement);
+  const outgoingVisual = {
+    text: outgoingElement.textContent,
+    opacity: outgoingStyle.opacity,
+    filter: outgoingStyle.filter,
+    transform: outgoingStyle.transform,
+    clipPath: outgoingStyle.clipPath,
+  };
+  const canMorph = toast.classList.contains('show')
+    && messageElement.textContent !== nextMessage
+    && visibleBox.width > 0
+    && !prefersReducedMotion()
+    && typeof toast.animate === 'function';
+  const revision = ++toastMorphRevision;
+
+  cancelToastMorph(toast);
+  if (!canMorph) {
+    messageElement.textContent = nextMessage;
+    return;
   }
-  isMinimapDocumentDirty = true;
-  queueReadingUiUpdate();
+
+  const previousMessage = messageElement.cloneNode(true);
+  previousMessage.classList.add('toast-message--previous');
+  previousMessage.setAttribute('aria-hidden', 'true');
+  previousMessage.textContent = outgoingVisual.text;
+  toast.appendChild(previousMessage);
+  messageElement.textContent = nextMessage;
+
+  const targetBox = toast.getBoundingClientRect();
+  const currentRadius = getComputedStyle(toast).borderRadius;
+  toast.style.width = `${visibleBox.width}px`;
+  toast.style.height = `${visibleBox.height}px`;
+
+  const shape = toast.animate([
+    {
+      width: `${visibleBox.width}px`,
+      height: `${visibleBox.height}px`,
+      borderRadius: currentRadius,
+    },
+    {
+      width: `${(visibleBox.width + targetBox.width) / 2}px`,
+      height: `${Math.max(visibleBox.height, targetBox.height) + 2}px`,
+      borderRadius: '12px',
+      offset: 0.48,
+    },
+    {
+      width: `${targetBox.width}px`,
+      height: `${targetBox.height}px`,
+      borderRadius: currentRadius,
+    },
+  ], {
+    duration: 240,
+    easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+    fill: 'both',
+  });
+  const previous = previousMessage.animate([
+    {
+      opacity: outgoingVisual.opacity,
+      filter: outgoingVisual.filter,
+      transform: outgoingVisual.transform,
+      clipPath: outgoingVisual.clipPath,
+    },
+    { opacity: 0, filter: 'blur(1px)', transform: 'translateY(-2px)', clipPath: 'inset(48% 4% round 7px)' },
+  ], {
+    duration: 110,
+    easing: 'cubic-bezier(0.4, 0, 0.8, 0.2)',
+    fill: 'both',
+  });
+  const next = messageElement.animate([
+    { opacity: 0, filter: 'blur(1px)', transform: 'translateY(2px)', clipPath: 'inset(48% 4% round 7px)' },
+    { opacity: 1, filter: 'blur(0)', transform: 'translateY(0)', clipPath: 'inset(0 round 2px)' },
+  ], {
+    duration: 156,
+    delay: 84,
+    easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+    fill: 'both',
+  });
+  toastMorphAnimations = [shape, previous, next];
+
+  Promise.allSettled(toastMorphAnimations.map((animation) => animation.finished)).then(() => {
+    if (revision !== toastMorphRevision) return;
+    cancelToastMorph(toast);
+  });
 }
 
 function showToast(message) {
@@ -828,10 +1030,12 @@ function showToast(message) {
     toast.setAttribute('role', 'status');
     toast.setAttribute('aria-live', 'polite');
     toast.setAttribute('aria-atomic', 'true');
+    toast.appendChild(Object.assign(document.createElement('span'), { className: 'toast-message' }));
     document.body.appendChild(toast);
     ui.toast = toast;
   }
-  toast.textContent = message;
+  const messageElement = ensureToastMessage(toast);
+  replaceToastMessage(toast, messageElement, message);
   toast.classList.add('show');
 
   clearTimeout(toastTimeoutId);
@@ -986,6 +1190,7 @@ function mountApplicationReaderShell() {
         }),
       },
       diagrams: {
+        prepare: prepareMermaidDiagrams,
         render: renderMermaidDiagrams,
       },
       syntax: {
@@ -1042,6 +1247,7 @@ function finishDocumentModeMorph(generation) {
 
 async function withDocumentModeMorph(update) {
   activeDocumentModeTransition?.skipTransition?.();
+  activeThemeTransition?.skipTransition?.();
   clearTimeout(modeMorphFallbackTimeoutId);
   modeMorphFallbackTimeoutId = null;
 
@@ -1997,6 +2203,8 @@ function registerEvents() {
     }
     minimapResizeObserver?.disconnect();
     activeDocumentModeTransition?.skipTransition?.();
+    activeThemeTransition?.skipTransition?.();
+    cancelToastMorph(ui.toast || document.getElementById('toast'));
     clearTimeout(modeMorphFallbackTimeoutId);
     clearTimeout(autoSaveTimeoutId);
     responsiveTypography?.dispose();
