@@ -113,6 +113,12 @@ fixed upstream commit. Read [Bundled themes](THEMES.md) and
 theme data. After changing `src/themes.json`, run `bun run generate:themes`;
 frontend validation rejects a stale or incomplete runtime projection.
 
+Theme changes prepare Mermaid output before the visual commit so diagrams do
+not reflow mid-transition. The root wipe keeps the outgoing snapshot above the
+incoming snapshot while its clip path closes; changing that stacking order
+makes the wipe invisible. Toast copy crossfades in one shared grid cell and
+must not use vertical transforms, so rapid feedback stays on a fixed baseline.
+
 ## Release scope
 
 Local builds are unsigned. A release process, signing identity, and hosted
