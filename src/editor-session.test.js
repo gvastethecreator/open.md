@@ -297,6 +297,24 @@ describe('editor session', () => {
     expect(session.source()).toBe('One\nTwo\nThree');
   });
 
+  it('keeps blank Markdown separator rows stable while dragging visible blocks', () => {
+    const { session } = mount();
+    session.setDocument({ path: 'sample.md', source: '# One\n\nTwo\n\nThree', markdown: true });
+    session.enter();
+
+    const wrappers = [...document.querySelectorAll('[data-block-id]')];
+    const visible = wrappers.filter((wrapper) => !wrapper.hasAttribute('data-block-spacer'));
+    const transfer = createBlockDataTransfer();
+    dispatchBlockDrag(visible[2].querySelector('[data-block-menu]'), 'dragstart', transfer);
+    vi.spyOn(visible[0], 'getBoundingClientRect').mockReturnValue(blockRect(0));
+    dispatchBlockDrag(visible[0], 'dragover', transfer, { clientY: 2 });
+    dispatchBlockDrag(visible[0], 'drop', transfer, { clientY: 2 });
+
+    expect(session.source()).toBe('Three\n\n# One\n\nTwo');
+    expect(document.querySelectorAll('[data-block-spacer]')).toHaveLength(2);
+    expect(document.querySelector('[data-block-spacer] [data-block-menu]').draggable).toBe(false);
+  });
+
   it('animates block insertion and reflow when motion is allowed, then bypasses it when reduced', () => {
     const originalAnimate = window.Element.prototype.animate;
     const originalMatchMedia = window.matchMedia;
@@ -357,6 +375,20 @@ describe('editor session', () => {
       key: 'ArrowDown', altKey: true, shiftKey: true, bubbles: true,
     }));
     expect(session.source()).toBe('- Two\n- One');
+  });
+
+  it('reorders visible blocks from the keyboard without moving separator rows', () => {
+    const { session } = mount();
+    session.setDocument({ path: 'sample.md', source: '# One\n\nTwo\n\nThree', markdown: true });
+    session.enter();
+    const first = document.querySelector('[data-editor-content]');
+
+    first.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'ArrowDown', altKey: true, shiftKey: true, bubbles: true,
+    }));
+
+    expect(session.source()).toBe('Two\n\n# One\n\nThree');
+    expect(document.activeElement?.textContent).toBe('One');
   });
 
   it('opens and closes block actions from the keyboard with focus recovery', async () => {

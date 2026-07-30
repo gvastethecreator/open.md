@@ -31,6 +31,8 @@ Type `/` in an empty block to choose:
 - a divider.
 
 Use the controls left of a block to insert, drag, move, duplicate or delete it.
+While dragging, blank Markdown separator rows stay in place, one insertion line
+shows the exact destination, and the page scrolls near its top and bottom edges.
 Select text to show the inline toolbar for bold, italic, strikethrough, code and
 links. <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>1</kbd> through <kbd>3</kbd>
 changes the current block to a heading.

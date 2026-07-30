@@ -185,8 +185,15 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   };
 
   const moveBlock = (id, delta) => {
+    const visibleBlocks = documentSnapshot.blocks.filter((block) => (
+      block.type !== 'paragraph' || block.text !== ''
+    ));
+    const sourceIndex = visibleBlocks.findIndex((block) => block.id === id);
+    const direction = Math.sign(Math.trunc(Number(delta) || 0));
+    const target = visibleBlocks[sourceIndex + direction];
+    if (sourceIndex < 0 || !direction || !target) return;
     const previousLayout = captureBlockLayout();
-    if (!documentModel.move(id, delta)) return;
+    if (!documentModel.moveRelative(id, target.id, direction < 0 ? 'before' : 'after')) return;
     render({ previousLayout });
     notify();
     focusBlock(id);
@@ -217,10 +224,12 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   };
 
   const renderBlock = (block, index) => {
+    const isSpacer = block.type === 'paragraph' && block.text === '';
     const wrapper = document.createElement('div');
     wrapper.className = `editor-block editor-block--${block.type}`;
     wrapper.dataset.blockId = block.id;
     wrapper.dataset.blockType = block.type;
+    if (isSpacer) wrapper.dataset.blockSpacer = '';
 
     const gutter = document.createElement('div');
     gutter.className = 'editor-block-gutter';
@@ -240,9 +249,9 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     menu.className = 'editor-gutter-button editor-drag-handle';
     menu.tabIndex = -1;
     menu.dataset.blockMenu = '';
-    menu.draggable = true;
+    menu.draggable = !isSpacer;
     menu.setAttribute('aria-label', `Options for ${editorBlockLabel(block.type)} block ${index + 1}`);
-    menu.title = 'Drag or open block options';
+    menu.title = isSpacer ? 'Open block options' : 'Drag or open block options';
     const menuIcon = document.createElement('i');
     menuIcon.className = 'iconoir-menu-scale';
     menuIcon.setAttribute('aria-hidden', 'true');
@@ -688,8 +697,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     window,
     elements: { root, canvas },
     adapters: {
-      getBlocks: () => documentSnapshot.blocks,
-      moveTo: (id, destination) => documentModel.moveTo(id, destination),
+      moveRelative: (id, targetId, position) => documentModel.moveRelative(id, targetId, position),
       render: () => render(),
       focusBlock,
     },

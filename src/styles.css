@@ -1197,13 +1197,15 @@ body.is-line-guide .editor-end-hint {
   border-radius: var(--radius-xs);
   transition:
     opacity var(--motion-fast) var(--motion-ease-standard),
-    background-color var(--motion-fast) var(--motion-ease-standard);
+    background-color var(--motion-fast) var(--motion-ease-standard),
+    transform var(--motion-fast) var(--motion-ease-out);
 }
 
 .editor-block.is-dragging {
   z-index: 1;
-  opacity: 0.3;
+  opacity: 0.18;
   background: color-mix(in srgb, var(--ui-accent) 5%, transparent);
+  transform: scale(0.995);
 }
 
 .editor-block.is-drag-target-before::after,
@@ -1242,8 +1244,15 @@ body.is-line-guide .editor-end-hint {
 
 .editor-block:hover .editor-block-gutter,
 .editor-block:focus-within .editor-block-gutter,
-.editor-view.is-block-dragging .editor-block-gutter {
+.editor-block.is-dragging .editor-block-gutter,
+.editor-block.is-drag-target-before .editor-block-gutter,
+.editor-block.is-drag-target-after .editor-block-gutter {
   opacity: 1;
+}
+
+.editor-view.is-block-dragging .editor-block:not(.is-dragging, .is-drag-target-before, .is-drag-target-after) .editor-block-gutter,
+.editor-view.is-block-dragging .editor-block[data-block-spacer] .editor-block-gutter {
+  opacity: 0;
 }
 
 .editor-gutter-button {
@@ -1272,6 +1281,34 @@ body.is-line-guide .editor-end-hint {
 
 .editor-drag-handle { cursor: grab; }
 .editor-drag-handle:active { cursor: grabbing; transform: scale(0.94); }
+.editor-block[data-block-spacer] .editor-drag-handle { cursor: pointer; }
+
+.editor-drag-preview {
+  position: fixed;
+  top: -1000px;
+  left: -1000px;
+  z-index: 100;
+  max-width: 280px;
+  padding: 7px 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  overflow: hidden;
+  border: var(--ui-border-width) solid var(--ui-border-color);
+  border-radius: var(--radius-xs);
+  color: var(--bg-color);
+  background: var(--text-color);
+  box-shadow: 0 6px 18px var(--shadow-color);
+  font-size: 0.72rem;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
+.editor-drag-preview > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .editor-block.is-dragging .editor-drag-handle {
   color: var(--ui-accent);
