@@ -5,32 +5,59 @@ import { createToastPresenter } from './toast-presenter.js';
 function fixture({ animate = true, reduced = false } = {}) {
   const dom = new JSDOM('<!doctype html><body><div id="toast" class="toast" role="status"><span class="toast-message"></span></div></body>');
   const toast = dom.window.document.querySelector('#toast');
-  toast.getBoundingClientRect = () => ({
-    width: 44 + (toast.querySelector('.toast-message')?.textContent.length || 0) * 7,
-    height: 32,
-  });
+  const originalRect = dom.window.Element.prototype.getBoundingClientRect;
+  dom.window.Element.prototype.getBoundingClientRect = function getBoundingClientRect() {
+    if (this === toast) {
+      const liveMessage = toast.querySelector('.toast-message:not(.toast-message--previous)');
+      return { width: 44 + (liveMessage?.textContent.length || 0) * 7, height: 32 };
+    }
+    if (this.classList?.contains('toast-surface')) return { width: 520, height: 96 };
+    if (this.classList?.contains('toast-message')) {
+      return { width: (this.textContent.length || 0) * 7, height: 18 };
+    }
+    return originalRect.call(this);
+  };
   dom.window.matchMedia = () => ({ matches: reduced });
   const animations = [];
   if (animate) {
-    const install = (element) => {
-      element.animate = vi.fn((keyframes, options) => {
-        let resolve;
-        const finished = new Promise((next) => { resolve = next; });
-        const animation = { cancel: vi.fn(), finished, keyframes, options, resolve };
-        animations.push(animation);
-        return animation;
-      });
-    };
-    install(toast);
-    install(toast.querySelector('.toast-message'));
-    const originalClone = dom.window.Element.prototype.cloneNode;
-    dom.window.Element.prototype.cloneNode = function cloneNode(...args) {
-      const clone = originalClone.apply(this, args);
-      install(clone);
-      return clone;
-    };
+    dom.window.Element.prototype.animate = vi.fn(function animate(keyframes, options) {
+      let resolve;
+      let settled = false;
+      const finished = new Promise((next) => { resolve = next; });
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      const animation = {
+        cancel: vi.fn(settle),
+        finished,
+        keyframes,
+        options,
+        element: this,
+        resolve: settle,
+      };
+      animations.push(animation);
+      return animation;
+    });
+  } else {
+    dom.window.Element.prototype.animate = undefined;
   }
   return { dom, toast, animations };
+}
+
+async function settle(animations) {
+  animations.forEach((animation) => animation.resolve());
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+function liveMessage(toast) {
+  return toast.querySelector('.toast-message:not(.toast-message--previous)');
+}
+
+function animationsFor(animations, className) {
+  return animations.filter((animation) => animation.element.classList.contains(className));
 }
 
 describe('Toast Presenter', () => {
@@ -46,38 +73,60 @@ describe('Toast Presenter', () => {
 
     presenter.show('Saved');
     expect(toast.classList.contains('show')).toBe(true);
-    expect(toast.querySelector('.toast-message').textContent).toBe('Saved');
-    expect(toast.querySelectorAll('.toast-message')).toHaveLength(1);
+    expect(liveMessage(toast).textContent).toBe('Saved');
+    expect(toast.querySelectorAll('.toast-message')).toHaveLength(2);
+    expect(toast.querySelector('.toast-message--previous').getAttribute('aria-hidden')).toBe('true');
     await new Promise((resolve) => setTimeout(resolve, 12));
     expect(toast.classList.contains('show')).toBe(false);
   });
 
-  it('morphs a visible replacement and cleans the outgoing message', async () => {
+  it('morphs a visible replacement with compositor-friendly WAAPI layers', async () => {
     const { dom, toast, animations } = fixture();
     const presenter = createToastPresenter({ window: dom.window, document: dom.window.document, element: toast, duration: 1000 });
     presenter.show('Saved');
+    await settle(animations);
+    const replacementStart = animations.length;
     presenter.show('Could not save this task');
 
-    expect(animations).toHaveLength(3);
+    const replacementAnimations = animations.slice(replacementStart);
+    expect(replacementAnimations).toHaveLength(3);
     expect(toast.querySelectorAll('.toast-message--previous')).toHaveLength(1);
-    expect(animations[0].keyframes.every((frame) => !('borderRadius' in frame))).toBe(true);
-    expect(animations[1].keyframes.at(-1)).toMatchObject({
+    const [surfaceAnimation] = animationsFor(replacementAnimations, 'toast-surface');
+    expect(surfaceAnimation.keyframes.every((frame) => (
+      'clipPath' in frame
+      && !('width' in frame)
+      && !('height' in frame)
+      && !('borderRadius' in frame)
+      && !('filter' in frame)
+    ))).toBe(true);
+    const [outgoingAnimation] = replacementAnimations.filter((animation) => animation.element.classList.contains('toast-message--previous'));
+    expect(outgoingAnimation.keyframes).toHaveLength(3);
+    expect(outgoingAnimation.keyframes[1]).toMatchObject({
       opacity: 0,
-      transform: 'translateY(-5px)',
+      offset: 0.78,
     });
-    expect(animations[2].keyframes[0]).toMatchObject({
+    expect(outgoingAnimation.keyframes.at(-1)).toMatchObject({
       opacity: 0,
-      transform: 'translateY(5px)',
+      transform: 'translate(-50%, calc(-50% - 8px))',
     });
-    expect(animations[2].keyframes.at(-1)).toMatchObject({
+    const [incomingAnimation] = replacementAnimations.filter((animation) => animation.element === liveMessage(toast));
+    expect(incomingAnimation.keyframes[0]).toMatchObject({
+      opacity: 0,
+      transform: 'translateY(8px)',
+    });
+    expect(incomingAnimation.keyframes[1]).toMatchObject({
+      opacity: 0,
+      offset: 0.52,
+    });
+    expect(incomingAnimation.keyframes.at(-1)).toMatchObject({
       opacity: 1,
       transform: 'translateY(0)',
     });
-    animations.forEach((animation) => animation.resolve());
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(toast.querySelectorAll('.toast-message--previous')).toHaveLength(0);
+    await settle(replacementAnimations);
+    expect(toast.querySelectorAll('.toast-message--previous')).toHaveLength(1);
+    expect(toast.querySelector('.toast-message--previous').textContent).toBe('');
     expect(toast.style.width).toBe('');
+    expect(toast.style.height).toBe('');
     presenter.dispose();
   });
 
@@ -87,19 +136,20 @@ describe('Toast Presenter', () => {
     reducedPresenter.show('One');
     reducedPresenter.show('Two');
     expect(reduced.animations).toHaveLength(0);
-    expect(reduced.toast.textContent).toBe('Two');
+    expect(liveMessage(reduced.toast).textContent).toBe('Two');
 
     const fallback = fixture({ animate: false });
     const fallbackPresenter = createToastPresenter({ window: fallback.dom.window, document: fallback.dom.window.document, element: fallback.toast });
     fallbackPresenter.show('One');
     fallbackPresenter.show('Two');
-    expect(fallback.toast.querySelectorAll('.toast-message')).toHaveLength(1);
+    expect(fallback.toast.querySelectorAll('.toast-message')).toHaveLength(2);
+    expect(liveMessage(fallback.toast).textContent).toBe('Two');
   });
 
-  it('stages the text exit and lets a new message interrupt it', () => {
+  it('stages the text exit in WAAPI and lets a new message interrupt it', async () => {
     vi.useFakeTimers();
     try {
-      const { dom, toast } = fixture({ animate: false });
+      const { dom, toast, animations } = fixture();
       const presenter = createToastPresenter({
         window: dom.window,
         document: dom.window.document,
@@ -109,15 +159,22 @@ describe('Toast Presenter', () => {
       });
 
       presenter.show('One');
+      await settle(animations);
       vi.advanceTimersByTime(100);
       expect(toast.classList.contains('show')).toBe(true);
       expect(toast.classList.contains('is-leaving')).toBe(true);
+      const exitAnimations = animations.slice(-2);
+      expect(exitAnimations.every((animation) => animation.options.duration <= 140)).toBe(true);
 
       presenter.show('Two');
       expect(toast.classList.contains('is-leaving')).toBe(false);
-      expect(toast.querySelector('.toast-message').textContent).toBe('Two');
+      expect(liveMessage(toast).textContent).toBe('Two');
+      expect(exitAnimations.every((animation) => animation.cancel.mock.calls.length > 0)).toBe(true);
 
-      vi.advanceTimersByTime(140);
+      vi.advanceTimersByTime(99);
+      expect(toast.classList.contains('show')).toBe(true);
+      vi.advanceTimersByTime(1);
+      await settle(animations.slice(-2));
       expect(toast.classList.contains('show')).toBe(false);
       expect(toast.classList.contains('is-leaving')).toBe(false);
       presenter.dispose();
@@ -132,11 +189,12 @@ describe('Toast Presenter', () => {
     presenter.show('One');
     presenter.show('Two');
     presenter.show('Three');
-    expect(animations.slice(0, 3).every((animation) => animation.cancel.mock.calls.length > 0)).toBe(true);
+    expect(animations.slice(0, -3).every((animation) => animation.cancel.mock.calls.length > 0)).toBe(true);
 
     presenter.dispose();
     expect(toast.classList.contains('show')).toBe(false);
-    expect(toast.querySelectorAll('.toast-message--previous')).toHaveLength(0);
+    expect(toast.querySelectorAll('.toast-message--previous')).toHaveLength(1);
+    expect(toast.querySelector('.toast-message--previous').textContent).toBe('');
     expect(animations.every((animation) => animation.cancel.mock.calls.length > 0)).toBe(true);
   });
 
@@ -145,12 +203,13 @@ describe('Toast Presenter', () => {
     const presenter = createToastPresenter({ window: dom.window, document: dom.window.document, element: toast });
     presenter.show('One');
     presenter.show('Two');
-    const current = toast.querySelector('.toast-message');
+    const current = liveMessage(toast);
     const visiblePrevious = toast.querySelector('.toast-message--previous');
     const computedStyle = vi.spyOn(dom.window, 'getComputedStyle').mockImplementation((element) => ({
       opacity: element === current ? '0' : element === visiblePrevious ? '0.75' : '1',
       filter: 'none',
-      borderRadius: '10px',
+      clipPath: 'inset(32px 230px round 4px)',
+      transform: element === visiblePrevious ? 'matrix(1, 0, 0, 1, -20, -9)' : 'none',
     }));
 
     presenter.show('Three');

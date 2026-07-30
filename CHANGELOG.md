@@ -27,6 +27,9 @@ stable release is cut.
 
 ### Changed
 
+- Moved toast feedback to one interruptible WAAPI pipeline with a stable
+  container, persistent text layers, and shape motion that avoids animated
+  layout properties.
 - Reworked the reading shell, help screen, responsive toolbar, tables, code
   blocks, focus lifecycle, zoom, and reduced-motion behaviour.
 - Reworked the public README and developer documentation around the exact
