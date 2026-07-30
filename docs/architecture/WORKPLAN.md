@@ -147,20 +147,20 @@ reports persistence/feedback through injected hooks.
 ### ARC-09 — Coordinate document mode transitions
 
 **Type:** AFK
-**Status:** Ready
+**Status:** Implemented
 **Blocked by:** ARC-08.
 
 **What to build:** One Document Mode Coordinator owns Read/Edit/Source order,
 toggle semantics, rendered transition milestones and cancellation cleanup.
 
-- [ ] Read -> Edit -> Source -> Read and Read/Edit toggle preserve behavior.
-- [ ] Canceled dirty exit does not advance mode.
-- [ ] View Transition, fallback, interruption, reduced motion and dispose are green.
+- [x] Read -> Edit -> Source -> Read and Read/Edit toggle preserve behavior.
+- [x] Canceled dirty exit does not advance mode.
+- [x] View Transition, fallback, interruption, reduced motion and dispose are green.
 
 ### ARC-10 — Coordinate document mutations and save scheduling
 
 **Type:** AFK
-**Status:** Blocked
+**Status:** Ready
 **Blocked by:** ARC-09.
 
 **What to build:** One Document Save Coordinator owns editor debounce and the

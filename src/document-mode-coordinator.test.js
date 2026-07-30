@@ -1,0 +1,183 @@
+import { JSDOM } from 'jsdom';
+import { describe, expect, it, vi } from 'vitest';
+import { createDocumentModeCoordinator } from './document-mode-coordinator.js';
+
+function deferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+}
+
+function fixture({ reduced = false, viewTransitions = false } = {}) {
+  const dom = new JSDOM(`<!doctype html><html><body class="is-line-guide is-minimap">
+    <button id="mode"><i></i></button><span id="label"></span>
+    <main id="read"></main><pre id="source"></pre><section id="edit"></section>
+    <aside id="lines"></aside><aside id="minimap"></aside>
+  </body></html>`);
+  dom.window.matchMedia = () => ({ matches: reduced });
+  dom.window.requestAnimationFrame = (callback) => dom.window.setTimeout(() => callback(16), 0);
+  dom.window.cancelAnimationFrame = (id) => dom.window.clearTimeout(id);
+  const transitions = [];
+  if (viewTransitions) {
+    dom.window.document.startViewTransition = vi.fn((update) => {
+      const updateCallbackDone = Promise.resolve().then(update);
+      const transition = {
+        ready: Promise.resolve(),
+        updateCallbackDone,
+        finished: updateCallbackDone,
+        skipTransition: vi.fn(),
+      };
+      transitions.push(transition);
+      return transition;
+    });
+  }
+  return {
+    dom,
+    transitions,
+    elements: {
+      control: dom.window.document.querySelector('#mode'),
+      label: dom.window.document.querySelector('#label'),
+      readSurface: dom.window.document.querySelector('#read'),
+      sourceSurface: dom.window.document.querySelector('#source'),
+      editSurface: dom.window.document.querySelector('#edit'),
+      lineGutter: dom.window.document.querySelector('#lines'),
+      minimap: dom.window.document.querySelector('#minimap'),
+    },
+  };
+}
+
+function createHarness(options = {}) {
+  const view = fixture(options);
+  let mode = 'read';
+  let available = true;
+  let allowExit = true;
+  const calls = [];
+  const coordinator = createDocumentModeCoordinator({
+    window: view.dom.window,
+    document: view.dom.window.document,
+    elements: view.elements,
+    adapters: {
+      getMode: () => mode,
+      isAvailable: () => available,
+      enterEdit: async () => { calls.push('enter'); mode = 'edit'; return true; },
+      exitEdit: () => {
+        calls.push('exit');
+        if (!allowExit) return false;
+        mode = 'read';
+        return true;
+      },
+      setSource: async (active) => {
+        calls.push(`source:${active}`);
+        mode = active ? 'source' : 'read';
+      },
+    },
+    hooks: {
+      closeTransientUi: () => calls.push('close-ui'),
+      cancelCompetingTransition: () => calls.push('cancel-theme'),
+    },
+  });
+  return {
+    ...view,
+    coordinator,
+    calls,
+    mode: () => mode,
+    setMode: (value) => { mode = value; },
+    setAvailable: (value) => { available = value; },
+    setAllowExit: (value) => { allowExit = value; },
+  };
+}
+
+describe('Document Mode Coordinator', () => {
+  it('owns Read -> Edit -> Source -> Read order and refreshes the control', async () => {
+    const harness = createHarness({ reduced: true });
+    harness.coordinator.refresh();
+    expect(harness.elements.control.dataset.mode).toBe('read');
+
+    await harness.coordinator.cycle();
+    expect(harness.mode()).toBe('edit');
+    expect(harness.elements.label.textContent).toBe('Edit mode');
+    await harness.coordinator.cycle();
+    expect(harness.mode()).toBe('source');
+    await harness.coordinator.cycle();
+    expect(harness.mode()).toBe('read');
+    expect(harness.calls).toEqual([
+      'close-ui', 'cancel-theme', 'enter',
+      'close-ui', 'cancel-theme', 'exit', 'source:true',
+      'close-ui', 'cancel-theme', 'source:false',
+    ]);
+  });
+
+  it('keeps the mode stable when dirty edit exit is canceled', async () => {
+    const harness = createHarness({ reduced: true });
+    harness.setMode('edit');
+    harness.setAllowExit(false);
+
+    await expect(harness.coordinator.cycle()).resolves.toBe(false);
+    expect(harness.mode()).toBe('edit');
+    expect(harness.calls).not.toContain('source:true');
+    expect(harness.elements.control.dataset.mode).toBe('edit');
+  });
+
+  it('toggles Source to Edit and Edit to Read without visiting Source on exit', async () => {
+    const harness = createHarness({ reduced: true });
+    harness.setMode('source');
+    await harness.coordinator.toggleEdit();
+    expect(harness.mode()).toBe('edit');
+    expect(harness.calls.slice(-2)).toEqual(['source:false', 'enter']);
+
+    await harness.coordinator.toggleEdit();
+    expect(harness.mode()).toBe('read');
+    expect(harness.calls.at(-1)).toBe('exit');
+  });
+
+  it('uses View Transition, skips unchanged transitions and cancels interruption', async () => {
+    const harness = createHarness({ viewTransitions: true });
+    await harness.coordinator.cycle();
+    expect(harness.dom.window.document.startViewTransition).toHaveBeenCalledOnce();
+    expect(harness.mode()).toBe('edit');
+    expect(harness.dom.window.document.body.classList.contains('is-mode-morphing')).toBe(false);
+
+    const active = deferred();
+    harness.dom.window.document.startViewTransition = vi.fn((update) => {
+      const updateCallbackDone = Promise.resolve().then(update);
+      const transition = {
+        ready: active.promise,
+        updateCallbackDone,
+        finished: active.promise,
+        skipTransition: vi.fn(),
+      };
+      harness.transitions.push(transition);
+      return transition;
+    });
+    const first = harness.coordinator.cycle();
+    await Promise.resolve();
+    const interrupted = harness.transitions.at(-1);
+    const second = harness.coordinator.cycle();
+    expect(interrupted.skipTransition).toHaveBeenCalledOnce();
+    active.resolve();
+    await Promise.all([first, second]);
+    expect(harness.mode()).toBe('read');
+  });
+
+  it('animates fallback chrome, honors reduced motion and disposes every marker', async () => {
+    const animated = createHarness();
+    await animated.coordinator.cycle();
+    await new Promise((resolve) => animated.dom.window.setTimeout(resolve, 2));
+    expect(animated.elements.editSurface.classList.contains('is-mode-morph-entering')).toBe(true);
+    expect(animated.elements.lineGutter.classList.contains('is-mode-chrome-morphing')).toBe(true);
+    expect(animated.elements.minimap.classList.contains('is-mode-chrome-morphing')).toBe(true);
+    animated.coordinator.dispose();
+    expect(animated.dom.window.document.querySelector('.is-mode-morph-entering')).toBeNull();
+    expect(animated.dom.window.document.querySelector('.is-mode-chrome-morphing')).toBeNull();
+    expect(animated.dom.window.document.body.classList.contains('is-mode-morphing')).toBe(false);
+
+    const reduced = createHarness({ reduced: true });
+    await reduced.coordinator.cycle();
+    expect(reduced.dom.window.document.querySelector('.is-mode-morph-entering')).toBeNull();
+    expect(reduced.calls).toContain('cancel-theme');
+    reduced.setAvailable(false);
+    reduced.coordinator.refresh();
+    expect(reduced.elements.control.disabled).toBe(true);
+  });
+});
