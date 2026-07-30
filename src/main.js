@@ -7,18 +7,12 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import allThemes from './themes.runtime.json';
 import {
   calculateNewZoom,
-  getCurrentLineFromAnchors,
   getDisplayName,
   getEstimatedMinutesRemaining,
   getFileKind,
-  getLineGutterLeft,
   getLinkAction,
-  getMinimapViewportGeometry,
-  getReadingProgress,
-  getScrollEdgeState,
   getStatusMetricParts,
   getViewportMode,
-  getVisibleSourceLineRange,
 } from './core/reader.js';
 import { prepareMermaidDiagrams, renderMermaidDiagrams } from './mermaid-renderer.js';
 import { createDocumentSaveCoordinator } from './document-save-coordinator.js';
@@ -32,6 +26,7 @@ import {
   normalizeFontIndex,
 } from './reader-preferences.js';
 import { createResponsiveTypography } from './responsive-typography.js';
+import { createReadingNavigationController } from './reading-navigation-controller.js';
 import { createDocumentModeCoordinator } from './document-mode-coordinator.js';
 import { createToastPresenter } from './toast-presenter.js';
 import { createThemeCoordinator } from './theme-coordinator.js';
@@ -43,7 +38,6 @@ const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3.0;
 let dragDropUnlisten = null;
 let fileOpenRequestUnlisten = null;
-let scrollRafId = null;
 let currentFilePath = null;
 let isHelpVisible = false;
 let focusBeforeHelp = null;
@@ -54,15 +48,6 @@ let fontPreferences = { sans: 0, mono: 0 };
 let isTypographyOpen = false;
 let isAlwaysOnTop = false;
 let isAutoSaveEnabled = true;
-let currentSourceLine = 1;
-let currentReadingProgress = 0;
-let readingUiRafId = null;
-let minimapResizeObserver = null;
-let isMinimapDragging = false;
-let isMinimapDocumentDirty = true;
-let minimapCloneRevision = 0;
-let minimapContentHeight = 0;
-let viewScrollPositions = { rendered: 0, source: 0 };
 let windowChrome = null;
 let readerShell = null;
 let editorSession = null;
@@ -70,6 +55,7 @@ let isEditMode = false;
 let responsiveTypography = null;
 let documentSaveCoordinator = null;
 let documentModeCoordinator = null;
+let readingNavigation = null;
 let toastPresenter = null;
 let themeCoordinator = null;
 let syntaxHighlighterPromise = null;
@@ -291,9 +277,9 @@ function updateStatusMetrics() {
     lineCount: currentDocument.lineCount,
     characterCount: currentDocument.characterCount,
     zoomPercent: currentZoom * 100,
-    currentLine: currentSourceLine,
+    currentLine: readingNavigation?.snapshot().currentLine || 1,
     showCurrentLine: readingTools.lineGuide,
-    readingProgress: currentReadingProgress,
+    readingProgress: readingNavigation?.snapshot().readingProgress || 0,
     readingTimeMinutes: currentDocument.readingTimeMinutes,
     showReadingStats: readingTools.stats,
   });
@@ -363,8 +349,7 @@ function applyFontPreferences() {
   }
 
   updateFontControls();
-  isMinimapDocumentDirty = true;
-  queueReadingUiUpdate();
+  readingNavigation?.markDirty();
   responsiveTypography?.schedule();
 }
 
@@ -500,26 +485,9 @@ function applyReadingTools() {
   ui.content?.classList.toggle('hidden', sourceActive || isEditMode);
   ui.sourceView?.classList.toggle('hidden', !sourceActive);
 
-  if (ui.lineGutter) {
-    ui.lineGutter.hidden = !available;
-    ui.lineGutter.setAttribute('aria-hidden', String(!lineGuideActive));
-    if (!available) ui.lineGutter.replaceChildren();
-  }
-
-  if (ui.documentMinimap) {
-    ui.documentMinimap.hidden = !available;
-    ui.documentMinimap.setAttribute('aria-hidden', String(!minimapActive));
-    ui.documentMinimap.toggleAttribute('inert', !minimapActive);
-    isMinimapDocumentDirty = minimapActive;
-    if (!available) {
-      minimapContentHeight = 0;
-      ui.minimapDocument?.replaceChildren();
-    }
-  }
-
+  readingNavigation?.refreshTools();
   updateReadingToolControls();
   updateStatus(currentFilePath);
-  queueReadingUiUpdate();
 }
 
 async function setReadingTool(tool, nextValue) {
@@ -529,18 +497,15 @@ async function setReadingTool(tool, nextValue) {
   if (readingTools[tool] === next) return;
 
   if (tool === 'source' && ui.readerPage) {
-    const previousView = readingTools.source ? 'source' : 'rendered';
-    viewScrollPositions[previousView] = ui.readerPage.scrollTop;
+    readingNavigation?.captureViewScroll(readingTools.source ? 'source' : 'read');
   }
 
   const result = await readerShell.preferences.update({ readingTools: { [tool]: next } });
   reportPreferenceResult(result);
 
   if (tool === 'source' && ui.readerPage) {
-    const nextView = next ? 'source' : 'rendered';
     requestAnimationFrame(() => {
-      ui.readerPage?.scrollTo({ top: viewScrollPositions[nextView] || 0, behavior: 'auto' });
-      queueReadingUiUpdate();
+      readingNavigation?.restoreViewScroll(next ? 'source' : 'read');
       (next ? ui.sourceView : ui.content)?.focus({ preventScroll: true });
     });
   }
@@ -619,7 +584,7 @@ function setHelpVisible(nextVisible, { manageFocus = true } = {}) {
   if (nextVisible) {
     ui.helpStage?.scrollTo({ top: 0, behavior: 'auto' });
   }
-  handleScroll();
+  readingNavigation?.handleScroll();
 
   if (!manageFocus) return;
 
@@ -661,10 +626,7 @@ async function initThemes() {
         onPersistResult: reportPreferenceResult,
         notify: showToast,
         beforeTransition: () => documentModeCoordinator?.cancelTransition(),
-        onCommit: () => {
-          isMinimapDocumentDirty = true;
-          queueReadingUiUpdate();
-        },
+        onCommit: () => readingNavigation?.markDirty(),
         onError: (message, error) => console.error(`${message}:`, error),
       },
     });
@@ -685,10 +647,7 @@ function cycleTheme(direction = 1) {
 }
 
 function resetDocumentReadingState() {
-  isMinimapDocumentDirty = true;
-  currentSourceLine = 1;
-  currentReadingProgress = 0;
-  viewScrollPositions = { rendered: 0, source: 0 };
+  readingNavigation?.reset();
   isHelpVisible = false;
   focusBeforeHelp = null;
 }
@@ -726,7 +685,7 @@ function handleDocumentSessionState(snapshot) {
     currentFilePath = snapshot.path;
     currentDocument = null;
     documentSaveCoordinator?.replaceDocument({ path: snapshot.path, document: null });
-    isMinimapDocumentDirty = true;
+    readingNavigation?.markDirty();
     updateWindowTitle(snapshot.path);
     updateWindowUrl(snapshot.path);
     applyReadingTools();
@@ -744,7 +703,7 @@ function handleDocumentSessionState(snapshot) {
   applyReadingTools();
   updateWindowTitle();
   updateWindowUrl();
-  handleScroll();
+  readingNavigation?.handleScroll();
 }
 
 function activeDiagramTheme() {
@@ -850,7 +809,7 @@ function mountApplicationReaderShell() {
         updateWindowUrl(path);
       },
       onStateChange: handleDocumentSessionState,
-      onSettled: handleScroll,
+      onSettled: () => readingNavigation?.handleScroll(),
       onWarning: showToast,
       onToast: showToast,
       onPreferencesChange: handlePreferenceSnapshot,
@@ -919,7 +878,7 @@ function handleEditorState(snapshot) {
   }
 
   documentSaveCoordinator?.observeEditor(snapshot);
-  if (isEditMode) markMinimapDirty();
+  if (isEditMode) readingNavigation?.markDirty();
   responsiveTypography?.schedule();
   if (modeChanged) applyReadingTools();
   else updateStatus(currentFilePath);
@@ -948,7 +907,7 @@ function mountApplicationEditor() {
       onStateChange: handleEditorState,
       onCursorChange: () => {
         updateStatusMetrics();
-        if (readingTools.lineGuide) queueReadingUiUpdate();
+        if (readingTools.lineGuide) readingNavigation?.queueUpdate();
       },
       onSaved: async () => {
         await readerShell?.reload();
@@ -980,7 +939,7 @@ function mountDocumentSaveCoordinator() {
           markdown: getFileKind(path) === 'Markdown',
         });
         if (ui.sourceContent) ui.sourceContent.textContent = savedDocument.source;
-        markMinimapDirty();
+        readingNavigation?.markDirty();
         responsiveTypography?.schedule();
         updateStatus(path);
       },
@@ -1020,6 +979,41 @@ function mountDocumentModeCoordinator() {
     },
   });
   documentModeCoordinator.refresh();
+}
+
+function mountReadingNavigation() {
+  readingNavigation = createReadingNavigationController({
+    window,
+    document,
+    elements: {
+      readerPage: ui.readerPage,
+      helpStage: ui.helpStage,
+      documentStage: ui.documentStage,
+      readView: ui.content,
+      sourceView: ui.sourceView,
+      editView: ui.editorView,
+      editorCanvas: ui.editorCanvas,
+      lineGutter: ui.lineGutter,
+      minimap: ui.documentMinimap,
+      minimapDocument: ui.minimapDocument,
+      minimapViewport: ui.minimapViewport,
+      scrollToTop: ui.scrollToTop,
+    },
+    adapters: {
+      getDocument: () => currentDocument,
+      getFilePath: () => currentFilePath,
+      getMode: () => isEditMode ? 'edit' : isSourceViewActive() ? 'source' : 'read',
+      isHelpVisible: () => isHelpVisible,
+      isLineGuideEnabled: () => readingTools.lineGuide,
+      isMinimapEnabled: () => readingTools.minimap,
+      getEditorCursorLine: () => editorSession?.current().cursor?.line,
+    },
+    hooks: {
+      onMetricsChange: updateStatusMetrics,
+    },
+  });
+  readingNavigation.start();
+  readingNavigation.refreshTools();
 }
 
 function handleReadTaskToggle(event) {
@@ -1077,9 +1071,8 @@ function handleLinkClick(event) {
 function setZoom(newZoom) {
   currentZoom = Math.min(Math.max(newZoom, MIN_ZOOM), MAX_ZOOM);
   document.documentElement.style.setProperty('--content-scale', currentZoom.toFixed(2));
-  isMinimapDocumentDirty = true;
+  readingNavigation?.markDirty();
   updateStatus(currentFilePath);
-  queueReadingUiUpdate();
   showToast(`Zoom: ${Math.round(currentZoom * 100)}%`);
 }
 
@@ -1088,388 +1081,6 @@ function handleZoom(event) {
     event.preventDefault();
     setZoom(calculateNewZoom(currentZoom, event.deltaY, ZOOM_STEP, MIN_ZOOM, MAX_ZOOM));
   }
-}
-
-function getActiveDocumentView() {
-  if (isEditMode) return ui.editorCanvas;
-  return isSourceViewActive() ? ui.sourceView : ui.content;
-}
-
-function getRenderedLineAnchors() {
-  if (!ui.documentStage) return [];
-
-  const stageTop = ui.documentStage.getBoundingClientRect().top;
-  const seenLines = new Set();
-  const anchors = isEditMode
-    ? [...(ui.editorCanvas?.querySelectorAll('[data-source-line-start]') || [])].flatMap((wrapper) => {
-        const content = wrapper.querySelector('[data-editor-content]');
-        if (!content) return [];
-        const sourceStart = Number.parseInt(wrapper.dataset.sourceLineStart, 10);
-        const sourceCount = Math.max(1, Number.parseInt(wrapper.dataset.sourceLineCount, 10) || 1);
-        const styles = getComputedStyle(content);
-        const lineHeight = Number.parseFloat(styles.lineHeight)
-          || Math.min(Math.max(content.getBoundingClientRect().height, 16), 32);
-        const top = content.getBoundingClientRect().top - stageTop;
-        const isCode = wrapper.dataset.blockType === 'code' && getFileKind(currentFilePath) === 'Markdown';
-        const visibleCount = isCode
-          ? Math.max(1, content.textContent.split('\n').length)
-          : sourceCount;
-        const visibleStart = sourceStart + (isCode ? 1 : 0);
-        return Array.from({ length: visibleCount }, (_value, index) => ({
-          line: visibleStart + index,
-          top: top + (index * lineHeight),
-          lineHeight,
-        }));
-      })
-    : [...(ui.content?.querySelectorAll('.source-line-anchor[data-source-line]') || [])]
-    .map((anchor) => {
-      let visualTarget = anchor.nextElementSibling;
-      while (visualTarget?.classList.contains('source-line-anchor')) {
-        visualTarget = visualTarget.nextElementSibling;
-      }
-      visualTarget ||= anchor;
-      const targetRect = visualTarget.getBoundingClientRect();
-      const targetStyles = getComputedStyle(visualTarget);
-      const targetLineHeight = Number.parseFloat(targetStyles.lineHeight);
-      return {
-        line: Number.parseInt(anchor.dataset.sourceLine, 10),
-        top: targetRect.top - stageTop,
-        lineHeight: Number.isFinite(targetLineHeight)
-          ? targetLineHeight
-          : Math.min(Math.max(targetRect.height, 16), 28),
-      };
-    });
-
-  return anchors
-    .filter((anchor) => {
-      if (!Number.isFinite(anchor.line) || anchor.line < 1 || seenLines.has(anchor.line)) return false;
-      seenLines.add(anchor.line);
-      return true;
-    })
-    .sort((left, right) => left.top - right.top);
-}
-
-function createLineNumber(line, top, isCurrent = false, lineHeight = 20) {
-  const label = document.createElement('span');
-  label.className = `line-number${isCurrent ? ' is-current' : ''}`;
-  label.textContent = String(line);
-  label.style.top = `${Math.max(0, top)}px`;
-  label.style.height = `${Math.max(1, lineHeight)}px`;
-  label.style.lineHeight = `${Math.max(1, lineHeight)}px`;
-  return label;
-}
-
-function positionLineGutter() {
-  if (!ui.lineGutter || !ui.documentStage) return;
-  const activeView = getActiveDocumentView();
-  if (!activeView) return;
-
-  const viewRect = activeView.getBoundingClientRect();
-  const stageRect = ui.documentStage.getBoundingClientRect();
-  const viewStyles = getComputedStyle(activeView);
-  const compact = window.matchMedia?.('(max-width: 460px)').matches;
-  const digitWidth = String(currentDocument?.lineCount || 1).length * (compact ? 6 : 7);
-  const editorControlLane = Number.parseFloat(viewStyles.getPropertyValue('--editor-control-lane')) || 52;
-  const editorLineGap = Number.parseFloat(viewStyles.getPropertyValue('--editor-line-gap')) || 12;
-  ui.lineGutter.style.width = `${Math.max(compact ? 29 : 34, digitWidth + 8)}px`;
-  const gutterRect = ui.lineGutter.getBoundingClientRect();
-  const gap = isEditMode ? editorControlLane + editorLineGap : (compact ? 8 : 12);
-  const left = getLineGutterLeft({
-    viewLeft: viewRect.left,
-    stageLeft: stageRect.left,
-    paddingLeft: isEditMode
-      ? editorControlLane + (Number.parseFloat(viewStyles.paddingLeft) || 0)
-      : Number.parseFloat(viewStyles.paddingLeft) || 0,
-    gutterWidth: gutterRect.width || 34,
-    gap,
-  });
-  ui.lineGutter.style.left = `${left}px`;
-}
-
-function renderLineGuide() {
-  if (
-    !ui.lineGutter
-    || ui.lineGutter.hidden
-    || !document.body.classList.contains('is-line-guide')
-    || !ui.readerPage
-    || !currentDocument
-  ) return;
-
-  positionLineGutter();
-  const { scrollTop, clientHeight } = ui.readerPage;
-  const fragment = document.createDocumentFragment();
-  let nextCurrentLine = 1;
-
-  if (isSourceViewActive()) {
-    const styles = getComputedStyle(ui.sourceView);
-    const lineHeight = Number.parseFloat(styles.lineHeight) || 20;
-    const paddingTop = Number.parseFloat(styles.paddingTop) || 0;
-    const range = getVisibleSourceLineRange({
-      scrollTop,
-      clientHeight,
-      lineHeight,
-      paddingTop,
-      lineCount: currentDocument.lineCount,
-    });
-    nextCurrentLine = range.current;
-
-    for (let line = range.first; line <= range.last; line += 1) {
-      const top = paddingTop + ((line - 1) * lineHeight);
-      fragment.appendChild(createLineNumber(line, top, line === nextCurrentLine, lineHeight));
-    }
-  } else {
-    const anchors = getRenderedLineAnchors();
-    const readingOffset = scrollTop + Math.min(48, clientHeight * 0.08);
-    nextCurrentLine = isEditMode
-      ? editorSession?.current().cursor?.line || currentSourceLine
-      : getCurrentLineFromAnchors(anchors, readingOffset);
-    const visibleStart = scrollTop - 18;
-    const visibleEnd = scrollTop + clientHeight + 18;
-    let lastVisibleTop = Number.NEGATIVE_INFINITY;
-    let currentIsVisible = false;
-
-    for (const anchor of anchors) {
-      if (anchor.top < visibleStart || anchor.top > visibleEnd) continue;
-      const isCurrent = anchor.line === nextCurrentLine;
-      if (!isCurrent && anchor.top - lastVisibleTop < 13) continue;
-      fragment.appendChild(createLineNumber(anchor.line, anchor.top, isCurrent, anchor.lineHeight));
-      lastVisibleTop = anchor.top;
-      currentIsVisible ||= isCurrent;
-    }
-
-    if (!currentIsVisible) {
-      fragment.appendChild(createLineNumber(nextCurrentLine, readingOffset, true));
-    }
-  }
-
-  ui.lineGutter.replaceChildren(fragment);
-  if (nextCurrentLine !== currentSourceLine) {
-    currentSourceLine = nextCurrentLine;
-    updateStatusMetrics();
-  }
-}
-
-function markMinimapDirty() {
-  isMinimapDocumentDirty = true;
-  queueReadingUiUpdate();
-}
-
-function sanitizeMinimapClone(clone) {
-  clone.setAttribute('aria-hidden', 'true');
-  clone.setAttribute('inert', '');
-  clone.classList.remove('hidden');
-  clone.querySelectorAll('.copy-code-btn').forEach((button) => button.remove());
-
-  const elements = [clone, ...clone.querySelectorAll('*')];
-  const idMap = new Map();
-  const prefix = `openmd-minimap-${++minimapCloneRevision}-`;
-
-  elements.forEach((element) => {
-    if (element.id) {
-      const nextId = `${prefix}${element.id}`;
-      idMap.set(element.id, nextId);
-      element.id = nextId;
-    }
-    element.removeAttribute('tabindex');
-    element.removeAttribute('autofocus');
-    element.removeAttribute('aria-live');
-    element.removeAttribute('aria-controls');
-    element.removeAttribute('contenteditable');
-    if (element.matches('a')) element.removeAttribute('href');
-    if (element.matches('audio, video')) element.removeAttribute('controls');
-  });
-
-  if (idMap.size > 0) {
-    elements.forEach((element) => {
-      [...element.attributes].forEach((attribute) => {
-        let nextValue = attribute.value;
-        idMap.forEach((nextId, previousId) => {
-          nextValue = nextValue.replaceAll(`#${previousId}`, `#${nextId}`);
-        });
-        if (nextValue !== attribute.value) element.setAttribute(attribute.name, nextValue);
-      });
-    });
-  }
-}
-
-function renderMinimapDocument() {
-  if (
-    !isMinimapDocumentDirty
-    || !ui.documentMinimap
-    || ui.documentMinimap.hidden
-    || !document.body.classList.contains('is-minimap')
-    || !ui.minimapDocument
-    || !ui.readerPage
-  ) return;
-
-  const activeView = getActiveDocumentView();
-  if (!activeView) return;
-  const trackRect = ui.documentMinimap.getBoundingClientRect();
-  const viewRect = activeView.getBoundingClientRect();
-  const viewStyles = getComputedStyle(activeView);
-  const trackWidth = ui.documentMinimap.clientWidth || trackRect.width;
-  const trackHeight = ui.documentMinimap.clientHeight || trackRect.height;
-  if (trackWidth <= 0 || trackHeight <= 0 || viewRect.width <= 0) return;
-
-  const documentWidth = Math.max(1, viewRect.width);
-  const clone = activeView.cloneNode(true);
-  sanitizeMinimapClone(clone);
-  clone.style.width = `${documentWidth}px`;
-  clone.style.maxWidth = 'none';
-  clone.style.minHeight = '0';
-  clone.style.margin = '0';
-
-  ui.minimapDocument.style.width = `${documentWidth}px`;
-  ui.minimapDocument.style.fontSize = viewStyles.fontSize;
-  ui.minimapDocument.style.lineHeight = viewStyles.lineHeight;
-  ui.minimapDocument.style.transform = 'none';
-  ui.minimapDocument.replaceChildren(clone);
-  const documentHeight = Math.max(
-    1,
-    activeView.scrollHeight,
-    viewRect.height,
-    clone.scrollHeight,
-    clone.offsetHeight
-  );
-  ui.minimapDocument.style.height = `${documentHeight}px`;
-  const scale = Math.min(trackWidth / documentWidth, trackHeight / documentHeight);
-  minimapContentHeight = documentHeight * scale;
-  ui.minimapDocument.style.left = `${(trackWidth - (documentWidth * scale)) / 2}px`;
-  ui.minimapDocument.style.transform = `scale(${scale})`;
-  isMinimapDocumentDirty = false;
-}
-
-function updateMinimapViewport() {
-  if (
-    !ui.documentMinimap
-    || ui.documentMinimap.hidden
-    || !document.body.classList.contains('is-minimap')
-    || !ui.minimapViewport
-    || !ui.readerPage
-  ) return;
-
-  const geometry = getMinimapViewportGeometry({
-    scrollTop: ui.readerPage.scrollTop,
-    scrollHeight: ui.readerPage.scrollHeight,
-    clientHeight: ui.readerPage.clientHeight,
-    trackHeight: ui.documentMinimap.getBoundingClientRect().height,
-    contentHeight: minimapContentHeight,
-  });
-  ui.minimapViewport.style.top = `${geometry.top}px`;
-  ui.minimapViewport.style.height = `${geometry.height}px`;
-  ui.documentMinimap.setAttribute('aria-valuenow', String(currentReadingProgress));
-  ui.documentMinimap.setAttribute('aria-valuetext', `${currentReadingProgress}% through document`);
-}
-
-function updateReadingUi() {
-  if (!currentDocument || !ui.readerPage || isHelpVisible) return;
-  const nextProgress = getReadingProgress(
-    ui.readerPage.scrollTop,
-    ui.readerPage.scrollHeight,
-    ui.readerPage.clientHeight
-  );
-  const progressChanged = nextProgress !== currentReadingProgress;
-  currentReadingProgress = nextProgress;
-  renderLineGuide();
-  renderMinimapDocument();
-  updateMinimapViewport();
-  if (progressChanged) updateStatusMetrics();
-}
-
-function queueReadingUiUpdate() {
-  if (readingUiRafId) return;
-  readingUiRafId = requestAnimationFrame(() => {
-    readingUiRafId = null;
-    updateReadingUi();
-  });
-}
-
-function scrollFromMinimapPointer(event) {
-  if (!ui.documentMinimap || !ui.readerPage) return;
-  const rect = ui.documentMinimap.getBoundingClientRect();
-  const ratio = Math.min(Math.max((event.clientY - rect.top) / Math.max(1, rect.height), 0), 1);
-  const maxScroll = Math.max(0, ui.readerPage.scrollHeight - ui.readerPage.clientHeight);
-  ui.readerPage.scrollTo({ top: ratio * maxScroll, behavior: 'auto' });
-}
-
-function handleMinimapPointerDown(event) {
-  if (event.button !== 0) return;
-  isMinimapDragging = true;
-  ui.documentMinimap?.setPointerCapture?.(event.pointerId);
-  scrollFromMinimapPointer(event);
-}
-
-function handleMinimapPointerMove(event) {
-  if (isMinimapDragging) scrollFromMinimapPointer(event);
-}
-
-function handleMinimapPointerUp(event) {
-  isMinimapDragging = false;
-  if (ui.documentMinimap?.hasPointerCapture?.(event.pointerId)) {
-    ui.documentMinimap.releasePointerCapture(event.pointerId);
-  }
-}
-
-function handleMinimapKeyboard(event) {
-  if (!ui.readerPage) return;
-  const maxScroll = Math.max(0, ui.readerPage.scrollHeight - ui.readerPage.clientHeight);
-  let nextScroll = null;
-
-  if (event.key === 'Home') nextScroll = 0;
-  if (event.key === 'End') nextScroll = maxScroll;
-  if (event.key === 'ArrowUp') nextScroll = ui.readerPage.scrollTop - 48;
-  if (event.key === 'ArrowDown') nextScroll = ui.readerPage.scrollTop + 48;
-  if (event.key === 'PageUp') nextScroll = ui.readerPage.scrollTop - (ui.readerPage.clientHeight * 0.8);
-  if (event.key === 'PageDown') nextScroll = ui.readerPage.scrollTop + (ui.readerPage.clientHeight * 0.8);
-  if (nextScroll === null) return;
-
-  event.preventDefault();
-  ui.readerPage.scrollTo({ top: Math.min(Math.max(nextScroll, 0), maxScroll), behavior: 'auto' });
-}
-
-function setupReadingResizeObserver() {
-  if (typeof ResizeObserver !== 'function') return;
-  minimapResizeObserver = new ResizeObserver(() => {
-    isMinimapDocumentDirty = true;
-    queueReadingUiUpdate();
-  });
-  [ui.documentStage, ui.content, ui.sourceView, ui.editorView, ui.editorCanvas].filter(Boolean).forEach((element) => {
-    minimapResizeObserver.observe(element);
-  });
-}
-
-function getActiveScroller() {
-  return isHelpVisible ? ui.helpStage : ui.readerPage;
-}
-
-function handleScroll() {
-  if (scrollRafId) return;
-  scrollRafId = requestAnimationFrame(() => {
-    scrollRafId = null;
-    const scroller = getActiveScroller();
-    if (!scroller) return;
-    const { scrollTop, scrollHeight, clientHeight } = scroller;
-    const maxScroll = scrollHeight - clientHeight;
-    const edges = getScrollEdgeState(scrollTop, scrollHeight, clientHeight);
-
-    document.body.classList.toggle('has-scroll-before', edges.before);
-    document.body.classList.toggle('has-scroll-after', edges.after);
-
-    if (ui.scrollToTop && maxScroll > 0 && scrollTop > maxScroll * 0.5) {
-      ui.scrollToTop.classList.add('show');
-    } else if (ui.scrollToTop) {
-      ui.scrollToTop.classList.remove('show');
-    }
-    if (!isHelpVisible) updateReadingUi();
-  });
-}
-
-function scrollToTop() {
-  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  getActiveScroller()?.scrollTo({
-    top: 0,
-    behavior: reduceMotion ? 'auto' : 'smooth'
-  });
 }
 
 function toggleReadingTools() {
@@ -1678,7 +1289,7 @@ function registerEvents() {
     if (typeof fileOpenRequestUnlisten === 'function') {
       fileOpenRequestUnlisten();
     }
-    minimapResizeObserver?.disconnect();
+    readingNavigation?.dispose();
     documentModeCoordinator?.dispose();
     documentSaveCoordinator?.dispose();
     themeCoordinator?.dispose();
@@ -1688,8 +1299,6 @@ function registerEvents() {
     editorSession?.dispose();
     windowChrome?.dispose();
   });
-  window.addEventListener('resize', queueReadingUiUpdate, { passive: true });
-  window.addEventListener('resize', handleScroll, { passive: true });
   document.addEventListener('click', handleLinkClick);
   document.addEventListener('pointerdown', (event) => {
     if (isReadingToolsOpen && !ui.readingToolsShell?.contains(event.target)) {
@@ -1704,10 +1313,7 @@ function registerEvents() {
   ui.toolbarOpenButton?.addEventListener('click', openFilePicker);
   ui.helpToggleButton?.addEventListener('click', toggleHelp);
   ui.closeHelpButton?.addEventListener('click', () => setHelpVisible(false));
-  ui.scrollToTop?.addEventListener('click', scrollToTop);
-  ui.readerPage?.addEventListener('scroll', handleScroll, { passive: true });
   ui.content?.addEventListener('change', handleReadTaskToggle);
-  ui.helpStage?.addEventListener('scroll', handleScroll, { passive: true });
   ui.readingToolsButton?.addEventListener('click', toggleReadingTools);
   ui.typographyButton?.addEventListener('click', toggleTypography);
   ui.alwaysOnTopButton?.addEventListener('click', toggleAlwaysOnTop);
@@ -1720,11 +1326,6 @@ function registerEvents() {
   ui.fontButtons.forEach((button) => {
     button.addEventListener('click', handleFontCycle);
   });
-  ui.documentMinimap?.addEventListener('pointerdown', handleMinimapPointerDown);
-  ui.documentMinimap?.addEventListener('pointermove', handleMinimapPointerMove);
-  ui.documentMinimap?.addEventListener('pointerup', handleMinimapPointerUp);
-  ui.documentMinimap?.addEventListener('pointercancel', handleMinimapPointerUp);
-  ui.documentMinimap?.addEventListener('keydown', handleMinimapKeyboard);
   document.getElementById('theme-select')?.addEventListener('change', handleThemeSelection);
 }
 
@@ -1739,6 +1340,7 @@ async function init() {
   mountApplicationEditor();
   mountDocumentSaveCoordinator();
   mountDocumentModeCoordinator();
+  mountReadingNavigation();
   const preferenceResult = await readerShell.preferences.load();
   if (preferenceResult.status === 'fallback') {
     console.warn('One or more saved preferences could not be restored:', preferenceResult.warnings);
@@ -1747,7 +1349,6 @@ async function init() {
   registerEvents();
   await setupFileAssociationEvents();
   await setupWindowChrome();
-  setupReadingResizeObserver();
   await initThemes();
   const queryFilePath = new URLSearchParams(window.location.search).get('file');
   let initialFilePaths = queryFilePath ? [queryFilePath] : [];

@@ -173,21 +173,21 @@ serialized read-task mutation path with deterministic rollback and feedback.
 ### ARC-11 — Own reading navigation chrome
 
 **Type:** AFK
-**Status:** Ready
+**Status:** Implemented
 **Blocked by:** ARC-10.
 
 **What to build:** One Reading Navigation controller owns the active view,
 line guide, minimap document/viewport, scroll progress, pointer/keyboard input,
 resize observation, scheduling and disposal.
 
-- [ ] Read/Edit/Source line guides and minimap snapshots use the active view.
-- [ ] Pointer and keyboard navigation map to the real reader scroll owner.
-- [ ] Observer/RAF/listeners dispose cleanly and focused DOM tests pass.
+- [x] Read/Edit/Source line guides and minimap snapshots use the active view.
+- [x] Pointer and keyboard navigation map to the real reader scroll owner.
+- [x] Observer/RAF/listeners dispose cleanly and focused DOM tests pass.
 
 ### ARC-12 — Deepen the editor document model
 
 **Type:** AFK
-**Status:** Blocked
+**Status:** Ready
 **Blocked by:** ARC-11.
 
 **What to build:** Extend the Editor Document module so canonical blocks,
