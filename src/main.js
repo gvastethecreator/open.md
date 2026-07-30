@@ -15,14 +15,11 @@ import {
   getLineGutterLeft,
   getLinkAction,
   getMinimapViewportGeometry,
-  getPreferredThemeIndex,
   getReadingProgress,
   getScrollEdgeState,
   getStatusMetricParts,
-  getThemeTokens,
   getViewportMode,
   getVisibleSourceLineRange,
-  isColorDark,
   normalizeDocumentPayload,
   setMarkdownTaskChecked,
 } from './core/reader.js';
@@ -38,15 +35,13 @@ import {
 } from './reader-preferences.js';
 import { createResponsiveTypography } from './responsive-typography.js';
 import { createToastPresenter } from './toast-presenter.js';
+import { createThemeCoordinator } from './theme-coordinator.js';
 import { createWindowChrome } from './window-chrome.js';
 
 let currentZoom = 1;
 const ZOOM_STEP = 0.1;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3.0;
-const CURATED_THEME_NAMES = ['Paper', 'Github Light', 'Github Dark', 'Ayu Light', 'Ayu Dark'];
-let themes = [];
-let currentThemeIndex = -1;
 let dragDropUnlisten = null;
 let fileOpenRequestUnlisten = null;
 let scrollRafId = null;
@@ -81,11 +76,8 @@ let activeDocumentModeTransition = null;
 let modeMorphFallbackTimeoutId = null;
 let modeMorphGeneration = 0;
 let documentModeChangeGeneration = 0;
-let activeThemeTransition = null;
-let pendingThemeRequest = null;
-let themeApplicationPromise = null;
-let themeRequestRevision = 0;
 let toastPresenter = null;
+let themeCoordinator = null;
 let syntaxHighlighterPromise = null;
 
 const ui = {
@@ -240,51 +232,6 @@ function updateWindowUrl(filePath = null) {
   window.history.replaceState({}, '', url);
 }
 
-function populateThemeSelect() {
-  const select = document.getElementById('theme-select');
-  if (!select) return;
-  select.innerHTML = '';
-
-  const curatedNames = new Set(CURATED_THEME_NAMES.map((name) => name.toLowerCase()));
-  const recommendedGroup = document.createElement('optgroup');
-  recommendedGroup.label = 'Recommended';
-  const catalogGroup = document.createElement('optgroup');
-  catalogGroup.label = 'All themes';
-
-  const appendOption = (group, index) => {
-    const option = document.createElement('option');
-    option.value = String(index);
-    option.textContent = themes[index].name;
-    if (index === currentThemeIndex) option.selected = true;
-    group.appendChild(option);
-  };
-
-  for (const themeName of CURATED_THEME_NAMES) {
-    const index = themes.findIndex((theme) => theme.name.toLowerCase() === themeName.toLowerCase());
-    if (index >= 0) appendOption(recommendedGroup, index);
-  }
-
-  for (let i = 0; i < themes.length; i += 1) {
-    if (!curatedNames.has(themes[i].name.toLowerCase())) {
-      appendOption(catalogGroup, i);
-    }
-  }
-
-  if (recommendedGroup.children.length > 0) select.appendChild(recommendedGroup);
-  if (catalogGroup.children.length > 0) select.appendChild(catalogGroup);
-}
-function updateThemeCopy() {
-  const select = document.getElementById('theme-select');
-  if (select && currentThemeIndex >= 0) {
-    select.value = String(currentThemeIndex);
-    const themeLabel = `Theme: ${themes[currentThemeIndex].name}`;
-    select.title = themeLabel;
-    select.setAttribute('aria-label', themeLabel);
-    select.closest('.theme-field')?.setAttribute('title', themeLabel);
-    const name = document.getElementById('theme-name');
-    if (name) name.textContent = themes[currentThemeIndex].name;
-  }
-}
 function setStatusText(primary, context = '', title = [primary, context].filter(Boolean).join(' · ')) {
   const primaryElement = ui.statusPrimary || document.getElementById('status-pill');
   const contextElement = ui.statusContext || document.getElementById('status-context');
@@ -387,11 +334,8 @@ function handlePreferenceSnapshot(snapshot) {
   updateAutoSaveControl();
   applyReadingTools();
 
-  if (snapshot.themeName && themes.length > 0) {
-    const savedIndex = themes.findIndex((theme) => theme.name === snapshot.themeName);
-    if (savedIndex >= 0 && savedIndex !== currentThemeIndex) {
-      applyTheme(themes[savedIndex], { silent: true, persist: false });
-    }
+  if (snapshot.themeName && themeCoordinator?.current()?.name !== snapshot.themeName) {
+    themeCoordinator?.applyName(snapshot.themeName, { silent: true, persist: false });
   }
 }
 
@@ -707,181 +651,39 @@ function setDragState(isActive) {
 
 async function initThemes() {
   try {
-    themes = [...allThemes].sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
     const savedThemeName = readerShell.preferences.current().themeName;
-    currentThemeIndex = getPreferredThemeIndex(themes, savedThemeName);
-
-    populateThemeSelect();
-    updateThemeCopy();
-
-    if (currentThemeIndex >= 0) {
-      applyTheme(themes[currentThemeIndex], { silent: true, persist: false });
-    }
+    themeCoordinator = createThemeCoordinator({
+      window,
+      document,
+      themes: allThemes,
+      elements: {
+        select: document.getElementById('theme-select'),
+        name: document.getElementById('theme-name'),
+      },
+      hooks: {
+        shouldPrepareDiagrams: () => Boolean(currentFilePath && ui.content?.querySelector('.mermaid')),
+        prepareDiagrams: (diagramTheme) => readerShell?.prepareAppearance({ diagramTheme }),
+        persist: (themeName) => readerShell.preferences.update({ themeName }),
+        onPersistResult: reportPreferenceResult,
+        notify: showToast,
+        beforeTransition: () => {
+          if (activeDocumentModeTransition) {
+            activeDocumentModeTransition.skipTransition?.();
+            finishDocumentModeMorph(modeMorphGeneration);
+          }
+        },
+        onCommit: () => {
+          isMinimapDocumentDirty = true;
+          queueReadingUiUpdate();
+        },
+        onError: (message, error) => console.error(`${message}:`, error),
+      },
+    });
+    await themeCoordinator.start(savedThemeName);
   } catch (error) {
     console.error('Failed to initialize themes:', error);
     showToast('Could not load themes');
   }
-}
-
-function prefersReducedMotion() {
-  return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
-}
-
-function commitThemeVisuals(theme, preparedDiagrams = null) {
-  const root = document.documentElement;
-  const tokens = getThemeTokens(theme);
-  root.style.setProperty('--bg-color', tokens.background);
-  root.style.setProperty('--text-color', tokens.text);
-  root.style.setProperty('--border-color', tokens.border);
-  root.style.setProperty('--link-color', tokens.link);
-  root.style.setProperty('--accent-color', tokens.accent);
-  root.style.setProperty('--ui-accent', tokens.accent);
-  root.style.setProperty('--accent-foreground', tokens.accentForeground);
-  root.style.setProperty('--code-bg', tokens.surface);
-  root.style.setProperty('--code-block-bg', tokens.codeBackground);
-  root.style.setProperty('--code-block-text', tokens.codeText);
-  root.style.setProperty('--syntax-comment', tokens.syntaxComment);
-  root.style.setProperty('--syntax-keyword', tokens.syntaxKeyword);
-  root.style.setProperty('--syntax-string', tokens.syntaxString);
-  root.style.setProperty('--syntax-number', tokens.syntaxNumber);
-  root.style.setProperty('--syntax-title', tokens.syntaxTitle);
-  root.style.setProperty('--syntax-property', tokens.syntaxProperty);
-  root.style.setProperty('--syntax-meta', tokens.syntaxMeta);
-  root.style.setProperty('--syntax-addition', tokens.syntaxAddition);
-  root.style.setProperty('--syntax-deletion', tokens.syntaxDeletion);
-  root.style.setProperty('--heading-1', tokens.text);
-  root.style.setProperty('--heading-2', tokens.text);
-  root.style.setProperty('--heading-3', tokens.text);
-  root.style.setProperty('--heading-4', tokens.text);
-  root.style.setProperty('--heading-5', tokens.text);
-  root.style.setProperty('--quote-color', tokens.quote);
-  root.style.setProperty('--panel-bg', tokens.surface);
-  root.style.setProperty('--toolbar-bg', tokens.surface);
-  root.style.setProperty('--danger-color', tokens.danger);
-  root.style.setProperty('--shadow-color', tokens.shadow);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', tokens.background);
-
-  const isDark = isColorDark(tokens.background);
-  root.style.colorScheme = isDark ? 'dark' : 'light';
-  root.dataset.themeName = theme.name;
-  root.dataset.themeTone = isDark ? 'dark' : 'light';
-  preparedDiagrams?.commit?.();
-  isMinimapDocumentDirty = true;
-  queueReadingUiUpdate();
-}
-
-async function commitThemeRequest(request) {
-  const { theme, silent, revision } = request;
-  const tokens = getThemeTokens(theme);
-  const diagramTheme = isColorDark(tokens.background) ? 'dark' : 'default';
-  const preparedDiagrams = currentFilePath && ui.content?.querySelector('.mermaid')
-    ? await readerShell?.prepareAppearance({ diagramTheme })
-    : null;
-
-  if (revision !== themeRequestRevision) return false;
-
-  const root = document.documentElement;
-  let didCommit = false;
-  const commit = () => {
-    commitThemeVisuals(theme, preparedDiagrams);
-    didCommit = true;
-  };
-  const canWipe = !silent
-    && !prefersReducedMotion()
-    && typeof document.startViewTransition === 'function';
-
-  if (!canWipe) {
-    root.classList.add('is-theme-changing');
-    commit();
-    await new Promise((resolve) => {
-      let frameId = null;
-      const timeoutId = setTimeout(() => {
-        if (frameId !== null) cancelAnimationFrame(frameId);
-        resolve();
-      }, 64);
-      frameId = requestAnimationFrame(() => {
-        clearTimeout(timeoutId);
-        resolve();
-      });
-    });
-    root.classList.remove('is-theme-changing');
-    return true;
-  }
-
-  if (activeDocumentModeTransition) {
-    activeDocumentModeTransition.skipTransition?.();
-    finishDocumentModeMorph(modeMorphGeneration);
-  }
-  root.classList.add('is-theme-changing', 'is-theme-wiping');
-  let transition;
-  try {
-    transition = document.startViewTransition(commit);
-  } catch {
-    if (!didCommit) commit();
-    root.classList.remove('is-theme-changing', 'is-theme-wiping');
-    return true;
-  }
-  activeThemeTransition = transition;
-
-  try {
-    await transition.ready;
-  } catch {
-    // A newer requested theme may intentionally skip this transition.
-  } finally {
-    root.classList.remove('is-theme-changing');
-  }
-
-  try {
-    await transition.finished;
-  } catch {
-    // The committed theme remains valid when the visual transition is skipped.
-  } finally {
-    if (activeThemeTransition === transition) activeThemeTransition = null;
-    root.classList.remove('is-theme-wiping');
-  }
-  return true;
-}
-
-async function drainThemeRequests() {
-  while (pendingThemeRequest) {
-    const request = pendingThemeRequest;
-    pendingThemeRequest = null;
-    await commitThemeRequest(request);
-  }
-}
-
-function scheduleThemeDrain() {
-  if (themeApplicationPromise) return themeApplicationPromise;
-  themeApplicationPromise = Promise.resolve()
-    .then(drainThemeRequests)
-    .catch((error) => console.error('Could not apply the selected theme:', error))
-    .finally(() => {
-      themeApplicationPromise = null;
-      if (pendingThemeRequest) scheduleThemeDrain();
-    });
-  return themeApplicationPromise;
-}
-
-function applyTheme(theme, { silent = false, persist = true } = {}) {
-  if (!theme) return Promise.resolve(false);
-
-  const revision = ++themeRequestRevision;
-  pendingThemeRequest = { theme, silent, revision };
-  activeThemeTransition?.skipTransition?.();
-
-  currentThemeIndex = themes.findIndex((item) => item.name === theme.name);
-
-  if (persist) {
-    readerShell.preferences.update({ themeName: theme.name })
-      .then(reportPreferenceResult)
-      .catch((error) => console.warn('Could not persist the selected theme:', error));
-  }
-  updateThemeCopy();
-
-  if (!silent) {
-    showToast(`Theme: ${theme.name}`);
-  }
-  return scheduleThemeDrain();
 }
 
 function showToast(message) {
@@ -890,9 +692,7 @@ function showToast(message) {
 }
 
 function cycleTheme(direction = 1) {
-  if (themes.length === 0) return;
-  currentThemeIndex = (currentThemeIndex + direction + themes.length) % themes.length;
-  applyTheme(themes[currentThemeIndex]);
+  themeCoordinator?.cycle(direction);
 }
 
 function resetDocumentReadingState() {
@@ -955,10 +755,7 @@ function handleDocumentSessionState(snapshot) {
 }
 
 function activeDiagramTheme() {
-  const activeTheme = themes[currentThemeIndex];
-  return activeTheme && isColorDark(getThemeTokens(activeTheme).background)
-    ? 'dark'
-    : 'default';
+  return themeCoordinator?.diagramTheme() || 'default';
 }
 
 async function highlightDocumentCode(container) {
@@ -1108,7 +905,7 @@ async function withDocumentModeMorph(update) {
   if (document.body.classList.contains('is-mode-morphing')) {
     finishDocumentModeMorph(modeMorphGeneration);
   }
-  activeThemeTransition?.skipTransition?.();
+  themeCoordinator?.cancelTransition();
   clearTimeout(modeMorphFallbackTimeoutId);
   modeMorphFallbackTimeoutId = null;
 
@@ -1945,10 +1742,8 @@ function handleKeyboard(event) {
 }
 
 function handleThemeSelection(event) {
-  const index = parseInt(event.target.value, 10);
-  if (!isNaN(index) && index >= 0 && index < themes.length) {
-    applyTheme(themes[index]);
-  }
+  const index = Number.parseInt(event.target.value, 10);
+  if (Number.isInteger(index)) themeCoordinator?.applyIndex(index);
 }
 
 function submitNativeOpenFileRequest(value) {
@@ -2071,7 +1866,7 @@ function registerEvents() {
     }
     minimapResizeObserver?.disconnect();
     activeDocumentModeTransition?.skipTransition?.();
-    activeThemeTransition?.skipTransition?.();
+    themeCoordinator?.dispose();
     toastPresenter?.dispose();
     clearTimeout(modeMorphFallbackTimeoutId);
     clearTimeout(autoSaveTimeoutId);
