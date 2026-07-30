@@ -311,16 +311,16 @@ scroll reset without owning document loading.
 ### ARC-19 — Own editor save feedback presentation
 
 **Type:** AFK
-**Status:** Planned
+**Status:** Implemented
 **Blocked by:** ARC-17 and ARC-18.
 
 **What to build:** One Editor Feedback Presenter maps editor snapshots to save
 button state, icon, label, tooltip, ARIA, body state classes, and mode/metric
 hooks while save scheduling remains in `document-save-coordinator.js`.
 
-- [ ] Saved, dirty, saving, error, and recovered states render complete feedback.
-- [ ] Mode changes close transient context UI and refresh the correct navigation/status hooks.
-- [ ] Focused presenter tests cover every state and repeated transitions.
+- [x] Saved, dirty, saving, error, and recovered states render complete feedback.
+- [x] Mode changes close transient context UI and refresh the correct navigation/status hooks.
+- [x] Focused presenter tests cover every state and repeated transitions.
 
 ### ARC-20 — Own document content actions
 
