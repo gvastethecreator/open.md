@@ -86,8 +86,26 @@ flowchart LR
 
 ### UI lifecycle coordinators
 
-- `src/main.js` composes window chrome, theme, toast, document-mode, save, and
-  reading-navigation modules through injected DOM/native adapters and hooks.
+- `src/main.js` remains the composition root. It declares mounts, event
+  bindings, and concrete DOM/native adapters; it does not own their private
+  state or listener queues.
+- `src/application-lifecycle.js` owns mount order, startup failure cleanup,
+  beforeunload guarding, event binding, and idempotent reverse teardown.
+- `src/application-runtime-adapters.js` owns native/preview document access,
+  save, image bytes, syntax loading, Mermaid adapters, storage, and window
+  pinning behind the existing shell adapter shape.
+- `src/document-ingress-controller.js` owns picker, native association replay,
+  drag safety, native drop, dirty-document guards, and ingress teardown.
+- `src/document-view-state.js` owns the current path/document identity and
+  loading, ready, failed, idle, replacement, and save fan-out.
+- `src/reader-viewport-controller.js` owns empty/content/source/help
+  projection, inert/ARIA state, help focus, page state, body state, and scroll
+  reset.
+- `src/reader-controls.js` owns preference-to-control projection, panel/focus
+  rules, reading-tool state, fonts, auto-save, and always-on-top actions.
+- `src/reading-navigation-controller.js`, `src/document-mode-coordinator.js`,
+  `src/status-presenter.js`, `src/toast-presenter.js`, and
+  `src/editor-feedback-presenter.js` own their visual lifecycle and disposal.
 - Each module owns its timers, listeners, transition/RAF state and disposal;
   the composition root does not coordinate their private revisions or queues.
 - Invariant: replacement or disposal invalidates stale visual and save work
@@ -107,6 +125,17 @@ flowchart LR
   independent block or undo/redo history.
 - Cursor-only updates reuse the frozen source/block/stat projection; moving the
   caret cannot serialize or clone the full document.
+
+### Content and keyboard actions
+
+- `src/document-content-actions.js` owns Read/Source/Edit context actions,
+  selection capture, clipboard fallback, paste, task toggles, and editor block
+  commands through injected session/save adapters.
+- `src/reader-keyboard-controller.js` owns shortcut precedence and editable
+  target guards; command implementations remain injected from the root.
+- Invariant: picker, drop, link, keyboard, and native association paths enter
+  through the same Open Intent policy instead of duplicating path or window
+  rules.
 
 ## Cross-boundary rules
 
@@ -136,6 +165,16 @@ flowchart LR
 - Shell composition: `src/reader-shell.test.js`
 - Document lifecycle: `src/document-session.test.js`
 - Open policy: `src/open-intent-controller.test.js` and Rust queue tests
+- Application composition/lifecycle: `src/application-lifecycle.test.js`,
+  `src/application-runtime-adapters.test.js`, and
+  `src/document-ingress-controller.test.js`
+- Document/view projection: `src/document-view-state.test.js`,
+  `src/reader-viewport-controller.test.js`, and
+  `src/status-presenter.test.js`
+- Reader/editor interaction policy: `src/reader-controls.test.js`,
+  `src/reader-keyboard-controller.test.js`,
+  `src/document-content-actions.test.js`, and
+  `src/editor-feedback-presenter.test.js`
 - Preferences: `src/reader-preferences.test.js`
 - Window/theme/mode/save/navigation lifecycle: focused controller tests under
   `src/*-coordinator.test.js` and `src/reading-navigation-controller.test.js`

@@ -1,11 +1,11 @@
 # Architecture review — open.md
 
-Date: 2026-07-29; execution update: 2026-07-30
-Repository revision: architecture baseline `60d1949`; ARC-06..15 + review-hardening checkpoint `50f5231` on `codex/arc-01-05-architecture`
-Status: ARC-01 through ARC-15 accepted, implemented, independently re-reviewed, and locally verified; packaged cross-platform smoke remains a platform gate
+Date: 2026-07-29; execution updates: 2026-07-30
+Repository revision: `e9dacd2`; ARC-01..15 baseline plus the completed ARC-16..25 follow-up on `codex/arc-01-05-architecture`
+Status: ARC-01 through ARC-25 accepted, implemented, and locally verified; packaged cross-platform smoke remains a platform gate
 Canonical source: this Markdown file
 Historical visual companion (review baseline only): `.scratch/reports/architecture-open-md/index.html`
-Current visual companion: [`.scratch/reports/architecture-open-md-2026-07-30/index.html`](../../.scratch/reports/architecture-open-md-2026-07-30/index.html)
+Current visual companion: [`.scratch/reports/architecture-open-md-followup/index.html`](../../.scratch/reports/architecture-open-md-followup/index.html)
 
 > Architecture terms stay in English to match the project contract: **module**, **interface**, **implementation**, **depth**, **deep**, **shallow**, **seam**, **adapter**, **leverage**, and **locality**.
 
@@ -13,23 +13,84 @@ Current visual companion: [`.scratch/reports/architecture-open-md-2026-07-30/ind
 
 Current outcome (2026-07-30):
 
-- Ten additional lifecycle/model owners were implemented as ARC-06 through
-  ARC-15. `src/main.js` fell from 2,324 to 1,383 physical lines and
-  `src/editor-session.js` from 1,317 to 741 without changing the public reader
-  shell contract.
-- The final local gate passed 155 frontend tests in 21 files, four executable
-  reader-shell checks, the static/page checks, the production build and bundle
-  budgets, Rust formatting/checking, and 15 Rust tests.
+- Ten additional lifecycle and interaction owners were implemented as ARC-16
+  through ARC-25 without changing the public reader-shell contract. The root
+  is now 976 physical lines and 52 function-like declarations; its remaining
+  role is mount order, adapters, event bindings, and cross-module callbacks.
+- The full local gate passed 212 frontend tests in 33 files, four executable
+  reader-shell checks, static/page checks, the production build and bundle
+  budgets, Rust formatting/checking, and 15 Rust tests. `bun run verify`
+  completed in 42 seconds with the longer bounded build window.
+- The new modules have focused DOM/controller contracts for viewport, status,
+  editor feedback, content actions, document identity, ingress, keyboard,
+  runtime adapters, and application lifecycle. The accepted ownership ledger
+  is the [architecture workplan](WORKPLAN.md).
 - The first adversarial review blocked closure with six confirmed defects and
   one initialization risk. Three hardening commits closed all seven; the fresh
   re-review reports zero P1, P2, or P3 defect.
-- The completion ledger is the [architecture workplan](WORKPLAN.md). Settled
-  ownership is also recorded in [CONTEXT.md](../../CONTEXT.md) and the
+- Settled ownership is recorded in [CONTEXT.md](../../CONTEXT.md) and the
   [development guide](../DEVELOPMENT.md).
 - Post-refactor live-browser proof is not claimed: the required existing-Chrome
   bridge was unavailable on this host. The earlier UI slice has live desktop
   proof; the architecture batch is covered by executable DOM tests and the
   complete local gate.
+
+## Execution update — ARC-16..25
+
+This follow-up was executed as exactly ten non-overlapping tickets. Each ticket
+has one focused module, a contract test, a workplan entry, and one logical
+commit. The public `mountReaderShell` shape, Open Intent policy, document
+session lifecycle, preferences model, and native filesystem policy remain in
+their established owners.
+
+| ID | New owner | Responsibility moved out of `main.js` | Proof |
+|---|---|---|---|
+| ARC-16 | `reader-controls.js` | Preference projection, panels, fonts, reading tools, auto-save, pinning, focus, and scroll memory | `reader-controls.test.js` plus full frontend suite |
+| ARC-17 | `status-presenter.js` | Status identity, reusable metrics, zoom motion, reduced motion, and clear/dispose | `status-presenter.test.js` |
+| ARC-18 | `reader-viewport-controller.js` | Empty/content/source/help projection, ARIA/inert state, page/body state, focus, and help scroll reset | `reader-viewport-controller.test.js` |
+| ARC-19 | `editor-feedback-presenter.js` | Save button state, icon, label, tooltip, ARIA, and editor save classes | `editor-feedback-presenter.test.js` |
+| ARC-20 | `document-content-actions.js` | Read/Source/Edit context actions, selection, clipboard fallback, paste, tasks, and block commands | `document-content-actions.test.js` |
+| ARC-21 | `document-ingress-controller.js` | Picker, native association replay/ack, drag safety/drop, dirty guards, and ingress teardown | `document-ingress-controller.test.js` |
+| ARC-22 | `document-view-state.js` | Document identity and loading/ready/failed/idle/replacement fan-out | `document-view-state.test.js` |
+| ARC-23 | `application-runtime-adapters.js` | Native/preview document, save, image, syntax, Mermaid, storage, and window adapters | `application-runtime-adapters.test.js` |
+| ARC-24 | `reader-keyboard-controller.js` | Shortcut precedence, editable-target guards, help/panels, edit, save, open, zoom, and themes | `reader-keyboard-controller.test.js` |
+| ARC-25 | `application-lifecycle.js` | Mount order, event binding, startup failure cleanup, beforeunload, and idempotent teardown | `application-lifecycle.test.js` |
+
+### Settled interface decisions
+
+- `main.js` remains an assembly root. No generic event bus, dependency map, or
+  dependency-injection container was added.
+- Runtime adapters preserve the existing Reader shell adapter shape. Native
+  and preview branches are real adapters; browser file access fails with the
+  stable `NATIVE_ACCESS_UNAVAILABLE` contract.
+- View state owns document identity, while the Document Session still owns
+  render/enrichment/resource generations and Open Intent still owns path,
+  window, deduplication, readiness, and acknowledgment policy.
+- Ingress owns transport listeners and picker/drop lifecycle, but submits all
+  requests through Open Intent. Keyboard and content actions use injected
+  callbacks instead of reaching into unrelated module state.
+
+### Verification update
+
+| Gate | Result |
+|---|---|
+| `bun run check:frontend` | Passed: static, shell, and Pages checks; 364 themes and 11 local Pages references |
+| `bun run test:frontend` | Passed: 33 files, 212 tests |
+| `bun run build` | Passed: Vite transformed 2,130 modules; bundle check passed with 107 assets |
+| `bun run fmt:rust` | Passed |
+| `bun run check:rust` | Passed; Windows incremental-cache access warning only |
+| `bun run test:rust` | Passed: 15 tests |
+| `bun run verify` | Passed end to end in 42 seconds with the extended bounded window |
+
+### Residual risks and limits
+
+- Live existing-Chrome/profile proof remains unavailable because the required
+  bridge is not installed. DOM/controller tests and the full local gate are
+  not a substitute for that manual runtime proof.
+- The production build still reports Vite's existing advisory about chunks
+  above 500 kB; the repository bundle budget passed.
+- Rust keeps the known Windows incremental-cache and linker stdout warnings;
+  they do not fail the gates and no Rust source changed in this batch.
 
 Historical review baseline:
 
