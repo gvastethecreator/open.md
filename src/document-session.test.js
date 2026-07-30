@@ -25,7 +25,7 @@ function createResources() {
   };
 }
 
-function createSession({ open, readImage, render, highlight, resources, hooks } = {}) {
+function createSession({ open, readImage, prepare, render, highlight, resources, hooks } = {}) {
   return createDocumentSession({
     window,
     adapters: {
@@ -34,6 +34,7 @@ function createSession({ open, readImage, render, highlight, resources, hooks } 
         readImage: readImage || vi.fn(async () => new Uint8Array()),
       },
       diagrams: {
+        prepare: prepare || vi.fn(async () => null),
         render: render || vi.fn(async () => false),
       },
       syntax: {
@@ -100,6 +101,26 @@ describe('document session', () => {
     expect(onWarning).toHaveBeenCalledOnce();
     expect(onWarning).toHaveBeenCalledWith('One or more diagrams could not be rendered');
     expect(document.querySelector('#content .mermaid')?.textContent).toBe('graph TD');
+  });
+
+  it('prepares a diagram replacement through the session without mutating the visible node', async () => {
+    const prepared = { theme: 'dark', commit: vi.fn(() => true) };
+    const prepare = vi.fn(async () => prepared);
+    const session = createSession({
+      open: vi.fn(async () => payload({ html: '<div class="mermaid">graph TD; A-->B</div>' })),
+      prepare,
+    });
+    await session.open({ path: 'diagram.md' });
+    const visibleBefore = document.querySelector('#content .mermaid')?.innerHTML;
+
+    await expect(session.prepareDiagrams('dark')).resolves.toBe(prepared);
+
+    expect(prepare).toHaveBeenCalledWith(document.querySelector('#content'), {
+      reset: true,
+      theme: 'dark',
+    });
+    expect(document.querySelector('#content .mermaid')?.innerHTML).toBe(visibleBefore);
+    expect(prepared.commit).not.toHaveBeenCalled();
   });
 
   it('runs deferred syntax enrichment and preserves readable code when it fails', async () => {

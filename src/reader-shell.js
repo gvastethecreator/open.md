@@ -36,6 +36,10 @@ export function mountReaderShell({ window, adapters, hooks = {} }) {
       return openIntents.submit(intent);
     },
     preferences,
+    prepareAppearance({ diagramTheme = 'default' } = {}) {
+      if (disposed) return Promise.resolve(null);
+      return documentSession.prepareDiagrams(diagramTheme);
+    },
     refreshAppearance({ diagramTheme = 'default' } = {}) {
       if (disposed) return Promise.resolve(false);
       return documentSession.refreshDiagrams(diagramTheme);
