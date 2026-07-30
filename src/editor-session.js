@@ -1,11 +1,9 @@
 import {
   EDITOR_COMMANDS,
-  createEditorBlock,
+  createEditorDocumentModel,
   editableHtmlToMarkdown,
   editorBlockLabel,
-  getEditorDocumentStats,
   inlineMarkdownToHtml,
-  parseEditorDocument,
   serializeEditorDocument,
 } from './editor-document.js';
 
@@ -117,7 +115,11 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   }
 
   let activeDocument = null;
-  let blocks = [createEditorBlock()];
+  const documentModel = createEditorDocumentModel();
+  let documentSnapshot = documentModel.snapshot();
+  const unsubscribeDocumentModel = documentModel.subscribe((nextSnapshot) => {
+    documentSnapshot = nextSnapshot;
+  });
   let savedSource = '';
   let mode = 'read';
   let saveState = 'idle';
@@ -127,19 +129,14 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   let commandIndex = 0;
   let blockMenuId = null;
   let savedSelection = null;
-  let history = [''];
-  let historyIndex = 0;
   let disposed = false;
   let caretEchoVersion = 0;
-  let cursor = null;
   let blockLineCounts = new Map();
   let dragState = null;
   const blockAnimations = new Set();
   const drafts = new Map();
 
-  const source = () => serializeEditorDocument(blocks, {
-    markdown: activeDocument?.markdown !== false,
-  });
+  const source = () => documentSnapshot.source;
   const dirty = () => mode === 'edit' && source() !== savedSource;
   const snapshot = () => Object.freeze({
     mode,
@@ -147,40 +144,29 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     dirty: dirty(),
     saveState,
     error: saveError,
-    stats: getEditorDocumentStats(blocks),
-    cursor: cursor ? Object.freeze({ ...cursor }) : null,
+    stats: documentSnapshot.stats,
+    cursor: documentSnapshot.cursor,
   });
   const notify = () => hooks.onStateChange?.(snapshot());
 
   const setCursor = (nextCursor) => {
-    if (cursor?.line === nextCursor?.line && cursor?.column === nextCursor?.column) return;
-    cursor = nextCursor;
-    hooks.onCursorChange?.(cursor ? Object.freeze({ ...cursor }) : null);
+    if (!documentModel.setCursor(nextCursor)) return;
+    hooks.onCursorChange?.(documentSnapshot.cursor);
   };
 
-  const commitHistory = () => {
-    const current = source();
-    if (history[historyIndex] === current) return;
-    history = history.slice(0, historyIndex + 1);
-    history.push(current);
-    if (history.length > 150) history.shift();
-    historyIndex = history.length - 1;
-  };
-
-  const restoreHistory = (nextIndex, action) => {
-    const index = clamp(nextIndex, 0, history.length - 1);
-    if (index === historyIndex) return false;
-    const activeIndex = Math.max(0, blocks.findIndex((block) => block.id === activeBlockId));
-    historyIndex = index;
-    blocks = parseEditorDocument(history[index], { markdown: activeDocument?.markdown !== false });
+  const restoreHistory = (action) => {
+    const result = action === 'redo'
+      ? documentModel.redo(activeBlockId)
+      : documentModel.undo(activeBlockId);
+    if (!result.changed) return false;
     render();
     notify();
     hooks.onHistoryRestore?.(action);
-    queueMicrotask(() => focusBlock(blocks[Math.min(activeIndex, blocks.length - 1)].id));
+    queueMicrotask(() => focusBlock(result.focusId));
     return true;
   };
 
-  const findBlock = (id) => blocks.find((block) => block.id === id) || null;
+  const findBlock = (id) => documentModel.block(id);
   const findWrapper = (id) => [...canvas.querySelectorAll('[data-block-id]')]
     .find((wrapper) => wrapper.dataset.blockId === id) || null;
 
@@ -351,40 +337,30 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     const block = findBlock(blockId);
     if (!block) return;
     blockMenu.querySelector('[data-block-action="move-up"]')?.toggleAttribute(
-      'disabled', blocks[0]?.id === blockId
+      'disabled', documentSnapshot.blocks[0]?.id === blockId
     );
     blockMenu.querySelector('[data-block-action="move-down"]')?.toggleAttribute(
-      'disabled', blocks.at(-1)?.id === blockId
+      'disabled', documentSnapshot.blocks.at(-1)?.id === blockId
     );
     blockMenu.querySelector('[data-block-action="delete"]')?.toggleAttribute(
-      'disabled', blocks.length === 1 && block.text === ''
+      'disabled', documentSnapshot.blocks.length === 1 && block.text === ''
     );
     positionFloating(blockMenu, anchor.getBoundingClientRect());
     if (focus) queueMicrotask(() => blockMenu.querySelector('button:not(:disabled)')?.focus());
   };
 
   const applyBlockType = (id, type) => {
-    const block = findBlock(id);
-    if (!block) return;
-    commitHistory();
-    const currentText = block.text.replace(/^\/[^\s]*\s?/, '');
-    block.type = type;
-    block.text = type === 'divider' ? '' : currentText;
-    block.checked = type === 'todo' ? block.checked : false;
+    if (!documentModel.changeType(id, type)) return;
     render();
-    commitHistory();
     notify();
     closeCommandMenu();
     focusBlock(id, 'end');
   };
 
   const addBlock = (afterId, type = 'paragraph', text = '') => {
-    commitHistory();
-    const index = Math.max(0, blocks.findIndex((block) => block.id === afterId));
-    const next = createEditorBlock(type, text);
-    blocks.splice(index + 1, 0, next);
+    const next = documentModel.addAfter(afterId, { type, text });
+    if (!next) return null;
     render();
-    commitHistory();
     notify();
     focusBlock(next.id, 'start');
     return next;
@@ -392,54 +368,26 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
   const removeBlock = (id, focusId = null) => {
     const previousLayout = captureBlockLayout();
-    if (blocks.length === 1) {
-      blocks[0] = createEditorBlock();
-      render({ previousLayout, enteringId: blocks[0].id });
-      commitHistory();
-      notify();
-      focusBlock(blocks[0].id);
-      return;
-    }
-    commitHistory();
-    const index = blocks.findIndex((block) => block.id === id);
-    if (index < 0) return;
-    blocks.splice(index, 1);
-    render({ previousLayout });
-    commitHistory();
+    const result = documentModel.remove(id);
+    if (!result?.changed) return;
+    render({ previousLayout, enteringId: result.enteringId });
     notify();
-    focusBlock(focusId || blocks[Math.max(0, index - 1)].id);
+    focusBlock(focusId || result.focusId);
   };
 
   const moveBlock = (id, delta) => {
-    const index = blocks.findIndex((block) => block.id === id);
-    const destination = index + delta;
-    if (index < 0 || destination < 0 || destination >= blocks.length) return;
     const previousLayout = captureBlockLayout();
-    commitHistory();
-    const [block] = blocks.splice(index, 1);
-    blocks.splice(destination, 0, block);
+    if (!documentModel.move(id, delta)) return;
     render({ previousLayout });
-    commitHistory();
     notify();
     focusBlock(id);
   };
 
   const duplicateBlock = (id) => {
-    const block = findBlock(id);
-    if (!block) return;
     const previousLayout = captureBlockLayout();
-    commitHistory();
-    const index = blocks.indexOf(block);
-    const copy = createEditorBlock(block.type, block.text, {
-      checked: block.checked,
-      indent: block.indent,
-      number: block.number,
-      language: block.language,
-      fence: block.fence,
-    });
-    blocks.splice(index + 1, 0, copy);
+    const copy = documentModel.duplicate(id);
+    if (!copy) return;
     render({ previousLayout, enteringId: copy.id });
-    commitHistory();
     notify();
     focusBlock(copy.id);
   };
@@ -449,10 +397,12 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     if (!block) return;
     const previousLineCount = blockLineCounts.get(block.id);
     const content = blockContent(wrapper);
-    if (content) block.text = editableHtmlToMarkdown(content);
     const checkbox = wrapper.querySelector('[data-todo-check]');
-    if (checkbox) block.checked = checkbox.checked;
-    if (previousLineCount !== undefined && previousLineCount !== sourceLineCount(block)) {
+    const updated = documentModel.updateBlock(block.id, {
+      ...(content ? { text: editableHtmlToMarkdown(content) } : {}),
+      ...(checkbox ? { checked: checkbox.checked } : {}),
+    });
+    if (updated && previousLineCount !== undefined && previousLineCount !== sourceLineCount(updated)) {
       refreshBlockLineIndex();
     }
   };
@@ -556,7 +506,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   const refreshBlockLineIndex = () => {
     let nextLine = 1;
     const nextCounts = new Map();
-    blocks.forEach((block) => {
+    documentSnapshot.blocks.forEach((block) => {
       const wrapper = findWrapper(block.id);
       const lineCount = sourceLineCount(block);
       if (wrapper) {
@@ -572,10 +522,13 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   function render({ previousLayout = null, enteringId = null } = {}) {
     if (!previousLayout) cancelBlockAnimations();
     const fragment = document.createDocumentFragment();
-    blocks.forEach((block, index) => fragment.append(renderBlock(block, index)));
+    documentSnapshot.blocks.forEach((block, index) => fragment.append(renderBlock(block, index)));
     canvas.replaceChildren(fragment);
     refreshBlockLineIndex();
-    root.classList.toggle('is-empty-document', blocks.length === 1 && blocks[0].text === '');
+    root.classList.toggle(
+      'is-empty-document',
+      documentSnapshot.blocks.length === 1 && documentSnapshot.blocks[0].text === '',
+    );
     animateBlockLayout(previousLayout, { enteringId });
   }
 
@@ -584,39 +537,24 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     const content = blockContent(wrapper);
     if (!block || !content || block.type === 'code') return false;
     const { before, after } = markdownAroundSelection(document, content, window.getSelection());
-    commitHistory();
-    block.text = before;
-    const nextType = block.type.startsWith('heading') || block.type === 'quote' ? 'paragraph' : block.type;
-    const next = createEditorBlock(nextType, after, {
-      indent: block.indent,
-      number: block.type === 'numbered' ? block.number + 1 : 1,
-    });
-    blocks.splice(blocks.indexOf(block) + 1, 0, next);
+    const next = documentModel.split(block.id, { before, after });
+    if (!next) return false;
     render();
-    commitHistory();
     notify();
     focusBlock(next.id, 'start');
     return true;
   };
 
   const mergeWithPrevious = (wrapper) => {
-    const index = blocks.findIndex((block) => block.id === wrapper.dataset.blockId);
-    if (index <= 0) return false;
-    const block = blocks[index];
-    const previous = blocks[index - 1];
-    if (block.type === 'divider' || previous.type === 'divider' || previous.type === 'code') return false;
-    commitHistory();
-    const previousLength = previous.text.length;
-    previous.text = `${previous.text}${block.text}`;
-    blocks.splice(index, 1);
+    const result = documentModel.mergeWithPrevious(wrapper.dataset.blockId);
+    if (!result?.changed) return false;
     render();
-    commitHistory();
     notify();
-    focusBlock(previous.id);
-    const content = blockContent(findWrapper(previous.id));
+    focusBlock(result.focusId);
+    const content = blockContent(findWrapper(result.focusId));
     if (content) {
       const walker = document.createTreeWalker(content, window.NodeFilter.SHOW_TEXT);
-      let remaining = previousLength;
+      let remaining = result.offset;
       let textNode = walker.nextNode();
       while (textNode && remaining > textNode.nodeValue.length) {
         remaining -= textNode.nodeValue.length;
@@ -641,7 +579,6 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     activeBlockId = wrapper.dataset.blockId;
     saveState = 'idle';
     saveError = '';
-    commitHistory();
     notify();
     const block = findBlock(activeBlockId);
     if (block?.type !== 'code' && block?.text.startsWith('/')) {
@@ -661,12 +598,12 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
     if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'z') {
       event.preventDefault();
-      restoreHistory(historyIndex + (event.shiftKey ? 1 : -1), event.shiftKey ? 'redo' : 'undo');
+      restoreHistory(event.shiftKey ? 'redo' : 'undo');
       return;
     }
     if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'y') {
       event.preventDefault();
-      restoreHistory(historyIndex + 1, 'redo');
+      restoreHistory('redo');
       return;
     }
     if ((event.ctrlKey || event.metaKey) && event.altKey && /^[1-3]$/.test(event.key)) {
@@ -687,10 +624,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     }
     if (event.key === 'Tab' && ['bullet', 'numbered', 'todo'].includes(block?.type)) {
       event.preventDefault();
-      commitHistory();
-      block.indent = clamp(block.indent + (event.shiftKey ? -1 : 1), 0, 6);
-      wrapper.style.setProperty('--block-indent', String(block.indent));
-      commitHistory();
+      const updated = documentModel.indent(block.id, event.shiftKey ? -1 : 1);
+      if (updated) wrapper.style.setProperty('--block-indent', String(updated.indent));
       notify();
       return;
     }
@@ -755,7 +690,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
         if (block.type !== 'paragraph' && block.type !== 'code') {
           event.preventDefault();
           applyBlockType(block.id, 'paragraph');
-        } else if (block.text === '' && blocks.length > 1) {
+        } else if (block.text === '' && documentSnapshot.blocks.length > 1) {
           event.preventDefault();
           removeBlock(block.id);
         } else if (mergeWithPrevious(wrapper)) {
@@ -786,7 +721,6 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     if (!wrapper || !event.target.matches('[data-todo-check]')) return;
     updateBlockFromElement(wrapper);
     event.target.setAttribute('aria-label', event.target.checked ? 'Mark task incomplete' : 'Mark task complete');
-    commitHistory();
     notify();
   };
 
@@ -888,15 +822,15 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       return;
     }
 
-    const sourceIndex = blocks.findIndex((block) => block.id === sourceId);
-    const targetIndex = blocks.findIndex((block) => block.id === targetId);
+    const sourceIndex = documentSnapshot.blocks.findIndex((block) => block.id === sourceId);
+    const targetIndex = documentSnapshot.blocks.findIndex((block) => block.id === targetId);
     if (sourceIndex < 0 || targetIndex < 0) {
       clearDragState();
       return;
     }
     let destination = targetIndex + (position === 'after' ? 1 : 0);
     if (sourceIndex < destination) destination -= 1;
-    destination = clamp(destination, 0, blocks.length - 1);
+    destination = clamp(destination, 0, documentSnapshot.blocks.length - 1);
     clearDragState();
     if (destination === sourceIndex) {
       focusBlock(sourceId);
@@ -904,11 +838,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     }
 
     const previousLayout = captureBlockLayout();
-    commitHistory();
-    const [block] = blocks.splice(sourceIndex, 1);
-    blocks.splice(destination, 0, block);
+    if (!documentModel.moveTo(sourceId, destination)) return;
     render({ previousLayout });
-    commitHistory();
     notify();
     focusBlock(sourceId);
   };
@@ -1045,7 +976,6 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     const wrapper = element?.closest?.('[data-block-id]');
     if (wrapper) {
       updateBlockFromElement(wrapper);
-      commitHistory();
       notify();
     }
   };
@@ -1101,18 +1031,16 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       );
       return false;
     }
-    blocks = parseEditorDocument(initialSource, { markdown: activeDocument.markdown });
+    documentModel.load(initialSource, { markdown: activeDocument.markdown });
     savedSource = activeDocument.source;
     mode = 'edit';
     saveState = draft ? 'recovered' : 'idle';
     saveError = '';
-    history = [initialSource];
-    historyIndex = 0;
     render();
     root.hidden = false;
     root.removeAttribute('inert');
     notify();
-    queueMicrotask(() => focusBlock(blocks[0].id, 'start'));
+    queueMicrotask(() => focusBlock(documentSnapshot.blocks[0].id, 'start'));
     return true;
   };
 
@@ -1200,7 +1128,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     }
     activeDocument = null;
     exit({ force: true });
-    blocks = [createEditorBlock()];
+    documentModel.load('');
     savedSource = '';
     notify();
   };
@@ -1304,6 +1232,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     source,
     dispose() {
       disposed = true;
+      unsubscribeDocumentModel();
+      documentModel.dispose();
       document.removeEventListener('selectionchange', captureSelection);
       clearDragState();
       cancelBlockAnimations();

@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  createEditorDocumentModel,
   editableHtmlToMarkdown,
   getEditorDocumentStats,
   inlineMarkdownToHtml,
@@ -58,5 +59,50 @@ describe('editor document model', () => {
   it('reports block, word and character stats from user content', () => {
     const stats = getEditorDocumentStats(parseEditorDocument('# One\n\nTwo words\n---'));
     expect(stats).toEqual({ blocks: 4, words: 3, characters: 14 });
+  });
+
+  it('owns canonical block CRUD, split, merge and serialization', () => {
+    const model = createEditorDocumentModel({ source: '# Title\nBody' });
+    const [title, body] = model.snapshot().blocks;
+    model.changeType(body.id, 'quote');
+    const added = model.addAfter(body.id, { type: 'todo', text: 'Ship', checked: true });
+    const copy = model.duplicate(added.id);
+    model.move(copy.id, -1);
+    expect(model.source()).toBe('# Title\n> Body\n- [x] Ship\n- [x] Ship');
+
+    const split = model.split(title.id, { before: 'Field', after: 'notes' });
+    expect(model.snapshot().blocks[0]).toMatchObject({ type: 'heading1', text: 'Field' });
+    expect(split).toMatchObject({ type: 'paragraph', text: 'notes' });
+    const merged = model.mergeWithPrevious(split.id);
+    expect(merged).toMatchObject({ focusId: title.id, offset: 5 });
+    expect(model.snapshot().blocks[0].text).toBe('Fieldnotes');
+    expect(model.remove(copy.id).changed).toBe(true);
+  });
+
+  it('keeps bounded undo and redo history independent per model', () => {
+    const first = createEditorDocumentModel({ source: 'one', historyLimit: 3 });
+    const second = createEditorDocumentModel({ source: 'other' });
+    const blockId = first.snapshot().blocks[0].id;
+    first.updateBlock(blockId, { text: 'two' });
+    first.updateBlock(blockId, { text: 'three' });
+    first.updateBlock(blockId, { text: 'four' });
+    expect(first.undo(blockId)).toMatchObject({ changed: true, action: 'undo' });
+    expect(first.source()).toBe('three');
+    expect(first.redo(first.snapshot().blocks[0].id)).toMatchObject({ changed: true, action: 'redo' });
+    expect(first.source()).toBe('four');
+    expect(second.source()).toBe('other');
+  });
+
+  it('preserves plain-text semantics and publishes cursor snapshots', () => {
+    const model = createEditorDocumentModel({ source: '# literal\n- literal', markdown: false });
+    const snapshots = [];
+    const unsubscribe = model.subscribe((snapshot) => snapshots.push(snapshot));
+    const second = model.snapshot().blocks[1];
+    model.updateBlock(second.id, { type: 'heading1', text: 'still literal' });
+    model.setCursor({ line: 2, column: 4 });
+    expect(model.source()).toBe('# literal\nstill literal');
+    expect(model.snapshot().cursor).toEqual({ line: 2, column: 4 });
+    expect(snapshots.at(-1).cursor).toEqual({ line: 2, column: 4 });
+    unsubscribe();
   });
 });
