@@ -233,6 +233,26 @@ describe('editor session', () => {
     expect(session.current()).toMatchObject({ mode: 'edit', dirty: true, saveState: 'idle' });
   });
 
+  it('does not commit an in-flight save into a replacement document', async () => {
+    const pending = deferred();
+    const onSaved = vi.fn();
+    const { session } = mount(() => pending.promise, { onSaved });
+    session.setDocument({ path: 'old.md', source: 'Old', markdown: true });
+    session.enter();
+    const content = document.querySelector('[data-editor-content]');
+    content.textContent = 'Old edited';
+    content.dispatchEvent(new InputEvent('input', { bubbles: true }));
+    const saving = session.save();
+
+    session.setDocument({ path: 'new.md', source: 'New', markdown: true });
+    pending.resolve({ source: 'Old edited' });
+
+    await expect(saving).resolves.toMatchObject({ status: 'stale' });
+    expect(session.current()).toMatchObject({ path: 'new.md', dirty: false, saveState: 'idle' });
+    expect(session.source()).toBe('New');
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+
   it('duplicates, reorders and deletes blocks from the contextual block menu', () => {
     const { session } = mount();
     session.setDocument({ path: 'sample.md', source: 'One\nTwo', markdown: true });

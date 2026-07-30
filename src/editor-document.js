@@ -236,25 +236,38 @@ export function createEditorDocumentModel({
   let historyIndex = 0;
   const subscribers = new Set();
 
-  const source = () => serializeEditorDocument(blocks, { markdown });
+  const serializeCurrent = () => serializeEditorDocument(blocks, { markdown });
   const publicBlock = (block) => Object.freeze({ ...block });
-  const snapshot = () => Object.freeze({
-    revision,
-    markdown,
-    source: source(),
-    blocks: Object.freeze(blocks.map(publicBlock)),
-    stats: Object.freeze(getEditorDocumentStats(blocks)),
-    cursor: cursor ? Object.freeze({ ...cursor }) : null,
-    canUndo: historyIndex > 0,
-    canRedo: historyIndex < history.length - 1,
-  });
-  const publish = () => {
-    const next = snapshot();
+  let projection = null;
+  let currentSnapshot = null;
+  const refreshSnapshot = ({ structure = false } = {}) => {
+    if (structure || !projection) {
+      projection = Object.freeze({
+        source: serializeCurrent(),
+        blocks: Object.freeze(blocks.map(publicBlock)),
+        stats: Object.freeze(getEditorDocumentStats(blocks)),
+      });
+    }
+    currentSnapshot = Object.freeze({
+      revision,
+      markdown,
+      ...projection,
+      cursor: cursor ? Object.freeze({ ...cursor }) : null,
+      canUndo: historyIndex > 0,
+      canRedo: historyIndex < history.length - 1,
+    });
+    return currentSnapshot;
+  };
+  refreshSnapshot({ structure: true });
+  const source = () => projection.source;
+  const snapshot = () => currentSnapshot;
+  const publish = (options) => {
+    const next = refreshSnapshot(options);
     subscribers.forEach((subscriber) => subscriber(next));
     return next;
   };
   const recordHistory = () => {
-    const current = source();
+    const current = serializeCurrent();
     if (history[historyIndex] === current) return false;
     history = history.slice(0, historyIndex + 1);
     history.push(current);
@@ -269,7 +282,7 @@ export function createEditorDocumentModel({
     if (blocks.length === 0) blocks = [createEditorBlock()];
     recordHistory();
     revision += 1;
-    publish();
+    publish({ structure: true });
     return result;
   };
   const findIndex = (id) => blocks.findIndex((block) => block.id === id);
@@ -408,7 +421,7 @@ export function createEditorDocumentModel({
     historyIndex = index;
     blocks = parseEditorDocument(history[index], { markdown });
     revision += 1;
-    publish();
+    publish({ structure: true });
     return {
       changed: true,
       action,
@@ -434,10 +447,10 @@ export function createEditorDocumentModel({
     markdown = nextMarkdown !== false;
     blocks = parseEditorDocument(nextSource, { markdown });
     cursor = null;
-    history = [source()];
+    history = [serializeCurrent()];
     historyIndex = 0;
     revision += 1;
-    return publish();
+    return publish({ structure: true });
   };
 
   const subscribe = (subscriber) => {

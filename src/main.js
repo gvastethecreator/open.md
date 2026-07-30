@@ -654,6 +654,9 @@ function resetDocumentReadingState() {
 
 function handleDocumentSessionState(snapshot) {
   if (snapshot.state === 'loading') {
+    if (editorSession?.current().path && editorSession.current().path !== snapshot.path) {
+      editorSession.clearDocument();
+    }
     currentFilePath = snapshot.path;
     currentDocument = null;
     documentSaveCoordinator?.replaceDocument({ path: snapshot.path, document: null });
@@ -964,7 +967,7 @@ function mountDocumentModeCoordinator() {
     },
     adapters: {
       getMode: () => isEditMode ? 'edit' : isSourceViewActive() ? 'source' : 'read',
-      isAvailable: () => Boolean(editorSession && currentFilePath),
+      isAvailable: () => Boolean(editorSession && hasLoadedDocument()),
       enterEdit: () => editorSession?.enter(),
       exitEdit: () => editorSession?.exit(),
       setSource: (active) => setReadingTool('source', active),
