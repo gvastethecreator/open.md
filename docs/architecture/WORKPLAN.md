@@ -268,7 +268,7 @@ tested module interface.
 ### ARC-16 — Own reader controls and preference projection
 
 **Type:** AFK
-**Status:** Planned
+**Status:** Implemented
 **Blocked by:** None — can start immediately.
 
 **What to build:** One Reader Controls module owns reading-tools and typography
@@ -276,23 +276,23 @@ panels, preference-to-DOM projection, focus return, source scroll memory, and
 always-on-top/auto-save actions while `reader-preferences.js` remains the
 persisted model owner.
 
-- [ ] Load and apply a preference snapshot without leaking panel/ARIA policy to the root.
-- [ ] Toggle controls preserve document availability, focus return, scroll memory, and volatile feedback.
-- [ ] Focused DOM tests and the existing preference/shell suites pass.
+- [x] Load and apply a preference snapshot without leaking panel/ARIA policy to the root.
+- [x] Toggle controls preserve document availability, focus return, scroll memory, and volatile feedback.
+- [x] Focused DOM tests and the existing preference/shell suites pass.
 
 ### ARC-17 — Own status presentation
 
 **Type:** AFK
-**Status:** Planned
+**Status:** Implemented
 **Blocked by:** None — can start immediately.
 
 **What to build:** One Status Presenter renders identity, Read metrics, Edit
 metrics, accessible labels, reusable metric nodes, zoom motion, and clear
 state behind a small render interface.
 
-- [ ] Metric order and DOM identity remain stable across Read/Edit updates.
-- [ ] Reduced-motion and missing-animation paths leave no stale animations.
-- [ ] Focused presenter tests cover empty, document, cursor, and clear states.
+- [x] Metric order and DOM identity remain stable across Read/Edit updates.
+- [x] Reduced-motion and missing-animation paths leave no stale animations.
+- [x] Focused presenter tests cover empty, document, cursor, and clear states.
 
 ### ARC-18 — Own reader viewport and help projection
 
