@@ -120,20 +120,20 @@ ordering to the composition root.
 ### ARC-07 — Own toast presentation lifecycle
 
 **Type:** AFK
-**Status:** Ready
+**Status:** Implemented
 **Blocked by:** ARC-06.
 
 **What to build:** One Toast Presenter owns message replacement, shape morph,
 timeouts, rapid interruption, fallback and cleanup.
 
-- [ ] First show and visible replacement preserve one live accessible message.
-- [ ] Reduced motion and missing Web Animations degrade cleanly.
-- [ ] Rapid replacement/dispose leaves no stale node, timer or animation.
+- [x] First show and visible replacement preserve one live accessible message.
+- [x] Reduced motion and missing Web Animations degrade cleanly.
+- [x] Rapid replacement/dispose leaves no stale node, timer or animation.
 
 ### ARC-08 — Coordinate theme preparation and commit
 
 **Type:** AFK
-**Status:** Blocked
+**Status:** Ready
 **Blocked by:** ARC-07.
 
 **What to build:** One Theme Coordinator coalesces rapid requests, prepares

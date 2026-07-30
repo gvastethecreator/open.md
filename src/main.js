@@ -37,6 +37,7 @@ import {
   normalizeFontIndex,
 } from './reader-preferences.js';
 import { createResponsiveTypography } from './responsive-typography.js';
+import { createToastPresenter } from './toast-presenter.js';
 import { createWindowChrome } from './window-chrome.js';
 
 let currentZoom = 1;
@@ -48,7 +49,6 @@ let themes = [];
 let currentThemeIndex = -1;
 let dragDropUnlisten = null;
 let fileOpenRequestUnlisten = null;
-let toastTimeoutId = null;
 let scrollRafId = null;
 let currentFilePath = null;
 let isHelpVisible = false;
@@ -85,8 +85,7 @@ let activeThemeTransition = null;
 let pendingThemeRequest = null;
 let themeApplicationPromise = null;
 let themeRequestRevision = 0;
-let toastMorphRevision = 0;
-let toastMorphAnimations = [];
+let toastPresenter = null;
 let syntaxHighlighterPromise = null;
 
 const ui = {
@@ -885,136 +884,9 @@ function applyTheme(theme, { silent = false, persist = true } = {}) {
   return scheduleThemeDrain();
 }
 
-function cancelToastMorph(toast) {
-  if (!toast) return;
-  toastMorphAnimations.forEach((animation) => animation.cancel());
-  toastMorphAnimations = [];
-  toast.querySelectorAll('.toast-message--previous').forEach((element) => element.remove());
-  toast.style.removeProperty('width');
-  toast.style.removeProperty('height');
-}
-
-function ensureToastMessage(toast) {
-  let message = toast.querySelector('.toast-message');
-  if (message) return message;
-  message = document.createElement('span');
-  message.className = 'toast-message';
-  if (toast.textContent) message.textContent = toast.textContent;
-  toast.replaceChildren(message);
-  return message;
-}
-
-function replaceToastMessage(toast, messageElement, nextMessage) {
-  const visibleBox = toast.getBoundingClientRect();
-  const outgoingElement = [messageElement, ...toast.querySelectorAll('.toast-message--previous')]
-    .reduce((mostVisible, candidate) => (
-      Number.parseFloat(getComputedStyle(candidate).opacity)
-        > Number.parseFloat(getComputedStyle(mostVisible).opacity)
-        ? candidate
-        : mostVisible
-    ), messageElement);
-  const outgoingStyle = getComputedStyle(outgoingElement);
-  const outgoingVisual = {
-    text: outgoingElement.textContent,
-    opacity: outgoingStyle.opacity,
-    filter: outgoingStyle.filter,
-  };
-  const canMorph = toast.classList.contains('show')
-    && messageElement.textContent !== nextMessage
-    && visibleBox.width > 0
-    && !prefersReducedMotion()
-    && typeof toast.animate === 'function';
-  const revision = ++toastMorphRevision;
-
-  cancelToastMorph(toast);
-  if (!canMorph) {
-    messageElement.textContent = nextMessage;
-    return;
-  }
-
-  const previousMessage = messageElement.cloneNode(true);
-  previousMessage.classList.add('toast-message--previous');
-  previousMessage.setAttribute('aria-hidden', 'true');
-  previousMessage.textContent = outgoingVisual.text;
-  messageElement.textContent = nextMessage;
-
-  const targetBox = toast.getBoundingClientRect();
-  const currentRadius = getComputedStyle(toast).borderRadius;
-  toast.style.width = `${visibleBox.width}px`;
-  toast.style.height = `${visibleBox.height}px`;
-  toast.appendChild(previousMessage);
-
-  const shape = toast.animate([
-    {
-      width: `${visibleBox.width}px`,
-      height: `${visibleBox.height}px`,
-      borderRadius: currentRadius,
-    },
-    {
-      width: `${(visibleBox.width + targetBox.width) / 2}px`,
-      height: `${(visibleBox.height + targetBox.height) / 2}px`,
-      borderRadius: '8px',
-      offset: 0.5,
-    },
-    {
-      width: `${targetBox.width}px`,
-      height: `${targetBox.height}px`,
-      borderRadius: currentRadius,
-    },
-  ], {
-    duration: 260,
-    easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-    fill: 'both',
-  });
-  const previous = previousMessage.animate([
-    {
-      opacity: outgoingVisual.opacity,
-      filter: outgoingVisual.filter,
-    },
-    { opacity: 0, filter: 'blur(0.6px)' },
-  ], {
-    duration: 120,
-    easing: 'cubic-bezier(0.4, 0, 0.6, 1)',
-    fill: 'both',
-  });
-  const next = messageElement.animate([
-    { opacity: 0, filter: 'blur(0.6px)' },
-    { opacity: 1, filter: 'blur(0)' },
-  ], {
-    duration: 180,
-    delay: 58,
-    easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-    fill: 'both',
-  });
-  toastMorphAnimations = [shape, previous, next];
-
-  Promise.allSettled(toastMorphAnimations.map((animation) => animation.finished)).then(() => {
-    if (revision !== toastMorphRevision) return;
-    cancelToastMorph(toast);
-  });
-}
-
 function showToast(message) {
-  let toast = ui.toast || document.getElementById('toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'toast';
-    toast.className = 'toast';
-    toast.setAttribute('role', 'status');
-    toast.setAttribute('aria-live', 'polite');
-    toast.setAttribute('aria-atomic', 'true');
-    toast.appendChild(Object.assign(document.createElement('span'), { className: 'toast-message' }));
-    document.body.appendChild(toast);
-    ui.toast = toast;
-  }
-  const messageElement = ensureToastMessage(toast);
-  replaceToastMessage(toast, messageElement, message);
-  toast.classList.add('show');
-
-  clearTimeout(toastTimeoutId);
-  toastTimeoutId = setTimeout(() => {
-    toast.classList.remove('show');
-  }, 2000);
+  toastPresenter ??= createToastPresenter({ window, document, element: ui.toast });
+  toastPresenter.show(message);
 }
 
 function cycleTheme(direction = 1) {
@@ -2200,7 +2072,7 @@ function registerEvents() {
     minimapResizeObserver?.disconnect();
     activeDocumentModeTransition?.skipTransition?.();
     activeThemeTransition?.skipTransition?.();
-    cancelToastMorph(ui.toast || document.getElementById('toast'));
+    toastPresenter?.dispose();
     clearTimeout(modeMorphFallbackTimeoutId);
     clearTimeout(autoSaveTimeoutId);
     responsiveTypography?.dispose();
