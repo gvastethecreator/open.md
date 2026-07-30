@@ -1,8 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
-import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { open } from '@tauri-apps/plugin-dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import allThemes from './themes.runtime.json';
 import {
@@ -17,7 +14,6 @@ import {
 } from './core/reader.js';
 import { createDocumentSaveCoordinator } from './document-save-coordinator.js';
 import { createEditorSession } from './editor-session.js';
-import { orderNativeOpenRequests } from './open-intent-controller.js';
 import { mountReaderShell } from './reader-shell.js';
 import { createReaderControls } from './reader-controls.js';
 import { createApplicationRuntimeAdapters } from './application-runtime-adapters.js';
@@ -34,13 +30,12 @@ import { createReaderViewportController } from './reader-viewport-controller.js'
 import { createEditorFeedbackPresenter } from './editor-feedback-presenter.js';
 import { createDocumentContentActions } from './document-content-actions.js';
 import { createDocumentViewStateController } from './document-view-state.js';
+import { createDocumentIngressController } from './document-ingress-controller.js';
 
 let currentZoom = 1;
 const ZOOM_STEP = 0.1;
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3.0;
-let dragDropUnlisten = null;
-let fileOpenRequestUnlisten = null;
 let windowChrome = null;
 let readerShell = null;
 let runtimeAdapters = null;
@@ -60,6 +55,7 @@ let readerViewport = null;
 let editorFeedback = null;
 let documentContentActions = null;
 let documentViewState = null;
+let documentIngress = null;
 
 const ui = {
   windowFileTitle: null,
@@ -346,10 +342,6 @@ function setHelpVisible(nextVisible, { manageFocus = true } = {}) {
 
 function toggleHelp() {
   readerViewport?.toggleHelp();
-}
-
-function setDragState(isActive) {
-  document.body.classList.toggle('is-dragging', isActive);
 }
 
 async function initThemes() {
@@ -874,108 +866,26 @@ function handleThemeSelection(event) {
   if (Number.isInteger(index)) themeCoordinator?.applyIndex(index);
 }
 
-function submitNativeOpenFileRequest(value) {
-  const items = (Array.isArray(value?.paths) ? value.paths : []).map((path) => ({ path }));
-  readerShell?.open({
-    origin: 'association',
-    items,
-    delivery: {
-      key: value?.id,
-      acknowledge: () => invoke('acknowledge_open_file_request', { id: value?.id }),
+function mountDocumentIngress() {
+  documentIngress = createDocumentIngressController({
+    window,
+    document,
+    adapters: {
+      openDocument: (value) => readerShell?.open(value),
+      canChangeDocument: () => !editorSession || editorSession.canChangeDocument(),
+      acknowledgeOpenFile: (id) => invoke('acknowledge_open_file_request', { id }),
     },
-  }).catch((error) => {
-    console.error('Could not process the file-open request:', error);
-    showToast('Could not open the associated file');
+    hooks: {
+      closeReadingTools: () => setReadingToolsOpen(false),
+      onToast: showToast,
+      onWarning: (message, error) => console.warn(`${message}:`, error),
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
   });
 }
 
-async function setupFileAssociationEvents() {
-  if (!window.__TAURI_INTERNALS__) return;
-
-  const bufferedRequests = [];
-  let replayingPendingRequests = true;
-  try {
-    fileOpenRequestUnlisten = await listen('open-file-request', (event) => {
-      if (replayingPendingRequests) bufferedRequests.push(event.payload);
-      else submitNativeOpenFileRequest(event.payload);
-    });
-    const pendingRequests = await invoke('list_pending_open_file_requests');
-    const orderedRequests = orderNativeOpenRequests(pendingRequests, bufferedRequests);
-    replayingPendingRequests = false;
-    orderedRequests.forEach(submitNativeOpenFileRequest);
-  } catch (error) {
-    replayingPendingRequests = false;
-    orderNativeOpenRequests(bufferedRequests).forEach(submitNativeOpenFileRequest);
-    console.warn('Native file-open events are unavailable in this runtime:', error);
-  }
-}
-
-async function openFilePicker() {
-  if (editorSession && !editorSession.canChangeDocument()) return;
-  setReadingToolsOpen(false);
-  try {
-    const selected = await open({
-      multiple: true,
-      directory: false,
-      filters: [
-        {
-          name: 'Markdown and text',
-          extensions: ['md', 'markdown', 'txt'],
-        },
-      ],
-    });
-
-    if (selected === null) {
-      return;
-    }
-
-    await readerShell?.open({
-      origin: 'picker',
-      items: (Array.isArray(selected) ? selected : [selected]).map((path) => ({ path })),
-    });
-  } catch (error) {
-    console.error('Open dialog failed:', error);
-    showToast('Could not open the file picker');
-  }
-}
-
-function setupDomDragSafety() {
-  window.addEventListener('dragover', (event) => {
-    event.preventDefault();
-  });
-
-  window.addEventListener('drop', (event) => {
-    event.preventDefault();
-  });
-}
-
-async function setupDragAndDrop() {
-  setupDomDragSafety();
-
-  if (!window.__TAURI_INTERNALS__) return;
-
-  try {
-    dragDropUnlisten = await getCurrentWebview().onDragDropEvent(async (event) => {
-      if (event.payload.type === 'over') {
-        setDragState(true);
-        return;
-      }
-
-      if (event.payload.type === 'drop') {
-        setDragState(false);
-        if (editorSession && !editorSession.canChangeDocument()) return;
-        await readerShell?.open({
-          origin: 'drop',
-          items: (event.payload.paths || []).map((path) => ({ path })),
-        });
-        return;
-      }
-
-      setDragState(false);
-    });
-  } catch (error) {
-    console.warn('Drag & drop listener unavailable in this runtime:', error);
-  }
+function openFilePicker() {
+  return documentIngress?.openPicker();
 }
 
 function registerEvents() {
@@ -985,12 +895,6 @@ function registerEvents() {
     if (editorSession?.isDirty()) {
       event.preventDefault();
       event.returnValue = '';
-    }
-    if (typeof dragDropUnlisten === 'function') {
-      dragDropUnlisten();
-    }
-    if (typeof fileOpenRequestUnlisten === 'function') {
-      fileOpenRequestUnlisten();
     }
     readingNavigation?.dispose();
     documentModeCoordinator?.dispose();
@@ -1004,6 +908,7 @@ function registerEvents() {
     readerViewport?.dispose();
     editorFeedback?.dispose();
     documentContentActions?.dispose();
+    documentIngress?.dispose();
     responsiveTypography?.dispose();
     readerShell?.dispose();
     editorSession?.dispose();
@@ -1047,6 +952,7 @@ async function init() {
   mountDocumentModeCoordinator();
   mountReadingNavigation();
   mountDocumentContentActions();
+  mountDocumentIngress();
   mountContextMenu();
   const preferenceResult = await readerShell.preferences.load();
   if (preferenceResult.status === 'fallback') {
@@ -1054,7 +960,7 @@ async function init() {
   }
   syncViewportState();
   registerEvents();
-  await setupFileAssociationEvents();
+  await documentIngress?.start();
   await setupWindowChrome();
   await initThemes();
   const queryFilePath = new URLSearchParams(window.location.search).get('file');
@@ -1073,7 +979,6 @@ async function init() {
     origin: 'launch',
     items: initialFilePaths.map((path) => ({ path })),
   } : null);
-  await setupDragAndDrop();
 }
 
 if (typeof window !== 'undefined' && !window.__VITEST__) {
