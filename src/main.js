@@ -19,10 +19,9 @@ import {
   getStatusMetricParts,
   getViewportMode,
   getVisibleSourceLineRange,
-  normalizeDocumentPayload,
-  setMarkdownTaskChecked,
 } from './core/reader.js';
 import { prepareMermaidDiagrams, renderMermaidDiagrams } from './mermaid-renderer.js';
+import { createDocumentSaveCoordinator } from './document-save-coordinator.js';
 import { createEditorSession } from './editor-session.js';
 import { orderNativeOpenRequests } from './open-intent-controller.js';
 import { mountReaderShell } from './reader-shell.js';
@@ -68,9 +67,8 @@ let windowChrome = null;
 let readerShell = null;
 let editorSession = null;
 let isEditMode = false;
-let autoSaveTimeoutId = null;
 let responsiveTypography = null;
-let readTaskSaveChain = Promise.resolve();
+let documentSaveCoordinator = null;
 let documentModeCoordinator = null;
 let toastPresenter = null;
 let themeCoordinator = null;
@@ -325,6 +323,7 @@ function handlePreferenceSnapshot(snapshot) {
   fontPreferences = { ...snapshot.fonts };
   isAlwaysOnTop = snapshot.alwaysOnTop;
   isAutoSaveEnabled = snapshot.autoSave;
+  documentSaveCoordinator?.setAutoSaveEnabled(isAutoSaveEnabled, editorSession?.current());
   applyFontPreferences();
   updateAlwaysOnTopControl();
   updateAutoSaveControl();
@@ -414,9 +413,8 @@ function updateAutoSaveControl() {
 async function toggleAutoSave() {
   const result = await readerShell.preferences.update({ autoSave: !isAutoSaveEnabled });
   reportPreferenceResult(result);
-  if (!isAutoSaveEnabled) clearTimeout(autoSaveTimeoutId);
+  documentSaveCoordinator?.setAutoSaveEnabled(isAutoSaveEnabled, editorSession?.current());
   showToast(`Auto-save ${isAutoSaveEnabled ? 'on' : 'off'}`);
-  if (isAutoSaveEnabled) scheduleAutoSave(editorSession?.current());
 }
 
 function updateAlwaysOnTopControl() {
@@ -699,6 +697,7 @@ function handleDocumentSessionState(snapshot) {
   if (snapshot.state === 'loading') {
     currentFilePath = snapshot.path;
     currentDocument = null;
+    documentSaveCoordinator?.replaceDocument({ path: snapshot.path, document: null });
     resetDocumentReadingState();
     setReadingToolsOpen(false);
     syncViewportState();
@@ -711,6 +710,7 @@ function handleDocumentSessionState(snapshot) {
   if (snapshot.state === 'ready') {
     currentFilePath = snapshot.path;
     currentDocument = snapshot.document;
+    documentSaveCoordinator?.replaceDocument({ path: snapshot.path, document: snapshot.document });
     editorSession?.setDocument({
       path: snapshot.path,
       source: snapshot.document.source,
@@ -725,6 +725,7 @@ function handleDocumentSessionState(snapshot) {
   if (snapshot.state === 'failed') {
     currentFilePath = snapshot.path;
     currentDocument = null;
+    documentSaveCoordinator?.replaceDocument({ path: snapshot.path, document: null });
     isMinimapDocumentDirty = true;
     updateWindowTitle(snapshot.path);
     updateWindowUrl(snapshot.path);
@@ -736,6 +737,7 @@ function handleDocumentSessionState(snapshot) {
 
   currentFilePath = null;
   currentDocument = null;
+  documentSaveCoordinator?.replaceDocument();
   editorSession?.clearDocument();
   resetDocumentReadingState();
   syncViewportState();
@@ -857,24 +859,6 @@ function mountApplicationReaderShell() {
   });
 }
 
-function scheduleAutoSave(snapshot = editorSession?.current()) {
-  clearTimeout(autoSaveTimeoutId);
-  autoSaveTimeoutId = null;
-  if (
-    !isAutoSaveEnabled
-    || !snapshot
-    || snapshot.mode !== 'edit'
-    || !snapshot.dirty
-    || snapshot.saveState === 'saving'
-    || snapshot.saveState === 'error'
-  ) return;
-
-  autoSaveTimeoutId = setTimeout(() => {
-    autoSaveTimeoutId = null;
-    saveEditedDocument({ automatic: true });
-  }, 650);
-}
-
 function handleEditorState(snapshot) {
   const nextEditMode = snapshot.mode === 'edit';
   const modeChanged = nextEditMode !== isEditMode;
@@ -934,7 +918,7 @@ function handleEditorState(snapshot) {
           : 'Document saved');
   }
 
-  scheduleAutoSave(snapshot);
+  documentSaveCoordinator?.observeEditor(snapshot);
   if (isEditMode) markMinimapDirty();
   responsiveTypography?.schedule();
   if (modeChanged) applyReadingTools();
@@ -978,6 +962,34 @@ function mountApplicationEditor() {
   handleEditorState(editorSession.current());
 }
 
+function mountDocumentSaveCoordinator() {
+  documentSaveCoordinator = createDocumentSaveCoordinator({
+    window,
+    adapters: {
+      isEditing: () => Boolean(editorSession?.isEditing()),
+      saveEditor: () => editorSession?.save(),
+      saveDocument: saveDocumentAdapter,
+    },
+    hooks: {
+      notify: showToast,
+      onTaskCommitted: ({ path, document: savedDocument }) => {
+        currentDocument = savedDocument;
+        editorSession?.setDocument({
+          path,
+          source: savedDocument.source,
+          markdown: getFileKind(path) === 'Markdown',
+        });
+        if (ui.sourceContent) ui.sourceContent.textContent = savedDocument.source;
+        markMinimapDirty();
+        responsiveTypography?.schedule();
+        updateStatus(path);
+      },
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  });
+  documentSaveCoordinator.setAutoSaveEnabled(isAutoSaveEnabled, editorSession.current());
+}
+
 function mountDocumentModeCoordinator() {
   documentModeCoordinator = createDocumentModeCoordinator({
     window,
@@ -1010,13 +1022,6 @@ function mountDocumentModeCoordinator() {
   documentModeCoordinator.refresh();
 }
 
-async function saveEditedDocument({ automatic = false } = {}) {
-  if (!editorSession?.isEditing()) return;
-  const result = await editorSession.save();
-  if (result.status === 'failed') showToast('Could not save. Your changes are still here.');
-  if (!automatic && result.status === 'saved') showToast('Changes saved');
-}
-
 function handleReadTaskToggle(event) {
   const checkbox = event.target instanceof Element
     ? event.target.closest('.markdown-body input[type="checkbox"][data-source-line]')
@@ -1024,41 +1029,11 @@ function handleReadTaskToggle(event) {
   if (!checkbox || isEditMode || !currentDocument || !currentFilePath) return;
 
   const sourceLine = Number.parseInt(checkbox.dataset.sourceLine, 10);
-  const requestedChecked = checkbox.checked;
-  checkbox.disabled = true;
-  checkbox.setAttribute('aria-busy', 'true');
-
-  const operation = readTaskSaveChain.then(async () => {
-    const update = setMarkdownTaskChecked(currentDocument.source, sourceLine, requestedChecked);
-    if (!update) throw new Error(`Task source line ${sourceLine} is no longer available`);
-    if (!update.changed) return;
-
-    const savedDocument = normalizeDocumentPayload(
-      await saveDocumentAdapter(currentFilePath, update.source)
-    );
-    currentDocument = savedDocument;
-    editorSession?.setDocument({
-      path: currentFilePath,
-      source: savedDocument.source,
-      markdown: getFileKind(currentFilePath) === 'Markdown',
-    });
-    if (ui.sourceContent) ui.sourceContent.textContent = savedDocument.source;
-    checkbox.setAttribute('aria-label', requestedChecked ? 'Mark task incomplete' : 'Mark task complete');
-    markMinimapDirty();
-    responsiveTypography?.schedule();
-    updateStatus(currentFilePath);
-    showToast(requestedChecked ? 'Task completed' : 'Task reopened');
-  }).catch((error) => {
-    checkbox.checked = !requestedChecked;
-    checkbox.setAttribute('aria-label', requestedChecked ? 'Mark task complete' : 'Mark task incomplete');
-    console.error('Could not save the task state:', error);
-    showToast('Could not save this task. The previous state was restored.');
-  }).finally(() => {
-    checkbox.disabled = false;
-    checkbox.removeAttribute('aria-busy');
+  void documentSaveCoordinator?.toggleReadTask({
+    checkbox,
+    sourceLine,
+    checked: checkbox.checked,
   });
-
-  readTaskSaveChain = operation;
 }
 
 function handleLinkClick(event) {
@@ -1541,7 +1516,7 @@ function handleKeyboard(event) {
 
   if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 's' && isEditMode) {
     event.preventDefault();
-    saveEditedDocument();
+    documentSaveCoordinator?.saveEditor();
     return;
   }
 
@@ -1705,9 +1680,9 @@ function registerEvents() {
     }
     minimapResizeObserver?.disconnect();
     documentModeCoordinator?.dispose();
+    documentSaveCoordinator?.dispose();
     themeCoordinator?.dispose();
     toastPresenter?.dispose();
-    clearTimeout(autoSaveTimeoutId);
     responsiveTypography?.dispose();
     readerShell?.dispose();
     editorSession?.dispose();
@@ -1738,7 +1713,7 @@ function registerEvents() {
   ui.alwaysOnTopButton?.addEventListener('click', toggleAlwaysOnTop);
   ui.autoSaveToggle?.addEventListener('click', toggleAutoSave);
   ui.editModeButton?.addEventListener('click', () => documentModeCoordinator?.cycle());
-  ui.editorSaveButton?.addEventListener('click', saveEditedDocument);
+  ui.editorSaveButton?.addEventListener('click', () => documentSaveCoordinator?.saveEditor());
   ui.readingToolToggles.forEach((toggle) => {
     toggle.addEventListener('click', handleReadingToolToggle);
   });
@@ -1762,6 +1737,7 @@ async function init() {
   });
   mountApplicationReaderShell();
   mountApplicationEditor();
+  mountDocumentSaveCoordinator();
   mountDocumentModeCoordinator();
   const preferenceResult = await readerShell.preferences.load();
   if (preferenceResult.status === 'fallback') {

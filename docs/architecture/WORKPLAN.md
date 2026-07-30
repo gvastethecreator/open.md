@@ -160,20 +160,20 @@ toggle semantics, rendered transition milestones and cancellation cleanup.
 ### ARC-10 — Coordinate document mutations and save scheduling
 
 **Type:** AFK
-**Status:** Ready
+**Status:** Implemented
 **Blocked by:** ARC-09.
 
 **What to build:** One Document Save Coordinator owns editor debounce and the
 serialized read-task mutation path with deterministic rollback and feedback.
 
-- [ ] Autosave replaces stale timers and respects disabled/error/saving states.
-- [ ] Read-task saves serialize and roll back the exact failed checkbox/source.
-- [ ] Document replacement and disposal cannot commit stale follow-up work.
+- [x] Autosave replaces stale timers and respects disabled/error/saving states.
+- [x] Read-task saves serialize and roll back the exact failed checkbox/source.
+- [x] Document replacement and disposal cannot commit stale follow-up work.
 
 ### ARC-11 — Own reading navigation chrome
 
 **Type:** AFK
-**Status:** Blocked
+**Status:** Ready
 **Blocked by:** ARC-10.
 
 **What to build:** One Reading Navigation controller owns the active view,
