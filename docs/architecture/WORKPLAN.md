@@ -367,16 +367,16 @@ navigation, viewport, and status adapters.
 ### ARC-23 — Own application runtime adapters
 
 **Type:** AFK
-**Status:** Planned
+**Status:** Implemented
 **Blocked by:** None — can start immediately.
 
 **What to build:** One Application Runtime Adapters module owns native/preview
 document open/save, native command guards, lazy syntax highlighting, diagram
 adapters, and window adapters behind the existing Reader shell adapter shape.
 
-- [ ] DEV preview open/save delay/failure behavior remains deterministic.
-- [ ] Browser preview reports the stable native-access error and does not call Tauri.
-- [ ] Adapter tests cover both environment branches and lazy syntax loading.
+- [x] DEV preview open/save delay/failure behavior remains deterministic.
+- [x] Browser preview reports the stable native-access error and does not call Tauri.
+- [x] Adapter tests cover both environment branches and lazy syntax loading.
 
 ### ARC-24 — Own reader keyboard shortcuts
 

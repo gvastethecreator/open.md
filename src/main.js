@@ -16,15 +16,12 @@ import {
   getViewportMode,
   getZoomStatusMetric,
 } from './core/reader.js';
-import { prepareMermaidDiagrams, renderMermaidDiagrams } from './mermaid-renderer.js';
 import { createDocumentSaveCoordinator } from './document-save-coordinator.js';
 import { createEditorSession } from './editor-session.js';
 import { orderNativeOpenRequests } from './open-intent-controller.js';
 import { mountReaderShell } from './reader-shell.js';
-import {
-  createOptionalWebPreferenceStore,
-} from './reader-preferences.js';
 import { createReaderControls } from './reader-controls.js';
+import { createApplicationRuntimeAdapters } from './application-runtime-adapters.js';
 import { createResponsiveTypography } from './responsive-typography.js';
 import { createReadingNavigationController } from './reading-navigation-controller.js';
 import { createDocumentModeCoordinator } from './document-mode-coordinator.js';
@@ -47,6 +44,7 @@ let focusBeforeHelp = null;
 let currentDocument = null;
 let windowChrome = null;
 let readerShell = null;
+let runtimeAdapters = null;
 let editorSession = null;
 let isEditMode = false;
 let responsiveTypography = null;
@@ -59,7 +57,6 @@ let contextMenuController = null;
 let tooltipController = null;
 let statusPresenter = null;
 let readerControls = null;
-let syntaxHighlighterPromise = null;
 
 const ui = {
   windowFileTitle: null,
@@ -522,94 +519,11 @@ function activeDiagramTokens() {
   return theme ? getThemeTokens(theme) : null;
 }
 
-async function highlightDocumentCode(container) {
-  if (!container?.querySelector?.('pre code')) return false;
-  if (!syntaxHighlighterPromise) {
-    syntaxHighlighterPromise = import('./syntax-highlighter.js').catch((error) => {
-      syntaxHighlighterPromise = null;
-      throw error;
-    });
-  }
-  const { highlightCodeBlocks } = await syntaxHighlighterPromise;
-  return highlightCodeBlocks(container);
-}
-
-function invokeDocumentCommand(command, args) {
-  if (!window.__TAURI_INTERNALS__) {
-    return Promise.reject(new Error('Native file access is unavailable in this browser preview.'));
-  }
-
-  return invoke(command, args);
-}
-
-function getPreviewDocument(path) {
-  if (!import.meta.env.DEV) return null;
-  const previewDocuments = window.__OPENMD_PREVIEW_DOCUMENTS__;
-  const value = previewDocuments && typeof previewDocuments === 'object'
-    ? previewDocuments[path]
-    : null;
-  return value && typeof value.source === 'string' && typeof value.html === 'string'
-    ? value
-    : null;
-}
-
-function openDocumentAdapter(path) {
-  const preview = getPreviewDocument(path);
-  return preview ? Promise.resolve({ ...preview }) : invokeDocumentCommand('get_file_content', { path });
-}
-
-async function saveDocumentAdapter(path, source) {
-  const preview = getPreviewDocument(path);
-  if (!preview) return invokeDocumentCommand('save_file_content', { path, content: source });
-  if (window.__OPENMD_PREVIEW_SAVE_FAILURE__) {
-    throw new Error('Preview save failure');
-  }
-  const previewDelay = Number(window.__OPENMD_PREVIEW_SAVE_DELAY_MS__) || 0;
-  if (previewDelay > 0) {
-    await new Promise((resolve) => window.setTimeout(resolve, Math.min(previewDelay, 3_000)));
-  }
-  const escaped = source
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-  const words = source.trim() ? source.trim().split(/\s+/u).length : 0;
-  Object.assign(preview, {
-    source,
-    html: `<pre>${escaped}</pre>`,
-    lineCount: source.split('\n').length,
-    characterCount: [...source].length,
-    wordCount: words,
-    readingTimeMinutes: words === 0 ? 0 : Math.max(1, Math.ceil(words / 220)),
-  });
-  return { ...preview };
-}
-
 function mountApplicationReaderShell() {
+  runtimeAdapters = createApplicationRuntimeAdapters({ window });
   readerShell = mountReaderShell({
     window,
-    adapters: {
-      documents: {
-        open: openDocumentAdapter,
-        readImage: (documentPath, relativeSource) => invokeDocumentCommand('get_image_bytes', {
-          documentPath,
-          relativeSource,
-        }),
-      },
-      diagrams: {
-        prepare: prepareMermaidDiagrams,
-        render: renderMermaidDiagrams,
-      },
-      syntax: {
-        highlight: highlightDocumentCode,
-      },
-      windows: {
-        openDocument: (path) => invoke('open_new_window', { path }),
-        ...(window.__TAURI_INTERNALS__ ? {
-          setAlwaysOnTop: (value) => getCurrentWindow().setAlwaysOnTop(value),
-        } : {}),
-      },
-      storage: createOptionalWebPreferenceStore(window),
-    },
+    adapters: runtimeAdapters,
     hooks: {
       getDiagramTheme: activeDiagramTheme,
       getDiagramTokens: activeDiagramTokens,
@@ -768,7 +682,7 @@ function mountApplicationEditor() {
       contextHint: ui.editorContextHint,
     },
     adapters: {
-      save: saveDocumentAdapter,
+      save: (path, source) => runtimeAdapters.documents.save(path, source),
     },
     hooks: {
       onStateChange: handleEditorState,
@@ -794,7 +708,7 @@ function mountDocumentSaveCoordinator() {
     adapters: {
       isEditing: () => Boolean(editorSession?.isEditing()),
       saveEditor: () => editorSession?.save(),
-      saveDocument: saveDocumentAdapter,
+      saveDocument: (path, source) => runtimeAdapters.documents.save(path, source),
     },
     hooks: {
       notify: showToast,
