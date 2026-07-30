@@ -15,6 +15,14 @@ fn get_file_content(path: String) -> Result<document_access::DocumentPayload, St
 }
 
 #[tauri::command]
+fn save_file_content(
+    path: String,
+    content: String,
+) -> Result<document_access::DocumentPayload, String> {
+    document_access::save_document(Path::new(&path), &content)
+}
+
+#[tauri::command]
 fn get_initial_file_paths(window: tauri::Window) -> Vec<String> {
     if window.label() != "main" {
         return Vec::new();
@@ -69,6 +77,7 @@ pub fn run() {
         .manage(open_requests::OpenRequestQueue::default())
         .invoke_handler(tauri::generate_handler![
             get_file_content,
+            save_file_content,
             get_initial_file_paths,
             images::get_image_bytes,
             open_new_window,

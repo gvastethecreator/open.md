@@ -25,6 +25,7 @@ import {
   isColorDark,
 } from './core/reader.js';
 import { renderMermaidDiagrams } from './mermaid-renderer.js';
+import { createEditorSession } from './editor-session.js';
 import { orderNativeOpenRequests } from './open-intent-controller.js';
 import { mountReaderShell } from './reader-shell.js';
 import {
@@ -66,6 +67,8 @@ let minimapContentHeight = 0;
 let viewScrollPositions = { rendered: 0, source: 0 };
 let windowChromeUnlisteners = [];
 let readerShell = null;
+let editorSession = null;
+let isEditMode = false;
 
 const ui = {
   windowFileTitle: null,
@@ -106,6 +109,20 @@ const ui = {
   typographyPanel: null,
   fontButtons: [],
   alwaysOnTopButton: null,
+  editorView: null,
+  editorCanvas: null,
+  editModeButton: null,
+  editModeLabel: null,
+  editorSaveButton: null,
+  editorSaveLabel: null,
+  editorCommandMenu: null,
+  editorBlockMenu: null,
+  editorInlineToolbar: null,
+  editorLinkPopover: null,
+  editorLinkInput: null,
+  editorLinkApply: null,
+  editorContextLabel: null,
+  editorContextHint: null,
 };
 
 function cacheElements() {
@@ -147,6 +164,20 @@ function cacheElements() {
   ui.typographyPanel = document.getElementById('typography-panel');
   ui.fontButtons = [...document.querySelectorAll('[data-font-kind]')];
   ui.alwaysOnTopButton = document.getElementById('always-on-top-button');
+  ui.editorView = document.getElementById('editor-view');
+  ui.editorCanvas = document.getElementById('editor-canvas');
+  ui.editModeButton = document.getElementById('edit-mode-button');
+  ui.editModeLabel = document.getElementById('edit-mode-label');
+  ui.editorSaveButton = document.getElementById('editor-save-button');
+  ui.editorSaveLabel = document.getElementById('editor-save-label');
+  ui.editorCommandMenu = document.getElementById('editor-command-menu');
+  ui.editorBlockMenu = document.getElementById('editor-block-menu');
+  ui.editorInlineToolbar = document.getElementById('editor-inline-toolbar');
+  ui.editorLinkPopover = document.getElementById('editor-link-popover');
+  ui.editorLinkInput = document.getElementById('editor-link-input');
+  ui.editorLinkApply = document.getElementById('editor-link-apply');
+  ui.editorContextLabel = document.getElementById('editor-context-label');
+  ui.editorContextHint = document.getElementById('editor-context-hint');
 }
 
 function updateWindowTitle(filePath = null) {
@@ -277,6 +308,19 @@ function updateStatus(filePath = null) {
   }
 
   if (filePath) {
+    if (isEditMode) {
+      const editorState = editorSession?.current();
+      const context = editorState?.saveState === 'saving'
+        ? 'Editing · Saving…'
+        : editorState?.saveState === 'error'
+          ? 'Editing · Save failed'
+          : editorState?.dirty
+            ? 'Editing · Unsaved'
+            : 'Editing · Saved';
+      setStatusText(getDisplayName(filePath), context);
+      updateStatusMetrics();
+      return;
+    }
     const viewLabel = currentDocument && readingTools.source ? 'Source' : getFileKind(filePath);
     setStatusText(getDisplayName(filePath), viewLabel);
     updateStatusMetrics();
@@ -289,6 +333,15 @@ function updateStatus(filePath = null) {
 
 function updateStatusMetrics() {
   if (!ui.statusMetrics) return;
+
+  if (isEditMode && editorSession) {
+    const stats = editorSession.current().stats;
+    ui.statusMetrics.hidden = false;
+    ui.statusMetrics.textContent = `${stats.blocks} ${stats.blocks === 1 ? 'block' : 'blocks'} · ${stats.words} ${stats.words === 1 ? 'word' : 'words'}`;
+    ui.statusMetrics.title = `${stats.blocks} blocks. ${stats.words} words. ${stats.characters} characters.`;
+    ui.statusMetrics.setAttribute('aria-label', ui.statusMetrics.title);
+    return;
+  }
 
   const isAvailable = Boolean(currentDocument && currentFilePath && !isHelpVisible);
   if (!isAvailable) {
@@ -320,7 +373,7 @@ function hasLoadedDocument() {
 }
 
 function isSourceViewActive() {
-  return hasLoadedDocument() && readingTools.source;
+  return hasLoadedDocument() && readingTools.source && !isEditMode;
 }
 
 function reportPreferenceResult(result) {
@@ -444,7 +497,7 @@ async function toggleAlwaysOnTop() {
 }
 
 function setReadingToolsOpen(nextOpen, { returnFocus = false } = {}) {
-  const canOpen = hasLoadedDocument() && !isHelpVisible;
+  const canOpen = hasLoadedDocument() && !isHelpVisible && !isEditMode;
   isReadingToolsOpen = Boolean(nextOpen && canOpen);
   if (isReadingToolsOpen) setTypographyOpen(false);
   document.body.classList.toggle('is-reading-tools-open', isReadingToolsOpen);
@@ -467,7 +520,7 @@ function setReadingToolsOpen(nextOpen, { returnFocus = false } = {}) {
 }
 
 function updateReadingToolControls() {
-  const available = hasLoadedDocument();
+  const available = hasLoadedDocument() && !isEditMode;
   const hasActiveTool = available && Object.values(readingTools).some(Boolean);
 
   if (ui.readingToolsButton) {
@@ -487,14 +540,14 @@ function updateReadingToolControls() {
 
 function applyReadingTools() {
   const available = hasLoadedDocument();
-  const sourceActive = available && readingTools.source;
-  const lineGuideActive = available && readingTools.lineGuide;
-  const minimapActive = available && readingTools.minimap;
+  const sourceActive = available && readingTools.source && !isEditMode;
+  const lineGuideActive = available && readingTools.lineGuide && !isEditMode;
+  const minimapActive = available && readingTools.minimap && !isEditMode;
 
   document.body.classList.toggle('is-source-view', sourceActive);
   document.body.classList.toggle('is-line-guide', lineGuideActive);
   document.body.classList.toggle('is-minimap', minimapActive);
-  ui.content?.classList.toggle('hidden', sourceActive);
+  ui.content?.classList.toggle('hidden', sourceActive || isEditMode);
   ui.sourceView?.classList.toggle('hidden', !sourceActive);
 
   if (ui.lineGutter) {
@@ -758,6 +811,11 @@ function handleDocumentSessionState(snapshot) {
   if (snapshot.state === 'ready') {
     currentFilePath = snapshot.path;
     currentDocument = snapshot.document;
+    editorSession?.setDocument({
+      path: snapshot.path,
+      source: snapshot.document.source,
+      markdown: getFileKind(snapshot.path) === 'Markdown',
+    });
     updateWindowTitle(snapshot.path);
     updateWindowUrl(snapshot.path);
     applyReadingTools();
@@ -772,11 +830,13 @@ function handleDocumentSessionState(snapshot) {
     updateWindowUrl(snapshot.path);
     applyReadingTools();
     setStatusText(getDisplayName(snapshot.path), 'Could not open');
+    editorSession?.clearDocument();
     return;
   }
 
   currentFilePath = null;
   currentDocument = null;
+  editorSession?.clearDocument();
   resetDocumentReadingState();
   syncViewportState();
   applyReadingTools();
@@ -800,12 +860,47 @@ function invokeDocumentCommand(command, args) {
   return invoke(command, args);
 }
 
+function getPreviewDocument(path) {
+  if (!import.meta.env.DEV) return null;
+  const previewDocuments = window.__OPENMD_PREVIEW_DOCUMENTS__;
+  const value = previewDocuments && typeof previewDocuments === 'object'
+    ? previewDocuments[path]
+    : null;
+  return value && typeof value.source === 'string' && typeof value.html === 'string'
+    ? value
+    : null;
+}
+
+function openDocumentAdapter(path) {
+  const preview = getPreviewDocument(path);
+  return preview ? Promise.resolve({ ...preview }) : invokeDocumentCommand('get_file_content', { path });
+}
+
+function saveDocumentAdapter(path, source) {
+  const preview = getPreviewDocument(path);
+  if (!preview) return invokeDocumentCommand('save_file_content', { path, content: source });
+  const escaped = source
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  const words = source.trim() ? source.trim().split(/\s+/u).length : 0;
+  Object.assign(preview, {
+    source,
+    html: `<pre>${escaped}</pre>`,
+    lineCount: source.split('\n').length,
+    characterCount: [...source].length,
+    wordCount: words,
+    readingTimeMinutes: words === 0 ? 0 : Math.max(1, Math.ceil(words / 220)),
+  });
+  return Promise.resolve({ ...preview });
+}
+
 function mountApplicationReaderShell() {
   readerShell = mountReaderShell({
     window,
     adapters: {
       documents: {
-        open: (path) => invokeDocumentCommand('get_file_content', { path }),
+        open: openDocumentAdapter,
         readImage: (documentPath, relativeSource) => invokeDocumentCommand('get_image_bytes', {
           documentPath,
           relativeSource,
@@ -842,11 +937,126 @@ function mountApplicationReaderShell() {
   });
 }
 
+function handleEditorState(snapshot) {
+  const nextEditMode = snapshot.mode === 'edit';
+  const modeChanged = nextEditMode !== isEditMode;
+  isEditMode = nextEditMode;
+  document.body.classList.toggle('is-edit-mode', isEditMode);
+  document.body.classList.toggle('has-unsaved-changes', snapshot.dirty);
+  document.body.classList.toggle('is-editor-saving', snapshot.saveState === 'saving');
+  document.body.classList.toggle('has-editor-save-error', snapshot.saveState === 'error');
+
+  if (ui.editModeButton) {
+    ui.editModeButton.disabled = !snapshot.path;
+    ui.editModeButton.setAttribute('aria-pressed', String(isEditMode));
+    ui.editModeButton.setAttribute('aria-label', isEditMode ? 'Return to read mode' : 'Enter edit mode');
+    ui.editModeButton.title = `${isEditMode ? 'Read document' : 'Edit document'} (Ctrl+Shift+E)`;
+    const icon = ui.editModeButton.querySelector('i');
+    if (icon) icon.className = isEditMode ? 'iconoir-book' : 'iconoir-edit-pencil';
+  }
+  if (ui.editModeLabel) ui.editModeLabel.textContent = isEditMode ? 'Read' : 'Edit';
+
+  if (ui.editorSaveButton) {
+    ui.editorSaveButton.hidden = !isEditMode;
+    ui.editorSaveButton.disabled = snapshot.saveState === 'saving' || !snapshot.dirty;
+    ui.editorSaveButton.classList.toggle('is-error', snapshot.saveState === 'error');
+    const icon = ui.editorSaveButton.querySelector('i');
+    if (icon) {
+      icon.className = snapshot.saveState === 'saving' || snapshot.saveState === 'error'
+        ? 'iconoir-refresh'
+        : snapshot.dirty
+          ? 'iconoir-floppy-disk'
+          : 'iconoir-check';
+    }
+  }
+  if (ui.editorSaveLabel) {
+    ui.editorSaveLabel.textContent = snapshot.saveState === 'saving'
+      ? 'Saving…'
+      : snapshot.saveState === 'error'
+        ? 'Retry'
+        : snapshot.dirty
+          ? 'Save'
+          : snapshot.saveState === 'recovered'
+            ? 'Recovered'
+            : 'Saved';
+  }
+  if (ui.editorSaveButton) {
+    ui.editorSaveButton.title = snapshot.saveState === 'error'
+      ? `Save failed: ${snapshot.error}. Activate to retry.`
+      : 'Save document (Ctrl+S)';
+    ui.editorSaveButton.setAttribute('aria-label', snapshot.saveState === 'saving'
+      ? 'Saving document'
+      : snapshot.saveState === 'error'
+        ? `Retry saving document. Last error: ${snapshot.error}`
+        : snapshot.dirty
+          ? 'Save document'
+          : 'Document saved');
+  }
+
+  if (modeChanged) applyReadingTools();
+  else updateStatus(currentFilePath);
+}
+
+function mountApplicationEditor() {
+  editorSession = createEditorSession({
+    window,
+    elements: {
+      root: ui.editorView,
+      canvas: ui.editorCanvas,
+      commandMenu: ui.editorCommandMenu,
+      blockMenu: ui.editorBlockMenu,
+      inlineToolbar: ui.editorInlineToolbar,
+      linkPopover: ui.editorLinkPopover,
+      linkInput: ui.editorLinkInput,
+      linkApply: ui.editorLinkApply,
+      contextLabel: ui.editorContextLabel,
+      contextHint: ui.editorContextHint,
+    },
+    adapters: {
+      save: saveDocumentAdapter,
+    },
+    hooks: {
+      onStateChange: handleEditorState,
+      onSaved: async () => {
+        showToast('Changes saved');
+        await readerShell?.reload();
+      },
+      onDraftPreserved: (path) => showToast(`Unsaved draft kept for ${getDisplayName(path)}`),
+      onUnavailable: showToast,
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  });
+  handleEditorState(editorSession.current());
+}
+
+async function toggleEditMode() {
+  if (!editorSession || !currentFilePath) return;
+  setHelpVisible(false);
+  setReadingToolsOpen(false);
+  setTypographyOpen(false);
+  setActionsPinned(false);
+  if (!editorSession.isEditing() && readingTools.source) {
+    await setReadingTool('source', false);
+  }
+  editorSession.toggle();
+}
+
+async function saveEditedDocument() {
+  if (!editorSession?.isEditing()) return;
+  const result = await editorSession.save();
+  if (result.status === 'failed') showToast('Could not save. Your changes are still here.');
+}
+
 function handleLinkClick(event) {
   const target = event.target instanceof Element ? event.target.closest('a') : null;
   const hrefAttribute = target?.getAttribute('href');
 
   if (!target || !hrefAttribute) return;
+
+  if (isEditMode && target.closest('#editor-view')) {
+    event.preventDefault();
+    return;
+  }
 
   const action = getLinkAction(hrefAttribute, currentFilePath, target.href);
   if (action.type === 'anchor') return;
@@ -1287,6 +1497,18 @@ function handleKeyboard(event) {
     return;
   }
 
+  if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'e') {
+    event.preventDefault();
+    toggleEditMode();
+    return;
+  }
+
+  if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 's' && isEditMode) {
+    event.preventDefault();
+    saveEditedDocument();
+    return;
+  }
+
   if (event.key === 'Escape' && isTypographyOpen) {
     event.preventDefault();
     setTypographyOpen(false, { returnFocus: true });
@@ -1374,6 +1596,7 @@ async function setupFileAssociationEvents() {
 }
 
 async function openFilePicker() {
+  if (editorSession && !editorSession.canChangeDocument()) return;
   setReadingToolsOpen(false);
   setActionsPinned(false);
   try {
@@ -1426,6 +1649,7 @@ async function setupDragAndDrop() {
 
       if (event.payload.type === 'drop') {
         setDragState(false);
+        if (editorSession && !editorSession.canChangeDocument()) return;
         await readerShell?.open({
           origin: 'drop',
           items: (event.payload.paths || []).map((path) => ({ path })),
@@ -1443,7 +1667,11 @@ async function setupDragAndDrop() {
 function registerEvents() {
   window.addEventListener('wheel', handleZoom, { passive: false });
   window.addEventListener('keydown', handleKeyboard);
-  window.addEventListener('beforeunload', () => {
+  window.addEventListener('beforeunload', (event) => {
+    if (editorSession?.isDirty()) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
     if (typeof dragDropUnlisten === 'function') {
       dragDropUnlisten();
     }
@@ -1452,6 +1680,7 @@ function registerEvents() {
     }
     minimapResizeObserver?.disconnect();
     readerShell?.dispose();
+    editorSession?.dispose();
     windowChromeUnlisteners.forEach((unlisten) => unlisten());
     windowChromeUnlisteners = [];
   });
@@ -1484,6 +1713,8 @@ function registerEvents() {
   ui.readingToolsButton?.addEventListener('click', toggleReadingTools);
   ui.typographyButton?.addEventListener('click', toggleTypography);
   ui.alwaysOnTopButton?.addEventListener('click', toggleAlwaysOnTop);
+  ui.editModeButton?.addEventListener('click', toggleEditMode);
+  ui.editorSaveButton?.addEventListener('click', saveEditedDocument);
   ui.readingToolToggles.forEach((toggle) => {
     toggle.addEventListener('click', handleReadingToolToggle);
   });
@@ -1501,6 +1732,7 @@ function registerEvents() {
 async function init() {
   cacheElements();
   mountApplicationReaderShell();
+  mountApplicationEditor();
   const preferenceResult = await readerShell.preferences.load();
   if (preferenceResult.status === 'fallback') {
     console.warn('One or more saved preferences could not be restored:', preferenceResult.warnings);

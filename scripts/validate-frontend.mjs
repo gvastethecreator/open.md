@@ -11,6 +11,9 @@ const requiredFiles = [
   'scripts/generate-runtime-themes.mjs',
   'src/assets/icon.png',
   'src/assets/app-icon.png',
+  'src/assets/fonts/InterVariable.woff2',
+  'src/assets/fonts/InterVariable-Italic.woff2',
+  'src/assets/fonts/LICENSE.txt',
   'src-tauri/tauri.conf.json',
   'src-tauri/capabilities/default.json',
   'docs/FILE_ASSOCIATIONS.md'
@@ -92,6 +95,14 @@ const requiredAccessibleControls = [
   'id="sans-font-button"',
   'id="mono-font-button"',
   'id="always-on-top-button"',
+  'id="editor-view"',
+  'id="editor-canvas"',
+  'id="edit-mode-button"',
+  'id="editor-save-button"',
+  'id="editor-command-menu"',
+  'id="editor-block-menu"',
+  'id="editor-inline-toolbar"',
+  'id="editor-link-popover"',
   'id="line-gutter"',
   'id="document-minimap"',
   'id="minimap-document"',
@@ -146,6 +157,16 @@ if (
   || !stylesCss.includes('backdrop-filter: blur(1.25px)')
 ) {
   throw new Error('src/styles.css must preserve typography controls and conditional scroll-edge depth cues');
+}
+if (
+  !stylesCss.includes('@font-face')
+  || !stylesCss.includes('InterVariable.woff2')
+  || !stylesCss.includes('InterVariable-Italic.woff2')
+) {
+  throw new Error('src/styles.css must bundle Inter normal and italic as the default sans family');
+}
+if (!stylesCss.includes('.editor-block-content') || !stylesCss.includes('.editor-menu')) {
+  throw new Error('src/styles.css must include the block editor canvas and command surface');
 }
 const themesRaw = readFileSync(path.join(root, 'src/themes.json'), 'utf8').trim();
 if (!themesRaw) {

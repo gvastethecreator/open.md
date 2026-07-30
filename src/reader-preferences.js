@@ -7,7 +7,7 @@ const STORAGE_KEYS = Object.freeze({
 
 export const FONT_PRESETS = Object.freeze({
   sans: Object.freeze([
-    { name: 'System', value: 'Inter, "Segoe UI", Helvetica, Arial, sans-serif' },
+    { name: 'Inter', value: 'Inter, "Segoe UI", Helvetica, Arial, sans-serif' },
     { name: 'Humanist', value: 'Candara, "Trebuchet MS", "Segoe UI", sans-serif' },
     { name: 'Classic sans', value: '"Gill Sans", "Gill Sans MT", Calibri, Arial, sans-serif' },
   ]),
