@@ -79,6 +79,35 @@ describe('editor document model', () => {
     expect(model.remove(copy.id).changed).toBe(true);
   });
 
+  it('moves visible Markdown blocks while preserving separator rows', () => {
+    const source = '# Alpha\n\nBravo\n\nCharlie';
+    const model = createEditorDocumentModel({ source });
+    const visible = model.snapshot().blocks.filter((block) => block.text);
+    const [alpha, bravo, charlie] = visible;
+
+    expect(model.moveRelative(alpha.id, bravo.id, 'before')).toBe(false);
+    expect(model.moveRelative(alpha.id, bravo.id, 'after')).toMatchObject({
+      changed: true,
+    });
+    expect(model.source()).toBe('Bravo\n\n# Alpha\n\nCharlie');
+
+    expect(model.moveRelative(alpha.id, bravo.id, 'before')).toMatchObject({ changed: true });
+    expect(model.source()).toBe(source);
+
+    expect(model.moveRelative(charlie.id, alpha.id, 'before')).toMatchObject({ changed: true });
+    expect(model.source()).toBe('Charlie\n\n# Alpha\n\nBravo');
+  });
+
+  it('does not treat leading, repeated or trailing blank lines as draggable blocks', () => {
+    const model = createEditorDocumentModel({ source: '\nAlpha\n\n\nBravo\n' });
+    const blocks = model.snapshot().blocks;
+    const visible = blocks.filter((block) => block.text);
+
+    expect(model.moveRelative(visible[1].id, visible[0].id, 'before')).toMatchObject({ changed: true });
+    expect(model.source()).toBe('\nBravo\n\n\nAlpha\n');
+    expect(model.moveRelative(blocks[0].id, visible[0].id, 'after')).toBe(false);
+  });
+
   it('keeps bounded undo and redo history independent per model', () => {
     const first = createEditorDocumentModel({ source: 'one', historyLimit: 3 });
     const second = createEditorDocumentModel({ source: 'other' });

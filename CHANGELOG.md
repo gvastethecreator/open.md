@@ -27,6 +27,9 @@ stable release is cut.
 
 ### Changed
 
+- Stabilized Edit-mode block dragging: blank Markdown separators keep their
+  layout, the insertion target no longer flickers, and edge drag auto-scroll
+  supports long documents.
 - Moved toast feedback to one interruptible WAAPI pipeline with a stable
   container, persistent text layers, and shape motion that avoids animated
   layout properties.

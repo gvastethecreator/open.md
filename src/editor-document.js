@@ -355,6 +355,32 @@ export function createEditorDocumentModel({
     blocks.splice(target, 0, moving);
     return { changed: true, id, sourceIndex, destination: target };
   });
+  const moveRelative = (id, targetId, position = 'before') => commit(() => {
+    const isSpacer = (blockValue) => blockValue?.type === 'paragraph' && blockValue.text === '';
+    const visibleSlots = blocks
+      .map((blockValue, index) => (isSpacer(blockValue) ? -1 : index))
+      .filter((index) => index >= 0);
+    const visibleBlocks = visibleSlots.map((index) => blocks[index]);
+    const sourceIndex = visibleBlocks.findIndex((blockValue) => blockValue.id === id);
+    const targetIndex = visibleBlocks.findIndex((blockValue) => blockValue.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return false;
+
+    let destination = targetIndex + (position === 'after' ? 1 : 0);
+    if (sourceIndex < destination) destination -= 1;
+    if (destination === sourceIndex) return false;
+
+    const [moving] = visibleBlocks.splice(sourceIndex, 1);
+    visibleBlocks.splice(destination, 0, moving);
+    visibleSlots.forEach((slot, index) => {
+      blocks[slot] = visibleBlocks[index];
+    });
+    return {
+      changed: true,
+      id,
+      sourceIndex,
+      destination,
+    };
+  });
   const move = (id, delta) => {
     const index = findIndex(id);
     const destination = index + Math.trunc(Number(delta) || 0);
@@ -477,6 +503,7 @@ export function createEditorDocumentModel({
     remove,
     move,
     moveTo,
+    moveRelative,
     duplicate,
     split,
     mergeWithPrevious,
