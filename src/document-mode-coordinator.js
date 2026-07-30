@@ -1,0 +1,242 @@
+import { getDocumentModePresentation } from './core/reader.js';
+
+const MODES = new Set(['read', 'edit', 'source']);
+
+export function createDocumentModeCoordinator({
+  window,
+  document,
+  elements = {},
+  adapters = {},
+  hooks = {},
+}) {
+  if (!window || !document || typeof adapters.getMode !== 'function') {
+    throw new TypeError('Document Mode Coordinator requires window, document and getMode');
+  }
+
+  let activeTransition = null;
+  let fallbackTimeoutId = null;
+  let morphGeneration = 0;
+  let changeGeneration = 0;
+  let changeTail = Promise.resolve();
+  let cycling = false;
+  let disposed = false;
+  const animationCleanups = new Set();
+
+  const current = () => {
+    const mode = adapters.getMode();
+    return MODES.has(mode) ? mode : 'read';
+  };
+
+  const surfaceFor = (mode = current()) => {
+    if (mode === 'edit') return elements.editSurface;
+    if (mode === 'source') return elements.sourceSurface;
+    return elements.readSurface;
+  };
+
+  const clearOneShotAnimations = () => {
+    for (const cleanup of [...animationCleanups]) cleanup();
+    [elements.readSurface, elements.sourceSurface, elements.editSurface]
+      .forEach((surface) => surface?.classList.remove('is-mode-morph-entering'));
+    elements.lineGutter?.classList.remove('is-mode-chrome-morphing');
+    elements.minimap?.classList.remove('is-mode-chrome-morphing');
+    elements.control?.querySelector('i')?.classList.remove('is-mode-changing');
+  };
+
+  const finishMorph = (generation, { force = false } = {}) => {
+    if (!force && generation !== morphGeneration) return;
+    if (fallbackTimeoutId !== null) window.clearTimeout(fallbackTimeoutId);
+    fallbackTimeoutId = null;
+    activeTransition = null;
+    clearOneShotAnimations();
+    document.body.classList.remove('is-mode-morphing');
+    delete document.body.dataset.modeMorphFrom;
+    delete document.body.dataset.modeMorphTo;
+  };
+
+  const replayOneShot = (element, className) => {
+    if (!element || !className || disposed) return;
+    element.classList.remove(className);
+    let frameId = null;
+    let settled = false;
+    const cleanup = () => {
+      if (settled) return;
+      settled = true;
+      if (frameId !== null) window.cancelAnimationFrame?.(frameId);
+      element.removeEventListener('animationend', cleanup);
+      element.classList.remove(className);
+      animationCleanups.delete(cleanup);
+    };
+    animationCleanups.add(cleanup);
+    frameId = window.requestAnimationFrame?.(() => {
+      frameId = null;
+      if (disposed || !element.isConnected) {
+        cleanup();
+        return;
+      }
+      element.classList.add(className);
+      element.addEventListener('animationend', cleanup, { once: true });
+    }) ?? null;
+  };
+
+  const replayChromeMorph = () => {
+    if (document.body.classList.contains('is-line-guide')) {
+      replayOneShot(elements.lineGutter, 'is-mode-chrome-morphing');
+    }
+    if (document.body.classList.contains('is-minimap')) {
+      replayOneShot(elements.minimap, 'is-mode-chrome-morphing');
+    }
+  };
+
+  const cancelTransition = () => {
+    if (activeTransition) activeTransition.skipTransition?.();
+    morphGeneration += 1;
+    finishMorph(morphGeneration, { force: true });
+  };
+
+  const runMorph = async (update) => {
+    cancelTransition();
+    hooks.cancelCompetingTransition?.();
+    const initialMode = current();
+    const reduced = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+    if (reduced) return update();
+
+    const generation = ++morphGeneration;
+    document.body.classList.add('is-mode-morphing');
+    document.body.dataset.modeMorphFrom = initialMode;
+
+    const runFallback = async () => {
+      try {
+        const result = await update();
+        const nextMode = current();
+        document.body.dataset.modeMorphTo = nextMode;
+        if (nextMode === initialMode) {
+          finishMorph(generation);
+          return result;
+        }
+        replayOneShot(surfaceFor(nextMode), 'is-mode-morph-entering');
+        replayChromeMorph();
+        fallbackTimeoutId = window.setTimeout(() => finishMorph(generation), 380);
+        return result;
+      } catch (error) {
+        finishMorph(generation);
+        throw error;
+      }
+    };
+
+    if (typeof document.startViewTransition !== 'function') return runFallback();
+
+    let updateResult;
+    let transition;
+    try {
+      transition = document.startViewTransition(async () => {
+        updateResult = await update();
+        document.body.dataset.modeMorphTo = current();
+      });
+    } catch {
+      return runFallback();
+    }
+
+    activeTransition = transition;
+    transition.ready?.catch?.(() => {});
+    fallbackTimeoutId = window.setTimeout(() => finishMorph(generation), 440);
+    Promise.resolve(transition.finished).then(
+      () => finishMorph(generation),
+      () => finishMorph(generation),
+    );
+
+    try {
+      await transition.updateCallbackDone;
+      if (current() === initialMode) transition.skipTransition?.();
+      return updateResult;
+    } catch (error) {
+      transition.skipTransition?.();
+      finishMorph(generation);
+      throw error;
+    }
+  };
+
+  const refresh = ({ forceAnimation = false } = {}) => {
+    const control = elements.control;
+    if (!control || disposed) return;
+    const presentation = getDocumentModePresentation(current());
+    const previousMode = control.dataset.mode;
+    const available = Boolean(adapters.isAvailable?.());
+
+    control.disabled = !available;
+    control.dataset.mode = presentation.mode;
+    control.setAttribute('aria-label', available
+      ? presentation.ariaLabel
+      : 'Open a file to change document mode');
+    control.title = available
+      ? `${presentation.title} · Ctrl+Shift+E toggles Read/Edit`
+      : 'Open a file to change document mode';
+
+    const icon = control.querySelector('i');
+    if (icon) {
+      icon.className = presentation.iconClass;
+      if (!cycling && (forceAnimation || (previousMode && previousMode !== presentation.mode))) {
+        replayOneShot(icon, 'is-mode-changing');
+      }
+    }
+    if (elements.label) elements.label.textContent = `${presentation.label} mode`;
+  };
+
+  const performChange = (update) => {
+    if (disposed || !adapters.isAvailable?.()) return Promise.resolve(false);
+    if (activeTransition) cancelTransition();
+    const generation = ++changeGeneration;
+    const execute = async () => {
+      if (disposed || !adapters.isAvailable?.()) return false;
+      const initialMode = current();
+      hooks.closeTransientUi?.();
+      cycling = true;
+      try {
+        return await runMorph(() => update(initialMode));
+      } finally {
+        if (generation === changeGeneration && !disposed) {
+          cycling = false;
+          refresh({ forceAnimation: current() !== initialMode });
+        }
+      }
+    };
+    const result = changeTail.then(execute, execute);
+    changeTail = result.catch(() => {});
+    return result;
+  };
+
+  const cycle = () => performChange(async (initialMode) => {
+    if (initialMode === 'edit') {
+      if (!await adapters.exitEdit?.()) return false;
+      await adapters.setSource?.(true);
+      return true;
+    }
+    if (initialMode === 'source') {
+      await adapters.setSource?.(false);
+      return true;
+    }
+    return adapters.enterEdit?.();
+  });
+
+  const toggleEdit = () => performChange(async (initialMode) => {
+    if (initialMode === 'edit') return adapters.exitEdit?.();
+    if (initialMode === 'source') await adapters.setSource?.(false);
+    return adapters.enterEdit?.();
+  });
+
+  const dispose = () => {
+    if (disposed) return;
+    disposed = true;
+    changeGeneration += 1;
+    cycling = false;
+    cancelTransition();
+  };
+
+  return Object.freeze({
+    current,
+    refresh,
+    cycle,
+    toggleEdit,
+    cancelTransition,
+    dispose,
+  });
+}

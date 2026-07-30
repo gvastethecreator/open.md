@@ -8,7 +8,6 @@ import allThemes from './themes.runtime.json';
 import {
   calculateNewZoom,
   getCurrentLineFromAnchors,
-  getDocumentModePresentation,
   getDisplayName,
   getEstimatedMinutesRemaining,
   getFileKind,
@@ -34,6 +33,7 @@ import {
   normalizeFontIndex,
 } from './reader-preferences.js';
 import { createResponsiveTypography } from './responsive-typography.js';
+import { createDocumentModeCoordinator } from './document-mode-coordinator.js';
 import { createToastPresenter } from './toast-presenter.js';
 import { createThemeCoordinator } from './theme-coordinator.js';
 import { createWindowChrome } from './window-chrome.js';
@@ -68,14 +68,10 @@ let windowChrome = null;
 let readerShell = null;
 let editorSession = null;
 let isEditMode = false;
-let isCyclingDocumentMode = false;
 let autoSaveTimeoutId = null;
 let responsiveTypography = null;
 let readTaskSaveChain = Promise.resolve();
-let activeDocumentModeTransition = null;
-let modeMorphFallbackTimeoutId = null;
-let modeMorphGeneration = 0;
-let documentModeChangeGeneration = 0;
+let documentModeCoordinator = null;
 let toastPresenter = null;
 let themeCoordinator = null;
 let syntaxHighlighterPromise = null;
@@ -502,7 +498,7 @@ function applyReadingTools() {
   document.body.classList.toggle('is-source-view', sourceActive);
   document.body.classList.toggle('is-line-guide', lineGuideActive);
   document.body.classList.toggle('is-minimap', minimapActive);
-  updateDocumentModeControl();
+  documentModeCoordinator?.refresh();
   ui.content?.classList.toggle('hidden', sourceActive || isEditMode);
   ui.sourceView?.classList.toggle('hidden', !sourceActive);
 
@@ -666,12 +662,7 @@ async function initThemes() {
         persist: (themeName) => readerShell.preferences.update({ themeName }),
         onPersistResult: reportPreferenceResult,
         notify: showToast,
-        beforeTransition: () => {
-          if (activeDocumentModeTransition) {
-            activeDocumentModeTransition.skipTransition?.();
-            finishDocumentModeMorph(modeMorphGeneration);
-          }
-        },
+        beforeTransition: () => documentModeCoordinator?.cancelTransition(),
         onCommit: () => {
           isMinimapDocumentDirty = true;
           queueReadingUiUpdate();
@@ -866,146 +857,6 @@ function mountApplicationReaderShell() {
   });
 }
 
-function getActiveDocumentMode() {
-  if (isEditMode) return 'edit';
-  return isSourceViewActive() ? 'source' : 'read';
-}
-
-function getDocumentModeSurface(mode = getActiveDocumentMode()) {
-  if (mode === 'edit') return ui.editorView;
-  if (mode === 'source') return ui.sourceView;
-  return ui.content;
-}
-
-function finishDocumentModeMorph(generation) {
-  if (generation !== modeMorphGeneration) return;
-  clearTimeout(modeMorphFallbackTimeoutId);
-  modeMorphFallbackTimeoutId = null;
-  activeDocumentModeTransition = null;
-  getDocumentModeSurface()?.classList.remove('is-mode-morph-entering');
-  ui.lineGutter?.classList.remove('is-mode-chrome-morphing');
-  ui.documentMinimap?.classList.remove('is-mode-chrome-morphing');
-  document.body.classList.remove('is-mode-morphing');
-  delete document.body.dataset.modeMorphFrom;
-  delete document.body.dataset.modeMorphTo;
-}
-
-function replayDocumentModeChromeMorph() {
-  if (document.body.classList.contains('is-line-guide')) {
-    replayOneShotAnimation(ui.lineGutter, 'is-mode-chrome-morphing');
-  }
-  if (document.body.classList.contains('is-minimap')) {
-    replayOneShotAnimation(ui.documentMinimap, 'is-mode-chrome-morphing');
-  }
-}
-
-async function withDocumentModeMorph(update) {
-  const interruptedTransition = activeDocumentModeTransition;
-  interruptedTransition?.skipTransition?.();
-  if (document.body.classList.contains('is-mode-morphing')) {
-    finishDocumentModeMorph(modeMorphGeneration);
-  }
-  themeCoordinator?.cancelTransition();
-  clearTimeout(modeMorphFallbackTimeoutId);
-  modeMorphFallbackTimeoutId = null;
-
-  const initialMode = getActiveDocumentMode();
-  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  if (reduceMotion) return update();
-
-  const generation = ++modeMorphGeneration;
-  document.body.classList.add('is-mode-morphing');
-  document.body.dataset.modeMorphFrom = initialMode;
-
-  const runFallback = async () => {
-    try {
-      const result = await update();
-      const nextMode = getActiveDocumentMode();
-      document.body.dataset.modeMorphTo = nextMode;
-      if (nextMode === initialMode) {
-        finishDocumentModeMorph(generation);
-        return result;
-      }
-      replayOneShotAnimation(getDocumentModeSurface(nextMode), 'is-mode-morph-entering');
-      replayDocumentModeChromeMorph();
-      modeMorphFallbackTimeoutId = setTimeout(() => finishDocumentModeMorph(generation), 380);
-      return result;
-    } catch (error) {
-      finishDocumentModeMorph(generation);
-      throw error;
-    }
-  };
-
-  if (typeof document.startViewTransition !== 'function') return runFallback();
-
-  let updateResult;
-  let transition;
-  try {
-    transition = document.startViewTransition(async () => {
-      updateResult = await update();
-      document.body.dataset.modeMorphTo = getActiveDocumentMode();
-    });
-  } catch {
-    return runFallback();
-  }
-
-  activeDocumentModeTransition = transition;
-  transition.ready.catch(() => {});
-  modeMorphFallbackTimeoutId = setTimeout(() => finishDocumentModeMorph(generation), 440);
-  transition.finished.then(
-    () => finishDocumentModeMorph(generation),
-    () => finishDocumentModeMorph(generation)
-  );
-
-  try {
-    await transition.updateCallbackDone;
-    if (getActiveDocumentMode() === initialMode) transition.skipTransition();
-    return updateResult;
-  } catch (error) {
-    transition.skipTransition();
-    finishDocumentModeMorph(generation);
-    throw error;
-  }
-}
-
-function replayOneShotAnimation(element, className) {
-  if (!element || !className) return;
-  element.classList.remove(className);
-  requestAnimationFrame(() => {
-    if (!element.isConnected) return;
-    element.classList.add(className);
-    element.addEventListener('animationend', () => element.classList.remove(className), { once: true });
-  });
-}
-
-function updateDocumentModeControl({ forceAnimation = false } = {}) {
-  if (!ui.editModeButton) return;
-  const presentation = getDocumentModePresentation(getActiveDocumentMode());
-  const previousMode = ui.editModeButton.dataset.mode;
-  const available = hasLoadedDocument();
-
-  ui.editModeButton.disabled = !available;
-  ui.editModeButton.dataset.mode = presentation.mode;
-  ui.editModeButton.setAttribute('aria-label', available
-    ? presentation.ariaLabel
-    : 'Open a file to change document mode');
-  ui.editModeButton.title = available
-    ? `${presentation.title} · Ctrl+Shift+E toggles Read/Edit`
-    : 'Open a file to change document mode';
-
-  const icon = ui.editModeButton.querySelector('i');
-  if (icon) {
-    icon.className = presentation.iconClass;
-    if (
-      !isCyclingDocumentMode
-      && (forceAnimation || (previousMode && previousMode !== presentation.mode))
-    ) {
-      replayOneShotAnimation(icon, 'is-mode-changing');
-    }
-  }
-  if (ui.editModeLabel) ui.editModeLabel.textContent = `${presentation.label} mode`;
-}
-
 function scheduleAutoSave(snapshot = editorSession?.current()) {
   clearTimeout(autoSaveTimeoutId);
   autoSaveTimeoutId = null;
@@ -1033,7 +884,7 @@ function handleEditorState(snapshot) {
   document.body.classList.toggle('is-editor-saving', snapshot.saveState === 'saving');
   document.body.classList.toggle('has-editor-save-error', snapshot.saveState === 'error');
 
-  updateDocumentModeControl();
+  documentModeCoordinator?.refresh();
 
   if (ui.editorSaveButton) {
     ui.editorSaveButton.hidden = !isEditMode;
@@ -1127,48 +978,36 @@ function mountApplicationEditor() {
   handleEditorState(editorSession.current());
 }
 
-async function toggleEditMode() {
-  if (!editorSession || !currentFilePath) return;
-  return performDocumentModeChange(async () => {
-    if (!editorSession.isEditing() && readingTools.source) {
-      await setReadingTool('source', false);
-    }
-    return editorSession.toggle();
+function mountDocumentModeCoordinator() {
+  documentModeCoordinator = createDocumentModeCoordinator({
+    window,
+    document,
+    elements: {
+      control: ui.editModeButton,
+      label: ui.editModeLabel,
+      readSurface: ui.content,
+      sourceSurface: ui.sourceView,
+      editSurface: ui.editorView,
+      lineGutter: ui.lineGutter,
+      minimap: ui.documentMinimap,
+    },
+    adapters: {
+      getMode: () => isEditMode ? 'edit' : isSourceViewActive() ? 'source' : 'read',
+      isAvailable: () => Boolean(editorSession && currentFilePath),
+      enterEdit: () => editorSession?.enter(),
+      exitEdit: () => editorSession?.exit(),
+      setSource: (active) => setReadingTool('source', active),
+    },
+    hooks: {
+      closeTransientUi: () => {
+        setHelpVisible(false);
+        setReadingToolsOpen(false);
+        setTypographyOpen(false);
+      },
+      cancelCompetingTransition: () => themeCoordinator?.cancelTransition(),
+    },
   });
-}
-
-async function performDocumentModeChange(update) {
-  const initialMode = getActiveDocumentMode();
-  const changeGeneration = ++documentModeChangeGeneration;
-  setHelpVisible(false);
-  setReadingToolsOpen(false);
-  setTypographyOpen(false);
-  isCyclingDocumentMode = true;
-
-  try {
-    return await withDocumentModeMorph(() => update(initialMode));
-  } finally {
-    if (changeGeneration === documentModeChangeGeneration) {
-      isCyclingDocumentMode = false;
-      updateDocumentModeControl({ forceAnimation: getActiveDocumentMode() !== initialMode });
-    }
-  }
-}
-
-async function cycleDocumentMode() {
-  if (!editorSession || !currentFilePath) return;
-  return performDocumentModeChange(async (initialMode) => {
-    if (initialMode === 'edit') {
-      if (!editorSession.exit()) return false;
-      await setReadingTool('source', true);
-      return true;
-    }
-    if (initialMode === 'source') {
-      await setReadingTool('source', false);
-      return true;
-    }
-    return editorSession.enter();
-  });
+  documentModeCoordinator.refresh();
 }
 
 async function saveEditedDocument({ automatic = false } = {}) {
@@ -1696,7 +1535,7 @@ function handleKeyboard(event) {
 
   if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'e') {
     event.preventDefault();
-    toggleEditMode();
+    documentModeCoordinator?.toggleEdit();
     return;
   }
 
@@ -1865,10 +1704,9 @@ function registerEvents() {
       fileOpenRequestUnlisten();
     }
     minimapResizeObserver?.disconnect();
-    activeDocumentModeTransition?.skipTransition?.();
+    documentModeCoordinator?.dispose();
     themeCoordinator?.dispose();
     toastPresenter?.dispose();
-    clearTimeout(modeMorphFallbackTimeoutId);
     clearTimeout(autoSaveTimeoutId);
     responsiveTypography?.dispose();
     readerShell?.dispose();
@@ -1899,7 +1737,7 @@ function registerEvents() {
   ui.typographyButton?.addEventListener('click', toggleTypography);
   ui.alwaysOnTopButton?.addEventListener('click', toggleAlwaysOnTop);
   ui.autoSaveToggle?.addEventListener('click', toggleAutoSave);
-  ui.editModeButton?.addEventListener('click', cycleDocumentMode);
+  ui.editModeButton?.addEventListener('click', () => documentModeCoordinator?.cycle());
   ui.editorSaveButton?.addEventListener('click', saveEditedDocument);
   ui.readingToolToggles.forEach((toggle) => {
     toggle.addEventListener('click', handleReadingToolToggle);
@@ -1924,6 +1762,7 @@ async function init() {
   });
   mountApplicationReaderShell();
   mountApplicationEditor();
+  mountDocumentModeCoordinator();
   const preferenceResult = await readerShell.preferences.load();
   if (preferenceResult.status === 'fallback') {
     console.warn('One or more saved preferences could not be restored:', preferenceResult.warnings);
