@@ -48,7 +48,8 @@ function fixture({ reduced = false, viewTransitions = false } = {}) {
 }
 
 function createHarness(options = {}) {
-  const view = fixture(options);
+  const { enterGate = null, ...fixtureOptions } = options;
+  const view = fixture(fixtureOptions);
   let mode = 'read';
   let available = true;
   let allowExit = true;
@@ -60,7 +61,12 @@ function createHarness(options = {}) {
     adapters: {
       getMode: () => mode,
       isAvailable: () => available,
-      enterEdit: async () => { calls.push('enter'); mode = 'edit'; return true; },
+      enterEdit: async () => {
+        calls.push('enter');
+        if (enterGate) await enterGate;
+        mode = 'edit';
+        return true;
+      },
       exitEdit: () => {
         calls.push('exit');
         if (!allowExit) return false;
@@ -179,5 +185,25 @@ describe('Document Mode Coordinator', () => {
     reduced.setAvailable(false);
     reduced.coordinator.refresh();
     expect(reduced.elements.control.disabled).toBe(true);
+  });
+
+  it.each([false, true])('does not restore stale morph markers after async cancellation (view transition: %s)', async (viewTransitions) => {
+    const gate = deferred();
+    const harness = createHarness({ viewTransitions, enterGate: gate.promise });
+    const change = harness.coordinator.cycle();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    harness.coordinator.cancelTransition();
+    gate.resolve();
+    await change;
+    await new Promise((resolve) => harness.dom.window.setTimeout(resolve, 2));
+
+    expect(harness.dom.window.document.body.classList.contains('is-mode-morphing')).toBe(false);
+    expect(harness.dom.window.document.body.dataset.modeMorphFrom).toBeUndefined();
+    expect(harness.dom.window.document.body.dataset.modeMorphTo).toBeUndefined();
+    expect(harness.elements.editSurface.classList.contains('is-mode-morph-entering')).toBe(false);
+    expect(harness.elements.lineGutter.classList.contains('is-mode-chrome-morphing')).toBe(false);
+    expect(harness.elements.minimap.classList.contains('is-mode-chrome-morphing')).toBe(false);
   });
 });

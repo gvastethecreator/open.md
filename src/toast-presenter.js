@@ -42,9 +42,13 @@ export function createToastPresenter({ window, document, element = null, duratio
   const replaceMessage = (nextMessage) => {
     const visibleBox = toast.getBoundingClientRect();
     const candidates = [messageElement, ...toast.querySelectorAll('.toast-message--previous')];
+    const opacityOf = (element) => {
+      const opacity = Number.parseFloat(window.getComputedStyle(element).opacity);
+      return Number.isFinite(opacity) ? opacity : 1;
+    };
     const outgoingElement = candidates.reduce((mostVisible, candidate) => {
-      const candidateOpacity = Number.parseFloat(window.getComputedStyle(candidate).opacity) || 1;
-      const currentOpacity = Number.parseFloat(window.getComputedStyle(mostVisible).opacity) || 1;
+      const candidateOpacity = opacityOf(candidate);
+      const currentOpacity = opacityOf(mostVisible);
       return candidateOpacity > currentOpacity ? candidate : mostVisible;
     }, messageElement);
     const outgoingStyle = window.getComputedStyle(outgoingElement);
