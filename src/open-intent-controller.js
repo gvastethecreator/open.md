@@ -129,7 +129,7 @@ export function createOpenIntentController({
     }
 
     if (rejected.length > 0) {
-      onFeedback?.('Only .md, .markdown and .txt files are supported');
+      onFeedback?.('Only Markdown, text, and image files are supported');
     }
 
     if (supported.length === 0) {

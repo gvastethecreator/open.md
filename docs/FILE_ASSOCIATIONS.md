@@ -4,6 +4,23 @@ Packaged `open.md` builds register `.md`, `.markdown`, and `.txt` as viewer
 associations. Registration makes `open.md` available in the operating system's
 **Open with** UI; it does not silently replace the user's default application.
 
+Runtime may also open a small set of plain-text companion files (for example
+JSON, INI, YAML, TOML, CSV, or NFO) and common raster images (PNG, JPEG, WebP,
+and similar) via drag-and-drop, CLI paths, or forced Open with. Those formats
+are not registered as associations and do not appear in the file picker filter;
+the product surface stays Markdown-focused.
+
+Format resolution uses the file extension first, then content magic bytes on
+accepted paths: a text companion that is actually a PNG (or other known raster)
+opens as an image viewer; an image extension whose content is not a valid image
+fails closed. Unknown extensions are rejected with feedback and never opened as
+text. Payloads carry an explicit `format` / `kind` so the UI prefers that over
+path re-guess alone.
+
+Companions get richer Read when possible (JSON tree, CSV table, structured
+INI/YAML-family views), full-document Source highlighting where languages are
+available, and plain monospace Edit. Images are view-only (no Edit/Source).
+
 ## Runtime behavior
 
 | Platform | Cold launch | App already running |

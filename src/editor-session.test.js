@@ -31,6 +31,7 @@ function mount(save = vi.fn(async () => ({ source: '' })), hooks = {}) {
       canvas: document.getElementById('editor-canvas'),
       commandMenu: document.getElementById('editor-command-menu'),
       blockMenu: document.getElementById('editor-block-menu'),
+      blockToolbar: document.getElementById('editor-block-toolbar'),
       inlineToolbar: document.getElementById('editor-inline-toolbar'),
       caretEcho: document.getElementById('editor-caret-echo'),
       linkPopover: document.getElementById('editor-link-popover'),
@@ -41,6 +42,19 @@ function mount(save = vi.fn(async () => ({ source: '' })), hooks = {}) {
     hooks,
   });
   return { session, save };
+}
+
+function blockToolbar() {
+  return document.getElementById('editor-block-toolbar');
+}
+
+function activateBlock(index = 0) {
+  const wrappers = [...document.querySelectorAll('[data-block-id]')];
+  const wrapper = wrappers[index];
+  const content = wrapper?.querySelector('[data-editor-content]');
+  content?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  content?.focus?.();
+  return wrapper;
 }
 
 function blockRect(top, height = 36) {
@@ -281,21 +295,22 @@ describe('editor session', () => {
     expect(onSaved).not.toHaveBeenCalled();
   });
 
-  it('duplicates, reorders and deletes blocks from the contextual block menu', () => {
+  it('duplicates, reorders and deletes blocks from the floating block toolbar and menu', () => {
     const { session } = mount();
     session.setDocument({ path: 'sample.md', source: 'One\nTwo', markdown: true });
     session.enter();
 
-    document.querySelector('[data-block-menu]').click();
+    activateBlock(0);
+    blockToolbar().querySelector('[data-block-menu]').click();
     document.querySelector('[data-block-action="duplicate"]').click();
     expect(session.source()).toBe('One\nOne\nTwo');
 
-    document.querySelectorAll('[data-block-menu]')[1].click();
-    document.querySelector('[data-block-action="move-down"]').click();
+    activateBlock(1);
+    blockToolbar().querySelector('[data-block-toolbar-action="move-down"]').click();
     expect(session.source()).toBe('One\nTwo\nOne');
 
-    document.querySelectorAll('[data-block-menu]')[2].click();
-    document.querySelector('[data-block-action="delete"]').click();
+    activateBlock(2);
+    blockToolbar().querySelector('[data-block-toolbar-action="delete"]').click();
     expect(session.source()).toBe('One\nTwo');
   });
 
@@ -323,31 +338,41 @@ describe('editor session', () => {
     expect(session.performBlockAction('missing', 'delete')).toBe(false);
   });
 
-  it('reorders blocks live while dragging and commits the final order on drop', () => {
+  it('reorders blocks live while dragging from the floating toolbar and commits on drop', () => {
     const { session } = mount();
     session.setDocument({ path: 'sample.md', source: 'One\nTwo\nThree', markdown: true });
     session.enter();
 
     let wrappers = [...document.querySelectorAll('[data-block-id]')];
+    activateBlock(0);
     let transfer = createBlockDataTransfer();
-    dispatchBlockDrag(wrappers[0].querySelector('[data-block-menu]'), 'dragstart', transfer);
+    dispatchBlockDrag(blockToolbar().querySelector('[data-block-drag]'), 'dragstart', transfer);
+    wrappers = [...document.querySelectorAll('[data-block-id]')];
     vi.spyOn(wrappers[2], 'getBoundingClientRect').mockReturnValue(blockRect(80));
     const afterEvent = dispatchBlockDrag(wrappers[2], 'dragover', transfer, { clientY: 115 });
     expect(afterEvent.defaultPrevented).toBe(true);
-    expect([...document.querySelectorAll('[data-block-id]')].map((node) => node.querySelector('[data-editor-content]')?.textContent))
-      .toEqual(['Two', 'Three', 'One']);
+    expect(
+      [...document.querySelectorAll('[data-block-id]')]
+        .map((node) => node.querySelector('[data-editor-content]')?.textContent)
+        .filter((text) => text !== undefined),
+    ).toEqual(['Two', 'Three', 'One']);
     expect(session.source()).toBe('One\nTwo\nThree');
     dispatchBlockDrag(wrappers[2], 'drop', transfer, { clientY: 115 });
     expect(session.source()).toBe('Two\nThree\nOne');
     expect(document.querySelector('.is-dragging, .is-drag-target-after')).toBeNull();
 
     wrappers = [...document.querySelectorAll('[data-block-id]')];
+    activateBlock(2);
     transfer = createBlockDataTransfer();
-    dispatchBlockDrag(wrappers[2].querySelector('[data-block-menu]'), 'dragstart', transfer);
+    dispatchBlockDrag(blockToolbar().querySelector('[data-block-drag]'), 'dragstart', transfer);
+    wrappers = [...document.querySelectorAll('[data-block-id]')];
     vi.spyOn(wrappers[0], 'getBoundingClientRect').mockReturnValue(blockRect(0));
     dispatchBlockDrag(wrappers[0], 'dragover', transfer, { clientY: 2 });
-    expect([...document.querySelectorAll('[data-block-id]')].map((node) => node.querySelector('[data-editor-content]')?.textContent))
-      .toEqual(['One', 'Two', 'Three']);
+    expect(
+      [...document.querySelectorAll('[data-block-id]')]
+        .map((node) => node.querySelector('[data-editor-content]')?.textContent)
+        .filter((text) => text !== undefined),
+    ).toEqual(['One', 'Two', 'Three']);
     dispatchBlockDrag(wrappers[0], 'drop', transfer, { clientY: 2 });
     expect(session.source()).toBe('One\nTwo\nThree');
   });
@@ -359,15 +384,18 @@ describe('editor session', () => {
 
     const wrappers = [...document.querySelectorAll('[data-block-id]')];
     const visible = wrappers.filter((wrapper) => !wrapper.hasAttribute('data-block-spacer'));
+    activateBlock(wrappers.indexOf(visible[2]));
     const transfer = createBlockDataTransfer();
-    dispatchBlockDrag(visible[2].querySelector('[data-block-menu]'), 'dragstart', transfer);
-    vi.spyOn(visible[0], 'getBoundingClientRect').mockReturnValue(blockRect(0));
-    dispatchBlockDrag(visible[0], 'dragover', transfer, { clientY: 2 });
-    dispatchBlockDrag(visible[0], 'drop', transfer, { clientY: 2 });
+    dispatchBlockDrag(blockToolbar().querySelector('[data-block-drag]'), 'dragstart', transfer);
+    const nextVisible = [...document.querySelectorAll('[data-block-id]')]
+      .filter((wrapper) => !wrapper.hasAttribute('data-block-spacer'));
+    vi.spyOn(nextVisible[0], 'getBoundingClientRect').mockReturnValue(blockRect(0));
+    dispatchBlockDrag(nextVisible[0], 'dragover', transfer, { clientY: 2 });
+    dispatchBlockDrag(nextVisible[0], 'drop', transfer, { clientY: 2 });
 
     expect(session.source()).toBe('Three\n\n# One\n\nTwo');
     expect(document.querySelectorAll('[data-block-spacer]')).toHaveLength(2);
-    expect(document.querySelector('[data-block-spacer] [data-block-menu]').draggable).toBe(false);
+    expect(document.querySelector('.editor-block-gutter')).toBeNull();
   });
 
   it('animates block insertion and reflow when motion is allowed, then bypasses it when reduced', () => {
@@ -391,15 +419,15 @@ describe('editor session', () => {
     try {
       session.setDocument({ path: 'sample.md', source: 'One\nTwo', markdown: true });
       session.enter();
-      document.querySelector('[data-block-menu]').click();
-      document.querySelector('[data-block-action="duplicate"]').click();
+      activateBlock(0);
+      blockToolbar().querySelector('[data-block-toolbar-action="duplicate"]').click();
       expect(animate).toHaveBeenCalled();
       expect(animate.mock.calls.some(([frames]) => frames[0]?.opacity === 0)).toBe(true);
 
       animate.mockClear();
       window.matchMedia = vi.fn(() => ({ matches: true }));
-      document.querySelector('[data-block-menu]').click();
-      document.querySelector('[data-block-action="duplicate"]').click();
+      activateBlock(0);
+      blockToolbar().querySelector('[data-block-toolbar-action="duplicate"]').click();
       expect(animate).not.toHaveBeenCalled();
     } finally {
       session.dispose();
@@ -573,6 +601,39 @@ describe('editor session', () => {
     expect(document.querySelector('[data-inline-command="bold"]').getAttribute('aria-pressed')).toBe('true');
   });
 
+  it('uses Obsidian-style live preview: active line is source, others are rendered, no side gutters', () => {
+    const { session } = mount();
+    session.setDocument({
+      path: 'sample.md',
+      source: '# Title\n\nHello **world**\n\n- item',
+      markdown: true,
+    });
+    session.enter();
+
+    expect(document.querySelector('.editor-block-gutter')).toBeNull();
+    expect(blockToolbar().hidden).toBe(false);
+    expect(document.querySelector('.editor-block.is-active-line')).toBeTruthy();
+
+    const blocks = [...document.querySelectorAll('[data-block-id]')];
+    const active = blocks.find((block) => block.classList.contains('is-active-line'));
+    const inactiveWithMarkup = blocks.find((block) => (
+      block.querySelector('[data-editor-mode="preview"] strong')
+    ));
+
+    expect(active.querySelector('[data-editor-mode="source"]')).toBeTruthy();
+    expect(active.querySelector('[data-editor-content]').contentEditable).toBe('true');
+    expect(inactiveWithMarkup).toBeTruthy();
+    expect(inactiveWithMarkup.querySelector('strong')?.textContent).toBe('world');
+
+    const previewBlockId = inactiveWithMarkup.dataset.blockId;
+    const preview = inactiveWithMarkup.querySelector('[data-editor-content]');
+    preview.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const nextActive = document.querySelector(`[data-block-id="${previewBlockId}"]`);
+    expect(nextActive?.classList.contains('is-active-line')).toBe(true);
+    expect(nextActive?.querySelector('[data-editor-mode="source"]')?.textContent).toContain('**world**');
+    expect(document.querySelectorAll('.editor-block.is-active-line')).toHaveLength(1);
+  });
+
   it('keeps very large documents in read/source mode instead of rendering unsafe block counts', () => {
     const { session } = mount();
     session.setDocument({
@@ -595,7 +656,7 @@ describe('editor session', () => {
     const canvas = document.getElementById('editor-canvas');
     const content = canvas.querySelector('[data-editor-content]');
     const checkbox = canvas.querySelector('[data-todo-check]');
-    const addButton = canvas.querySelector('[data-add-block]');
+    const addButton = blockToolbar().querySelector('[data-block-toolbar-action="add"]');
     const callbackCount = onStateChange.mock.calls.length;
     const sourceBeforeDispose = session.source();
     const blockCountBeforeDispose = canvas.querySelectorAll('[data-block-id]').length;

@@ -80,10 +80,12 @@
   --motion-slow: 280ms;
   --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
-  --editor-control-lane: 52px;
+  --editor-control-lane: 0px;
   --editor-control-gap: 4px;
   --editor-line-gap: 12px;
   --editor-indent-step: 22px;
+  --editor-active-line-bg: color-mix(in srgb, var(--ui-accent) 10%, transparent);
+  --editor-active-line-border: color-mix(in srgb, var(--ui-accent) 28%, transparent);
   --line-guide-reserve: 58px;
   /* Viewport fade: text dissolves before it meets titlebar / status bar. */
   --content-edge-fade: 48px;
@@ -375,6 +377,10 @@ body.is-mode-morphing .app-toolbar {
  * Floating UI must be named during morph or it stays in root and paints under
  * every named layer (including edge scrims). Each name is unique — duplicates
  * abort that shared-element transition in Chromium.
+ *
+ * Tooltip is named too, but held (destination snapshot only — see
+ * ::view-transition-old/new rules below). Leaving it unnamed put the shell
+ * under edge scrims; UA crossfade on a named shell caused a container pop.
  */
 body.is-mode-morphing .toast.show {
   view-transition-name: floating-toast;
@@ -904,6 +910,191 @@ kbd {
     padding-right var(--navigation-motion) var(--motion-ease-out);
 }
 
+/* Implicit standalone image documents: full-stage pan/zoom surface. */
+body.is-image-document .reader-page {
+  overflow: hidden;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+body.is-image-document .document-stage {
+  height: 100%;
+  min-height: 100%;
+}
+
+body.is-image-document #content.markdown-body {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body.is-image-document .line-gutter,
+body.is-image-document #document-minimap,
+body.is-image-document .source-view,
+body.is-image-document .editor-view {
+  display: none !important;
+}
+
+.image-document {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+  outline: none;
+  background:
+    radial-gradient(circle at center, color-mix(in srgb, var(--text-color) 4%, transparent), transparent 55%),
+    var(--bg-color);
+}
+
+.image-document.is-panning {
+  cursor: grabbing;
+}
+
+.image-document__img {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: none;
+  max-height: none;
+  width: auto;
+  height: auto;
+  transform-origin: 0 0;
+  will-change: transform;
+  pointer-events: none;
+  image-rendering: auto;
+}
+
+.format-read {
+  padding: 0.25rem 0 1.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  line-height: 1.55;
+}
+
+.format-read-banner {
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--warning-color, #b58900) 45%, var(--ui-border-color));
+  background: color-mix(in srgb, var(--warning-color, #b58900) 12%, var(--bg-color));
+  color: var(--text-color);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+}
+
+.format-read-table-wrap {
+  overflow: auto;
+  max-width: 100%;
+  border: 1px solid var(--ui-border-color);
+  border-radius: var(--radius-sm);
+}
+
+.format-read-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88em;
+}
+
+.format-read-table th,
+.format-read-table td {
+  padding: 0.35rem 0.55rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--ui-border-color) 80%, transparent);
+  text-align: left;
+  vertical-align: top;
+}
+
+.format-read-table th {
+  position: sticky;
+  top: 0;
+  background: color-mix(in srgb, var(--bg-color) 92%, var(--toolbar-bg));
+  font-weight: 650;
+}
+
+.json-collapsible > summary {
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-weight: 600;
+}
+
+.json-array,
+.json-object {
+  list-style: none;
+  margin: 0.25rem 0 0.25rem 0.85rem;
+  padding: 0;
+}
+
+.json-key {
+  color: var(--syntax-keyword, var(--accent-color));
+  margin-right: 0.4rem;
+  font-weight: 600;
+}
+
+.json-string { color: var(--syntax-string, var(--text-color)); }
+.json-number { color: var(--syntax-number, var(--text-color)); }
+.json-bool,
+.json-null { color: var(--syntax-keyword, var(--text-color)); }
+
+.struct-section {
+  margin: 1rem 0 0.35rem;
+  font-family: var(--font-sans);
+  font-size: 0.95rem;
+}
+
+.struct-key {
+  color: var(--syntax-keyword, var(--accent-color));
+  font-weight: 600;
+  margin-right: 0.35rem;
+}
+
+.struct-value { color: var(--text-color); }
+.struct-comment { opacity: 0.72; }
+
+.options-status,
+.options-hint {
+  margin: 0 12px 8px;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--text-color) 72%, transparent);
+}
+
+.options-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 10px 8px;
+  font-size: 0.78rem;
+}
+
+.options-field select,
+.options-field input {
+  max-width: 7.5rem;
+  border: 1px solid var(--ui-border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-color);
+  color: var(--text-color);
+  padding: 0.2rem 0.35rem;
+}
+
+.reading-tool-nav .iconoir-nav-arrow-right,
+.reading-tool-nav .iconoir-nav-arrow-left {
+  opacity: 0.7;
+}
+
+.image-document__error {
+  margin: 0;
+  padding: 24px;
+  color: var(--ui-muted);
+  text-align: center;
+}
+
 .source-line-anchor {
   display: block;
   width: 0;
@@ -1050,8 +1241,7 @@ body:not(.is-word-wrap) .editor-block-content {
   width: min(100%, var(--document-frame-width));
   min-height: 100%;
   margin: 0 auto;
-  padding: clamp(28px, 5vw, 52px) var(--document-inline-space) 112px;
-  padding-left: max(0px, calc(var(--document-inline-space) - var(--editor-control-lane)));
+  padding: clamp(28px, 5vw, 52px) var(--document-inline-space) 128px;
   transition: padding-right var(--navigation-motion) var(--motion-ease-out);
 }
 
@@ -1175,6 +1365,13 @@ html.is-theme-wiping .editor-caret-echo {
   animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/*
+ * Static chrome + floating UI: hold the destination snapshot only.
+ * animation:none on both old and new without opacity control leaves both fully
+ * visible. Semi-transparent edge scrims then double-composite (darker mid-morph)
+ * and pop back when the transition tears down. Same hold for tooltips/minimap
+ * so they never drop into root under the scrims or fade through them.
+ */
 /* Edges only above reading content (1–3), never above minimap or floating UI. */
 ::view-transition-group(scroll-edge-top),
 ::view-transition-group(scroll-edge-bottom) {
@@ -1185,7 +1382,7 @@ html.is-theme-wiping .editor-caret-echo {
 ::view-transition-group(mode-minimap) {
   z-index: 20;
   overflow: clip;
-  /* Fixed rail: no size morph — only content crossfade inside. */
+  /* Fixed rail: no size morph; destination snapshot is held (see old/new). */
   animation: none;
 }
 
@@ -1202,39 +1399,52 @@ html.is-theme-wiping .editor-caret-echo {
 ::view-transition-group(floating-typography),
 ::view-transition-group(floating-editor-menu),
 ::view-transition-group(floating-editor-toolbar),
+::view-transition-group(floating-editor-block-toolbar),
 ::view-transition-group(floating-editor-link) {
   z-index: 90;
   animation: none;
 }
 
 ::view-transition-old(scroll-edge-top),
-::view-transition-new(scroll-edge-top),
 ::view-transition-old(scroll-edge-bottom),
-::view-transition-new(scroll-edge-bottom),
 ::view-transition-old(app-chrome-top),
-::view-transition-new(app-chrome-top),
 ::view-transition-old(app-chrome-bottom),
-::view-transition-new(app-chrome-bottom),
 ::view-transition-old(floating-toast),
-::view-transition-new(floating-toast),
 ::view-transition-old(floating-tooltip),
-::view-transition-new(floating-tooltip),
 ::view-transition-old(floating-menu),
-::view-transition-new(floating-menu),
 ::view-transition-old(floating-reading-tools),
-::view-transition-new(floating-reading-tools),
 ::view-transition-old(floating-typography),
-::view-transition-new(floating-typography),
 ::view-transition-old(floating-editor-menu),
-::view-transition-new(floating-editor-menu),
 ::view-transition-old(floating-editor-toolbar),
-::view-transition-new(floating-editor-toolbar),
+::view-transition-old(floating-editor-block-toolbar),
 ::view-transition-old(floating-editor-link),
-::view-transition-new(floating-editor-link) {
+::view-transition-old(mode-minimap) {
   animation: none;
   mix-blend-mode: normal;
   height: 100%;
   overflow: clip;
+  opacity: 0;
+}
+
+::view-transition-new(scroll-edge-top),
+::view-transition-new(scroll-edge-bottom),
+::view-transition-new(app-chrome-top),
+::view-transition-new(app-chrome-bottom),
+::view-transition-new(floating-toast),
+::view-transition-new(floating-tooltip),
+::view-transition-new(floating-menu),
+::view-transition-new(floating-reading-tools),
+::view-transition-new(floating-typography),
+::view-transition-new(floating-editor-menu),
+::view-transition-new(floating-editor-toolbar),
+::view-transition-new(floating-editor-block-toolbar),
+::view-transition-new(floating-editor-link),
+::view-transition-new(mode-minimap) {
+  animation: none;
+  mix-blend-mode: normal;
+  height: 100%;
+  overflow: clip;
+  opacity: 1;
 }
 
 ::view-transition-image-pair(document-surface),
@@ -1304,20 +1514,6 @@ html.is-theme-wiping .editor-caret-echo {
   opacity: 1;
 }
 
-/*
- * Whole minimap crossfades as one unit (shell + preview + selection). Soft
- * opacity only — no instant 0→1 swap on a separate viewport name.
- */
-::view-transition-old(mode-minimap) {
-  animation: mode-surface-out 180ms ease-out both;
-  mix-blend-mode: normal;
-}
-
-::view-transition-new(mode-minimap) {
-  animation: mode-surface-in 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
-  mix-blend-mode: normal;
-}
-
 /* Suppress baseline quiet-enter so it does not re-fire under morph classes. */
 body.is-mode-morphing #document-stage > :is(.markdown-body, .source-view, .editor-view) {
   animation: none;
@@ -1359,7 +1555,6 @@ body.is-mode-morphing #document-stage > :is(.markdown-body, .source-view, .edito
 .editor-context {
   width: 100%;
   margin: 0 auto 22px;
-  padding-left: var(--editor-control-lane);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1387,15 +1582,13 @@ body.is-line-guide .editor-canvas {
 
 body.is-line-guide .editor-context,
 body.is-line-guide .editor-end-hint {
-  padding-left: calc(var(--line-guide-reserve) + var(--editor-control-lane));
+  padding-left: var(--line-guide-reserve);
 }
 
 .editor-block {
   --block-indent: 0;
   position: relative;
-  display: grid;
-  grid-template-columns: var(--editor-control-lane) minmax(0, 1fr);
-  align-items: start;
+  display: block;
   width: calc(100% - (var(--block-indent) * var(--editor-indent-step)));
   margin-left: calc(var(--block-indent) * var(--editor-indent-step));
   border-radius: var(--radius-xs);
@@ -1403,6 +1596,11 @@ body.is-line-guide .editor-end-hint {
     opacity var(--motion-fast) var(--motion-ease-standard),
     background-color var(--motion-fast) var(--motion-ease-standard),
     transform var(--motion-fast) var(--motion-ease-out);
+}
+
+.editor-block.is-active-line {
+  background: var(--editor-active-line-bg);
+  box-shadow: inset 2px 0 0 var(--editor-active-line-border);
 }
 
 /*
@@ -1424,7 +1622,7 @@ body.is-line-guide .editor-end-hint {
 .editor-block.is-drag-target-after::after {
   position: absolute;
   right: 0;
-  left: var(--editor-control-lane);
+  left: 0;
   height: 2px;
   border-radius: 999px;
   background: var(--ui-accent);
@@ -1443,57 +1641,8 @@ body.is-line-guide .editor-end-hint {
   to { opacity: 1; transform: scaleX(1); }
 }
 
-.editor-block-gutter {
-  min-height: 30px;
-  padding-top: 2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--editor-control-gap);
-  opacity: 0;
-  transition: opacity var(--motion-fast) var(--motion-ease-standard);
-}
-
-.editor-block:hover .editor-block-gutter,
-.editor-block:focus-within .editor-block-gutter,
-.editor-block.is-dragging .editor-block-gutter,
-.editor-block.is-drag-target-before .editor-block-gutter,
-.editor-block.is-drag-target-after .editor-block-gutter {
-  opacity: 1;
-}
-
-.editor-view.is-block-dragging .editor-block:not(.is-dragging, .is-drag-target-before, .is-drag-target-after) .editor-block-gutter,
-.editor-view.is-block-dragging .editor-block[data-block-spacer] .editor-block-gutter {
-  opacity: 0;
-}
-
-.editor-gutter-button {
-  width: 20px;
-  height: 26px;
-  padding: 0;
-  display: grid;
-  place-items: center;
-  border: var(--ui-border-width) solid var(--ui-border-color);
-  border-radius: var(--radius-xs);
-  color: var(--ui-muted);
-  background: transparent;
-  transition:
-    color var(--motion-fast) var(--motion-ease-standard),
-    background-color var(--motion-fast) var(--motion-ease-standard),
-    box-shadow var(--motion-fast) var(--motion-ease-standard),
-    transform var(--motion-fast) var(--motion-ease-out);
-}
-
-.editor-gutter-button:hover,
-.editor-gutter-button:focus-visible {
-  color: var(--text-color);
-  background: color-mix(in srgb, var(--text-color) 7%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-accent) 10%, transparent);
-}
-
 .editor-drag-handle { cursor: grab; }
 .editor-drag-handle:active { cursor: grabbing; transform: scale(0.94); }
-.editor-block[data-block-spacer] .editor-drag-handle { cursor: pointer; }
 
 .editor-drag-preview {
   position: fixed;
@@ -1522,7 +1671,8 @@ body.is-line-guide .editor-end-hint {
   white-space: nowrap;
 }
 
-.editor-block.is-dragging .editor-drag-handle {
+.editor-block-toolbar .editor-drag-handle.is-dragging,
+.editor-block-toolbar .editor-drag-handle:active {
   color: var(--ui-accent);
   background: color-mix(in srgb, var(--ui-accent) 10%, transparent);
   cursor: grabbing;
@@ -1541,7 +1691,7 @@ body.is-line-guide .editor-end-hint {
   min-width: 0;
   min-height: 30px;
   flex: 1 1 auto;
-  padding: 3px 4px;
+  padding: 3px 8px;
   border-radius: var(--radius-xs);
   outline: none;
   color: var(--text-color);
@@ -1550,6 +1700,15 @@ body.is-line-guide .editor-end-hint {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   caret-color: var(--ui-accent);
+}
+
+.editor-block-content.editor-block-preview {
+  cursor: text;
+}
+
+.editor-block-content.is-active-line,
+.editor-block-content[data-editor-mode="source"] {
+  background: transparent;
 }
 
 /*
@@ -1587,7 +1746,7 @@ body.is-line-guide .editor-end-hint {
 
 .editor-block-content:focus {
   background: transparent;
-  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--ui-accent) 12%, transparent);
+  box-shadow: none;
 }
 
 .editor-caret-echo {
@@ -1774,10 +1933,88 @@ body.is-line-guide .editor-end-hint {
 
 .editor-end-hint {
   margin: 34px auto 0;
-  padding-left: var(--editor-control-lane);
   color: var(--ui-muted);
   font-size: 0.68rem;
   transition: padding-left var(--navigation-motion) var(--motion-ease-out);
+}
+
+.editor-block-toolbar {
+  position: fixed;
+  z-index: var(--z-menus);
+  left: 50%;
+  bottom: max(18px, calc(env(safe-area-inset-bottom, 0px) + 14px));
+  transform: translateX(-50%);
+  max-width: calc(100vw - 24px);
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: var(--ui-border-width) solid var(--ui-border-color);
+  border-radius: 999px;
+  color: var(--text-color);
+  background: color-mix(in srgb, var(--bg-color) 94%, var(--toolbar-bg));
+  box-shadow:
+    0 12px 32px color-mix(in srgb, var(--shadow-color) 78%, transparent),
+    inset 0 1px 0 color-mix(in srgb, white 10%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.editor-block-toolbar[hidden] {
+  display: none;
+}
+
+.editor-block-toolbar > button {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--ui-muted);
+  background: transparent;
+  font: inherit;
+  font-size: 0.72rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color var(--motion-fast) var(--motion-ease-standard),
+    background-color var(--motion-fast) var(--motion-ease-standard);
+}
+
+.editor-block-toolbar > button:hover,
+.editor-block-toolbar > button:focus-visible {
+  color: var(--text-color);
+  background: color-mix(in srgb, var(--text-color) 8%, transparent);
+}
+
+.editor-block-toolbar > button:disabled {
+  opacity: 0.38;
+  pointer-events: none;
+}
+
+.editor-block-toolbar > button.is-danger:hover,
+.editor-block-toolbar > button.is-danger:focus-visible {
+  color: color-mix(in srgb, #e35d6a 80%, var(--text-color));
+  background: color-mix(in srgb, #e35d6a 12%, transparent);
+}
+
+.editor-block-toolbar-sep {
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: color-mix(in srgb, var(--ui-border-color) 80%, transparent);
+}
+
+.editor-block-toolbar-type {
+  min-width: auto !important;
+  padding-inline: 10px !important;
+}
+
+body.is-mode-morphing .editor-block-toolbar:not([hidden]) {
+  view-transition-name: floating-editor-block-toolbar;
 }
 
 .editor-menu,
@@ -1903,28 +2140,77 @@ body.is-line-guide .editor-end-hint {
   pointer-events: none;
 }
 
+/*
+ * Shell = solid surface (like toast-surface).
+ * Messages = only layer that fades on content change (like toast-message).
+ */
 .app-tooltip {
   position: fixed;
   z-index: var(--z-tooltip);
+  box-sizing: border-box;
   width: max-content;
-  max-width: min(260px, calc(100vw - 16px));
-  padding: 6px 8px;
+  max-width: min(280px, calc(100vw - 16px));
+  padding: 5px 7px;
+  display: grid;
+  place-items: center start;
   border: var(--ui-border-width) solid color-mix(in srgb, var(--bg-color) 10%, transparent);
   border-radius: var(--radius-sm);
   color: var(--bg-color);
-  background: color-mix(in srgb, var(--text-color) 95%, var(--bg-color));
+  background: color-mix(in srgb, var(--text-color) 90%, black);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--bg-color) 9%, transparent),
     0 8px 24px color-mix(in srgb, var(--shadow-color) 80%, transparent);
   font: 570 0.66rem/1.3 var(--font-sans);
   letter-spacing: 0.01em;
   text-align: center;
-  text-wrap: balance;
+  white-space: nowrap;
+  overflow: hidden;
   pointer-events: none;
-  will-change: opacity, transform;
 }
 
 .app-tooltip[hidden] { display: none; }
+
+.app-tooltip.is-label-morphing {
+  will-change: width, left;
+}
+
+.app-tooltip-message {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  opacity: 1;
+}
+
+.app-tooltip-message--previous {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app-tooltip-text {
+  min-width: 0;
+}
+
+.app-tooltip-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+}
+
+.app-tooltip-keys > kbd {
+  min-width: 1.15em;
+  padding: 0.08em 0.32em;
+  border: 1px solid color-mix(in srgb, var(--bg-color) 28%, transparent);
+  border-radius: 3px;
+  color: color-mix(in srgb, var(--bg-color) 72%, transparent);
+  background: color-mix(in srgb, var(--bg-color) 10%, transparent);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--bg-color) 12%, transparent);
+  font: 550 0.58rem/1.25 var(--font-sans);
+  letter-spacing: 0.01em;
+  text-transform: none;
+}
 
 .app-tooltip::after {
   position: absolute;
@@ -3785,7 +4071,8 @@ body.is-reading-tools-open .typography-panel {
   width: min(calc(100vw - 32px), 520px);
   height: min(96px, calc(100vh - var(--toolbar-height) - var(--titlebar-height) - 24px));
   border-radius: var(--radius-sm);
-  background: var(--text-color);
+  /* Solid surface, slightly darker than pure text-color. */
+  background: color-mix(in srgb, var(--text-color) 90%, black);
   box-shadow: 0 5px 18px var(--shadow-color);
   clip-path: inset(50% round var(--radius-sm));
   opacity: 1;

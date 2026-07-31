@@ -67,6 +67,7 @@ describe('Application Runtime Adapters', () => {
     await adapters.documents.open('notes.md');
     await adapters.documents.save('notes.md', 'Updated');
     await adapters.documents.readImage('notes.md', 'assets/pixel.png');
+    await adapters.documents.readImageFile('photo.png');
     await adapters.windows.openDocument('other.md');
     await adapters.windows.setAlwaysOnTop(true);
 
@@ -74,6 +75,7 @@ describe('Application Runtime Adapters', () => {
       ['get_file_content', { path: 'notes.md' }],
       ['save_file_content', { path: 'notes.md', content: 'Updated' }],
       ['get_image_bytes', { documentPath: 'notes.md', relativeSource: 'assets/pixel.png' }],
+      ['get_standalone_image_bytes', { path: 'photo.png' }],
       ['open_new_window', { path: 'other.md' }],
     ]);
     expect(nativeWindow.setAlwaysOnTop).toHaveBeenCalledWith(true);

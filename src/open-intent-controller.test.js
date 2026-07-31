@@ -61,7 +61,7 @@ describe('open intent controller', () => {
       items: [
         { path: 'C:\\Docs\\One.md' },
         { path: 'c:/docs/one.md' },
-        { path: 'photo.png' },
+        { path: 'page.html' },
         { path: 'two.txt' },
       ],
     });
@@ -70,8 +70,28 @@ describe('open intent controller', () => {
     expect(session.open).toHaveBeenCalledWith({ path: 'C:\\Docs\\One.md', fragment: '' });
     expect(openWindow).toHaveBeenCalledWith('two.txt');
     expect(onFeedback).toHaveBeenCalledOnce();
-    expect(onFeedback).toHaveBeenCalledWith('Only .md, .markdown and .txt files are supported');
+    expect(onFeedback).toHaveBeenCalledWith('Only Markdown, text, and image files are supported');
     expect(result).toMatchObject({ status: 'partial', openedHere: ['C:\\Docs\\One.md'] });
+  });
+
+  it('accepts implicit plain-text companions without advertising them as unsupported', async () => {
+    const { controller, session, openWindow, onFeedback } = createHarness();
+    await controller.start();
+
+    const result = await controller.submit({
+      origin: 'drop',
+      items: [
+        { path: 'C:\\Docs\\config.json' },
+        { path: 'setup.ini' },
+        { path: 'info.nfo' },
+      ],
+    });
+
+    expect(session.open).toHaveBeenCalledWith({ path: 'C:\\Docs\\config.json', fragment: '' });
+    expect(openWindow).toHaveBeenCalledWith('setup.ini');
+    expect(openWindow).toHaveBeenCalledWith('info.nfo');
+    expect(onFeedback).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ status: 'completed', openedHere: ['C:\\Docs\\config.json'] });
   });
 
   it('preserves case-distinct POSIX paths while deduplicating Windows variants', async () => {

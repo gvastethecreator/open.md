@@ -80,6 +80,7 @@ pub fn run() {
             save_file_content,
             get_initial_file_paths,
             images::get_image_bytes,
+            images::get_standalone_image_bytes,
             open_new_window,
             open_requests::list_pending_open_file_requests,
             open_requests::acknowledge_open_file_request

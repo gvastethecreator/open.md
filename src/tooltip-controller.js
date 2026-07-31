@@ -2,8 +2,17 @@ const TOOLTIP_ID = 'app-tooltip';
 const FIRST_HOVER_DELAY = 420;
 const HOVER_GRACE_WINDOW = 600;
 const GRACE_HOVER_DELAY = 40;
+const HIDE_DELAY = 140;
+const SAFE_ZONE_PAD = 10;
 const VIEWPORT_GAP = 8;
 const TOOLTIP_GAP = 8;
+/** Micro copy swap — text only (transitions-dev text-states-swap scale). */
+const TEXT_SWAP_MS = 160;
+/** Shell width tween — geometry only (card-resize scale). */
+const WIDTH_MORPH_MS = 180;
+const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+const TRAILING_SHORTCUT = /^(.*?)\s*(?:·|\(|—)\s*((?:(?:Ctrl|Cmd|Command|Shift|Alt|Option|Meta|Win)\+)*(?:[A-Za-z0-9]+|F\d{1,2}|\+|Esc|Enter|Tab|Space))\s*\)?\s*$/u;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -18,6 +27,61 @@ function tooltipTarget(node) {
   return target?.dataset.tooltip?.trim() ? target : null;
 }
 
+function expandRect(rect, pad) {
+  return {
+    left: rect.left - pad,
+    top: rect.top - pad,
+    right: rect.right + pad,
+    bottom: rect.bottom + pad,
+  };
+}
+
+function pointInRect(x, y, rect) {
+  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
+function bridgeRect(anchor, tooltipRect, side) {
+  if (!tooltipRect) return null;
+  if (side === 'top') {
+    return {
+      left: Math.min(anchor.left, tooltipRect.left) - SAFE_ZONE_PAD,
+      right: Math.max(anchor.right, tooltipRect.right) + SAFE_ZONE_PAD,
+      top: tooltipRect.bottom,
+      bottom: anchor.top,
+    };
+  }
+  return {
+    left: Math.min(anchor.left, tooltipRect.left) - SAFE_ZONE_PAD,
+    right: Math.max(anchor.right, tooltipRect.right) + SAFE_ZONE_PAD,
+    top: anchor.bottom,
+    bottom: tooltipRect.top,
+  };
+}
+
+function splitShortcutKeys(shortcut) {
+  return String(shortcut).split('+').map((part) => part.trim()).filter(Boolean);
+}
+
+function resolveTooltipCopy(target) {
+  const raw = target?.dataset?.tooltip?.trim() || '';
+  if (!raw) return { text: '', keys: [] };
+  const explicit = target.dataset.tooltipShortcut?.trim();
+  if (explicit) return { text: raw, keys: splitShortcutKeys(explicit) };
+  const matched = raw.match(TRAILING_SHORTCUT);
+  if (!matched?.[1]?.trim() || !matched[2]) return { text: raw, keys: [] };
+  return { text: matched[1].trim(), keys: splitShortcutKeys(matched[2]) };
+}
+
+function copySignature(copy) {
+  return `${copy.text}\u0000${copy.keys.join('+')}`;
+}
+
+/**
+ * Tooltip shell is always solid when open.
+ * Content changes: text layers crossfade; shell only tweens width/left.
+ * Pattern mirrors toast-presenter (surface vs message) + transitions-dev
+ * text-states-swap / card-resize (animate the piece that changes).
+ */
 export function createTooltipController({ window, document, hooks = {} }) {
   if (!window || !document) {
     throw new TypeError('Tooltip Controller requires window and document');
@@ -28,17 +92,26 @@ export function createTooltipController({ window, document, hooks = {} }) {
   tooltip.className = 'app-tooltip';
   tooltip.hidden = true;
   tooltip.setAttribute('role', 'tooltip');
-  const label = document.createElement('span');
-  label.className = 'app-tooltip-label';
-  tooltip.append(label);
+
+  // Stack like toast: previous + current share one grid cell.
+  const previous = document.createElement('span');
+  previous.className = 'app-tooltip-message app-tooltip-message--previous';
+  previous.setAttribute('aria-hidden', 'true');
+  const message = document.createElement('span');
+  message.className = 'app-tooltip-message';
+  tooltip.append(previous, message);
 
   let activeTarget = null;
   let pendingTarget = null;
+  let renderedSignature = '';
   let showTimerId = null;
   let hideTimerId = null;
-  let animation = null;
+  let shellAnimation = null;
+  let contentAnimations = [];
+  let contentVersion = 0;
   let motionVersion = 0;
   let lastHiddenAt = Number.NEGATIVE_INFINITY;
+  let lastPointer = { x: Number.NaN, y: Number.NaN };
   let observer = null;
   let started = false;
   let disposed = false;
@@ -50,9 +123,30 @@ export function createTooltipController({ window, document, hooks = {} }) {
     if (name === 'hide') hideTimerId = null;
   };
 
-  const cancelAnimation = () => {
-    animation?.cancel?.();
-    animation = null;
+  const cancelShellAnimation = () => {
+    shellAnimation?.cancel?.();
+    shellAnimation = null;
+    tooltip.getAnimations?.().forEach((entry) => entry.cancel());
+  };
+
+  const cancelContentAnimations = () => {
+    contentAnimations.forEach((entry) => entry.cancel());
+    contentAnimations = [];
+    message.getAnimations?.().forEach((entry) => entry.cancel());
+    previous.getAnimations?.().forEach((entry) => entry.cancel());
+  };
+
+  const pinShellVisible = () => {
+    cancelShellAnimation();
+    tooltip.style.opacity = '1';
+    tooltip.style.transform = 'none';
+  };
+
+  const clearShellInlineMotion = () => {
+    cancelShellAnimation();
+    tooltip.style.removeProperty('opacity');
+    tooltip.style.removeProperty('transform');
+    tooltip.style.removeProperty('width');
   };
 
   const updateDescription = (target, add) => {
@@ -64,24 +158,54 @@ export function createTooltipController({ window, document, hooks = {} }) {
     else target.removeAttribute('aria-describedby');
   };
 
-  const animate = (keyframes, options) => {
-    cancelAnimation();
-    if (prefersReducedMotion(window) || typeof tooltip.animate !== 'function') return null;
+  const paintCopy = (host, copy) => {
+    host.replaceChildren();
+    if (copy.text) {
+      const text = document.createElement('span');
+      text.className = 'app-tooltip-text';
+      text.textContent = copy.text;
+      host.append(text);
+    }
+    if (copy.keys.length) {
+      const keys = document.createElement('span');
+      keys.className = 'app-tooltip-keys';
+      keys.setAttribute('aria-hidden', 'true');
+      copy.keys.forEach((key) => {
+        const chip = document.createElement('kbd');
+        chip.textContent = key;
+        keys.append(chip);
+      });
+      host.append(keys);
+    }
+  };
+
+  const run = (target, keyframes, options) => {
+    if (prefersReducedMotion(window) || typeof target.animate !== 'function') return null;
     try {
-      animation = tooltip.animate(keyframes, options);
-      return animation;
+      return target.animate(keyframes, { ...options, fill: 'both' });
     } catch (error) {
       hooks.onDiagnostic?.('Could not animate the tooltip', error);
-      animation = null;
       return null;
     }
   };
 
-  const position = (target) => {
+  const desiredLeftForWidth = (target, width) => {
     const anchor = target.getBoundingClientRect();
-    tooltip.style.left = '0px';
-    tooltip.style.top = '0px';
-    tooltip.style.visibility = 'hidden';
+    return clamp(
+      anchor.left + (anchor.width - width) / 2,
+      VIEWPORT_GAP,
+      Math.max(VIEWPORT_GAP, window.innerWidth - width - VIEWPORT_GAP),
+    );
+  };
+
+  const position = (target, { measureSilently = false } = {}) => {
+    const anchor = target.getBoundingClientRect();
+    tooltip.style.removeProperty('width');
+    if (!measureSilently) {
+      tooltip.style.left = '0px';
+      tooltip.style.top = '0px';
+      tooltip.style.visibility = 'hidden';
+    }
     tooltip.hidden = false;
     const rect = tooltip.getBoundingClientRect();
     const fitsAbove = anchor.top - rect.height - TOOLTIP_GAP >= VIEWPORT_GAP;
@@ -90,11 +214,7 @@ export function createTooltipController({ window, document, hooks = {} }) {
     const desiredTop = side === 'top'
       ? anchor.top - rect.height - TOOLTIP_GAP
       : anchor.bottom + TOOLTIP_GAP;
-    const left = clamp(
-      anchor.left + (anchor.width - rect.width) / 2,
-      VIEWPORT_GAP,
-      Math.max(VIEWPORT_GAP, window.innerWidth - rect.width - VIEWPORT_GAP),
-    );
+    const left = desiredLeftForWidth(target, rect.width);
     const top = clamp(
       desiredTop,
       VIEWPORT_GAP,
@@ -108,40 +228,175 @@ export function createTooltipController({ window, document, hooks = {} }) {
       Math.max(10, rect.width - 10),
     ))}px`);
     tooltip.dataset.side = side;
-    tooltip.style.visibility = '';
+    if (!measureSilently) tooltip.style.visibility = '';
     return tooltip.getBoundingClientRect();
+  };
+
+  const isInsideSafeZone = (target, clientX = lastPointer.x, clientY = lastPointer.y) => {
+    if (!target?.isConnected || !Number.isFinite(clientX) || !Number.isFinite(clientY)) return false;
+    const anchor = target.getBoundingClientRect();
+    if (pointInRect(clientX, clientY, expandRect(anchor, SAFE_ZONE_PAD))) return true;
+    if (tooltip.hidden || activeTarget !== target) return false;
+    const tipRect = tooltip.getBoundingClientRect();
+    if (pointInRect(clientX, clientY, expandRect(tipRect, SAFE_ZONE_PAD))) return true;
+    const bridge = bridgeRect(anchor, tipRect, tooltip.dataset.side);
+    return Boolean(bridge && pointInRect(clientX, clientY, bridge));
+  };
+
+  const settleContent = () => {
+    previous.replaceChildren();
+    previous.style.removeProperty('opacity');
+    previous.style.removeProperty('transform');
+    message.style.removeProperty('opacity');
+    message.style.removeProperty('transform');
+    tooltip.classList.remove('is-label-morphing');
+    tooltip.style.removeProperty('width');
   };
 
   const show = (target) => {
     if (disposed || !target?.isConnected || !target.dataset.tooltip?.trim()) return;
     cancelTimer('show');
     cancelTimer('hide');
-    const previousRect = !tooltip.hidden ? tooltip.getBoundingClientRect() : null;
+    contentVersion += 1;
+    cancelContentAnimations();
+    settleContent();
+
+    const wasOpen = !tooltip.hidden;
+    const previousRect = wasOpen ? tooltip.getBoundingClientRect() : null;
     if (activeTarget && activeTarget !== target) updateDescription(activeTarget, false);
     activeTarget = target;
     pendingTarget = null;
-    label.textContent = target.dataset.tooltip.trim();
+
+    const copy = resolveTooltipCopy(target);
+    paintCopy(message, copy);
+    renderedSignature = copySignature(copy);
+    previous.replaceChildren();
+
     const nextRect = position(target);
     updateDescription(target, true);
-    tooltip.dataset.state = 'opening';
+    pinShellVisible();
+    tooltip.dataset.state = wasOpen ? 'open' : 'opening';
+
+    if (wasOpen) {
+      // Retarget: slide shell only — never re-fade the surface.
+      const dx = previousRect.left - nextRect.left;
+      const dy = previousRect.top - nextRect.top;
+      shellAnimation = run(tooltip, [
+        { opacity: 1, transform: `translate(${dx}px, ${dy}px)` },
+        { opacity: 1, transform: 'translate(0, 0)' },
+      ], { duration: 120, easing: EASE_OUT });
+      shellAnimation?.finished?.then(() => {
+        if (activeTarget === target && !tooltip.hidden) {
+          clearShellInlineMotion();
+          pinShellVisible();
+          tooltip.style.removeProperty('opacity');
+          tooltip.style.removeProperty('transform');
+          tooltip.dataset.state = 'open';
+        }
+      }, () => {});
+      if (!shellAnimation) {
+        clearShellInlineMotion();
+        tooltip.dataset.state = 'open';
+      }
+      return;
+    }
+
     const sideTravel = tooltip.dataset.side === 'top' ? 3 : -3;
-    const retargetX = previousRect ? previousRect.left - nextRect.left : 0;
-    const retargetY = previousRect ? previousRect.top - nextRect.top : sideTravel;
-    const enterAnimation = animate([
-      { opacity: previousRect ? 0.72 : 0, transform: `translate(${retargetX}px, ${retargetY}px) scale(0.98)` },
+    shellAnimation = run(tooltip, [
+      { opacity: 0, transform: `translateY(${sideTravel}px) scale(0.98)` },
       { opacity: 1, transform: 'translate(0, 0) scale(1)' },
-    ], {
-      duration: previousRect ? 120 : 130,
-      easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
-      fill: 'both',
-    });
-    enterAnimation?.finished?.then(
-      () => {
-        if (!tooltip.hidden && activeTarget === target) tooltip.dataset.state = 'open';
-      },
-      () => {},
-    );
-    if (!enterAnimation) tooltip.dataset.state = 'open';
+    ], { duration: 130, easing: EASE_OUT });
+    shellAnimation?.finished?.then(() => {
+      if (activeTarget === target && !tooltip.hidden) {
+        clearShellInlineMotion();
+        tooltip.dataset.state = 'open';
+      }
+    }, () => {});
+    if (!shellAnimation) tooltip.dataset.state = 'open';
+  };
+
+  /**
+   * Open shell content change:
+   * - shell: width + left only (always opacity 1)
+   * - text: previous fades out, current fades in (only layers)
+   */
+  const refreshActiveLabel = () => {
+    if (disposed || !activeTarget?.isConnected || tooltip.hidden) return;
+    if (!activeTarget.dataset.tooltip?.trim()) {
+      hide({ immediate: true });
+      return;
+    }
+
+    const copy = resolveTooltipCopy(activeTarget);
+    const signature = copySignature(copy);
+    if (signature === renderedSignature) {
+      position(activeTarget, { measureSilently: true });
+      tooltip.dataset.state = 'open';
+      return;
+    }
+
+    const version = ++contentVersion;
+    cancelContentAnimations();
+    pinShellVisible();
+
+    const startRect = tooltip.getBoundingClientRect();
+    const startWidth = startRect.width;
+    const startLeft = startRect.left;
+
+    // Capture outgoing pixels from the live message layer only.
+    previous.replaceChildren(...[...message.childNodes].map((node) => node.cloneNode(true)));
+    previous.style.opacity = '1';
+    paintCopy(message, copy);
+    message.style.opacity = '0';
+    renderedSignature = signature;
+
+    // Natural width of new content (shell stays painted).
+    tooltip.style.width = 'auto';
+    const endWidth = tooltip.getBoundingClientRect().width;
+    const endLeft = desiredLeftForWidth(activeTarget, endWidth);
+    tooltip.style.width = `${Math.round(startWidth)}px`;
+    tooltip.style.left = `${Math.round(startLeft)}px`;
+    tooltip.dataset.state = 'open';
+    tooltip.classList.add('is-label-morphing');
+
+    const finish = () => {
+      if (disposed || version !== contentVersion) return;
+      cancelContentAnimations();
+      settleContent();
+      tooltip.style.removeProperty('opacity');
+      tooltip.style.removeProperty('transform');
+      if (activeTarget?.isConnected && !tooltip.hidden) {
+        position(activeTarget, { measureSilently: true });
+      }
+      tooltip.dataset.state = 'open';
+    };
+
+    if (prefersReducedMotion(window) || typeof message.animate !== 'function') {
+      finish();
+      return;
+    }
+
+    // Geometry only on the shell — opacity locked at 1 in both keyframes.
+    shellAnimation = run(tooltip, [
+      { width: `${Math.round(startWidth)}px`, left: `${Math.round(startLeft)}px`, opacity: 1 },
+      { width: `${Math.round(endWidth)}px`, left: `${Math.round(endLeft)}px`, opacity: 1 },
+    ], { duration: WIDTH_MORPH_MS, easing: EASE_OUT });
+
+    const outgoing = run(previous, [
+      { opacity: 1 },
+      { opacity: 0 },
+    ], { duration: TEXT_SWAP_MS, easing: 'linear' });
+
+    const incoming = run(message, [
+      { opacity: 0 },
+      { opacity: 1 },
+    ], { duration: TEXT_SWAP_MS, easing: 'linear' });
+
+    contentAnimations = [outgoing, incoming].filter(Boolean);
+
+    Promise.allSettled(
+      [shellAnimation, outgoing, incoming].filter(Boolean).map((entry) => entry.finished),
+    ).then(finish, finish);
   };
 
   const finishHide = (version) => {
@@ -149,11 +404,14 @@ export function createTooltipController({ window, document, hooks = {} }) {
     if (activeTarget) updateDescription(activeTarget, false);
     activeTarget = null;
     pendingTarget = null;
+    renderedSignature = '';
+    contentVersion += 1;
+    cancelContentAnimations();
+    settleContent();
     tooltip.hidden = true;
     tooltip.dataset.state = 'closed';
-    label.textContent = '';
     lastHiddenAt = Date.now();
-    cancelAnimation();
+    clearShellInlineMotion();
   };
 
   const hide = ({ immediate = false } = {}) => {
@@ -162,32 +420,33 @@ export function createTooltipController({ window, document, hooks = {} }) {
     pendingTarget = null;
     if (tooltip.hidden) return;
     const version = ++motionVersion;
+    contentVersion += 1;
+    cancelContentAnimations();
     tooltip.dataset.state = 'closing';
     if (immediate || prefersReducedMotion(window) || typeof tooltip.animate !== 'function') {
       finishHide(version);
       return;
     }
     const sideTravel = tooltip.dataset.side === 'top' ? -2 : 2;
-    const exitAnimation = animate([
+    shellAnimation = run(tooltip, [
       { opacity: 1, transform: 'translateY(0) scale(1)' },
       { opacity: 0, transform: `translateY(${sideTravel}px) scale(0.985)` },
-    ], {
-      duration: 90,
-      easing: 'cubic-bezier(0.4, 0, 1, 1)',
-      fill: 'forwards',
-    });
-    if (!exitAnimation?.finished) {
+    ], { duration: 90, easing: 'cubic-bezier(0.4, 0, 1, 1)' });
+    if (!shellAnimation?.finished) {
       finishHide(version);
       return;
     }
-    exitAnimation.finished.then(
+    shellAnimation.finished.then(
       () => finishHide(version),
       () => {},
     );
   };
 
   const scheduleShow = (target, { immediate = false } = {}) => {
-    if (!target || target === activeTarget) return;
+    if (!target || target === activeTarget) {
+      if (target === activeTarget) cancelTimer('hide');
+      return;
+    }
     cancelTimer('show');
     cancelTimer('hide');
     pendingTarget = target;
@@ -203,7 +462,7 @@ export function createTooltipController({ window, document, hooks = {} }) {
     }, delay);
   };
 
-  const scheduleHide = (delay = 70) => {
+  const scheduleHide = (delay = HIDE_DELAY) => {
     cancelTimer('show');
     pendingTarget = null;
     cancelTimer('hide');
@@ -213,6 +472,7 @@ export function createTooltipController({ window, document, hooks = {} }) {
     }
     hideTimerId = window.setTimeout(() => {
       hideTimerId = null;
+      if (activeTarget && isInsideSafeZone(activeTarget)) return;
       hide();
     }, delay);
   };
@@ -230,27 +490,48 @@ export function createTooltipController({ window, document, hooks = {} }) {
     node.querySelectorAll?.('[title]').forEach(migrateTitle);
   };
 
+  let mutationFrame = null;
+  const flushMutations = () => {
+    mutationFrame = null;
+    if (!activeTarget?.isConnected) return;
+    if (activeTarget.dataset.tooltip?.trim()) refreshActiveLabel();
+    else hide({ immediate: true });
+  };
+
   const onMutations = (records) => {
+    let shouldRefresh = false;
     records.forEach((record) => {
       if (record.type === 'childList') record.addedNodes.forEach(migrateTree);
       if (record.type === 'attributes' && record.attributeName === 'title') migrateTitle(record.target);
       if (
         record.type === 'attributes'
-        && record.attributeName === 'data-tooltip'
+        && (record.attributeName === 'data-tooltip' || record.attributeName === 'data-tooltip-shortcut')
         && record.target === activeTarget
       ) {
-        if (activeTarget.dataset.tooltip?.trim()) show(activeTarget);
-        else hide({ immediate: true });
+        shouldRefresh = true;
       }
     });
+    // Coalesce bursts (mode cycle + status/editor feedback) into one label morph.
+    if (!shouldRefresh || !activeTarget) return;
+    if (mutationFrame !== null) return;
+    mutationFrame = window.requestAnimationFrame?.(flushMutations) ?? null;
+    if (mutationFrame === null) flushMutations();
+  };
+
+  const trackPointer = (event) => {
+    if (typeof event.clientX === 'number' && typeof event.clientY === 'number') {
+      lastPointer = { x: event.clientX, y: event.clientY };
+    }
   };
 
   const onPointerOver = (event) => {
+    trackPointer(event);
     const target = tooltipTarget(event.target);
     if (!target || target.contains(event.relatedTarget)) return;
     scheduleShow(target);
   };
   const onPointerOut = (event) => {
+    trackPointer(event);
     const target = tooltipTarget(event.target);
     if (!target || target.contains(event.relatedTarget)) return;
     const nextTarget = tooltipTarget(event.relatedTarget);
@@ -258,7 +539,16 @@ export function createTooltipController({ window, document, hooks = {} }) {
       scheduleShow(nextTarget);
       return;
     }
+    if (activeTarget === target && isInsideSafeZone(target, event.clientX, event.clientY)) {
+      cancelTimer('hide');
+      return;
+    }
     scheduleHide();
+  };
+  const onPointerMove = (event) => {
+    trackPointer(event);
+    if (!activeTarget || tooltip.hidden || hideTimerId === null) return;
+    if (isInsideSafeZone(activeTarget, event.clientX, event.clientY)) cancelTimer('hide');
   };
   const onFocusIn = (event) => scheduleShow(tooltipTarget(event.target), { immediate: true });
   const onFocusOut = (event) => {
@@ -268,7 +558,24 @@ export function createTooltipController({ window, document, hooks = {} }) {
   const onKeyDown = (event) => {
     if (event.key === 'Escape' && (!tooltip.hidden || pendingTarget)) hide({ immediate: true });
   };
-  const onDismiss = () => hide({ immediate: true });
+  const onDismiss = (event) => {
+    const eventTarget = event?.target;
+    if (
+      eventTarget
+      && (
+        activeTarget?.contains?.(eventTarget)
+        || pendingTarget?.contains?.(eventTarget)
+        || tooltipTarget(eventTarget) === activeTarget
+      )
+    ) {
+      return;
+    }
+    if (event?.type === 'scroll') {
+      if (document.body.classList.contains('is-mode-morphing')) return;
+      if (activeTarget && isInsideSafeZone(activeTarget)) return;
+    }
+    hide({ immediate: true });
+  };
 
   const start = () => {
     if (started || disposed) return;
@@ -280,10 +587,11 @@ export function createTooltipController({ window, document, hooks = {} }) {
       subtree: true,
       childList: true,
       attributes: true,
-      attributeFilter: ['title', 'data-tooltip'],
+      attributeFilter: ['title', 'data-tooltip', 'data-tooltip-shortcut'],
     });
     document.addEventListener('pointerover', onPointerOver);
     document.addEventListener('pointerout', onPointerOut);
+    document.addEventListener('pointermove', onPointerMove, { passive: true });
     document.addEventListener('focusin', onFocusIn);
     document.addEventListener('focusout', onFocusOut);
     document.addEventListener('keydown', onKeyDown);
@@ -298,8 +606,11 @@ export function createTooltipController({ window, document, hooks = {} }) {
     disposed = true;
     observer?.disconnect();
     observer = null;
+    if (mutationFrame !== null) window.cancelAnimationFrame?.(mutationFrame);
+    mutationFrame = null;
     document.removeEventListener('pointerover', onPointerOver);
     document.removeEventListener('pointerout', onPointerOut);
+    document.removeEventListener('pointermove', onPointerMove);
     document.removeEventListener('focusin', onFocusIn);
     document.removeEventListener('focusout', onFocusOut);
     document.removeEventListener('keydown', onKeyDown);
@@ -310,10 +621,13 @@ export function createTooltipController({ window, document, hooks = {} }) {
     cancelTimer('show');
     cancelTimer('hide');
     ++motionVersion;
-    cancelAnimation();
+    contentVersion += 1;
+    cancelContentAnimations();
+    clearShellInlineMotion();
     if (activeTarget) updateDescription(activeTarget, false);
     activeTarget = null;
     pendingTarget = null;
+    renderedSignature = '';
     tooltip.remove();
   };
 

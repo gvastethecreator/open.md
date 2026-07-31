@@ -46,43 +46,104 @@
 
           <section id="reading-tools-panel" class="reading-tools-panel" aria-label="View options" aria-hidden="true" inert>
             <header class="reading-tools-header">
-              <span>View options</span>
+              <span id="reading-tools-header-label">View options</span>
               <span><kbd>Esc</kbd> to close</span>
             </header>
 
-            <p class="options-section-label">Document</p>
+            <div id="basic-options-panel">
+              <p class="options-section-label">Document</p>
 
-            <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="lineGuide">
-              <i class="iconoir-numbered-list-left" aria-hidden="true"></i>
-              <span><strong>Line guide</strong><small>Source lines at left</small></span>
-              <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
-            </button>
+              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="lineGuide">
+                <i class="iconoir-numbered-list-left" aria-hidden="true"></i>
+                <span><strong>Line guide</strong><small>Source lines at left</small></span>
+                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+              </button>
 
-            <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="minimap">
-              <i class="iconoir-map" aria-hidden="true"></i>
-              <span><strong>Minimap</strong><small>Document overview</small></span>
-              <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
-            </button>
+              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="minimap">
+                <i class="iconoir-map" aria-hidden="true"></i>
+                <span><strong>Minimap</strong><small>Document overview</small></span>
+                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+              </button>
 
-            <button class="reading-tool-toggle" type="button" role="switch" aria-checked="true" data-reading-tool="wordWrap">
-              <i class="iconoir-wrap-text" aria-hidden="true"></i>
-              <span><strong>Word wrap</strong><small>Wrap long lines in every mode</small></span>
-              <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
-            </button>
+              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="true" data-reading-tool="wordWrap">
+                <i class="iconoir-wrap-text" aria-hidden="true"></i>
+                <span><strong>Word wrap</strong><small>Wrap long lines in every mode</small></span>
+                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+              </button>
 
-            <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="stats">
-              <i class="iconoir-clock" aria-hidden="true"></i>
-              <span><strong>Reading stats</strong><small>Progress and time left</small></span>
-              <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
-            </button>
+              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="stats">
+                <i class="iconoir-clock" aria-hidden="true"></i>
+                <span><strong>Reading stats</strong><small>Progress and time left</small></span>
+                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+              </button>
 
-            <p class="options-section-label">Editing</p>
+              <p class="options-section-label">Editing</p>
 
-            <button id="auto-save-toggle" class="reading-tool-toggle" type="button" role="switch" aria-checked="true" data-preference-toggle="autoSave">
-              <i class="iconoir-cloud-sync" aria-hidden="true"></i>
-              <span><strong>Auto-save</strong><small>Save after you pause typing</small></span>
-              <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
-            </button>
+              <button id="auto-save-toggle" class="reading-tool-toggle" type="button" role="switch" aria-checked="true" data-preference-toggle="autoSave">
+                <i class="iconoir-cloud-sync" aria-hidden="true"></i>
+                <span><strong>Auto-save</strong><small>Save after you pause typing</small></span>
+                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+              </button>
+
+              <button id="advanced-options-button" class="reading-tool-toggle reading-tool-nav" type="button" aria-expanded="false" aria-controls="advanced-options-panel">
+                <i class="iconoir-settings" aria-hidden="true"></i>
+                <span><strong>Advanced options</strong><small>Format detection, defaults, performance</small></span>
+                <i class="iconoir-nav-arrow-right" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <div id="advanced-options-panel" class="advanced-options-panel" hidden aria-hidden="true">
+              <button id="advanced-back-button" class="reading-tool-toggle reading-tool-nav" type="button">
+                <i class="iconoir-nav-arrow-left" aria-hidden="true"></i>
+                <span><strong>Back</strong><small>View options</small></span>
+              </button>
+
+              <p class="options-section-label">Format detection</p>
+              <p id="format-detection-status" class="options-status" role="status">No document open</p>
+              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="true" data-advanced-pref="magicSniff">
+                <i class="iconoir-scan-qr-code" aria-hidden="true"></i>
+                <span><strong>Magic-byte sniff</strong><small>Confirm image content for known companions</small></span>
+                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+              </button>
+              <p class="options-hint">Unrecognized types are always rejected. open.md never opens unknown files as text.</p>
+
+              <p class="options-section-label">Images</p>
+              <label class="options-field" for="image-default-zoom">
+                <span>Default zoom</span>
+                <select id="image-default-zoom">
+                  <option value="fit">Fit window</option>
+                  <option value="100%">100%</option>
+                </select>
+              </label>
+              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="true" data-advanced-pref="imageZoomAnimation">
+                <i class="iconoir-ease-curve-control-points" aria-hidden="true"></i>
+                <span><strong>Zoom animation</strong><small>Ease zoom unless reduced motion</small></span>
+                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+              </button>
+
+              <p class="options-section-label">Text companions</p>
+              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="true" data-advanced-pref="textWordWrapDefault">
+                <i class="iconoir-wrap-text" aria-hidden="true"></i>
+                <span><strong>Default word wrap</strong><small>Applied when opening text formats</small></span>
+                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+              </button>
+              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-advanced-pref="textMinimapDefault">
+                <i class="iconoir-map" aria-hidden="true"></i>
+                <span><strong>Default minimap</strong><small>On for text companions</small></span>
+                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+              </button>
+              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-advanced-pref="textLineGuideDefault">
+                <i class="iconoir-numbered-list-left" aria-hidden="true"></i>
+                <span><strong>Default line guide</strong><small>On for text companions</small></span>
+                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+              </button>
+
+              <p class="options-section-label">Performance</p>
+              <label class="options-field" for="csv-row-cap">
+                <span>CSV row cap</span>
+                <input id="csv-row-cap" type="number" min="50" max="5000" step="50" value="500">
+              </label>
+            </div>
           </section>
         </div>
 
@@ -139,11 +200,36 @@
             <pre id="source-view" class="source-view hidden" tabindex="-1" aria-label="Raw document source"><code id="source-content"></code></pre>
             <section id="editor-view" class="editor-view" aria-label="Document editor" hidden inert>
               <header class="editor-context" aria-live="polite">
-                <span id="editor-context-label">Block editor</span>
-                <span id="editor-context-hint" class="editor-context-hint">Type <kbd>/</kbd> for blocks</span>
+                <span id="editor-context-label">Live preview</span>
+                <span id="editor-context-hint" class="editor-context-hint">Type <kbd>/</kbd> for blocks · active line shows markup</span>
               </header>
-              <div id="editor-canvas" class="editor-canvas" aria-label="Editable document blocks"></div>
+              <div id="editor-canvas" class="editor-canvas" aria-label="Editable document"></div>
               <p class="editor-end-hint"><kbd>Ctrl</kbd> + <kbd>S</kbd> saves · <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd> returns to reading</p>
+              <div id="editor-block-toolbar" class="editor-block-toolbar" role="toolbar" aria-label="Block actions" hidden>
+                <button type="button" data-block-toolbar-action="add" aria-label="Add block" data-tooltip="Add block" title="Add block">
+                  <i class="iconoir-plus" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="editor-drag-handle" data-block-menu data-block-drag draggable="true" aria-label="Drag or open block options" data-tooltip="Drag or block options" title="Drag or block options">
+                  <i class="iconoir-menu-scale" aria-hidden="true"></i>
+                </button>
+                <button type="button" data-block-toolbar-action="move-up" aria-label="Move block up" data-tooltip="Move up" title="Move up">
+                  <i class="iconoir-arrow-up" aria-hidden="true"></i>
+                </button>
+                <button type="button" data-block-toolbar-action="move-down" aria-label="Move block down" data-tooltip="Move down" title="Move down">
+                  <i class="iconoir-arrow-down" aria-hidden="true"></i>
+                </button>
+                <button type="button" data-block-toolbar-action="duplicate" aria-label="Duplicate block" data-tooltip="Duplicate" title="Duplicate">
+                  <i class="iconoir-copy" aria-hidden="true"></i>
+                </button>
+                <button type="button" data-block-toolbar-action="delete" class="is-danger" aria-label="Delete block" data-tooltip="Delete" title="Delete">
+                  <i class="iconoir-trash" aria-hidden="true"></i>
+                </button>
+                <span class="editor-block-toolbar-sep" aria-hidden="true"></span>
+                <button type="button" data-block-toolbar-action="type" class="editor-block-toolbar-type" aria-label="Change block type" data-tooltip="Block type" title="Block type">
+                  <i class="iconoir-text" aria-hidden="true"></i>
+                  <span data-block-toolbar-type-label>Text</span>
+                </button>
+              </div>
             </section>
           </div>
         </section>
@@ -197,10 +283,12 @@
                 <h2 id="shortcuts-help-title">Shortcuts</h2>
                 <dl class="help-shortcuts help-shortcuts--compact">
                   <div><dt><kbd>Ctrl</kbd> + <kbd>O</kbd></dt><dd>Open a file</dd></div>
+                  <div><dt><kbd>Ctrl</kbd> + <kbd>F4</kbd></dt><dd>Close the current file</dd></div>
                   <div><dt><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd></dt><dd>Toggle Read and Edit</dd></div>
                   <div><dt><kbd>Ctrl</kbd> + <kbd>S</kbd></dt><dd>Save now</dd></div>
                   <div><dt><kbd>/</kbd></dt><dd>Add an editor block</dd></div>
                   <div><dt><kbd>T</kbd> / <kbd>Shift</kbd> + <kbd>T</kbd></dt><dd>Change theme</dd></div>
+                  <div><dt><kbd>Ctrl</kbd> + click theme</dt><dd>Cycle theme (same as <kbd>T</kbd>)</dd></div>
                   <div><dt><kbd>Ctrl</kbd> + <kbd>+</kbd>/<kbd>-</kbd>/<kbd>0</kbd></dt><dd>Adjust or reset zoom</dd></div>
                   <div><dt><kbd>F1</kbd></dt><dd>Open About + Help</dd></div>
                   <div><dt><kbd>Esc</kbd></dt><dd>Return to the document</dd></div>
@@ -217,7 +305,6 @@
         tabindex="0"
         role="scrollbar"
         aria-label="Document minimap"
-        title="Document minimap · drag or use arrow keys"
         aria-orientation="vertical"
         aria-valuemin="0"
         aria-valuemax="100"
@@ -255,7 +342,8 @@
             class="mode-toggle-button toolbar-button icon-button"
             type="button"
             aria-label="Read mode. Switch to Edit mode"
-            title="Read mode · Next: Edit"
+            title="Read"
+            data-tooltip-shortcut="Ctrl+Shift+E"
             data-mode="read"
             disabled
           >

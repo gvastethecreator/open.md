@@ -59,6 +59,15 @@ export function createReaderKeyboardController({
       return;
     }
 
+    // Close the open document (not the window). Match key or code so layout
+    // variants still deliver Ctrl+F4 to the page handler.
+    if (event.ctrlKey && !event.altKey && (event.key === 'F4' || event.code === 'F4')) {
+      event.preventDefault();
+      event.stopPropagation?.();
+      hooks.closeFile?.();
+      return;
+    }
+
     if (event.ctrlKey && (event.key === '=' || event.key === '+')) {
       event.preventDefault();
       hooks.zoomIn?.();

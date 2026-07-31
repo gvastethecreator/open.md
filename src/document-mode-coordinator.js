@@ -41,6 +41,28 @@ export function createDocumentModeCoordinator({
     elements.control?.querySelector('i')?.classList.remove('is-mode-changing');
   };
 
+  const refreshTooltip = () => {
+    const control = elements.control;
+    if (!control || disposed) return;
+    // Mid-cycle adapters can pass through intermediate modes (e.g. Edit→Read→Source).
+    // Freezing the open tooltip until the cycle settles avoids thrash/re-open fades.
+    if (cycling) return;
+    const presentation = getDocumentModePresentation(current());
+    const available = Boolean(adapters.isAvailable?.());
+    // Short label only; aria-label keeps the longer description.
+    const nextTooltip = available ? presentation.label : 'Open a file';
+    const nextShortcut = available ? 'Ctrl+Shift+E' : '';
+    // Only write when copy changes so MutationObserver does not re-enter for no-ops.
+    if (control.dataset.tooltip !== nextTooltip) control.dataset.tooltip = nextTooltip;
+    if (nextShortcut) {
+      if (control.dataset.tooltipShortcut !== nextShortcut) {
+        control.dataset.tooltipShortcut = nextShortcut;
+      }
+    } else if (control.dataset.tooltipShortcut) {
+      delete control.dataset.tooltipShortcut;
+    }
+  };
+
   const finishMorph = (generation, { force = false } = {}) => {
     if (!force && generation !== morphGeneration) return;
     if (fallbackTimeoutId !== null) window.clearTimeout(fallbackTimeoutId);
@@ -159,7 +181,7 @@ export function createDocumentModeCoordinator({
     }
   };
 
-  const refresh = ({ forceAnimation = false } = {}) => {
+  const refresh = ({ forceAnimation = false, updateTooltip = true } = {}) => {
     const control = elements.control;
     if (!control || disposed) return;
     const presentation = getDocumentModePresentation(current());
@@ -171,18 +193,24 @@ export function createDocumentModeCoordinator({
     control.setAttribute('aria-label', available
       ? presentation.ariaLabel
       : 'Open a file to change document mode');
-    control.dataset.tooltip = available
-      ? `${presentation.title} · Ctrl+Shift+E toggles Read/Edit`
-      : 'Open a file to change document mode';
+    // updateTooltip is honored only when not mid-cycle (see refreshTooltip).
+    if (updateTooltip) refreshTooltip();
 
     const icon = control.querySelector('i');
     if (icon) {
+      // Keep the same <i> node; only class changes. Replacing the node would
+      // fire pointerout/over and re-open the tooltip with a full shell fade.
       icon.className = presentation.iconClass;
       if (!cycling && (forceAnimation || (previousMode && previousMode !== presentation.mode))) {
         replayOneShot(icon, 'is-mode-changing');
       }
     }
     if (elements.label) elements.label.textContent = `${presentation.label} mode`;
+  };
+
+  const announceMode = (mode) => {
+    const presentation = getDocumentModePresentation(mode);
+    hooks.onToast?.(`${presentation.label} mode`);
   };
 
   const performChange = (update) => {
@@ -212,8 +240,9 @@ export function createDocumentModeCoordinator({
       hooks.closeTransientUi?.();
       cycling = true;
       let restoredInsideMorph = false;
+      let succeeded = false;
       try {
-        return await runMorph(async () => {
+        succeeded = Boolean(await runMorph(async () => {
           const result = await update(initialMode, { documentIdentity, isCurrentDocument });
           if (hasScrollSnapshot && isCurrentDocument()) {
             hooks.restoreScrollPosition?.(scrollPosition, { sync: true });
@@ -222,14 +251,19 @@ export function createDocumentModeCoordinator({
             hooks.syncNavigationChrome?.();
           }
           return result;
-        });
+        }));
+        return succeeded;
       } finally {
         if (hasScrollSnapshot && isCurrentDocument() && !restoredInsideMorph) {
           hooks.restoreScrollPosition?.(scrollPosition, { sync: true });
         }
         if (generation === changeGeneration && !disposed) {
+          const nextMode = current();
+          const modeChanged = nextMode !== initialMode;
+          // End cycle before refreshTooltip so the settled mode is written once.
           cycling = false;
-          refresh({ forceAnimation: current() !== initialMode });
+          refresh({ forceAnimation: modeChanged, updateTooltip: true });
+          if (succeeded && modeChanged) announceMode(nextMode);
         }
       }
     };

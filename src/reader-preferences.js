@@ -4,6 +4,7 @@ const STORAGE_KEYS = Object.freeze({
   fonts: 'openmd-font-preferences-v1',
   alwaysOnTop: 'openmd-always-on-top',
   autoSave: 'openmd-auto-save',
+  advanced: 'openmd-advanced-preferences-v1',
 });
 
 export const FONT_PRESETS = Object.freeze({
@@ -27,6 +28,35 @@ export const DEFAULT_READING_TOOLS = Object.freeze({
   wordWrap: true,
 });
 
+export const DEFAULT_ADVANCED_PREFERENCES = Object.freeze({
+  magicSniff: true,
+  imageDefaultZoom: 'fit', // 'fit' | '100%'
+  imageZoomAnimation: true,
+  csvRowCap: 500,
+  textWordWrapDefault: true,
+  textMinimapDefault: false,
+  textLineGuideDefault: false,
+});
+
+export function normalizeAdvancedPreferences(value) {
+  const imageDefaultZoom = value?.imageDefaultZoom === '100%' || value?.imageDefaultZoom === '1:1'
+    ? '100%'
+    : 'fit';
+  const csvRowCapRaw = Math.floor(Number(value?.csvRowCap));
+  const csvRowCap = Number.isFinite(csvRowCapRaw)
+    ? Math.min(5000, Math.max(50, csvRowCapRaw))
+    : DEFAULT_ADVANCED_PREFERENCES.csvRowCap;
+  return Object.freeze({
+    magicSniff: value?.magicSniff !== false,
+    imageDefaultZoom,
+    imageZoomAnimation: value?.imageZoomAnimation !== false,
+    csvRowCap,
+    textWordWrapDefault: value?.textWordWrapDefault !== false,
+    textMinimapDefault: Boolean(value?.textMinimapDefault),
+    textLineGuideDefault: Boolean(value?.textLineGuideDefault),
+  });
+}
+
 function freezeSnapshot(value) {
   return Object.freeze({
     themeName: value.themeName,
@@ -34,6 +64,7 @@ function freezeSnapshot(value) {
     fonts: Object.freeze({ ...value.fonts }),
     alwaysOnTop: value.alwaysOnTop,
     autoSave: value.autoSave,
+    advanced: normalizeAdvancedPreferences(value.advanced),
   });
 }
 
@@ -43,6 +74,7 @@ export const DEFAULT_READER_PREFERENCES = freezeSnapshot({
   fonts: { sans: 0, mono: 0 },
   alwaysOnTop: false,
   autoSave: true,
+  advanced: DEFAULT_ADVANCED_PREFERENCES,
 });
 
 export function normalizeReadingTools(value) {
@@ -167,6 +199,12 @@ export function createReaderPreferences({ store, windowPin = null }) {
       if (raw === 'false') return false;
       throw new Error('Saved auto-save value is invalid');
     }, warnings);
+    const advanced = read(
+      STORAGE_KEYS.advanced,
+      { ...DEFAULT_ADVANCED_PREFERENCES },
+      (raw) => normalizeAdvancedPreferences(JSON.parse(raw)),
+      warnings
+    );
 
     if (alwaysOnTop && windowPin) {
       try {
@@ -178,7 +216,7 @@ export function createReaderPreferences({ store, windowPin = null }) {
       }
     }
 
-    state = freezeSnapshot({ themeName, readingTools, fonts, alwaysOnTop, autoSave });
+    state = freezeSnapshot({ themeName, readingTools, fonts, alwaysOnTop, autoSave, advanced });
     notify();
     return {
       status: warnings.length > 0 ? 'fallback' : 'loaded',
@@ -216,6 +254,9 @@ export function createReaderPreferences({ store, windowPin = null }) {
       : state.fonts;
     const nextAlwaysOnTop = changesAlwaysOnTop ? patch.alwaysOnTop : state.alwaysOnTop;
     const nextAutoSave = typeof patch.autoSave === 'boolean' ? patch.autoSave : state.autoSave;
+    const nextAdvanced = patch.advanced
+      ? normalizeAdvancedPreferences({ ...state.advanced, ...patch.advanced })
+      : state.advanced;
 
     state = freezeSnapshot({
       themeName: nextThemeName,
@@ -223,6 +264,7 @@ export function createReaderPreferences({ store, windowPin = null }) {
       fonts: nextFonts,
       alwaysOnTop: nextAlwaysOnTop,
       autoSave: nextAutoSave,
+      advanced: nextAdvanced,
     });
 
     if (Object.hasOwn(patch, 'themeName')) {
@@ -239,6 +281,9 @@ export function createReaderPreferences({ store, windowPin = null }) {
     }
     if (typeof patch.autoSave === 'boolean') {
       write(STORAGE_KEYS.autoSave, String(state.autoSave), warnings);
+    }
+    if (patch.advanced) {
+      write(STORAGE_KEYS.advanced, JSON.stringify(state.advanced), warnings);
     }
 
     notify();

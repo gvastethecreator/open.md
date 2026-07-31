@@ -18,6 +18,7 @@ function fixture() {
     toggleEdit: vi.fn(() => { state.edit = !state.edit; }),
     saveEditor: vi.fn(),
     openFile: vi.fn(),
+    closeFile: vi.fn(),
     zoomIn: vi.fn(),
     zoomOut: vi.fn(),
     resetZoom: vi.fn(),
@@ -66,9 +67,19 @@ describe('Reader Keyboard Controller', () => {
     expect(view.hooks.toggleEdit).toHaveBeenCalledOnce();
   });
 
-  it('routes open, zoom and theme shortcuts while protecting editable targets', () => {
+  it('routes open, close, zoom and theme shortcuts while protecting editable targets', () => {
     const view = fixture();
     press('o', { ctrlKey: true });
+    press('F4', { ctrlKey: true });
+    // code-only F4 still closes (some hosts report code without a stable key).
+    const codeOnly = new KeyboardEvent('keydown', {
+      key: 'Unidentified',
+      code: 'F4',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    window.dispatchEvent(codeOnly);
     press('+', { ctrlKey: true });
     press('-', { ctrlKey: true });
     press('0', { ctrlKey: true });
@@ -77,6 +88,8 @@ describe('Reader Keyboard Controller', () => {
     press('t', { ctrlKey: true });
 
     expect(view.hooks.openFile).toHaveBeenCalledOnce();
+    expect(view.hooks.closeFile).toHaveBeenCalledTimes(2);
+    expect(codeOnly.defaultPrevented).toBe(true);
     expect(view.hooks.zoomIn).toHaveBeenCalledOnce();
     expect(view.hooks.zoomOut).toHaveBeenCalledOnce();
     expect(view.hooks.resetZoom).toHaveBeenCalledOnce();

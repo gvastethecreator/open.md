@@ -94,9 +94,11 @@ handoff and default-app policy.
   only after diagram preparation; save generations distinguish a same-path
   reload from a replacement document.
 - `src/editor-document.js` owns canonical block state and history.
-  `src/editor-session.js` renders its snapshots and composes the editor
-  overlay, selection, and block-interaction controllers. Cursor snapshots reuse
-  the frozen document projection instead of rebuilding the document.
+  `src/editor-session.js` projects an Obsidian-style live preview (active line
+  as source Markdown, other lines as rendered preview), owns the floating block
+  toolbar, and composes the overlay, selection, and block-interaction
+  controllers. Cursor snapshots reuse the frozen document projection instead of
+  rebuilding the document.
 - `src/core/reader.js` retains pure reader calculations that can be tested
   without Tauri or the browser composition root.
 - `src/mermaid-renderer.js` loads Mermaid only when a document contains a

@@ -3,6 +3,7 @@ import {
   getFileKind,
   getImageSourcePolicy,
   getMarkdownSourceTokenRanges,
+  isImageFilePath,
   normalizeDocumentPayload,
 } from './core/reader.js';
 import {
@@ -10,6 +11,25 @@ import {
   ImageResourcePool,
   getImageMimeType,
 } from './image-resources.js';
+import {
+  getHighlightLanguage,
+  getReadRenderer,
+  isImageFormat,
+  isMarkdownFormat,
+} from './format-registry.js';
+
+const IMAGE_MIME_BY_FORMAT = Object.freeze({
+  png: 'image/png',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+  avif: 'image/avif',
+});
+
+function imageMimeForFormat(format) {
+  return IMAGE_MIME_BY_FORMAT[format] || null;
+}
 
 const MAX_LOCAL_IMAGES = 100;
 const IMAGE_LOAD_CONCURRENCY = 4;
@@ -196,7 +216,13 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
   const resources = adapters.resources || new ImageResourcePool();
   let generation = 0;
   let disposed = false;
+  let imageViewer = null;
   let state = Object.freeze({ state: 'idle', path: null, document: null });
+
+  const disposeImageViewer = () => {
+    imageViewer?.dispose?.();
+    imageViewer = null;
+  };
 
   const notify = (nextState) => {
     state = Object.freeze(nextState);
@@ -271,11 +297,71 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
   const clear = () => {
     if (disposed) return;
     generation += 1;
+    disposeImageViewer();
     resources.clear();
     content.removeAttribute('aria-busy');
     content.replaceChildren();
     if (sourceContent) sourceContent.textContent = '';
     notify({ state: 'idle', path: null, document: null });
+  };
+
+  const resolveImageMime = (path, openedDocument) => {
+    const fromPayload = imageMimeForFormat(openedDocument?.format);
+    if (fromPayload) return fromPayload;
+    const shell = content.querySelector('[data-image-document="true"]');
+    const fromDom = shell?.getAttribute?.('data-image-mime');
+    if (fromDom) return fromDom;
+    return getImageMimeType(path);
+  };
+
+  const openImageDocument = async ({ path, candidate, openedDocument }) => {
+    if (typeof adapters.documents.readImageFile !== 'function') {
+      throw new Error('Standalone image loading is unavailable');
+    }
+
+    const mimeType = resolveImageMime(path, openedDocument);
+    if (!mimeType) {
+      throw new Error('This local image format is not supported');
+    }
+
+    const shell = content.querySelector('[data-image-document="true"]') || content;
+    const bytes = await adapters.documents.readImageFile(path);
+    if (!isCurrent(candidate)) return { status: 'superseded', path };
+
+    const objectUrl = resources.create(bytes, mimeType);
+    if (!isCurrent(candidate)) {
+      resources.revoke(objectUrl);
+      return { status: 'superseded', path };
+    }
+
+    disposeImageViewer();
+    const { createImageDocumentViewer } = await import('./image-document-viewer.js');
+    if (!isCurrent(candidate)) {
+      resources.revoke(objectUrl);
+      return { status: 'superseded', path };
+    }
+    imageViewer = createImageDocumentViewer({
+      window,
+      root: shell,
+      imageUrl: objectUrl,
+      alt: getDisplayName(path),
+      padding: 24,
+      animateZoom: (hooks.getPreferences?.() || adapters.preferences?.current?.())?.advanced?.imageZoomAnimation !== false,
+      defaultZoom: (hooks.getPreferences?.() || adapters.preferences?.current?.())?.advanced?.imageDefaultZoom || 'fit',
+    });
+
+    if (sourceContent) sourceContent.textContent = '';
+    content.removeAttribute('aria-busy');
+    notify({ state: 'ready', path, document: openedDocument });
+    focusContent({
+      content,
+      readerPage,
+      sourceView,
+      fragment: '',
+      sourceActive: false,
+    });
+    hooks.onSettled?.(state);
+    return { status: 'ready', path, document: openedDocument };
   };
 
   const open = async ({ path, fragment = '' }) => {
@@ -286,6 +372,7 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
     }
 
     const candidate = ++generation;
+    disposeImageViewer();
     resources.clear();
     content.setAttribute('aria-busy', 'true');
     if (sourceContent) sourceContent.textContent = '';
@@ -296,7 +383,43 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
       const openedDocument = normalizeDocumentPayload(await adapters.documents.open(path));
       if (!isCurrent(candidate)) return { status: 'superseded', path };
 
-      content.innerHTML = openedDocument.html;
+      const format = openedDocument.format
+        || (openedDocument.kind === 'image' ? 'image' : undefined)
+        || (getFileKind(path) === 'Markdown' ? 'markdown' : getFileKind(path) === 'Image' ? 'image' : 'text');
+      const isImageDocument = isImageFormat(format, { kind: openedDocument.kind })
+        || openedDocument.kind === 'image'
+        || isImageFilePath(path);
+      const isMarkdown = isMarkdownFormat(format, { kind: openedDocument.kind })
+        || openedDocument.kind === 'markdown'
+        || getFileKind(path) === 'Markdown';
+
+      let readHtml = openedDocument.html;
+      if (!isImageDocument && !isMarkdown) {
+        const renderer = getReadRenderer(format, { kind: openedDocument.kind });
+        if (renderer !== 'plain' && renderer !== 'markdown' && renderer !== 'image') {
+          const rowCap = (hooks.getPreferences?.() || adapters.preferences?.current?.())?.advanced?.csvRowCap;
+          try {
+            const { buildCompanionReadHtml } = await import('./format-readers.js');
+            if (!isCurrent(candidate)) return { status: 'superseded', path };
+            const built = buildCompanionReadHtml(openedDocument.source, format, {
+              rowCap,
+              highlightLanguage: getHighlightLanguage(format),
+            });
+            readHtml = built.html;
+            if (built.warning) hooks.onWarning?.(built.warning);
+          } catch (error) {
+            hooks.onDiagnostic?.('Companion rich-read failed; using plain HTML', error);
+          }
+        }
+      }
+
+      content.innerHTML = readHtml;
+      hooks.onDocumentCommitted?.({ path, document: openedDocument });
+
+      if (isImageDocument) {
+        return await openImageDocument({ path, candidate, openedDocument });
+      }
+
       content.querySelectorAll('img').forEach((image) => {
         image.setAttribute('loading', 'lazy');
         image.dataset.documentSource = image.getAttribute('src') || '';
@@ -305,9 +428,17 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
         document,
         sourceContent,
         openedDocument.source,
-        getFileKind(path) === 'Markdown'
+        isMarkdown
       );
-      hooks.onDocumentCommitted?.({ path, document: openedDocument });
+
+      // Full-document companion source highlight (non-markdown).
+      if (!isMarkdown && sourceContent && adapters.syntax?.highlightDocument) {
+        try {
+          await adapters.syntax.highlightDocument(sourceContent, getHighlightLanguage(format));
+        } catch (error) {
+          hooks.onDiagnostic?.('Source highlight error', error);
+        }
+      }
 
       await hydrateImages(path, candidate);
       if (!isCurrent(candidate)) return { status: 'superseded', path };
@@ -324,6 +455,9 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
 
       try {
         await adapters.syntax?.highlight?.(content);
+        if (!isMarkdown && adapters.syntax?.highlightDocument) {
+          await adapters.syntax.highlightDocument(content, getHighlightLanguage(format));
+        }
       } catch (error) {
         if (!isCurrent(candidate)) return { status: 'superseded', path };
         hooks.onDiagnostic?.('Syntax highlighting error', error);
@@ -357,6 +491,7 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
       return { status: 'ready', path, document: openedDocument };
     } catch (error) {
       if (!isCurrent(candidate)) return { status: 'superseded', path };
+      disposeImageViewer();
       resources.clear();
       content.removeAttribute('aria-busy');
       if (sourceContent) sourceContent.textContent = '';
@@ -416,6 +551,7 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
       if (disposed) return;
       disposed = true;
       generation += 1;
+      disposeImageViewer();
       resources.clear();
     },
   });

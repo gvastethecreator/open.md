@@ -93,12 +93,12 @@ export function createStatusPresenter({ window, document, elements = {} }) {
     }
 
     metrics.hidden = nodes.length === 0;
+    // Metrics are visible in the status bar; do not mirror them in a tooltip.
+    delete metrics.dataset.tooltip;
     if (nodes.length === 0) {
-      delete metrics.dataset.tooltip;
       metrics.removeAttribute('aria-label');
       return;
     }
-    metrics.dataset.tooltip = accessibleLabel;
     metrics.setAttribute('aria-label', accessibleLabel);
   }
 

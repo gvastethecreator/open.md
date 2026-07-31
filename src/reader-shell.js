@@ -50,6 +50,13 @@ export function mountReaderShell({ window, adapters, hooks = {} }) {
       if (!current?.path) return Promise.resolve({ status: 'idle', path: null });
       return documentSession.open({ path: current.path });
     },
+    close() {
+      if (disposed) return { status: 'disposed' };
+      const current = documentSession.current();
+      if (!current?.path && current?.state === 'idle') return { status: 'idle', path: null };
+      documentSession.clear();
+      return { status: 'closed', path: current?.path || null };
+    },
     currentDocument: () => documentSession.current(),
     dispose() {
       if (disposed) return;

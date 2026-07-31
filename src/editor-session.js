@@ -17,12 +17,24 @@ function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
 }
 
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-
 function blockContent(wrapper) {
   return wrapper?.querySelector('[data-editor-content]') || null;
+}
+
+function readEditableText(element) {
+  if (!element) return '';
+  if (element.dataset.editorMode === 'source') {
+    // Formatting commands may inject inline HTML; prefer Markdown serialization then.
+    if (element.querySelector?.('b, strong, i, em, s, strike, del, code, a')) {
+      return editableHtmlToMarkdown(element);
+    }
+    return String(element.innerText ?? element.textContent ?? '')
+      .replace(/\r\n?/g, '\n')
+      .replace(/\u00a0/g, ' ')
+      .replace(/\u200b/g, '')
+      .replace(/\n+$/g, '');
+  }
+  return editableHtmlToMarkdown(element);
 }
 
 function caretOffset(element, selection) {
@@ -37,7 +49,25 @@ function caretOffset(element, selection) {
 
 function markdownAroundSelection(document, element, selection) {
   if (!selection || selection.rangeCount === 0 || !element.contains(selection.anchorNode)) {
-    return { before: editableHtmlToMarkdown(element), after: '' };
+    return { before: readEditableText(element), after: '' };
+  }
+
+  if (element.dataset.editorMode === 'source') {
+    const full = String(element.innerText ?? element.textContent ?? '')
+      .replace(/\r\n?/g, '\n')
+      .replace(/\u00a0/g, ' ')
+      .replace(/\u200b/g, '');
+    const active = selection.getRangeAt(0);
+    const beforeRange = active.cloneRange();
+    beforeRange.selectNodeContents(element);
+    beforeRange.setEnd(active.startContainer, active.startOffset);
+    const afterRange = active.cloneRange();
+    afterRange.selectNodeContents(element);
+    afterRange.setStart(active.endContainer, active.endOffset);
+    return {
+      before: beforeRange.toString().replace(/\n+$/g, ''),
+      after: afterRange.toString().replace(/^\n+/g, '').replace(/\n+$/g, ''),
+    };
   }
 
   const active = selection.getRangeAt(0);
@@ -65,6 +95,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     canvas,
     commandMenu,
     blockMenu,
+    blockToolbar,
     inlineToolbar,
     caretEcho,
     linkPopover,
@@ -99,6 +130,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   let blockLineCounts = new Map();
   const drafts = new Map();
 
+  const isMarkdown = () => activeDocument?.markdown !== false;
   const source = () => documentSnapshot.source;
   const dirty = () => mode === 'edit' && source() !== savedSource;
   const snapshot = () => Object.freeze({
@@ -117,25 +149,55 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     hooks.onCursorChange?.(documentSnapshot.cursor);
   };
 
-  const restoreHistory = (action) => {
-    const result = action === 'redo'
-      ? documentModel.redo(activeBlockId)
-      : documentModel.undo(activeBlockId);
-    if (!result.changed) return false;
-    render();
-    notify();
-    hooks.onHistoryRestore?.(action);
-    queueMicrotask(() => focusBlock(result.focusId));
-    return true;
-  };
-
   const findBlock = (id) => documentModel.block(id);
   const findWrapper = (id) => [...canvas.querySelectorAll('[data-block-id]')]
     .find((wrapper) => wrapper.dataset.blockId === id) || null;
 
+  const updateBlockToolbar = () => {
+    if (!blockToolbar) return;
+    if (mode !== 'edit' || !activeBlockId) {
+      blockToolbar.hidden = true;
+      return;
+    }
+    const block = findBlock(activeBlockId);
+    if (!block) {
+      blockToolbar.hidden = true;
+      return;
+    }
+    const context = contextFor(findWrapper(activeBlockId));
+    blockToolbar.hidden = false;
+    blockToolbar.dataset.activeBlockId = activeBlockId;
+    const dragHandle = blockToolbar.querySelector('[data-block-drag], [data-block-menu]');
+    if (dragHandle) {
+      // Keep block identity on the toolbar root only so document-wide
+      // `[data-block-id]` queries still mean canvas blocks.
+      dragHandle.removeAttribute('data-block-id');
+      dragHandle.draggable = !(block.type === 'paragraph' && block.text === '');
+    }
+    blockToolbar.querySelector('[data-block-toolbar-action="move-up"]')
+      ?.toggleAttribute('disabled', !context?.canMoveUp);
+    blockToolbar.querySelector('[data-block-toolbar-action="move-down"]')
+      ?.toggleAttribute('disabled', !context?.canMoveDown);
+    blockToolbar.querySelector('[data-block-toolbar-action="delete"]')
+      ?.toggleAttribute('disabled', !context?.canDelete);
+    const typeLabel = blockToolbar.querySelector('[data-block-toolbar-type-label]');
+    if (typeLabel) typeLabel.textContent = editorBlockLabel(block.type);
+  };
+
   const focusBlock = (id, position = 'end', { preserveScroll = false } = {}) => {
+    const previousId = activeBlockId;
+    if (previousId && previousId !== id) {
+      const previousWrapper = findWrapper(previousId);
+      if (previousWrapper) updateBlockFromElement(previousWrapper);
+    }
+    const needsProjection = previousId !== id;
+    activeBlockId = id;
+    if (needsProjection) render();
     const content = blockContent(findWrapper(id));
-    if (!content) return;
+    if (!content) {
+      updateBlockToolbar();
+      return;
+    }
     if (preserveScroll) content.focus({ preventScroll: true });
     else content.focus();
     const range = document.createRange();
@@ -144,8 +206,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     const selection = window.getSelection();
     selection.removeAllRanges();
     selection.addRange(range);
-    activeBlockId = id;
     selectionController?.capture();
+    updateBlockToolbar();
     if (!preserveScroll) content.scrollIntoView?.({ block: 'nearest' });
   };
 
@@ -159,8 +221,22 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   const openCommandMenu = (blockId, query = '') => overlayController?.openCommand(blockId, query);
   const openBlockMenu = (blockId, anchor, options) => overlayController?.openBlock(blockId, anchor, options);
 
+  const restoreHistory = (action) => {
+    const result = action === 'redo'
+      ? documentModel.redo(activeBlockId)
+      : documentModel.undo(activeBlockId);
+    if (!result.changed) return false;
+    activeBlockId = result.focusId || activeBlockId;
+    render();
+    notify();
+    hooks.onHistoryRestore?.(action);
+    queueMicrotask(() => focusBlock(result.focusId));
+    return true;
+  };
+
   const applyBlockType = (id, type) => {
     if (!documentModel.changeType(id, type)) return;
+    activeBlockId = id;
     render();
     notify();
     closeCommandMenu();
@@ -170,6 +246,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   const addBlock = (afterId, type = 'paragraph', text = '') => {
     const next = documentModel.addAfter(afterId, { type, text });
     if (!next) return null;
+    activeBlockId = next.id;
     render();
     notify();
     focusBlock(next.id, 'start');
@@ -180,6 +257,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     const previousLayout = captureBlockLayout();
     const result = documentModel.remove(id);
     if (!result?.changed) return false;
+    activeBlockId = focusId || result.focusId;
     render({ previousLayout, enteringId: result.enteringId });
     notify();
     focusBlock(focusId || result.focusId);
@@ -196,6 +274,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     if (sourceIndex < 0 || !direction || !target) return false;
     const previousLayout = captureBlockLayout();
     if (!documentModel.moveRelative(id, target.id, direction < 0 ? 'before' : 'after')) return false;
+    activeBlockId = id;
     render({ previousLayout });
     notify();
     focusBlock(id);
@@ -206,6 +285,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     const previousLayout = captureBlockLayout();
     const copy = documentModel.duplicate(id);
     if (!copy) return false;
+    activeBlockId = copy.id;
     render({ previousLayout, enteringId: copy.id });
     notify();
     focusBlock(copy.id);
@@ -213,7 +293,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   };
 
   const contextFor = (target) => {
-    const wrapper = target?.closest?.('[data-block-id]');
+    const wrapper = target?.closest?.('[data-block-id]')
+      || (activeBlockId ? findWrapper(activeBlockId) : null);
     if (!wrapper || !canvas.contains(wrapper)) return null;
     const block = findBlock(wrapper.dataset.blockId);
     if (!block) return null;
@@ -253,8 +334,9 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     const previousLineCount = blockLineCounts.get(block.id);
     const content = blockContent(wrapper);
     const checkbox = wrapper.querySelector('[data-todo-check]');
+    if (!content && !checkbox) return;
     const updated = documentModel.updateBlock(block.id, {
-      ...(content ? { text: editableHtmlToMarkdown(content) } : {}),
+      ...(content ? { text: readEditableText(content) } : {}),
       ...(checkbox ? { checked: checkbox.checked } : {}),
     });
     if (updated && previousLineCount !== undefined && previousLineCount !== sourceLineCount(updated)) {
@@ -262,43 +344,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     }
   };
 
-  const renderBlock = (block, index) => {
-    const isSpacer = block.type === 'paragraph' && block.text === '';
-    const wrapper = document.createElement('div');
-    wrapper.className = `editor-block editor-block--${block.type}`;
-    wrapper.dataset.blockId = block.id;
-    wrapper.dataset.blockType = block.type;
-    if (isSpacer) wrapper.dataset.blockSpacer = '';
-
-    const gutter = document.createElement('div');
-    gutter.className = 'editor-block-gutter';
-    const add = document.createElement('button');
-    add.type = 'button';
-    add.className = 'editor-gutter-button';
-    add.tabIndex = -1;
-    add.dataset.addBlock = '';
-    add.setAttribute('aria-label', `Add block after ${editorBlockLabel(block.type)}`);
-    add.dataset.tooltip = 'Add block';
-    const addIcon = document.createElement('i');
-    addIcon.className = 'iconoir-plus';
-    addIcon.setAttribute('aria-hidden', 'true');
-    add.append(addIcon);
-    const menu = document.createElement('button');
-    menu.type = 'button';
-    menu.className = 'editor-gutter-button editor-drag-handle';
-    menu.tabIndex = -1;
-    menu.dataset.blockMenu = '';
-    menu.draggable = !isSpacer;
-    menu.setAttribute('aria-label', `Options for ${editorBlockLabel(block.type)} block ${index + 1}`);
-    menu.dataset.tooltip = isSpacer ? 'Open block options' : 'Drag or open block options';
-    const menuIcon = document.createElement('i');
-    menuIcon.className = 'iconoir-menu-scale';
-    menuIcon.setAttribute('aria-hidden', 'true');
-    menu.append(menuIcon);
-    gutter.append(add, menu);
-
-    const body = document.createElement('div');
-    body.className = 'editor-block-body';
+  const appendListChrome = (body, block) => {
     if (block.type === 'todo') {
       const checkbox = document.createElement('input');
       checkbox.type = 'checkbox';
@@ -322,6 +368,20 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       bullet.setAttribute('aria-hidden', 'true');
       body.append(bullet);
     }
+  };
+
+  const renderBlock = (block, index) => {
+    const isSpacer = block.type === 'paragraph' && block.text === '';
+    const isActive = activeBlockId === block.id;
+    const wrapper = document.createElement('div');
+    wrapper.className = `editor-block editor-block--${block.type}`;
+    wrapper.dataset.blockId = block.id;
+    wrapper.dataset.blockType = block.type;
+    if (isSpacer) wrapper.dataset.blockSpacer = '';
+    if (isActive) wrapper.classList.add('is-active-line');
+
+    const body = document.createElement('div');
+    body.className = 'editor-block-body';
 
     if (block.type === 'divider') {
       const divider = document.createElement('div');
@@ -329,35 +389,61 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       divider.setAttribute('role', 'separator');
       divider.tabIndex = 0;
       divider.dataset.editorContent = '';
+      divider.dataset.editorMode = isActive ? 'source' : 'preview';
       divider.setAttribute('aria-label', 'Divider block');
       body.append(divider);
-    } else {
-      const content = document.createElement(block.type === 'code' ? 'pre' : 'div');
-      content.className = 'editor-block-content';
-      content.dataset.editorContent = '';
+      wrapper.style.setProperty('--block-indent', String(block.indent || 0));
+      wrapper.append(body);
+      return wrapper;
+    }
+
+    // Preview chrome (list markers / checkbox) only when not editing source markers for lists.
+    // Active source line keeps list markers in the body text path for todos/lists via CSS markers
+    // for visual continuity; structural prefix is shown as muted marks on the active line.
+    if (!isActive || block.type === 'todo') {
+      appendListChrome(body, block);
+    } else if (block.type === 'bullet' || block.type === 'numbered') {
+      appendListChrome(body, block);
+    }
+
+    const content = document.createElement(block.type === 'code' ? 'pre' : 'div');
+    content.className = isActive ? 'editor-block-content is-active-line' : 'editor-block-content editor-block-preview';
+    content.dataset.editorContent = '';
+    content.dataset.editorMode = isActive ? 'source' : 'preview';
+    content.setAttribute('aria-label', `${editorBlockLabel(block.type)} block ${index + 1}`);
+    content.dataset.placeholder = block.type.startsWith('heading')
+      ? 'Heading'
+      : block.type === 'code'
+        ? 'Write code…'
+        : "Type '/' for commands";
+
+    if (isActive) {
       content.contentEditable = 'true';
       content.tabIndex = 0;
       content.spellcheck = block.type !== 'code';
       content.setAttribute('role', 'textbox');
       content.setAttribute('aria-multiline', String(block.type === 'code'));
-      content.setAttribute('aria-label', `${editorBlockLabel(block.type)} block ${index + 1}`);
-      content.dataset.placeholder = block.type.startsWith('heading')
-        ? 'Heading'
-        : block.type === 'code'
-          ? 'Write code…'
-          : "Type '/' for commands";
-      if (block.type === 'code') content.textContent = block.text;
-      else content.innerHTML = inlineMarkdownToHtml(block.text);
-      body.append(content);
+      // Active line is source Markdown so markup stays visible and editable.
+      content.textContent = block.text;
+    } else {
+      content.contentEditable = 'false';
+      content.tabIndex = -1;
+      content.dataset.editorPreview = '';
+      if (block.type === 'code' || !isMarkdown()) {
+        content.textContent = block.text;
+      } else {
+        content.innerHTML = inlineMarkdownToHtml(block.text);
+      }
     }
 
+    body.append(content);
     wrapper.style.setProperty('--block-indent', String(block.indent || 0));
-    wrapper.append(gutter, body);
+    wrapper.append(body);
     return wrapper;
   };
 
   const sourceLineCount = (block) => serializeEditorDocument([block], {
-    markdown: activeDocument?.markdown !== false,
+    markdown: isMarkdown(),
   }).split('\n').length;
 
   const refreshBlockLineIndex = () => {
@@ -378,6 +464,9 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
   function render({ previousLayout = null, enteringId = null } = {}) {
     if (!previousLayout) cancelBlockAnimations();
+    // Never re-read the live DOM here: model mutations (slash commands, type
+    // changes, history) already own the source of truth. DOM → model happens on
+    // input, save, focus switches and explicit commits.
     const fragment = document.createDocumentFragment();
     documentSnapshot.blocks.forEach((block, index) => fragment.append(renderBlock(block, index)));
     canvas.replaceChildren(fragment);
@@ -387,6 +476,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       documentSnapshot.blocks.length === 1 && documentSnapshot.blocks[0].text === '',
     );
     animateBlockLayout(previousLayout, { enteringId });
+    updateBlockToolbar();
   }
 
   const splitBlock = (wrapper) => {
@@ -396,6 +486,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     const { before, after } = markdownAroundSelection(document, content, window.getSelection());
     const next = documentModel.split(block.id, { before, after });
     if (!next) return false;
+    activeBlockId = next.id;
     render();
     notify();
     focusBlock(next.id, 'start');
@@ -405,6 +496,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   const mergeWithPrevious = (wrapper) => {
     const result = documentModel.mergeWithPrevious(wrapper.dataset.blockId);
     if (!result?.changed) return false;
+    activeBlockId = result.focusId;
     render();
     notify();
     focusBlock(result.focusId);
@@ -437,6 +529,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     saveState = 'idle';
     saveError = '';
     notify();
+    updateBlockToolbar();
     const block = findBlock(activeBlockId);
     if (block?.type !== 'code' && block?.text.startsWith('/')) {
       openCommandMenu(activeBlockId, block.text.slice(1));
@@ -452,6 +545,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     const content = blockContent(wrapper);
     const selection = window.getSelection();
     activeBlockId = block?.id || null;
+    updateBlockToolbar();
 
     if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'z') {
       event.preventDefault();
@@ -475,7 +569,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     }
     if (event.altKey && event.shiftKey && event.key.toLowerCase() === 'm') {
       event.preventDefault();
-      const handle = wrapper.querySelector('[data-block-menu]');
+      const handle = blockToolbar?.querySelector('[data-block-menu]') || blockToolbar;
       if (handle) openBlockMenu(block.id, handle, { focus: true });
       return;
     }
@@ -514,6 +608,26 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       return;
     }
 
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      // Move between blocks when caret is at edge of active source line.
+      if (content && selection?.isCollapsed) {
+        const offset = caretOffset(content, selection);
+        const length = content.textContent?.length || 0;
+        const atStart = offset === 0;
+        const atEnd = offset >= length;
+        if ((event.key === 'ArrowUp' && atStart) || (event.key === 'ArrowDown' && atEnd)) {
+          const blocks = documentSnapshot.blocks;
+          const index = blocks.findIndex((item) => item.id === block.id);
+          const next = blocks[index + (event.key === 'ArrowDown' ? 1 : -1)];
+          if (next) {
+            event.preventDefault();
+            focusBlock(next.id, event.key === 'ArrowDown' ? 'start' : 'end');
+            return;
+          }
+        }
+      }
+    }
+
     if (event.key === 'Backspace') {
       if (block?.type === 'divider') {
         event.preventDefault();
@@ -535,18 +649,38 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   };
 
   const handleCanvasClick = (event) => {
+    if (event.target.closest?.('[data-todo-check]')) return;
     const wrapper = event.target.closest?.('[data-block-id]');
     if (!wrapper) return;
     const id = wrapper.dataset.blockId;
-    activeBlockId = id;
-    if (event.target.closest('[data-add-block]')) {
-      const next = addBlock(id);
-      openCommandMenu(next.id);
+    if (activeBlockId !== id) {
+      focusBlock(id, 'end');
       return;
     }
-    const menu = event.target.closest('[data-block-menu]');
-    if (menu) {
-      openBlockMenu(id, menu);
+    activeBlockId = id;
+    updateBlockToolbar();
+  };
+
+  const handleCanvasFocusIn = (event) => {
+    const wrapper = event.target.closest?.('[data-block-id]');
+    if (!wrapper || !canvas.contains(wrapper)) return;
+    const id = wrapper.dataset.blockId;
+    if (activeBlockId !== id) {
+      const previousId = activeBlockId;
+      if (previousId) {
+        const previousWrapper = findWrapper(previousId);
+        if (previousWrapper) updateBlockFromElement(previousWrapper);
+      }
+      activeBlockId = id;
+      render();
+      // Restore focus after re-projection (source content is new node).
+      queueMicrotask(() => {
+        const content = blockContent(findWrapper(id));
+        content?.focus({ preventScroll: true });
+        updateBlockToolbar();
+      });
+    } else {
+      updateBlockToolbar();
     }
   };
 
@@ -558,6 +692,32 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     notify();
   };
 
+  const handleBlockToolbarClick = (event) => {
+    const button = event.target.closest?.('[data-block-toolbar-action], [data-block-menu]');
+    if (!button || !blockToolbar?.contains(button)) return;
+    const id = activeBlockId || blockToolbar.dataset.activeBlockId;
+    if (!id) return;
+    if (button.matches('[data-block-menu]')) {
+      // Click opens menu; drag is handled by the interaction controller.
+      openBlockMenu(id, button);
+      return;
+    }
+    const action = button.dataset.blockToolbarAction;
+    if (action === 'add') {
+      const next = addBlock(id);
+      if (next) openCommandMenu(next.id);
+      return;
+    }
+    if (action === 'type') {
+      openCommandMenu(id, '');
+      return;
+    }
+    if (action === 'move-up') performBlockAction(id, 'move-up');
+    if (action === 'move-down') performBlockAction(id, 'move-down');
+    if (action === 'duplicate') performBlockAction(id, 'duplicate');
+    if (action === 'delete') performBlockAction(id, 'delete');
+  };
+
   const clearDragState = () => blockInteractionController?.clearDragState();
 
   const enter = () => {
@@ -567,7 +727,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     const lineCount = initialSource.split('\n').length;
     if (initialSource.length > MAX_EDITABLE_CHARACTERS || lineCount > MAX_EDITABLE_BLOCKS) {
       hooks.onUnavailable?.(
-        'This document is too large for block editing. Source view is still available.'
+        'This document is too large for live-preview editing. Source view is still available.'
       );
       return false;
     }
@@ -576,9 +736,11 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     mode = 'edit';
     saveState = draft ? 'recovered' : 'idle';
     saveError = '';
+    activeBlockId = documentSnapshot.blocks[0]?.id || null;
     render();
     root.hidden = false;
     root.removeAttribute('inert');
+    if (blockToolbar) blockToolbar.hidden = false;
     notify();
     queueMicrotask(() => focusBlock(documentSnapshot.blocks[0].id, 'start', { preserveScroll: true }));
     return true;
@@ -598,6 +760,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     mode = 'read';
     saveState = 'idle';
     saveError = '';
+    activeBlockId = null;
+    if (blockToolbar) blockToolbar.hidden = true;
     root.hidden = true;
     root.setAttribute('inert', '');
     notify();
@@ -607,6 +771,10 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   const save = async () => {
     if (disposed || mode !== 'edit' || !activeDocument || saveState === 'saving') {
       return { status: 'unavailable' };
+    }
+    if (activeBlockId) {
+      const wrapper = findWrapper(activeBlockId);
+      if (wrapper) updateBlockFromElement(wrapper);
     }
     const savingDocument = activeDocument;
     const savingPath = savingDocument.path;
@@ -643,14 +811,14 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       hooks.onDraftPreserved?.(activeDocument.path);
     }
     activeDocument = { path, source: normalizedSource, markdown: Boolean(markdown) };
-    if (contextLabel) contextLabel.textContent = markdown ? 'Block editor' : 'Plain-text editor';
+    if (contextLabel) contextLabel.textContent = markdown ? 'Live preview' : 'Plain-text editor';
     if (contextHint) {
       contextHint.replaceChildren();
       if (markdown) {
         contextHint.append('Type ');
         const shortcut = document.createElement('kbd');
         shortcut.textContent = '/';
-        contextHint.append(shortcut, ' for blocks');
+        contextHint.append(shortcut, ' for blocks · active line shows markup');
       } else {
         contextHint.textContent = 'Each line saves as text';
       }
@@ -677,7 +845,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
   const canChangeDocument = () => {
     if (!dirty()) return true;
-    const discard = window.confirm('Discard unsaved changes and open another file?');
+    const discard = window.confirm('Discard unsaved changes?');
     if (discard) exit({ force: true });
     return discard;
   };
@@ -688,7 +856,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     elements: { canvas, commandMenu, blockMenu },
     commands: EDITOR_COMMANDS,
     adapters: {
-      isMarkdown: () => activeDocument?.markdown !== false,
+      isMarkdown: () => isMarkdown(),
       getBlock: findBlock,
       getBlocks: () => documentSnapshot.blocks,
       getWrapper: findWrapper,
@@ -715,7 +883,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     },
     adapters: {
       isEditing: () => mode === 'edit',
-      isMarkdown: () => activeDocument?.markdown !== false,
+      isMarkdown: () => isMarkdown(),
       getActiveBlockId: () => activeBlockId,
       setCursor,
       updateBlockFromElement,
@@ -734,6 +902,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       moveRelative: (id, targetId, position) => documentModel.moveRelative(id, targetId, position),
       render: () => render(),
       focusBlock,
+      getDragBlockId: () => activeBlockId,
     },
     hooks: {
       closeTransientUi: () => {
@@ -748,10 +917,13 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   canvas.addEventListener('input', handleCanvasInput);
   canvas.addEventListener('keydown', handleCanvasKeydown);
   canvas.addEventListener('click', handleCanvasClick);
+  canvas.addEventListener('focusin', handleCanvasFocusIn);
   canvas.addEventListener('change', handleCanvasChange);
+  blockToolbar?.addEventListener('click', handleBlockToolbarClick);
 
   root.hidden = true;
   root.setAttribute('inert', '');
+  if (blockToolbar) blockToolbar.hidden = true;
 
   return Object.freeze({
     setDocument,
@@ -777,7 +949,9 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       canvas.removeEventListener('input', handleCanvasInput);
       canvas.removeEventListener('keydown', handleCanvasKeydown);
       canvas.removeEventListener('click', handleCanvasClick);
+      canvas.removeEventListener('focusin', handleCanvasFocusIn);
       canvas.removeEventListener('change', handleCanvasChange);
+      blockToolbar?.removeEventListener('click', handleBlockToolbarClick);
       overlayController?.dispose();
       selectionController?.dispose();
       blockInteractionController?.dispose();
@@ -787,6 +961,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       cancelBlockAnimations();
       closeCommandMenu();
       closeBlockMenu();
+      if (blockToolbar) blockToolbar.hidden = true;
     },
   });
 }
