@@ -1,7 +1,7 @@
 # Architecture workplan
 
 Date: 2026-07-29; updated 2026-07-30
-Status: ARC-01..15 implemented and locally verified
+Status: ARC-01..25 implemented and locally verified
 
 This ledger tracks the five accepted recommendations from the
 [architecture review](architecture-review-2026-07-29.md). Each slice used
@@ -154,6 +154,7 @@ reports persistence/feedback through injected hooks.
 toggle semantics, rendered transition milestones and cancellation cleanup.
 
 - [x] Read -> Edit -> Source -> Read and Read/Edit toggle preserve behavior.
+- [x] Mode changes preserve reader scroll and cannot complete against a replacement document.
 - [x] Canceled dirty exit does not advance mode.
 - [x] View Transition, fallback, interruption, reduced motion and dispose are green.
 
@@ -272,12 +273,12 @@ tested module interface.
 **Blocked by:** None — can start immediately.
 
 **What to build:** One Reader Controls module owns reading-tools and typography
-panels, preference-to-DOM projection, focus return, source scroll memory, and
+panels, preference-to-DOM projection, focus return, mode scroll preservation, and
 always-on-top/auto-save actions while `reader-preferences.js` remains the
 persisted model owner.
 
 - [x] Load and apply a preference snapshot without leaking panel/ARIA policy to the root.
-- [x] Toggle controls preserve document availability, focus return, scroll memory, and volatile feedback.
+- [x] Toggle controls preserve document availability, focus return, scroll position, and volatile feedback.
 - [x] Focused DOM tests and the existing preference/shell suites pass.
 
 ### ARC-17 — Own status presentation
@@ -404,7 +405,8 @@ idempotent disposal while `main.js` supplies concrete mounts and adapters.
 
 - [x] Startup order is explicit and a failed optional adapter does not strand the shell.
 - [x] Beforeunload and disposal release every listener/controller exactly once.
-- [x] Fake-mount lifecycle tests cover success, partial failure, and repeated dispose.
+- [x] Disposable ownership is registered at acquisition; no parallel teardown list can omit an owner.
+- [x] Lifecycle tests cover success, partial failure, cleanup errors, dirty unload, and repeated dispose.
 
 ### Batch closure rule
 

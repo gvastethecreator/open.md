@@ -35,6 +35,8 @@ export function createReaderControls({
   let typographyOpen = false;
   let disposed = false;
   let started = false;
+  let sourceChangeGeneration = 0;
+  let pendingSourceFrame = null;
   const unlisteners = [];
 
   const isDocumentAvailable = () => Boolean(adapters.isDocumentAvailable?.());
@@ -197,21 +199,41 @@ export function createReaderControls({
   }
 
   async function setReadingTool(tool, nextValue) {
-    if (!Object.hasOwn(DEFAULT_READING_TOOLS, tool) || !isDocumentAvailable()) return;
+    if (disposed || !Object.hasOwn(DEFAULT_READING_TOOLS, tool) || !isDocumentAvailable()) return;
     const next = Boolean(nextValue);
     if (state.readingTools[tool] === next || typeof adapters.preferences?.update !== 'function') return;
 
-    if (tool === 'source') {
-      hooks.captureViewScroll?.(state.readingTools.source ? 'source' : 'read');
-    }
+    const sourceGeneration = tool === 'source' ? ++sourceChangeGeneration : null;
+    const documentIdentity = tool === 'source' ? adapters.getDocumentIdentity?.() : null;
+    const isCurrentSourceChange = () => (
+      !disposed
+      && sourceGeneration === sourceChangeGeneration
+      && (
+        typeof adapters.getDocumentIdentity !== 'function'
+        || Object.is(adapters.getDocumentIdentity(), documentIdentity)
+      )
+    );
+    const hasScrollSnapshot = tool === 'source'
+      && typeof hooks.captureScrollPosition === 'function';
+    const scrollPosition = hasScrollSnapshot
+      ? hooks.captureScrollPosition()
+      : undefined;
 
     const result = await adapters.preferences.update({ readingTools: { [tool]: next } });
+    if (disposed || (tool === 'source' && !isCurrentSourceChange())) return false;
     hooks.onPreferenceResult?.(result);
     if (tool === 'source') {
-      window.requestAnimationFrame?.(() => {
-        hooks.restoreViewScroll?.(next ? 'source' : 'read');
+      if (pendingSourceFrame?.id != null) {
+        window.cancelAnimationFrame?.(pendingSourceFrame.id);
+      }
+      const frame = { id: null };
+      pendingSourceFrame = frame;
+      frame.id = window.requestAnimationFrame?.(() => {
+        if (pendingSourceFrame === frame) pendingSourceFrame = null;
+        if (!isCurrentSourceChange()) return;
+        if (hasScrollSnapshot) hooks.restoreScrollPosition?.(scrollPosition);
         (next ? elements.sourceView : elements.content)?.focus?.({ preventScroll: true });
-      });
+      }) ?? null;
     }
 
     const labels = {
@@ -299,6 +321,11 @@ export function createReaderControls({
       if (disposed) return;
       closeTransient();
       disposed = true;
+      sourceChangeGeneration += 1;
+      if (pendingSourceFrame?.id != null) {
+        window.cancelAnimationFrame?.(pendingSourceFrame.id);
+      }
+      pendingSourceFrame = null;
       unlisteners.splice(0).forEach((unlisten) => unlisten());
     },
   });

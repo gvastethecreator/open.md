@@ -114,6 +114,52 @@ describe('Document Mode Coordinator', () => {
     ]);
   });
 
+  it('preserves the reader scroll position across Read, Edit and Source', async () => {
+    const view = fixture({ reduced: true });
+    let mode = 'read';
+    let scrollPosition = 320;
+    const coordinator = createDocumentModeCoordinator({
+      window: view.dom.window,
+      document: view.dom.window.document,
+      elements: view.elements,
+      adapters: {
+        getMode: () => mode,
+        isAvailable: () => true,
+        enterEdit: () => {
+          mode = 'edit';
+          scrollPosition = 0;
+          return true;
+        },
+        exitEdit: () => {
+          mode = 'read';
+          scrollPosition = 0;
+          return true;
+        },
+        setSource: (active) => {
+          mode = active ? 'source' : 'read';
+          scrollPosition = 0;
+        },
+      },
+      hooks: {
+        captureScrollPosition: () => scrollPosition,
+        restoreScrollPosition: (value) => { scrollPosition = value; },
+      },
+    });
+
+    await coordinator.cycle();
+    expect(mode).toBe('edit');
+    expect(scrollPosition).toBe(320);
+
+    scrollPosition = 480;
+    await coordinator.cycle();
+    expect(mode).toBe('source');
+    expect(scrollPosition).toBe(480);
+
+    await coordinator.cycle();
+    expect(mode).toBe('read');
+    expect(scrollPosition).toBe(480);
+  });
+
   it('keeps the mode stable when dirty edit exit is canceled', async () => {
     const harness = createHarness({ reduced: true });
     harness.setMode('edit');
@@ -135,6 +181,79 @@ describe('Document Mode Coordinator', () => {
     await harness.coordinator.toggleEdit();
     expect(harness.mode()).toBe('read');
     expect(harness.calls.at(-1)).toBe('exit');
+  });
+
+  it('does not enter Edit on a replacement document while leaving Source', async () => {
+    const view = fixture({ reduced: true });
+    const sourceGate = deferred();
+    let mode = 'source';
+    let documentIdentity = 'A.md';
+    const enterEdit = vi.fn(() => {
+      mode = 'edit';
+      return true;
+    });
+    const coordinator = createDocumentModeCoordinator({
+      window: view.dom.window,
+      document: view.dom.window.document,
+      elements: view.elements,
+      adapters: {
+        getMode: () => mode,
+        isAvailable: () => true,
+        getDocumentIdentity: () => documentIdentity,
+        setSource: async () => {
+          await sourceGate.promise;
+          mode = 'read';
+        },
+        enterEdit,
+      },
+    });
+
+    const change = coordinator.toggleEdit();
+    await Promise.resolve();
+    await Promise.resolve();
+    documentIdentity = 'B.md';
+    sourceGate.resolve();
+
+    await expect(change).resolves.toBe(false);
+    expect(enterEdit).not.toHaveBeenCalled();
+    expect(mode).toBe('read');
+  });
+
+  it('rejects queued mode actions that were requested for a replaced document', async () => {
+    const view = fixture({ reduced: true });
+    const sourceGate = deferred();
+    let mode = 'source';
+    let documentIdentity = 'A.md';
+    const enterEdit = vi.fn(() => {
+      mode = 'edit';
+      return true;
+    });
+    const coordinator = createDocumentModeCoordinator({
+      window: view.dom.window,
+      document: view.dom.window.document,
+      elements: view.elements,
+      adapters: {
+        getMode: () => mode,
+        isAvailable: () => true,
+        getDocumentIdentity: () => documentIdentity,
+        setSource: async () => {
+          await sourceGate.promise;
+          mode = 'read';
+        },
+        enterEdit,
+      },
+    });
+
+    const first = coordinator.cycle();
+    const queued = coordinator.toggleEdit();
+    await Promise.resolve();
+    await Promise.resolve();
+    documentIdentity = 'B.md';
+    sourceGate.resolve();
+
+    await expect(first).resolves.toBe(false);
+    await expect(queued).resolves.toBe(false);
+    expect(enterEdit).not.toHaveBeenCalled();
   });
 
   it('uses View Transition, skips unchanged transitions and cancels interruption', async () => {

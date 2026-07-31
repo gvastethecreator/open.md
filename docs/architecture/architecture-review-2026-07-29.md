@@ -1,7 +1,7 @@
 # Architecture review — open.md
 
 Date: 2026-07-29; execution updates: 2026-07-30
-Repository revision: `e9dacd2`; ARC-01..15 baseline plus the completed ARC-16..25 follow-up on `codex/arc-01-05-architecture`
+Repository baseline: `f6f6a25`; post-acceptance hardening is in the current working tree on `codex/arc-01-05-architecture`
 Status: ARC-01 through ARC-25 accepted, implemented, and locally verified; packaged cross-platform smoke remains a platform gate
 Canonical source: this Markdown file
 Historical visual companion (review baseline only): `.scratch/reports/architecture-open-md/index.html`
@@ -15,8 +15,8 @@ Current outcome (2026-07-30):
 
 - Ten additional lifecycle and interaction owners were implemented as ARC-16
   through ARC-25 without changing the public reader-shell contract. The root
-  is now 976 physical lines and 52 function-like declarations; its remaining
-  role is mount order, adapters, event bindings, and cross-module callbacks.
+  is now 880 physical lines; its remaining role is acquisition order, adapters,
+  event bindings, and cross-module callbacks.
 - The full local gate passed 212 frontend tests in 33 files, four executable
   reader-shell checks, static/page checks, the production build and bundle
   budgets, Rust formatting/checking, and 15 Rust tests. `bun run verify`
@@ -67,10 +67,46 @@ their established owners.
   render/enrichment/resource generations and Open Intent still owns path,
   window, deduplication, readiness, and acknowledgment policy.
 - Ingress owns transport listeners and picker/drop lifecycle, but submits all
-  requests through Open Intent. Keyboard and content actions use injected
-  callbacks instead of reaching into unrelated module state.
+requests through Open Intent. Keyboard and content actions use injected
+callbacks instead of reaching into unrelated module state.
 
-### Verification update
+## Post-acceptance hardening — 2026-07-30
+
+A fresh bounded pass found six evidence-backed candidates after ARC-01..25,
+not the ten required for a new architecture batch. No ARC-26..35 ledger or new
+HTML completion report was created; splitting cohesive modules to meet a count
+would be padding.
+
+Independent review did find three P2 contradictions inside already accepted
+contracts, so ARC-09, ARC-12 and ARC-25 were hardened without creating new
+ticket IDs:
+
+- Document mode work now captures document identity before async transitions,
+  refuses to finish against a replacement document, and preserves the exact
+  reader scroll position across Read, Edit and Source. Initial editor focus and
+  the direct Source control also preserve scroll.
+- Editor-session disposal now removes its four canvas listeners before
+  disposing child controllers.
+- Application lifecycle now registers controllers and listeners at their
+  acquisition sites and tears them down in reverse order. The parallel
+  `applicationDisposables()` ledger was removed, closing the omitted
+  `documentViewState` and `contextMenuController` cleanup paths.
+
+The final adversarial diff review then exposed queued mode requests that could
+adopt a replacement identity, a stale Source-view RAF that could restore scroll
+after replacement/disposal, and retained owner identities after teardown.
+Those three P2 gaps were reproduced and repaired; the re-review accepted the
+result with no residual actionable finding in scope.
+
+The remaining three candidates are P3 follow-up work: an executable whole-app
+composition seam, consolidation of task-save view fan-out, and consolidation
+of Tauri ingress wiring. They are intentionally not presented as a ten-ticket
+batch. The final local gate passed 220 frontend tests in 33 files, four shell
+scenarios, static/Pages checks, the production build and bundle budget, Rust
+format/check, and 15 Rust tests. Existing browser-profile and packaged
+cross-platform gates remain unclaimed.
+
+### ARC-16..25 verification record
 
 | Gate | Result |
 |---|---|

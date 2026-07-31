@@ -86,11 +86,12 @@ flowchart LR
 
 ### UI lifecycle coordinators
 
-- `src/main.js` remains the composition root. It declares mounts, event
+- `src/main.js` remains the composition root. It declares acquisitions, event
   bindings, and concrete DOM/native adapters; it does not own their private
   state or listener queues.
-- `src/application-lifecycle.js` owns mount order, startup failure cleanup,
-  beforeunload guarding, event binding, and idempotent reverse teardown.
+- `src/application-lifecycle.js` owns each disposable at its acquisition site,
+  plus startup failure cleanup, beforeunload guarding, event binding, and
+  idempotent reverse teardown. No parallel disposal ledger is allowed.
 - `src/application-runtime-adapters.js` owns native/preview document access,
   save, image bytes, syntax loading, Mermaid adapters, storage, and window
   pinning behind the existing shell adapter shape.
@@ -108,6 +109,8 @@ flowchart LR
   `src/editor-feedback-presenter.js` own their visual lifecycle and disposal.
 - Each module owns its timers, listeners, transition/RAF state and disposal;
   the composition root does not coordinate their private revisions or queues.
+- A Read/Edit/Source transition is scoped to the document identity captured at
+  its start and restores that document's exact reader scroll position.
 - Invariant: replacement or disposal invalidates stale visual and save work
   before it can commit back into the current document.
 - Invariant: theme selection, public state and persistence advance only after
@@ -121,6 +124,8 @@ flowchart LR
   overlay, selection, and block-interaction controllers.
 - Overlay, selection and block controllers own their document listeners,
   transient state, keyboard/focus rules, animation handles and disposal.
+- The editor session owns and removes its canvas input, keyboard, click, and
+  change listeners; initial edit focus uses `preventScroll`.
 - Invariant: the DOM is a projection of the editor model; it does not own an
   independent block or undo/redo history.
 - Cursor-only updates reuse the frozen source/block/stat projection; moving the

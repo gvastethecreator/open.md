@@ -11,7 +11,8 @@ use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd>.
 
 Mode changes morph the document surface between its Read, Edit and Source
 geometry while the window chrome stays fixed. Reduced-motion preferences switch
-the surface immediately.
+the surface immediately. The reader keeps the same scroll position while you
+move between modes.
 
 The document becomes a block canvas. The source file remains Markdown or text;
 there is no private document format. While the caret is in the editor, the
