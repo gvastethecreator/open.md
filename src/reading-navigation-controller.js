@@ -1,12 +1,12 @@
+import { getFileKind } from './core/reader.js';
 import {
   getCurrentLineFromAnchors,
-  getFileKind,
   getLineGutterLeft,
   getMinimapViewportGeometry,
   getReadingProgress,
   getScrollEdgeState,
   getVisibleSourceLineRange,
-} from './core/reader.js';
+} from './reading-geometry.js';
 
 export function createReadingNavigationController({
   window,

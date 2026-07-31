@@ -78,7 +78,12 @@ describe('Application Runtime Adapters', () => {
     await adapters.openRequests.acknowledge(7);
     await adapters.windows.openExternalUrl('https://example.com');
     await expect(adapters.openRequests.getInitialFilePaths()).resolves.toEqual(['launch.md']);
+    await expect(adapters.openRequests.listPending()).resolves.toEqual([]);
     expect(adapters.windows.getNativeWindow()).toBe(nativeWindow);
+    expect(typeof adapters.ingress.listen).toBe('function');
+    expect(typeof adapters.ingress.openFileDialog).toBe('function');
+    expect(typeof adapters.ingress.getCurrentWebview).toBe('function');
+    expect(typeof adapters.ingress.listPendingOpenFileRequests).toBe('function');
 
     expect(invoke.mock.calls).toEqual([
       ['get_file_content', { path: 'notes.md' }],
@@ -88,6 +93,7 @@ describe('Application Runtime Adapters', () => {
       ['open_new_window', { path: 'other.md' }],
       ['acknowledge_open_file_request', { id: 7 }],
       ['get_initial_file_paths', undefined],
+      ['list_pending_open_file_requests', undefined],
     ]);
     expect(nativeWindow.setAlwaysOnTop).toHaveBeenCalledWith(true);
     expect(openUrl).toHaveBeenCalledWith('https://example.com');

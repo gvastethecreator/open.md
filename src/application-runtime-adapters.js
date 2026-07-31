@@ -1,5 +1,8 @@
 import { invoke as defaultInvoke } from '@tauri-apps/api/core';
+import { listen as defaultListen } from '@tauri-apps/api/event';
+import { getCurrentWebview as defaultGetCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow as defaultGetCurrentWindow } from '@tauri-apps/api/window';
+import { open as defaultOpenFileDialog } from '@tauri-apps/plugin-dialog';
 import {
   createMemoryPreferenceStore,
   createOptionalWebPreferenceStore,
@@ -50,6 +53,9 @@ export function createApplicationRuntimeAdapters({
   window,
   invoke = defaultInvoke,
   getCurrentWindow = defaultGetCurrentWindow,
+  listen = defaultListen,
+  getCurrentWebview = defaultGetCurrentWebview,
+  openFileDialog = defaultOpenFileDialog,
   openUrl = null,
   syntaxLoader = () => import('./syntax-highlighter.js'),
   diagrams = { prepare: prepareMermaidDiagrams, render: renderMermaidDiagrams },
@@ -143,6 +149,16 @@ export function createApplicationRuntimeAdapters({
     }
   };
 
+  const listPendingOpenFileRequests = async () => {
+    if (!native) return [];
+    try {
+      const pending = await invokeNative('list_pending_open_file_requests');
+      return Array.isArray(pending) ? pending : [];
+    } catch {
+      return [];
+    }
+  };
+
   return Object.freeze({
     documents: Object.freeze({ open, save, readImage, readImageFile }),
     diagrams: Object.freeze({
@@ -159,6 +175,13 @@ export function createApplicationRuntimeAdapters({
     openRequests: Object.freeze({
       acknowledge: acknowledgeOpenFile,
       getInitialFilePaths,
+      listPending: listPendingOpenFileRequests,
+    }),
+    ingress: Object.freeze({
+      listen,
+      openFileDialog,
+      getCurrentWebview,
+      listPendingOpenFileRequests,
     }),
     storage: storage || createOptionalWebPreferenceStore(window) || createMemoryPreferenceStore(),
   });

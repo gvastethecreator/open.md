@@ -1,4 +1,5 @@
-import { normalizeDocumentPayload, setMarkdownTaskChecked } from './core/reader.js';
+import { normalizeDocumentPayload } from './document-payload.js';
+import { setMarkdownTaskChecked } from './markdown-source.js';
 
 export function createDocumentSaveCoordinator({
   window,

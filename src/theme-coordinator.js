@@ -283,6 +283,11 @@ export function createThemeCoordinator({
     return theme && isColorDark(getThemeTokens(theme).background) ? 'dark' : 'default';
   };
 
+  const diagramTokens = () => {
+    const theme = current();
+    return theme ? getThemeTokens(theme) : null;
+  };
+
   const cancelTransition = () => {
     activeTransition?.skipTransition?.();
     activeTransition = null;
@@ -304,6 +309,7 @@ export function createThemeCoordinator({
     cycle,
     current,
     diagramTheme,
+    diagramTokens,
     cancelTransition,
     dispose,
   });

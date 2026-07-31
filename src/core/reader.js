@@ -1,7 +1,36 @@
+/**
+ * Compatibility facade for pure reader helpers.
+ *
+ * Domain ownership lives in dedicated modules; this file re-exports them so
+ * existing tests and residual callers stay stable while production code
+ * imports the deep owners directly.
+ */
+
 import {
   isSupportedFilePath as detectSupportedFilePath,
   resolveDocumentFormat,
 } from '../format-detect.js';
+
+export {
+  getDisplayName,
+  getImageSourcePolicy,
+  getLinkAction,
+  isImageFilePath,
+  resolveRelativeFilePath,
+} from '../document-path.js';
+export { normalizeDocumentPayload } from '../document-payload.js';
+export {
+  getMarkdownSourceTokenRanges,
+  setMarkdownTaskChecked,
+} from '../markdown-source.js';
+export {
+  getCurrentLineFromAnchors,
+  getLineGutterLeft,
+  getMinimapViewportGeometry,
+  getReadingProgress,
+  getScrollEdgeState,
+  getVisibleSourceLineRange,
+} from '../reading-geometry.js';
 
 const PREFERRED_THEME_NAMES = ['Github Light', 'Github Dark', 'GitHub', 'Ayu Light', 'Ayu Dark'];
 
@@ -13,19 +42,6 @@ export function isSupportedFilePath(filePath) {
   return detectSupportedFilePath(filePath);
 }
 
-export function isImageFilePath(filePath) {
-  return resolveDocumentFormat(filePath).family === 'image';
-}
-
-export function getDisplayName(filePath) {
-  if (typeof filePath !== 'string' || filePath.trim() === '') {
-    return 'No file';
-  }
-
-  const normalizedPath = filePath.replace(/\\/g, '/');
-  return normalizedPath.split('/').pop() || filePath;
-}
-
 /**
  * Coarse product label for status/chrome. Prefer format descriptors when a
  * resolved document format is available.
@@ -35,216 +51,6 @@ export function getFileKind(filePath) {
   if (family === 'markdown') return 'Markdown';
   if (family === 'image') return 'Image';
   return 'Text';
-}
-
-const KNOWN_KINDS = new Set(['image', 'markdown', 'text']);
-const KNOWN_FORMATS = new Set([
-  'markdown', 'text', 'json', 'yaml', 'toml', 'ini', 'env', 'csv',
-  'png', 'jpeg', 'gif', 'webp', 'bmp', 'avif', 'image',
-]);
-
-export function normalizeDocumentPayload(payload) {
-  if (
-    !payload
-    || typeof payload !== 'object'
-    || Array.isArray(payload)
-    || typeof payload.html !== 'string'
-    || typeof payload.source !== 'string'
-  ) {
-    throw new TypeError('Invalid document payload');
-  }
-
-  const source = payload.source;
-  const fallbackLineCount = source.split('\n').length;
-  const kindRaw = typeof payload.kind === 'string' ? payload.kind : undefined;
-  const kind = kindRaw && KNOWN_KINDS.has(kindRaw)
-    ? kindRaw
-    : kindRaw === 'image'
-      ? 'image'
-      : undefined;
-  const formatRaw = typeof payload.format === 'string' ? payload.format : undefined;
-  let format = formatRaw && KNOWN_FORMATS.has(formatRaw) ? formatRaw : undefined;
-  if (!format && kind === 'image') format = 'image';
-  if (!format && kind === 'markdown') format = 'markdown';
-  if (!format && kind === 'text') format = 'text';
-  // Legacy payloads: kind image only
-  const resolvedKind = kind === 'image'
-    ? 'image'
-    : kind === 'markdown'
-      ? 'markdown'
-      : kind === 'text'
-        ? 'text'
-        : (format && (
-          format === 'png' || format === 'jpeg' || format === 'gif'
-          || format === 'webp' || format === 'bmp' || format === 'avif' || format === 'image'
-        )
-          ? 'image'
-          : format === 'markdown'
-            ? 'markdown'
-            : format
-              ? 'text'
-              : undefined);
-
-  const resolvedFormat = format
-    || (resolvedKind === 'image' ? 'image' : undefined)
-    || (resolvedKind === 'markdown' ? 'markdown' : undefined)
-    || (resolvedKind === 'text' ? 'text' : undefined);
-
-  const normalized = {
-    html: typeof payload?.html === 'string' ? payload.html : '',
-    source,
-    lineCount: Math.max(1, Number.isFinite(payload?.lineCount) ? Math.floor(payload.lineCount) : fallbackLineCount),
-    characterCount: Math.max(
-      0,
-      Number.isFinite(payload?.characterCount) ? Math.floor(payload.characterCount) : [...source].length
-    ),
-    wordCount: Math.max(0, Number.isFinite(payload?.wordCount) ? Math.floor(payload.wordCount) : 0),
-    readingTimeMinutes: Math.max(
-      0,
-      Number.isFinite(payload?.readingTimeMinutes) ? Math.floor(payload.readingTimeMinutes) : 0
-    ),
-  };
-  if (resolvedKind) normalized.kind = resolvedKind;
-  if (resolvedFormat) normalized.format = resolvedFormat;
-  return normalized;
-}
-
-export function getScrollEdgeState(scrollTop, scrollHeight, clientHeight, threshold = 1) {
-  const top = Math.max(0, Number(scrollTop) || 0);
-  const maxScroll = Math.max(0, (Number(scrollHeight) || 0) - (Number(clientHeight) || 0));
-  const edgeThreshold = Math.max(0, Number(threshold) || 0);
-
-  return {
-    before: maxScroll > edgeThreshold && top > edgeThreshold,
-    after: maxScroll > edgeThreshold && top < maxScroll - edgeThreshold,
-  };
-}
-
-function isEscapedSourceToken(line, index) {
-  let backslashes = 0;
-  for (let cursor = index - 1; cursor >= 0 && line[cursor] === '\\'; cursor -= 1) {
-    backslashes += 1;
-  }
-  return backslashes % 2 === 1;
-}
-
-export function getMarkdownSourceTokenRanges(line) {
-  const sourceLine = typeof line === 'string' ? line : '';
-  const ranges = [];
-  const codeIntervals = [];
-  const addRange = (start, end) => {
-    if (start >= 0 && end > start) ranges.push({ start, end });
-  };
-
-  const fence = sourceLine.match(/^\s{0,3}(`{3,}|~{3,})/);
-  if (fence) {
-    const start = sourceLine.indexOf(fence[1]);
-    addRange(start, start + fence[1].length);
-  } else {
-    const structuralPatterns = [
-      /^\s{0,3}(#{1,6})(?=\s|$)/,
-      /^\s{0,3}(>)/,
-      /^\s*([-+*])(?=\s)/,
-      /^\s*(\d+[.)])(?=\s)/,
-    ];
-    for (const pattern of structuralPatterns) {
-      const match = sourceLine.match(pattern);
-      if (!match) continue;
-      const start = sourceLine.indexOf(match[1]);
-      addRange(start, start + match[1].length);
-      break;
-    }
-
-    const taskMarker = sourceLine.match(/^\s*(?:[-+*]|\d+[.)])\s+(\[[ xX]\])/);
-    if (taskMarker) {
-      const start = sourceLine.indexOf(taskMarker[1]);
-      addRange(start, start + taskMarker[1].length);
-    }
-  }
-
-  const backtickPattern = /`+/g;
-  let backtickMatch;
-  while ((backtickMatch = backtickPattern.exec(sourceLine)) !== null) {
-    if (isEscapedSourceToken(sourceLine, backtickMatch.index)) continue;
-    const delimiter = backtickMatch[0];
-    const closingIndex = sourceLine.indexOf(delimiter, backtickMatch.index + delimiter.length);
-    addRange(backtickMatch.index, backtickMatch.index + delimiter.length);
-    if (closingIndex < 0) continue;
-    addRange(closingIndex, closingIndex + delimiter.length);
-    codeIntervals.push([backtickMatch.index, closingIndex + delimiter.length]);
-    backtickPattern.lastIndex = closingIndex + delimiter.length;
-  }
-
-  const isInsideCode = (index) => codeIntervals.some(([start, end]) => index > start && index < end);
-  const emphasisPattern = /\*\*|__|~~|\*|_/g;
-  const delimiterPositions = new Map();
-  let emphasisMatch;
-  while ((emphasisMatch = emphasisPattern.exec(sourceLine)) !== null) {
-    const token = emphasisMatch[0];
-    const index = emphasisMatch.index;
-    if (isEscapedSourceToken(sourceLine, index) || isInsideCode(index)) continue;
-    if (
-      token === '_'
-      && /[\p{L}\p{N}]/u.test(sourceLine[index - 1] || '')
-      && /[\p{L}\p{N}]/u.test(sourceLine[index + 1] || '')
-    ) {
-      continue;
-    }
-    const positions = delimiterPositions.get(token) || [];
-    positions.push(index);
-    delimiterPositions.set(token, positions);
-  }
-  for (const [token, positions] of delimiterPositions) {
-    for (let index = 0; index + 1 < positions.length; index += 2) {
-      addRange(positions[index], positions[index] + token.length);
-      addRange(positions[index + 1], positions[index + 1] + token.length);
-    }
-  }
-
-  const linkPattern = /(!?)\[[^\]\n]*\]\([^\)\n]*\)/g;
-  let linkMatch;
-  while ((linkMatch = linkPattern.exec(sourceLine)) !== null) {
-    if (isEscapedSourceToken(sourceLine, linkMatch.index) || isInsideCode(linkMatch.index)) continue;
-    const openLength = linkMatch[1] ? 2 : 1;
-    const bridgeIndex = sourceLine.indexOf('](', linkMatch.index + openLength);
-    const closeIndex = linkMatch.index + linkMatch[0].length - 1;
-    addRange(linkMatch.index, linkMatch.index + openLength);
-    addRange(bridgeIndex, bridgeIndex + 2);
-    addRange(closeIndex, closeIndex + 1);
-  }
-
-  const visibleRanges = [];
-  for (const range of ranges.sort((left, right) => left.start - right.start || right.end - left.end)) {
-    const previous = visibleRanges.at(-1);
-    if (!previous || range.start >= previous.end) visibleRanges.push(range);
-  }
-  return visibleRanges;
-}
-
-export function setMarkdownTaskChecked(source, sourceLine, checked) {
-  if (typeof source !== 'string') return null;
-  const lineNumber = Math.floor(Number(sourceLine));
-  if (!Number.isFinite(lineNumber) || lineNumber < 1) return null;
-
-  const newline = source.includes('\r\n') ? '\r\n' : '\n';
-  const lines = source.split(/\r?\n/);
-  const index = lineNumber - 1;
-  if (index >= lines.length) return null;
-
-  const match = lines[index].match(/^(\s*(?:[-+*]|\d+[.)])\s+\[)([ xX])(\])/);
-  if (!match) return null;
-  const nextMarker = checked ? 'x' : ' ';
-  const nextLine = `${match[1]}${nextMarker}${match[3]}${lines[index].slice(match[0].length)}`;
-  if (nextLine === lines[index]) return { source, changed: false };
-
-  lines[index] = nextLine;
-  return { source: lines.join(newline), changed: true };
-}
-
-export function getReadingProgress(scrollTop, scrollHeight, clientHeight) {
-  const maxScroll = Math.max(0, Number(scrollHeight) - Number(clientHeight));
-  if (maxScroll === 0) return 100;
-  return Math.round(Math.min(Math.max(Number(scrollTop) / maxScroll, 0), 1) * 100);
 }
 
 export function getEstimatedMinutesRemaining(totalMinutes, progressPercent) {
@@ -352,33 +158,6 @@ export function getDocumentModePresentation(mode) {
     ariaLabel: `${current.label} mode. Switch to ${next.label} mode`,
     title: `${current.label} mode · Next: ${next.label}`,
   };
-}
-
-export function getVisibleSourceLineRange({ scrollTop, clientHeight, lineHeight, paddingTop, lineCount }) {
-  const safeLineHeight = Math.max(1, Number(lineHeight) || 1);
-  const safeLineCount = Math.max(1, Math.floor(Number(lineCount) || 1));
-  const contentTop = Math.max(0, Number(scrollTop) - Number(paddingTop || 0));
-  const first = Math.min(safeLineCount, Math.max(1, Math.floor(contentTop / safeLineHeight) + 1));
-  const visibleLines = Math.ceil(Math.max(0, Number(clientHeight)) / safeLineHeight) + 2;
-  const last = Math.min(safeLineCount, first + visibleLines);
-  const current = first;
-
-  return { first, last, current };
-}
-
-export function getCurrentLineFromAnchors(anchors, readingOffset) {
-  if (!Array.isArray(anchors) || anchors.length === 0) return 1;
-
-  let current = anchors[0].line;
-  for (const anchor of anchors) {
-    if (anchor.top > readingOffset) break;
-    current = anchor.line;
-  }
-  return Math.max(1, Number(current) || 1);
-}
-
-function normalizeFilePath(filePath) {
-  return String(filePath).replace(/\\/g, '/');
 }
 
 function normalizeHexColor(value) {
@@ -539,100 +318,9 @@ export function getThemeTokens(theme = {}) {
   };
 }
 
-export function resolveRelativeFilePath(baseFilePath, relativePath) {
-  if (!baseFilePath || !relativePath) return null;
-
-  if (/^(?:[a-z]+:)?\/\//i.test(relativePath) || /^[a-zA-Z]:[\\/]/.test(relativePath)) {
-    return relativePath;
-  }
-
-  const normalizedBase = normalizeFilePath(baseFilePath);
-  const normalizedRelative = normalizeFilePath(relativePath);
-  const baseParts = normalizedBase.split('/');
-  baseParts.pop();
-
-  const resolvedParts = [...baseParts];
-  for (const segment of normalizedRelative.split('/')) {
-    if (!segment || segment === '.') continue;
-
-    if (segment === '..') {
-      if (resolvedParts.length > 1 || !resolvedParts[0]?.endsWith(':')) {
-        resolvedParts.pop();
-      }
-      continue;
-    }
-
-    resolvedParts.push(segment);
-  }
-
-  return resolvedParts.join('/');
-}
-
-export function getLinkAction(href, currentDocumentPath, absoluteHref = null) {
-  if (typeof href !== 'string' || href.trim() === '') {
-    return { type: 'blocked' };
-  }
-
-  const trimmedHref = href.trim();
-  if (trimmedHref.startsWith('#')) {
-    return { type: 'anchor', href: trimmedHref };
-  }
-
-  if (/^https?:\/\//i.test(trimmedHref)) {
-    return { type: 'external', href: trimmedHref };
-  }
-
-  if (trimmedHref.startsWith('//') && absoluteHref && /^https?:\/\//i.test(absoluteHref)) {
-    return { type: 'external', href: absoluteHref };
-  }
-
-  if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(trimmedHref)) {
-    return { type: 'blocked' };
-  }
-
-  const hashIndex = trimmedHref.indexOf('#');
-  const fragment = hashIndex >= 0 ? trimmedHref.slice(hashIndex) : '';
-  const pathWithoutFragment = hashIndex >= 0 ? trimmedHref.slice(0, hashIndex) : trimmedHref;
-  const pathWithoutQuery = pathWithoutFragment.split('?')[0];
-
-  let decodedPath = pathWithoutQuery;
-  try {
-    decodedPath = decodeURIComponent(pathWithoutQuery);
-  } catch {
-    return { type: 'blocked' };
-  }
-
-  const resolvedPath = resolveRelativeFilePath(currentDocumentPath, decodedPath);
-  if (!resolvedPath || !isSupportedFilePath(resolvedPath)) {
-    return { type: 'blocked' };
-  }
-
-  return { type: 'file', path: resolvedPath, fragment };
-}
-
 export function getViewportMode(hasFilePath, helpVisible) {
   if (helpVisible) return 'help';
   return hasFilePath ? 'content' : 'empty';
-}
-
-export function getImageSourcePolicy(rawSource) {
-  if (typeof rawSource !== 'string' || rawSource.trim() === '') {
-    return { type: 'blocked', reason: 'Image source missing' };
-  }
-
-  if (/^(?:data|blob):/i.test(rawSource)) {
-    return { type: 'blocked', reason: 'Embedded image not loaded' };
-  }
-
-  if (/^(?:[a-z]+:)?\/\//i.test(rawSource)) {
-    return { type: 'blocked', reason: 'Remote image not loaded' };
-  }
-
-  if (/^[a-z][a-z\d+.-]*:/i.test(rawSource)) {
-    return { type: 'blocked', reason: 'Unsupported image source' };
-  }
-
-  return { type: 'relative', source: rawSource };
 }
 
 export function getPreferredThemeIndex(themeList, savedThemeName = null) {
@@ -679,54 +367,4 @@ export function calculateNewZoom(current, deltaY, step, min, max) {
     next = current - step;
   }
   return Math.min(Math.max(next, min), max);
-}
-
-export function getLineGutterLeft({
-  viewLeft,
-  stageLeft,
-  paddingLeft,
-  gutterWidth,
-  gap = 12,
-  minLeft = 4,
-}) {
-  const safeNumber = (value, fallback = 0) => (
-    Number.isFinite(Number(value)) ? Number(value) : fallback
-  );
-  const textLeft = safeNumber(viewLeft) - safeNumber(stageLeft) + safeNumber(paddingLeft);
-  return Math.max(
-    safeNumber(minLeft, 4),
-    textLeft - safeNumber(gutterWidth) - safeNumber(gap, 12)
-  );
-}
-
-export function getMinimapViewportGeometry({
-  scrollTop,
-  scrollHeight,
-  clientHeight,
-  trackHeight,
-  contentHeight = trackHeight,
-  minHeight = 14,
-}) {
-  const safeTrackHeight = Math.max(0, Number(trackHeight) || 0);
-  const safeContentHeight = Math.min(
-    safeTrackHeight,
-    Math.max(0, Number(contentHeight) || 0)
-  );
-  const safeScrollHeight = Math.max(1, Number(scrollHeight) || 1);
-  const safeClientHeight = Math.max(0, Number(clientHeight) || 0);
-  const maxScroll = Math.max(0, safeScrollHeight - safeClientHeight);
-  const height = maxScroll === 0
-    ? safeContentHeight
-    : Math.min(
-      safeContentHeight,
-      Math.max(Number(minHeight) || 0, (safeClientHeight / safeScrollHeight) * safeContentHeight)
-    );
-  const progress = maxScroll === 0
-    ? 0
-    : Math.min(1, Math.max(0, (Number(scrollTop) || 0) / maxScroll));
-
-  return {
-    top: progress * Math.max(0, safeContentHeight - height),
-    height,
-  };
 }

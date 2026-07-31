@@ -1,7 +1,3 @@
-import { invoke as defaultInvoke } from '@tauri-apps/api/core';
-import { listen as defaultListen } from '@tauri-apps/api/event';
-import { getCurrentWebview as defaultGetCurrentWebview } from '@tauri-apps/api/webview';
-import { open as defaultOpenFileDialog } from '@tauri-apps/plugin-dialog';
 import { orderNativeOpenRequests } from './open-intent-controller.js';
 
 function isNativeRuntime(window) {
@@ -25,6 +21,11 @@ export function createDocumentIngressController({
   let associationUnlisten = null;
   let dragDropUnlisten = null;
   const domUnlisteners = [];
+
+  const listenNative = adapters.listen;
+  const openFileDialog = adapters.openFileDialog;
+  const getCurrentWebview = adapters.getCurrentWebview;
+  const listPendingOpenFileRequests = adapters.listPendingOpenFileRequests;
 
   const listen = (target, type, handler, options) => {
     target?.addEventListener?.(type, handler, options);
@@ -62,11 +63,15 @@ export function createDocumentIngressController({
 
   const setupFileAssociationEvents = async () => {
     if (!native || disposed) return;
+    if (typeof listenNative !== 'function' || typeof listPendingOpenFileRequests !== 'function') {
+      hooks.onWarning?.('Native file-open adapters are unavailable in this runtime');
+      return;
+    }
 
     const bufferedRequests = [];
     let replayingPendingRequests = true;
     try {
-      const unlisten = await (adapters.listen || defaultListen)('open-file-request', (event) => {
+      const unlisten = await listenNative('open-file-request', (event) => {
         if (replayingPendingRequests) bufferedRequests.push(event.payload);
         else void submitNativeOpenFileRequest(event.payload);
       });
@@ -75,8 +80,7 @@ export function createDocumentIngressController({
         return;
       }
       associationUnlisten = unlisten;
-      const pendingRequests = await (adapters.listPendingOpenFileRequests
-        || (() => (adapters.invoke || defaultInvoke)('list_pending_open_file_requests')))();
+      const pendingRequests = await listPendingOpenFileRequests();
       const orderedRequests = orderNativeOpenRequests(pendingRequests, bufferedRequests);
       replayingPendingRequests = false;
       orderedRequests.forEach((request) => { void submitNativeOpenFileRequest(request); });
@@ -93,8 +97,12 @@ export function createDocumentIngressController({
     if (disposed) return { status: 'disposed' };
     if (!canChangeDocument()) return { status: 'blocked' };
     hooks.closeReadingTools?.();
+    if (typeof openFileDialog !== 'function') {
+      hooks.onToast?.('Could not open the file picker');
+      return { status: 'unavailable' };
+    }
     try {
-      const selected = await (adapters.openFileDialog || defaultOpenFileDialog)({
+      const selected = await openFileDialog({
         multiple: true,
         directory: false,
         filters: [
@@ -123,9 +131,13 @@ export function createDocumentIngressController({
 
   const setupDragAndDrop = async () => {
     if (!native || disposed) return;
+    if (typeof getCurrentWebview !== 'function') {
+      hooks.onWarning?.('Drag & drop adapter unavailable in this runtime');
+      return;
+    }
 
     try {
-      const unlisten = await (adapters.getCurrentWebview || defaultGetCurrentWebview)()
+      const unlisten = await getCurrentWebview()
         .onDragDropEvent(async (event) => {
           if (disposed) return;
           if (event.payload.type === 'over') {

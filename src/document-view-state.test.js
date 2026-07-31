@@ -94,6 +94,22 @@ describe('Document View State', () => {
     expect(view.controller.current()).toEqual({ state: 'idle', path: null, document: null });
   });
 
+  it('owns close eligibility for empty, dirty, and ready documents', () => {
+    const view = fixture();
+    const closeShell = vi.fn();
+    view.hooks.closeShell = closeShell;
+
+    expect(view.controller.requestClose({ canChangeDocument: true })).toEqual({ status: 'empty' });
+    expect(closeShell).not.toHaveBeenCalled();
+
+    view.controller.handle({ state: 'loading', path: 'notes.md' });
+    expect(view.controller.requestClose({ canChangeDocument: false })).toEqual({ status: 'blocked' });
+    expect(closeShell).not.toHaveBeenCalled();
+
+    expect(view.controller.requestClose({ canChangeDocument: true })).toEqual({ status: 'closed' });
+    expect(closeShell).toHaveBeenCalledOnce();
+  });
+
   it('applies same-path save completion through one projection seam', () => {
     const view = fixture();
     const onSavedDocument = vi.fn();

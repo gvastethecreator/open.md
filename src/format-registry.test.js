@@ -6,8 +6,10 @@ import {
   getFormatLabel,
   getReadRenderer,
   imageMimeForFormat,
+  isCompanionTextFormat,
   isImageFormat,
   resolveFormatId,
+  softReadingToolPatchForFormat,
 } from './format-registry.js';
 
 describe('format registry', () => {
@@ -48,5 +50,46 @@ describe('format registry', () => {
     expect(getFormatLabel('markdown')).toBe('Markdown');
     expect(imageMimeForFormat('webp')).toBe('image/webp');
     expect(imageMimeForFormat('unknown')).toBeNull();
+  });
+
+  it('owns companion-text soft reading-tool patches', () => {
+    expect(isCompanionTextFormat('json')).toBe(true);
+    expect(isCompanionTextFormat('markdown')).toBe(false);
+    expect(isCompanionTextFormat('png')).toBe(false);
+    expect(isCompanionTextFormat('text')).toBe(false);
+
+    expect(softReadingToolPatchForFormat('markdown', {
+      wordWrap: true,
+      minimap: false,
+      lineGuide: false,
+    }, {
+      textWordWrapDefault: false,
+      textMinimapDefault: true,
+      textLineGuideDefault: true,
+    })).toBeNull();
+
+    expect(softReadingToolPatchForFormat('json', {
+      wordWrap: true,
+      minimap: false,
+      lineGuide: false,
+    }, {
+      textWordWrapDefault: false,
+      textMinimapDefault: true,
+      textLineGuideDefault: true,
+    })).toEqual({
+      wordWrap: false,
+      minimap: true,
+      lineGuide: true,
+    });
+
+    expect(softReadingToolPatchForFormat('yaml', {
+      wordWrap: false,
+      minimap: true,
+      lineGuide: true,
+    }, {
+      textWordWrapDefault: false,
+      textMinimapDefault: true,
+      textLineGuideDefault: true,
+    })).toBeNull();
   });
 });
