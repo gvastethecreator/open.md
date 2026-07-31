@@ -1,51 +1,94 @@
 export function createApplicationLifecycleController({
   window,
-  document,
-  mounts = [],
-  events = [],
-  startup,
-  disposables = [],
   isDirty = () => false,
   hooks = {},
 } = {}) {
-  if (!window || !document) {
-    throw new TypeError('Application Lifecycle requires window and document');
+  if (!window) {
+    throw new TypeError('Application Lifecycle requires window');
   }
 
-  let disposed = false;
-  let started = false;
+  const AbortControllerClass = window.AbortController || globalThis.AbortController;
+  const abortController = new AbortControllerClass();
+  const cleanups = [];
+  const owned = new Set();
+  let phase = 'idle';
   let startPromise = null;
-  const eventCleanups = [];
+  let disposePromise = null;
 
-  const eventList = () => (typeof events === 'function' ? events() : events);
-  const disposableList = () => (typeof disposables === 'function' ? disposables() : disposables);
+  const reportCleanupError = (error) => {
+    hooks.onDiagnostic?.('Application cleanup failed', error);
+  };
 
-  const bindEvents = () => {
-    for (const binding of eventList() || []) {
-      if (!binding?.target?.addEventListener || !binding.type || !binding.listener) continue;
-      binding.target.addEventListener(binding.type, binding.listener, binding.options);
-      eventCleanups.push(() => binding.target.removeEventListener(binding.type, binding.listener, binding.options));
+  const cleanupFor = (owner) => {
+    if (typeof owner === 'function') return owner;
+    if (owner && typeof owner.dispose === 'function') return () => owner.dispose();
+    return null;
+  };
+
+  const own = (owner) => {
+    const cleanup = cleanupFor(owner);
+    if (!cleanup) throw new TypeError('Application Lifecycle can only own cleanup functions or disposable objects');
+    if (owned.has(owner)) return owner;
+
+    if (phase === 'disposing' || phase === 'disposed') {
+      try {
+        Promise.resolve(cleanup()).catch(reportCleanupError);
+      } catch (error) {
+        reportCleanupError(error);
+      }
+      throw new Error('Application Lifecycle is disposed');
     }
+
+    owned.add(owner);
+    cleanups.push({ owner, cleanup });
+    return owner;
+  };
+
+  const listen = (target, type, listener, options) => {
+    if (target == null) return () => {};
+    if (
+      typeof target.addEventListener !== 'function'
+      || typeof target.removeEventListener !== 'function'
+      || typeof type !== 'string'
+      || type.length === 0
+      || typeof listener !== 'function'
+    ) {
+      throw new TypeError('Application Lifecycle received an invalid event binding');
+    }
+
+    target.addEventListener(type, listener, options);
+    let active = true;
+    const unlisten = () => {
+      if (!active) return;
+      active = false;
+      target.removeEventListener(type, listener, options);
+    };
+    own(unlisten);
+    return unlisten;
   };
 
   const dispose = () => {
-    if (disposed) return;
-    disposed = true;
-    eventCleanups.splice(0).reverse().forEach((cleanup) => cleanup());
-
-    const seen = new Set();
-    [...(disposableList() || [])].reverse().forEach((disposable) => {
-      const disposeOne = typeof disposable === 'function'
-        ? disposable
-        : disposable?.dispose?.bind(disposable);
-      if (!disposeOne || seen.has(disposeOne)) return;
-      seen.add(disposeOne);
-      try {
-        disposeOne();
-      } catch (error) {
-        hooks.onDiagnostic?.('Application cleanup failed', error);
+    if (disposePromise) return disposePromise;
+    phase = 'disposing';
+    abortController.abort();
+    disposePromise = (async () => {
+      const cleanupErrors = [];
+      while (cleanups.length > 0) {
+        const entry = cleanups.pop();
+        try {
+          await entry.cleanup();
+        } catch (error) {
+          cleanupErrors.push(error);
+          reportCleanupError(error);
+        } finally {
+          owned.delete(entry.owner);
+        }
       }
-    });
+      owned.clear();
+      phase = 'disposed';
+      return { status: 'disposed', cleanupErrors };
+    })();
+    return disposePromise;
   };
 
   const beforeUnload = (event) => {
@@ -53,37 +96,44 @@ export function createApplicationLifecycleController({
       event.preventDefault();
       event.returnValue = '';
     }
-    dispose();
+    void dispose();
   };
 
-  const start = () => {
-    if (disposed) return Promise.reject(new Error('Application Lifecycle is disposed'));
+  const scope = Object.freeze({
+    signal: abortController.signal,
+    own,
+    listen,
+  });
+
+  const start = (setup) => {
     if (startPromise) return startPromise;
+    if (phase === 'disposing' || phase === 'disposed') {
+      return Promise.reject(new Error('Application Lifecycle is disposed'));
+    }
+    if (setup != null && typeof setup !== 'function') {
+      return Promise.reject(new TypeError('Application Lifecycle setup must be a function'));
+    }
+
+    phase = 'starting';
     startPromise = (async () => {
       try {
-        for (const mount of mounts || []) {
-          if (disposed) return { status: 'disposed' };
-          await mount?.();
-        }
-        if (disposed) return { status: 'disposed' };
-        bindEvents();
-        window.addEventListener('beforeunload', beforeUnload);
-        eventCleanups.push(() => window.removeEventListener('beforeunload', beforeUnload));
-        await startup?.();
+        listen(window, 'beforeunload', beforeUnload);
+        await setup?.(scope);
+        if (phase === 'disposing' || phase === 'disposed') return { status: 'disposed' };
+        phase = 'started';
         return { status: 'started' };
       } catch (error) {
-        dispose();
+        await dispose();
         throw error;
       }
     })();
-    started = true;
     return startPromise;
   };
 
   return Object.freeze({
     start,
     dispose,
-    isStarted: () => started,
-    isDisposed: () => disposed,
+    isStarted: () => startPromise !== null,
+    isDisposed: () => phase === 'disposing' || phase === 'disposed',
   });
 }

@@ -28,7 +28,6 @@ export function createReadingNavigationController({
   let minimapDirty = true;
   let minimapCloneRevision = 0;
   let minimapContentHeight = 0;
-  let viewScrollPositions = { read: 0, source: 0 };
   let started = false;
   let disposed = false;
 
@@ -415,13 +414,11 @@ export function createReadingNavigationController({
     activeScroller()?.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
   };
 
-  const captureViewScroll = (viewMode) => {
-    if (!elements.readerPage || !Object.hasOwn(viewScrollPositions, viewMode)) return;
-    viewScrollPositions[viewMode] = elements.readerPage.scrollTop;
-  };
-  const restoreViewScroll = (viewMode) => {
-    if (!elements.readerPage || !Object.hasOwn(viewScrollPositions, viewMode)) return;
-    elements.readerPage.scrollTo({ top: viewScrollPositions[viewMode] || 0, behavior: 'auto' });
+  const captureScrollPosition = () => elements.readerPage?.scrollTop ?? 0;
+  const restoreScrollPosition = (position) => {
+    if (!elements.readerPage) return;
+    const top = Number.isFinite(position) ? Math.max(0, position) : 0;
+    elements.readerPage.scrollTo({ top, behavior: 'auto' });
     queueUpdate();
   };
 
@@ -430,7 +427,6 @@ export function createReadingNavigationController({
     readingProgress = 0;
     minimapDirty = true;
     minimapContentHeight = 0;
-    viewScrollPositions = { read: 0, source: 0 };
     reportMetrics();
   };
 
@@ -486,8 +482,8 @@ export function createReadingNavigationController({
     refreshTools,
     handleScroll,
     scrollToTop,
-    captureViewScroll,
-    restoreViewScroll,
+    captureScrollPosition,
+    restoreScrollPosition,
     reset,
     start,
     dispose,

@@ -182,9 +182,9 @@ function updateWindowTitle(filePath = null) {
   }
 }
 
-async function setupWindowChrome() {
+async function setupWindowChrome(own) {
   if (!window.__TAURI_INTERNALS__) return;
-  windowChrome = createWindowChrome({
+  windowChrome = own(createWindowChrome({
     document,
     elements: {
       minimize: ui.windowMinimizeButton,
@@ -196,7 +196,7 @@ async function setupWindowChrome() {
       console.error(message, error);
       showToast(message);
     },
-  });
+  }));
   await windowChrome.start();
 }
 
@@ -348,10 +348,10 @@ function toggleHelp() {
   readerViewport?.toggleHelp();
 }
 
-async function initThemes() {
+async function initThemes(own) {
   try {
     const savedThemeName = readerShell.preferences.current().themeName;
-    themeCoordinator = createThemeCoordinator({
+    themeCoordinator = own(createThemeCoordinator({
       window,
       document,
       themes: allThemes,
@@ -372,17 +372,17 @@ async function initThemes() {
         onCommit: () => readingNavigation?.markDirty(),
         onError: (message, error) => console.error(`${message}:`, error),
       },
-    });
+    }));
     await themeCoordinator.start(savedThemeName);
   } catch (error) {
+    themeCoordinator = null;
     console.error('Failed to initialize themes:', error);
     showToast('Could not load themes');
   }
 }
 
 function showToast(message) {
-  toastPresenter ??= createToastPresenter({ window, document, element: ui.toast });
-  toastPresenter.show(message);
+  toastPresenter?.show(message);
 }
 
 function cycleTheme(direction = 1) {
@@ -402,8 +402,8 @@ function commitDocumentViewState(value) {
   documentViewState?.commitDocument(value);
 }
 
-function mountDocumentViewState() {
-  documentViewState = createDocumentViewStateController({
+function mountDocumentViewState(own) {
+  documentViewState = own(createDocumentViewStateController({
     window,
     adapters: {
       getEditorSession: () => editorSession,
@@ -422,7 +422,7 @@ function mountDocumentViewState() {
       markNavigationDirty: () => readingNavigation?.markDirty(),
       handleNavigationScroll: () => readingNavigation?.handleScroll(),
     },
-  });
+  }));
 }
 
 function activeDiagramTheme() {
@@ -434,9 +434,9 @@ function activeDiagramTokens() {
   return theme ? getThemeTokens(theme) : null;
 }
 
-function mountApplicationReaderShell() {
+function mountApplicationReaderShell(own) {
   runtimeAdapters = createApplicationRuntimeAdapters({ window });
-  readerShell = mountReaderShell({
+  readerShell = own(mountReaderShell({
     window,
     adapters: runtimeAdapters,
     hooks: {
@@ -452,11 +452,11 @@ function mountApplicationReaderShell() {
       onPreferencesChange: handlePreferenceSnapshot,
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
-  });
+  }));
 }
 
-function mountReaderViewport() {
-  readerViewport = createReaderViewportController({
+function mountReaderViewport(own) {
+  readerViewport = own(createReaderViewportController({
     window,
     document,
     elements: {
@@ -478,15 +478,15 @@ function mountReaderViewport() {
         readingNavigation?.handleScroll();
       },
     },
-  });
+  }));
   readerViewport.sync({
     hasFilePath: Boolean(getCurrentFilePath()),
     sourceActive: isSourceViewActive(),
   });
 }
 
-function mountReaderControls() {
-  readerControls = createReaderControls({
+function mountReaderControls(own) {
+  readerControls = own(createReaderControls({
     window,
     document,
     elements: {
@@ -507,11 +507,12 @@ function mountReaderControls() {
       preferences: readerShell.preferences,
       isDocumentAvailable: hasLoadedDocument,
       isEditMode: () => isEditMode,
+      getDocumentIdentity: getCurrentDocument,
     },
     hooks: {
       isHelpVisible,
-      captureViewScroll: (mode) => readingNavigation?.captureViewScroll(mode),
-      restoreViewScroll: (mode) => readingNavigation?.restoreViewScroll(mode),
+      captureScrollPosition: () => readingNavigation?.captureScrollPosition(),
+      restoreScrollPosition: (position) => readingNavigation?.restoreScrollPosition(position),
       onReadingToolsApplied: ({ sourceActive }) => {
         readerViewport?.sync({
           hasFilePath: Boolean(getCurrentFilePath()),
@@ -538,7 +539,7 @@ function mountReaderControls() {
       onToast: showToast,
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
-  });
+  }));
   readerControls.start();
 }
 
@@ -561,16 +562,16 @@ function handleEditorState(snapshot) {
   else updateStatus(getCurrentFilePath());
 }
 
-function mountApplicationEditor() {
-  editorFeedback = createEditorFeedbackPresenter({
+function mountApplicationEditor(own) {
+  editorFeedback = own(createEditorFeedbackPresenter({
     window,
     document,
     elements: {
       editorSaveButton: ui.editorSaveButton,
       editorSaveLabel: ui.editorSaveLabel,
     },
-  });
-  editorSession = createEditorSession({
+  }));
+  editorSession = own(createEditorSession({
     window,
     elements: {
       root: ui.editorView,
@@ -602,12 +603,12 @@ function mountApplicationEditor() {
       onUnavailable: showToast,
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
-  });
+  }));
   handleEditorState(editorSession.current());
 }
 
-function mountDocumentSaveCoordinator() {
-  documentSaveCoordinator = createDocumentSaveCoordinator({
+function mountDocumentSaveCoordinator(own) {
+  documentSaveCoordinator = own(createDocumentSaveCoordinator({
     window,
     adapters: {
       isEditing: () => Boolean(editorSession?.isEditing()),
@@ -630,12 +631,12 @@ function mountDocumentSaveCoordinator() {
       },
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
-  });
+  }));
   documentSaveCoordinator.setAutoSaveEnabled(readerControls?.current().autoSave !== false, editorSession.current());
 }
 
-function mountDocumentModeCoordinator() {
-  documentModeCoordinator = createDocumentModeCoordinator({
+function mountDocumentModeCoordinator(own) {
+  documentModeCoordinator = own(createDocumentModeCoordinator({
     window,
     document,
     elements: {
@@ -650,6 +651,7 @@ function mountDocumentModeCoordinator() {
     adapters: {
       getMode: () => isEditMode ? 'edit' : isSourceViewActive() ? 'source' : 'read',
       isAvailable: () => Boolean(editorSession && hasLoadedDocument()),
+      getDocumentIdentity: getCurrentDocument,
       enterEdit: () => editorSession?.enter(),
       exitEdit: () => editorSession?.exit(),
       setSource: (active) => setReadingTool('source', active),
@@ -661,13 +663,15 @@ function mountDocumentModeCoordinator() {
         setTypographyOpen(false);
       },
       cancelCompetingTransition: () => themeCoordinator?.cancelTransition(),
+      captureScrollPosition: () => readingNavigation?.captureScrollPosition(),
+      restoreScrollPosition: (position) => readingNavigation?.restoreScrollPosition(position),
     },
-  });
+  }));
   documentModeCoordinator.refresh();
 }
 
-function mountReadingNavigation() {
-  readingNavigation = createReadingNavigationController({
+function mountReadingNavigation(own) {
+  readingNavigation = own(createReadingNavigationController({
     window,
     document,
     elements: {
@@ -696,13 +700,13 @@ function mountReadingNavigation() {
     hooks: {
       onMetricsChange: updateStatusMetrics,
     },
-  });
+  }));
   readingNavigation.start();
   readingNavigation.refreshTools();
 }
 
-function mountDocumentContentActions() {
-  documentContentActions = createDocumentContentActions({
+function mountDocumentContentActions(own) {
+  documentContentActions = own(createDocumentContentActions({
     window,
     document,
     elements: {
@@ -720,29 +724,29 @@ function mountDocumentContentActions() {
       toggleReadTask: (payload) => documentSaveCoordinator?.toggleReadTask(payload),
     },
     hooks: { onToast: showToast },
-  });
+  }));
 }
 
-function mountContextMenu() {
-  contextMenuController = createContextMenuController({
+function mountContextMenu(own) {
+  contextMenuController = own(createContextMenuController({
     window,
     document,
     resolveContext: ({ target }) => documentContentActions?.resolveContext({ target }),
     hooks: {
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
-  });
+  }));
   contextMenuController.start();
 }
 
-function mountTooltips() {
-  tooltipController = createTooltipController({
+function mountTooltips(own) {
+  tooltipController = own(createTooltipController({
     window,
     document,
     hooks: {
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
-  });
+  }));
   tooltipController.start();
 }
 
@@ -799,8 +803,8 @@ function handleZoom(event) {
   }
 }
 
-function mountReaderKeyboard() {
-  readerKeyboard = createReaderKeyboardController({
+function mountReaderKeyboard(own) {
+  readerKeyboard = own(createReaderKeyboardController({
     window,
     adapters: {
       isHelpVisible,
@@ -821,7 +825,7 @@ function mountReaderKeyboard() {
       resetZoom: () => setZoom(1.0),
       cycleTheme,
     },
-  });
+  }));
   readerKeyboard.start();
 }
 
@@ -830,8 +834,8 @@ function handleThemeSelection(event) {
   if (Number.isInteger(index)) themeCoordinator?.applyIndex(index);
 }
 
-function mountDocumentIngress() {
-  documentIngress = createDocumentIngressController({
+function mountDocumentIngress(own) {
+  documentIngress = own(createDocumentIngressController({
     window,
     document,
     adapters: {
@@ -845,7 +849,7 @@ function mountDocumentIngress() {
       onWarning: (message, error) => console.warn(`${message}:`, error),
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
-  });
+  }));
 }
 
 function openFilePicker() {
@@ -867,36 +871,14 @@ function applicationEvents() {
   ];
 }
 
-function applicationDisposables() {
-  return [
-    () => windowChrome?.dispose(),
-    () => editorSession?.dispose(),
-    () => readerShell?.dispose(),
-    () => responsiveTypography?.dispose(),
-    () => editorFeedback?.dispose(),
-    () => readerViewport?.dispose(),
-    () => readerControls?.dispose(),
-    () => statusPresenter?.dispose(),
-    () => tooltipController?.dispose(),
-    () => toastPresenter?.dispose(),
-    () => themeCoordinator?.dispose(),
-    () => documentSaveCoordinator?.dispose(),
-    () => documentModeCoordinator?.dispose(),
-    () => readingNavigation?.dispose(),
-    () => documentContentActions?.dispose(),
-    () => documentIngress?.dispose(),
-    () => readerKeyboard?.dispose(),
-  ];
-}
-
-async function startApplication() {
+async function startApplication(own) {
   const preferenceResult = await readerShell.preferences.load();
   if (preferenceResult.status === 'fallback') {
     console.warn('One or more saved preferences could not be restored:', preferenceResult.warnings);
   }
   await documentIngress?.start();
-  await setupWindowChrome();
-  await initThemes();
+  await setupWindowChrome(own);
+  await initThemes(own);
   const queryFilePath = new URLSearchParams(window.location.search).get('file');
   let initialFilePaths = queryFilePath ? [queryFilePath] : [];
 
@@ -918,51 +900,47 @@ async function startApplication() {
 async function init() {
   applicationLifecycle = createApplicationLifecycleController({
     window,
-    document,
-    mounts: [
-      cacheElements,
-      () => {
-        statusPresenter = createStatusPresenter({
-          window,
-          document,
-          elements: {
-            primary: ui.statusPrimary,
-            context: ui.statusContext,
-            metrics: ui.statusMetrics,
-          },
-        });
-      },
-      mountTooltips,
-      () => {
-        responsiveTypography = createResponsiveTypography({
-          window,
-          root: document,
-          onDiagnostic: (message, error) => console.warn(`${message}:`, error),
-        });
-      },
-      mountApplicationReaderShell,
-      mountReaderViewport,
-      mountReaderControls,
-      mountApplicationEditor,
-      mountDocumentSaveCoordinator,
-      mountDocumentViewState,
-      mountDocumentModeCoordinator,
-      mountReadingNavigation,
-      mountDocumentContentActions,
-      mountDocumentIngress,
-      mountContextMenu,
-      mountReaderKeyboard,
-      syncViewportState,
-    ],
-    events: applicationEvents,
-    startup: startApplication,
-    disposables: applicationDisposables,
     isDirty: () => Boolean(editorSession?.isDirty()),
     hooks: {
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
   });
-  await applicationLifecycle.start();
+  await applicationLifecycle.start(async ({ own, listen }) => {
+    cacheElements();
+    statusPresenter = own(createStatusPresenter({
+      window,
+      document,
+      elements: {
+        primary: ui.statusPrimary,
+        context: ui.statusContext,
+        metrics: ui.statusMetrics,
+      },
+    }));
+    toastPresenter = own(createToastPresenter({ window, document, element: ui.toast }));
+    mountTooltips(own);
+    responsiveTypography = own(createResponsiveTypography({
+      window,
+      root: document,
+      onDiagnostic: (message, error) => console.warn(`${message}:`, error),
+    }));
+    mountApplicationReaderShell(own);
+    mountReaderViewport(own);
+    mountReaderControls(own);
+    mountApplicationEditor(own);
+    mountDocumentSaveCoordinator(own);
+    mountDocumentViewState(own);
+    mountDocumentModeCoordinator(own);
+    mountReadingNavigation(own);
+    mountDocumentContentActions(own);
+    mountDocumentIngress(own);
+    mountContextMenu(own);
+    mountReaderKeyboard(own);
+    syncViewportState();
+    for (const binding of applicationEvents()) {
+      listen(binding.target, binding.type, binding.listener, binding.options);
+    }
+    await startApplication(own);
+  });
 }
 
 if (typeof window !== 'undefined' && !window.__VITEST__) {

@@ -3,7 +3,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_READING_TOOLS } from './reader-preferences.js';
 import { createReaderControls } from './reader-controls.js';
 
-function fixture() {
+function deferred() {
+  let resolve;
+  const promise = new Promise((yes) => { resolve = yes; });
+  return { promise, resolve };
+}
+
+function fixture({ preferenceGate = null, deferFrames = false } = {}) {
   const dom = new JSDOM(`<!doctype html><body>
     <button id="tools"></button><div id="tools-shell"><div id="tools-panel"></div></div>
     <button id="type"></button><div id="type-shell"><div id="type-panel"></div></div>
@@ -17,6 +23,15 @@ function fixture() {
     <button data-reading-tool="wordWrap"></button>
     <article id="content"></article><pre id="source"></pre><div id="reader"></div>
   </body>`);
+  const frames = new Map();
+  let nextFrameId = 1;
+  dom.window.requestAnimationFrame = (callback) => {
+    const id = nextFrameId++;
+    if (deferFrames) frames.set(id, callback);
+    else callback();
+    return id;
+  };
+  dom.window.cancelAnimationFrame = (id) => frames.delete(id);
   const document = dom.window.document;
   const elements = {
     readingToolsButton: document.querySelector('#tools'),
@@ -35,6 +50,7 @@ function fixture() {
   let available = true;
   let editMode = false;
   let helpVisible = false;
+  let documentIdentity = { path: 'A.md' };
   let preferenceState = {
     themeName: null,
     readingTools: { ...DEFAULT_READING_TOOLS },
@@ -50,13 +66,14 @@ function fixture() {
     onAutoSaveApplied: vi.fn(),
     onToast: vi.fn(),
     onPreferenceResult: vi.fn(),
-    captureViewScroll: vi.fn(),
-    restoreViewScroll: vi.fn(),
+    captureScrollPosition: vi.fn(() => 140),
+    restoreScrollPosition: vi.fn(),
   };
   const preferences = {
     current: () => preferenceState,
     update: vi.fn(async (patch) => {
       updates.push(patch);
+      if (preferenceGate) await preferenceGate;
       preferenceState = {
         ...preferenceState,
         ...patch,
@@ -75,6 +92,7 @@ function fixture() {
       preferences,
       isDocumentAvailable: () => available,
       isEditMode: () => editMode,
+      getDocumentIdentity: () => documentIdentity,
     },
     hooks: { ...hooks, isHelpVisible: () => helpVisible },
   });
@@ -89,6 +107,12 @@ function fixture() {
     setAvailable: (value) => { available = value; },
     setEditMode: (value) => { editMode = value; },
     setHelp: (value) => { helpVisible = value; },
+    replaceDocument: () => { documentIdentity = { path: 'B.md' }; },
+    flushFrames: () => {
+      const pending = [...frames.values()];
+      frames.clear();
+      pending.forEach((callback) => callback());
+    },
   };
 }
 
@@ -151,8 +175,25 @@ describe('Reader Controls', () => {
       { fonts: { sans: 1 } },
       { autoSave: false },
     ]);
-    expect(view.hooks.captureViewScroll).toHaveBeenCalledWith('read');
+    expect(view.hooks.captureScrollPosition).toHaveBeenCalledOnce();
+    expect(view.hooks.restoreScrollPosition).toHaveBeenCalledWith(140);
     expect(view.hooks.onToast).toHaveBeenCalledWith('Source view on');
+  });
+
+  it.each(['replacement', 'dispose'])('drops stale Source effects after document %s', async (reason) => {
+    const gate = deferred();
+    const view = fixture({ preferenceGate: gate.promise, deferFrames: true });
+    view.controller.start();
+    const change = view.controller.setReadingTool('source', true);
+
+    if (reason === 'replacement') view.replaceDocument();
+    else view.controller.dispose();
+    gate.resolve();
+    await change;
+    view.flushFrames();
+
+    expect(view.hooks.restoreScrollPosition).not.toHaveBeenCalled();
+    expect(view.hooks.onToast).not.toHaveBeenCalled();
   });
 
   it('removes its listeners and stops projecting after disposal', () => {

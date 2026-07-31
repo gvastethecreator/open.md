@@ -135,13 +135,12 @@ describe('Reading Navigation Controller', () => {
     expect(view.elements.readerPage.scrollTo).toHaveBeenLastCalledWith({ top: 800, behavior: 'auto' });
   });
 
-  it('keeps independent Read/Source scroll positions and uses reduced-motion scroll to top', () => {
+  it('captures and restores one reader scroll position across mode changes', () => {
     const view = fixture();
     view.elements.readerPage.scrollTop = 140;
-    view.controller.captureViewScroll('read');
+    const scrollPosition = view.controller.captureScrollPosition();
     view.elements.readerPage.scrollTop = 280;
-    view.controller.captureViewScroll('source');
-    view.controller.restoreViewScroll('read');
+    view.controller.restoreScrollPosition(scrollPosition);
     expect(view.elements.readerPage.scrollTo).toHaveBeenLastCalledWith({ top: 140, behavior: 'auto' });
 
     view.dom.window.matchMedia = () => ({ matches: true });

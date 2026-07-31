@@ -133,10 +133,11 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   const findWrapper = (id) => [...canvas.querySelectorAll('[data-block-id]')]
     .find((wrapper) => wrapper.dataset.blockId === id) || null;
 
-  const focusBlock = (id, position = 'end') => {
+  const focusBlock = (id, position = 'end', { preserveScroll = false } = {}) => {
     const content = blockContent(findWrapper(id));
     if (!content) return;
-    content.focus();
+    if (preserveScroll) content.focus({ preventScroll: true });
+    else content.focus();
     const range = document.createRange();
     range.selectNodeContents(content);
     range.collapse(position === 'start');
@@ -145,7 +146,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     selection.addRange(range);
     activeBlockId = id;
     selectionController?.capture();
-    content.scrollIntoView?.({ block: 'nearest' });
+    if (!preserveScroll) content.scrollIntoView?.({ block: 'nearest' });
   };
 
   const cancelBlockAnimations = () => blockInteractionController?.cancelAnimations();
@@ -579,7 +580,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     root.hidden = false;
     root.removeAttribute('inert');
     notify();
-    queueMicrotask(() => focusBlock(documentSnapshot.blocks[0].id, 'start'));
+    queueMicrotask(() => focusBlock(documentSnapshot.blocks[0].id, 'start', { preserveScroll: true }));
     return true;
   };
 
@@ -771,7 +772,12 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     openLinkFromSelection: () => selectionController?.openLinkFromCurrentSelection() || false,
     performBlockAction,
     dispose() {
+      if (disposed) return;
       disposed = true;
+      canvas.removeEventListener('input', handleCanvasInput);
+      canvas.removeEventListener('keydown', handleCanvasKeydown);
+      canvas.removeEventListener('click', handleCanvasClick);
+      canvas.removeEventListener('change', handleCanvasChange);
       overlayController?.dispose();
       selectionController?.dispose();
       blockInteractionController?.dispose();

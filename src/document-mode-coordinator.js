@@ -188,14 +188,34 @@ export function createDocumentModeCoordinator({
     if (disposed || !adapters.isAvailable?.()) return Promise.resolve(false);
     if (activeTransition) cancelTransition();
     const generation = ++changeGeneration;
+    const documentIdentity = adapters.getDocumentIdentity?.();
     const execute = async () => {
       if (disposed || !adapters.isAvailable?.()) return false;
+      if (
+        typeof adapters.getDocumentIdentity === 'function'
+        && !Object.is(adapters.getDocumentIdentity(), documentIdentity)
+      ) return false;
+      const isCurrentDocument = () => (
+        !disposed
+        && adapters.isAvailable?.()
+        && (
+          typeof adapters.getDocumentIdentity !== 'function'
+          || Object.is(adapters.getDocumentIdentity(), documentIdentity)
+        )
+      );
+      const hasScrollSnapshot = typeof hooks.captureScrollPosition === 'function';
+      const scrollPosition = hasScrollSnapshot
+        ? hooks.captureScrollPosition()
+        : undefined;
       const initialMode = current();
       hooks.closeTransientUi?.();
       cycling = true;
       try {
-        return await runMorph(() => update(initialMode));
+        return await runMorph(() => update(initialMode, { documentIdentity, isCurrentDocument }));
       } finally {
+        if (hasScrollSnapshot && isCurrentDocument()) {
+          hooks.restoreScrollPosition?.(scrollPosition);
+        }
         if (generation === changeGeneration && !disposed) {
           cycling = false;
           refresh({ forceAnimation: current() !== initialMode });
@@ -207,23 +227,33 @@ export function createDocumentModeCoordinator({
     return result;
   };
 
-  const cycle = () => performChange(async (initialMode) => {
+  const cycle = () => performChange(async (initialMode, { documentIdentity, isCurrentDocument }) => {
     if (initialMode === 'edit') {
       if (!await adapters.exitEdit?.()) return false;
+      if (!isCurrentDocument()) return false;
       await adapters.setSource?.(true);
-      return true;
+      return isCurrentDocument();
     }
     if (initialMode === 'source') {
       await adapters.setSource?.(false);
-      return true;
+      return isCurrentDocument();
     }
-    return adapters.enterEdit?.();
+    if (!isCurrentDocument()) return false;
+    const entered = await adapters.enterEdit?.(documentIdentity);
+    return Boolean(entered) && isCurrentDocument();
   });
 
-  const toggleEdit = () => performChange(async (initialMode) => {
-    if (initialMode === 'edit') return adapters.exitEdit?.();
-    if (initialMode === 'source') await adapters.setSource?.(false);
-    return adapters.enterEdit?.();
+  const toggleEdit = () => performChange(async (initialMode, { documentIdentity, isCurrentDocument }) => {
+    if (initialMode === 'edit') {
+      const exited = await adapters.exitEdit?.();
+      return Boolean(exited) && isCurrentDocument();
+    }
+    if (initialMode === 'source') {
+      await adapters.setSource?.(false);
+      if (!isCurrentDocument()) return false;
+    }
+    const entered = await adapters.enterEdit?.(documentIdentity);
+    return Boolean(entered) && isCurrentDocument();
   });
 
   const dispose = () => {

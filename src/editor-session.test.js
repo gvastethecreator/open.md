@@ -104,6 +104,34 @@ describe('editor session', () => {
     expect(session.current()).toMatchObject({ dirty: false, saveState: 'saved' });
   });
 
+  it('focuses the initial edit block without scrolling the reader', async () => {
+    const scrollIntoView = vi.fn();
+    const original = HTMLElement.prototype.scrollIntoView;
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
+
+    try {
+      const { session } = mount();
+      session.setDocument({ path: 'sample.md', source: 'Paragraph', markdown: true });
+      expect(session.enter()).toBe(true);
+      await Promise.resolve();
+
+      expect(document.activeElement).toBe(document.querySelector('[data-editor-content]'));
+      expect(scrollIntoView).not.toHaveBeenCalled();
+    } finally {
+      if (original) {
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+          configurable: true,
+          value: original,
+        });
+      } else {
+        delete HTMLElement.prototype.scrollIntoView;
+      }
+    }
+  });
+
   it('uses the slash menu to change a block and serializes the chosen type', () => {
     const { session } = mount();
     session.setDocument({ path: 'sample.md', source: '', markdown: true });
@@ -553,5 +581,39 @@ describe('editor session', () => {
     expect(session.enter()).toBe(false);
     expect(session.current()).toMatchObject({ mode: 'read', path: 'large.md' });
     expect(document.getElementById('editor-view').hidden).toBe(true);
+  });
+
+  it('stops canvas input after the editor session is disposed', () => {
+    const onStateChange = vi.fn();
+    const { session } = mount(undefined, { onStateChange });
+    session.setDocument({ path: 'sample.md', source: '- [ ] Task', markdown: true });
+    session.enter();
+
+    const canvas = document.getElementById('editor-canvas');
+    const content = canvas.querySelector('[data-editor-content]');
+    const checkbox = canvas.querySelector('[data-todo-check]');
+    const addButton = canvas.querySelector('[data-add-block]');
+    const callbackCount = onStateChange.mock.calls.length;
+    const sourceBeforeDispose = session.source();
+    const blockCountBeforeDispose = canvas.querySelectorAll('[data-block-id]').length;
+
+    session.dispose();
+    content.textContent = 'Changed after dispose';
+    content.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    const keydown = new KeyboardEvent('keydown', {
+      key: 'z',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    content.dispatchEvent(keydown);
+    addButton.click();
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(onStateChange).toHaveBeenCalledTimes(callbackCount);
+    expect(session.source()).toBe(sourceBeforeDispose);
+    expect(canvas.querySelectorAll('[data-block-id]')).toHaveLength(blockCountBeforeDispose);
+    expect(keydown.defaultPrevented).toBe(false);
   });
 });
