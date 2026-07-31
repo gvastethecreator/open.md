@@ -323,7 +323,7 @@ describe('editor session', () => {
     expect(session.performBlockAction('missing', 'delete')).toBe(false);
   });
 
-  it('uses explicit before and after targets when dragging blocks in either direction', () => {
+  it('reorders blocks live while dragging and commits the final order on drop', () => {
     const { session } = mount();
     session.setDocument({ path: 'sample.md', source: 'One\nTwo\nThree', markdown: true });
     session.enter();
@@ -334,7 +334,9 @@ describe('editor session', () => {
     vi.spyOn(wrappers[2], 'getBoundingClientRect').mockReturnValue(blockRect(80));
     const afterEvent = dispatchBlockDrag(wrappers[2], 'dragover', transfer, { clientY: 115 });
     expect(afterEvent.defaultPrevented).toBe(true);
-    expect(wrappers[2].classList.contains('is-drag-target-after')).toBe(true);
+    expect([...document.querySelectorAll('[data-block-id]')].map((node) => node.querySelector('[data-editor-content]')?.textContent))
+      .toEqual(['Two', 'Three', 'One']);
+    expect(session.source()).toBe('One\nTwo\nThree');
     dispatchBlockDrag(wrappers[2], 'drop', transfer, { clientY: 115 });
     expect(session.source()).toBe('Two\nThree\nOne');
     expect(document.querySelector('.is-dragging, .is-drag-target-after')).toBeNull();
@@ -344,7 +346,8 @@ describe('editor session', () => {
     dispatchBlockDrag(wrappers[2].querySelector('[data-block-menu]'), 'dragstart', transfer);
     vi.spyOn(wrappers[0], 'getBoundingClientRect').mockReturnValue(blockRect(0));
     dispatchBlockDrag(wrappers[0], 'dragover', transfer, { clientY: 2 });
-    expect(wrappers[0].classList.contains('is-drag-target-before')).toBe(true);
+    expect([...document.querySelectorAll('[data-block-id]')].map((node) => node.querySelector('[data-editor-content]')?.textContent))
+      .toEqual(['One', 'Two', 'Three']);
     dispatchBlockDrag(wrappers[0], 'drop', transfer, { clientY: 2 });
     expect(session.source()).toBe('One\nTwo\nThree');
   });

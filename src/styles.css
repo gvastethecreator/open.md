@@ -65,7 +65,13 @@
   --toolbar-bg: #f3f6f7;
   --danger-color: #b4232f;
   --shadow-color: rgba(24, 33, 43, 0.14);
+  /*
+   * Depth token kept for contract/validation. Prefer text-shadow over CSS
+   * filter on live document text — per-element filter: drop-shadow() forces a
+   * layer per block and pops on every FLIP / View Transition tear-down.
+   */
   --content-depth-filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.1));
+  --content-depth-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
   --radius-xs: 2px;
   --radius-sm: 4px;
   --radius-md: 6px;
@@ -78,7 +84,24 @@
   --editor-control-gap: 4px;
   --editor-line-gap: 12px;
   --editor-indent-step: 22px;
-  --line-guide-reserve: 50px;
+  --line-guide-reserve: 58px;
+  /* Viewport fade: text dissolves before it meets titlebar / status bar. */
+  --content-edge-fade: 48px;
+  --scroll-edge-size: 52px;
+  /*
+   * Stacking bands (live DOM + matching VT group z-index):
+   *   content 1–3 → edge scrims 5 → minimap 20 → chrome 30–40 → floating UI 80+
+   */
+  --z-scroll-edge: 5;
+  --z-minimap: 20;
+  --z-scroll-top: 22;
+  --z-toolbar: 30;
+  --z-titlebar: 40;
+  --z-panels: 80;
+  --z-toast: 90;
+  --z-menus: 100;
+  --z-tooltip: 120;
+  --z-drop: 130;
   --minimap-width: 72px;
   --minimap-edge: 16px;
   --minimap-clearance: 18px;
@@ -283,46 +306,106 @@ html.is-theme-changing *::after {
   transition-delay: 0s !important;
 }
 
-.app-shell::before,
-.app-shell::after {
+/*
+ * Edge scrims: solid-color gradients only (not backdrop blur). Named content
+ * (document surface, digits) punches out of the reader mask during morph, so
+ * these fixed layers keep the edge fade continuous above that content.
+ */
+.scroll-edge {
   position: fixed;
   right: 0;
   left: 0;
-  z-index: 10;
-  height: 44px;
+  z-index: var(--z-scroll-edge);
+  height: var(--scroll-edge-size);
   opacity: 0;
   pointer-events: none;
-  content: "";
-  backdrop-filter: blur(2.5px);
-  -webkit-backdrop-filter: blur(2.5px);
-  transition: opacity var(--motion-base) var(--motion-ease-standard);
+  transition: opacity 220ms var(--motion-ease-out);
 }
 
-.app-shell::before {
+.scroll-edge--top {
   top: var(--titlebar-height);
   background: linear-gradient(
     to bottom,
-    color-mix(in srgb, var(--bg-color) 76%, transparent),
-    transparent
+    var(--bg-color) 0%,
+    color-mix(in srgb, var(--bg-color) 72%, transparent) 42%,
+    color-mix(in srgb, var(--bg-color) 28%, transparent) 72%,
+    transparent 100%
   );
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.72) 58%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 0%, rgba(0, 0, 0, 0.72) 58%, transparent 100%);
 }
 
-.app-shell::after {
+.scroll-edge--bottom {
   bottom: var(--toolbar-height);
   background: linear-gradient(
     to top,
-    color-mix(in srgb, var(--bg-color) 76%, transparent),
-    transparent
+    var(--bg-color) 0%,
+    color-mix(in srgb, var(--bg-color) 72%, transparent) 42%,
+    color-mix(in srgb, var(--bg-color) 28%, transparent) 72%,
+    transparent 100%
   );
-  -webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.72) 58%, transparent 100%);
-  mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.72) 58%, transparent 100%);
 }
 
-body.has-scroll-before .app-shell::before,
-body.has-scroll-after .app-shell::after {
+/* Always on while reading: edges stay soft even when not scrolled (chrome collision). */
+body:not(.is-help-open) .scroll-edge--top,
+body:not(.is-help-open) .scroll-edge--bottom {
   opacity: 1;
+}
+
+/* Never paint the scrim over the minimap rail. */
+body.is-minimap .scroll-edge {
+  right: calc(var(--minimap-width) + var(--minimap-edge) + 10px);
+}
+
+body.is-mode-morphing .scroll-edge--top {
+  view-transition-name: scroll-edge-top;
+}
+
+body.is-mode-morphing .scroll-edge--bottom {
+  view-transition-name: scroll-edge-bottom;
+}
+
+body.is-mode-morphing .app-titlebar {
+  view-transition-name: app-chrome-top;
+}
+
+body.is-mode-morphing .app-toolbar {
+  view-transition-name: app-chrome-bottom;
+}
+
+/*
+ * Floating UI must be named during morph or it stays in root and paints under
+ * every named layer (including edge scrims). Each name is unique — duplicates
+ * abort that shared-element transition in Chromium.
+ */
+body.is-mode-morphing .toast.show {
+  view-transition-name: floating-toast;
+}
+
+body.is-mode-morphing .app-tooltip:not([hidden]) {
+  view-transition-name: floating-tooltip;
+}
+
+body.is-mode-morphing .app-context-menu:not([hidden]) {
+  view-transition-name: floating-menu;
+}
+
+body.is-mode-morphing .reading-tools-panel[aria-hidden="false"] {
+  view-transition-name: floating-reading-tools;
+}
+
+body.is-mode-morphing .typography-panel[aria-hidden="false"] {
+  view-transition-name: floating-typography;
+}
+
+body.is-mode-morphing .editor-menu:not([hidden]) {
+  view-transition-name: floating-editor-menu;
+}
+
+body.is-mode-morphing .editor-inline-toolbar:not([hidden]) {
+  view-transition-name: floating-editor-toolbar;
+}
+
+body.is-mode-morphing .editor-link-popover:not([hidden]) {
+  view-transition-name: floating-editor-link;
 }
 
 .app-titlebar {
@@ -330,7 +413,7 @@ body.has-scroll-after .app-shell::after {
   top: 0;
   right: 0;
   left: 0;
-  z-index: 40;
+  z-index: var(--z-titlebar);
   height: var(--titlebar-height);
   display: flex;
   align-items: stretch;
@@ -589,6 +672,29 @@ body.has-scroll-after .app-shell::after {
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+  /*
+   * Transparent gradient mask on the text viewport: content soft-erases as it
+   * approaches the titlebar and status bar. This is the edge fade for reading,
+   * not a painted overlay on top of the document.
+   */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--content-edge-fade),
+    #000 calc(100% - var(--content-edge-fade)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    #000 var(--content-edge-fade),
+    #000 calc(100% - var(--content-edge-fade)),
+    transparent 100%
+  );
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
 .document-stage {
@@ -791,7 +897,8 @@ kbd {
   min-width: 0;
   margin: 0 auto;
   padding: clamp(38px, 6vw, 64px) var(--document-inline-space) 96px;
-  animation: quiet-enter var(--motion-slow) var(--motion-ease-out) both;
+  /* No permanent quiet-enter: restoring it after mode morph restarts the
+     animation and makes the whole document surface pop. */
   transition:
     padding-left var(--navigation-motion) var(--motion-ease-out),
     padding-right var(--navigation-motion) var(--motion-ease-out);
@@ -810,12 +917,13 @@ kbd {
   inset-block: 0;
   left: 4px;
   z-index: 2;
-  width: 34px;
+  width: 40px;
   min-height: 100%;
   color: var(--ui-muted);
   font-family: var(--font-mono);
-  font-size: 0.64rem;
+  font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
   line-height: 1;
   pointer-events: none;
   user-select: none;
@@ -844,6 +952,8 @@ body.is-line-guide .line-gutter {
   text-align: right;
   text-overflow: clip;
   opacity: 0.44;
+  view-transition-class: line-number;
+  backface-visibility: hidden;
   transition:
     color var(--motion-fast) var(--motion-ease-standard),
     opacity var(--motion-fast) var(--motion-ease-standard);
@@ -853,6 +963,12 @@ body.is-line-guide .line-gutter {
   color: var(--ui-accent);
   font-weight: 700;
   opacity: 1;
+}
+
+/* VT / fallback FLIP own geometry; CSS transitions re-fire on tear-down and pop. */
+body.is-mode-morphing.is-line-guide .line-number {
+  transition: none;
+  animation: none;
 }
 
 .source-view {
@@ -869,7 +985,6 @@ body.is-line-guide .line-gutter {
   line-height: 1.6;
   white-space: pre;
   tab-size: 2;
-  animation: quiet-enter var(--motion-slow) var(--motion-ease-out) both;
   transition:
     padding-left var(--navigation-motion) var(--motion-ease-out),
     padding-right var(--navigation-motion) var(--motion-ease-out);
@@ -937,13 +1052,40 @@ body:not(.is-word-wrap) .editor-block-content {
   margin: 0 auto;
   padding: clamp(28px, 5vw, 52px) var(--document-inline-space) 112px;
   padding-left: max(0px, calc(var(--document-inline-space) - var(--editor-control-lane)));
-  animation: quiet-enter var(--motion-slow) var(--motion-ease-out) both;
   transition: padding-right var(--navigation-motion) var(--motion-ease-out);
 }
 
-body.is-mode-morphing #document-stage > .markdown-body:not(.hidden),
-body.is-mode-morphing #document-stage > .source-view:not(.hidden),
-body.is-mode-morphing #document-stage > .editor-view:not([hidden]) {
+/*
+ * Only the active document surface is mounted. Leaving Read content in flow
+ * during Edit stacked two full documents and gave both view-transition-name:
+ * document-surface, which makes Chromium skip the whole mode morph (including
+ * line-number transitions) on Edit → Read.
+ */
+body.is-edit-mode #document-stage > .markdown-body,
+body.is-edit-mode #document-stage > .source-view {
+  display: none !important;
+}
+
+/*
+ * Shape-morph the active document surface between Read / Edit / Source.
+ * Exactly one surface is named at a time (body mode classes). Chrome stays
+ * above via app-chrome-* names so tall surfaces do not cover the toolbars.
+ */
+body.is-mode-morphing:not(.is-edit-mode):not(.is-source-view) #document-stage > .markdown-body:not(.hidden) {
+  view-transition-name: document-surface;
+  animation-delay: -0.01ms;
+  animation-duration: 0.01ms;
+  animation-fill-mode: both;
+}
+
+body.is-mode-morphing.is-source-view #document-stage > .source-view:not(.hidden) {
+  view-transition-name: document-surface;
+  animation-delay: -0.01ms;
+  animation-duration: 0.01ms;
+  animation-fill-mode: both;
+}
+
+body.is-mode-morphing.is-edit-mode #document-stage > .editor-view:not([hidden]) {
   view-transition-name: document-surface;
   animation-delay: -0.01ms;
   animation-duration: 0.01ms;
@@ -951,9 +1093,18 @@ body.is-mode-morphing #document-stage > .editor-view:not([hidden]) {
 }
 
 body.is-mode-morphing.is-line-guide .line-gutter:not([hidden]) {
-  view-transition-name: mode-line-guide;
+  view-transition-name: mode-line-gutter;
+  animation-delay: -0.01ms;
+  animation-duration: 0.01ms;
+  animation-fill-mode: both;
 }
 
+/*
+ * Minimap: one shared name for the whole rail. Splitting shell / document /
+ * viewport into separate VT names made the selection window pop (instant
+ * opacity swap + height rewrite). Rebuild content in the force refresh so
+ * old/new snapshots both include a coherent preview + selected area.
+ */
 body.is-mode-morphing.is-minimap .document-minimap:not([hidden]) {
   view-transition-name: mode-minimap;
 }
@@ -997,159 +1148,212 @@ html.is-theme-wiping .editor-caret-echo {
   animation: none !important;
 }
 
+/*
+ * UA group animation morphs size/position (shape). Old/new only crossfade so we
+ * do not double-apply translate and pop on tear-down. Shared line digits use
+ * their own names for transfer; the gutter lane morphs as mode-line-gutter.
+ */
 ::view-transition-group(document-surface) {
+  z-index: 1;
+  overflow: clip;
   animation-duration: 340ms;
   animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-::view-transition-group(mode-line-guide),
-::view-transition-group(mode-minimap) {
+::view-transition-group(mode-line-gutter) {
+  z-index: 2;
+  overflow: visible;
+  animation-duration: 320ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+::view-transition-group(*.line-number) {
+  /* Below edge scrims (5) so digits stay under the gradient. */
+  z-index: 3;
+  overflow: visible;
   animation-duration: 300ms;
   animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-::view-transition-image-pair(document-surface) {
-  isolation: auto;
+/* Edges only above reading content (1–3), never above minimap or floating UI. */
+::view-transition-group(scroll-edge-top),
+::view-transition-group(scroll-edge-bottom) {
+  z-index: 5;
+  animation: none;
 }
 
-::view-transition-image-pair(mode-line-guide),
+::view-transition-group(mode-minimap) {
+  z-index: 20;
+  overflow: clip;
+  /* Fixed rail: no size morph — only content crossfade inside. */
+  animation: none;
+}
+
+::view-transition-group(app-chrome-top),
+::view-transition-group(app-chrome-bottom) {
+  z-index: 40;
+  animation: none;
+}
+
+::view-transition-group(floating-toast),
+::view-transition-group(floating-tooltip),
+::view-transition-group(floating-menu),
+::view-transition-group(floating-reading-tools),
+::view-transition-group(floating-typography),
+::view-transition-group(floating-editor-menu),
+::view-transition-group(floating-editor-toolbar),
+::view-transition-group(floating-editor-link) {
+  z-index: 90;
+  animation: none;
+}
+
+::view-transition-old(scroll-edge-top),
+::view-transition-new(scroll-edge-top),
+::view-transition-old(scroll-edge-bottom),
+::view-transition-new(scroll-edge-bottom),
+::view-transition-old(app-chrome-top),
+::view-transition-new(app-chrome-top),
+::view-transition-old(app-chrome-bottom),
+::view-transition-new(app-chrome-bottom),
+::view-transition-old(floating-toast),
+::view-transition-new(floating-toast),
+::view-transition-old(floating-tooltip),
+::view-transition-new(floating-tooltip),
+::view-transition-old(floating-menu),
+::view-transition-new(floating-menu),
+::view-transition-old(floating-reading-tools),
+::view-transition-new(floating-reading-tools),
+::view-transition-old(floating-typography),
+::view-transition-new(floating-typography),
+::view-transition-old(floating-editor-menu),
+::view-transition-new(floating-editor-menu),
+::view-transition-old(floating-editor-toolbar),
+::view-transition-new(floating-editor-toolbar),
+::view-transition-old(floating-editor-link),
+::view-transition-new(floating-editor-link) {
+  animation: none;
+  mix-blend-mode: normal;
+  height: 100%;
+  overflow: clip;
+}
+
+::view-transition-image-pair(document-surface),
+::view-transition-image-pair(mode-line-gutter),
+::view-transition-image-pair(*.line-number),
 ::view-transition-image-pair(mode-minimap) {
-  isolation: isolate;
+  isolation: auto;
 }
 
 ::view-transition-old(document-surface),
 ::view-transition-new(document-surface) {
-  transform-origin: 50% 12%;
   mix-blend-mode: normal;
+  transform-origin: 50% 12%;
 }
 
+/* Content crossfade while the group shape-morphs. */
 ::view-transition-old(document-surface) {
-  animation: mode-surface-out 170ms ease-in both;
+  animation: mode-surface-out 180ms ease-out both;
 }
 
 ::view-transition-new(document-surface) {
-  animation: mode-surface-in 340ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: mode-surface-in 320ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
-::view-transition-old(mode-line-guide) {
-  animation: mode-line-guide-out 130ms cubic-bezier(0.4, 0, 0.6, 1) both;
+/* Gutter lane: geometry only (digits transfer separately). */
+::view-transition-old(mode-line-gutter),
+::view-transition-new(mode-line-gutter) {
+  animation: none;
+  mix-blend-mode: normal;
+  height: 100%;
+  overflow: clip;
 }
 
-::view-transition-new(mode-line-guide) {
-  animation: mode-line-guide-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+::view-transition-old(mode-line-gutter) {
+  opacity: 0;
 }
 
+::view-transition-new(mode-line-gutter) {
+  opacity: 1;
+}
+
+/*
+ * Shared digits: group slides old→new rect. Show only destination snapshot to
+ * avoid double-image and monospace stretch.
+ */
+::view-transition-old(*.line-number) {
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  object-fit: none;
+  object-position: right center;
+  mix-blend-mode: normal;
+  animation: none;
+  opacity: 0;
+}
+
+::view-transition-new(*.line-number) {
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  object-fit: none;
+  object-position: right center;
+  mix-blend-mode: normal;
+  animation: none;
+  opacity: 1;
+}
+
+/*
+ * Whole minimap crossfades as one unit (shell + preview + selection). Soft
+ * opacity only — no instant 0→1 swap on a separate viewport name.
+ */
 ::view-transition-old(mode-minimap) {
-  animation: mode-minimap-out 140ms cubic-bezier(0.4, 0, 0.6, 1) both;
+  animation: mode-surface-out 180ms ease-out both;
+  mix-blend-mode: normal;
 }
 
 ::view-transition-new(mode-minimap) {
-  animation: mode-minimap-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: mode-surface-in 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  mix-blend-mode: normal;
+}
+
+/* Suppress baseline quiet-enter so it does not re-fire under morph classes. */
+body.is-mode-morphing #document-stage > :is(.markdown-body, .source-view, .editor-view) {
+  animation: none;
 }
 
 body.is-mode-morphing #document-stage > .markdown-body.is-mode-morph-entering,
 body.is-mode-morphing #document-stage > .source-view.is-mode-morph-entering,
 body.is-mode-morphing #document-stage > .editor-view.is-mode-morph-entering {
-  animation: mode-surface-in 340ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: mode-surface-in 320ms cubic-bezier(0.4, 0, 0.2, 1) both;
   transform-origin: 50% 12%;
 }
 
-.line-gutter.is-mode-chrome-morphing {
-  animation: mode-line-guide-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+/* Geometry-only morph: no opacity/transform CSS transitions under the surface. */
+body.is-mode-morphing #document-stage > :is(.markdown-body, .source-view, .editor-view),
+body.is-mode-morphing #document-stage > :is(.markdown-body, .source-view, .editor-view) * {
+  transition-property: color, background-color, border-color, caret-color, fill, stroke;
 }
 
+/* Fallback (no View Transition API): soft opacity only, no scale pop. */
 .document-minimap.is-mode-chrome-morphing {
-  animation: mode-minimap-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: mode-minimap-chrome-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes mode-surface-out {
-  from {
-    opacity: 1;
-    clip-path: inset(0 round 0);
-    filter: blur(0);
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    clip-path: inset(0.8% 0.35% round 8px);
-    filter: blur(2px);
-    transform: translateY(-4px) scale(0.992);
-  }
+  from { opacity: 1; }
+  to { opacity: 0; }
 }
 
 @keyframes mode-surface-in {
-  from {
-    opacity: 0;
-    clip-path: inset(1.2% 0.45% round 10px);
-    filter: blur(3px);
-    transform: translateY(6px) scale(0.988);
-  }
-  to {
-    opacity: 1;
-    clip-path: inset(0 round 0);
-    filter: blur(0);
-    transform: scale(1);
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-@keyframes mode-line-guide-out {
-  from {
-    opacity: 1;
-    clip-path: inset(0 round 0);
-    filter: blur(0);
-    transform: translateX(0) scaleX(1);
-  }
-  to {
-    opacity: 0;
-    clip-path: inset(1% 8% round 6px);
-    filter: blur(0.8px);
-    transform: translateX(-4px) scaleX(0.94);
-  }
-}
-
-@keyframes mode-line-guide-in {
-  from {
-    opacity: 0;
-    clip-path: inset(1% 10% round 7px);
-    filter: blur(1px);
-    transform: translateX(-5px) scaleX(0.92);
-  }
-  to {
-    opacity: 1;
-    clip-path: inset(0 round 0);
-    filter: blur(0);
-    transform: translateX(0) scaleX(1);
-  }
-}
-
-@keyframes mode-minimap-out {
-  from {
-    opacity: 1;
-    clip-path: inset(0 round 0);
-    filter: blur(0);
-    transform: translateX(0) scaleX(1);
-  }
-  to {
-    opacity: 0;
-    clip-path: inset(1% 6% round 8px);
-    filter: blur(0.8px);
-    transform: translateX(5px) scaleX(0.95);
-  }
-}
-
-@keyframes mode-minimap-in {
-  from {
-    opacity: 0;
-    clip-path: inset(1% 8% round 9px);
-    filter: blur(1px);
-    transform: translateX(6px) scaleX(0.94);
-  }
-  to {
-    opacity: 0.72;
-    clip-path: inset(0 round 0);
-    filter: blur(0);
-    transform: translateX(0) scaleX(1);
-  }
+@keyframes mode-minimap-chrome-in {
+  from { opacity: 0; }
+  to { opacity: 0.72; }
 }
 
 .editor-context {
@@ -1201,11 +1405,19 @@ body.is-line-guide .editor-end-hint {
     transform var(--motion-fast) var(--motion-ease-out);
 }
 
+/*
+ * Live FLIP owns transform during drag. Drop CSS transform/opacity transitions
+ * and any scale ghost so WAAPI reflow does not fight stylesheet transform and
+ * pop when the animation ends.
+ */
+.editor-view.is-block-dragging .editor-block {
+  transition: background-color var(--motion-fast) var(--motion-ease-standard);
+}
+
 .editor-block.is-dragging {
   z-index: 1;
   opacity: 0.18;
   background: color-mix(in srgb, var(--ui-accent) 5%, transparent);
-  transform: scale(0.995);
 }
 
 .editor-block.is-drag-target-before::after,
@@ -1340,6 +1552,10 @@ body.is-line-guide .editor-end-hint {
   caret-color: var(--ui-accent);
 }
 
+/*
+ * Soft text depth without CSS filter. filter: drop-shadow on every block was
+ * re-rasterized after mode morph / live drag FLIP and read as a mass pop-in.
+ */
 #content > :where(
   h1,
   h2,
@@ -1352,27 +1568,17 @@ body.is-line-guide .editor-end-hint {
   ul,
   ol,
   dl,
-  .table-scroll,
   pre,
-  details,
-  hr,
-  img,
-  .mermaid
+  details
 ),
 #source-content,
 #editor-view :where(
   .editor-context,
   .editor-block-content,
   .editor-list-marker,
-  .editor-divider,
-  .editor-end-hint,
-  .editor-gutter-button
-),
-#editor-command-menu,
-#editor-block-menu,
-#editor-inline-toolbar,
-#editor-link-popover {
-  filter: var(--content-depth-filter);
+  .editor-end-hint
+) {
+  text-shadow: var(--content-depth-shadow);
 }
 
 .editor-view.has-custom-caret .editor-block-content {
@@ -1578,7 +1784,7 @@ body.is-line-guide .editor-end-hint {
 .editor-inline-toolbar,
 .editor-link-popover {
   position: fixed;
-  z-index: 70;
+  z-index: var(--z-menus);
   border: var(--ui-border-width) solid var(--ui-border-color);
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--bg-color) 98%, var(--toolbar-bg));
@@ -1587,7 +1793,7 @@ body.is-line-guide .editor-end-hint {
 
 .app-context-menu {
   position: fixed;
-  z-index: 96;
+  z-index: var(--z-menus);
   width: min(224px, calc(100vw - 16px));
   max-height: min(410px, calc(100dvh - 80px));
   padding: 5px;
@@ -1601,7 +1807,6 @@ body.is-line-guide .editor-end-hint {
     inset 0 1px 0 color-mix(in srgb, white 12%, transparent),
     0 16px 42px color-mix(in srgb, var(--shadow-color) 88%, transparent),
     0 2px 8px color-mix(in srgb, var(--shadow-color) 45%, transparent);
-  filter: var(--content-depth-filter);
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   will-change: opacity, transform;
@@ -1700,7 +1905,7 @@ body.is-line-guide .editor-end-hint {
 
 .app-tooltip {
   position: fixed;
-  z-index: 112;
+  z-index: var(--z-tooltip);
   width: max-content;
   max-width: min(260px, calc(100vw - 16px));
   padding: 6px 8px;
@@ -1943,7 +2148,7 @@ body.is-line-guide .editor-end-hint {
   top: calc(var(--titlebar-height) + 12px);
   right: var(--minimap-edge);
   bottom: calc(var(--toolbar-height) + 12px);
-  z-index: 12;
+  z-index: var(--z-minimap);
   width: var(--minimap-width);
   overflow: hidden;
   border: 0;
@@ -2008,12 +2213,20 @@ body.is-minimap .editor-view {
   pointer-events: none;
   user-select: none;
   transform-origin: top left;
+  /* Static 1px soft focus. Do not animate or view-transition this filter. */
   filter: blur(1px);
 }
 
 .minimap-document,
 .minimap-document * {
   pointer-events: none !important;
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Defend the static blur if a parent morph class tries to strip filters. */
+body.is-mode-morphing .minimap-document {
+  filter: blur(1px);
   animation: none !important;
   transition: none !important;
 }
@@ -2475,7 +2688,6 @@ summary {
   overscroll-behavior: contain;
   transition:
     opacity var(--motion-base) var(--motion-ease-out),
-    filter var(--motion-base) var(--motion-ease-out),
     background-color var(--motion-fast) var(--motion-ease-standard),
     border-color var(--motion-fast) var(--motion-ease-standard);
 }
@@ -2532,7 +2744,6 @@ summary {
   .entityBox
 ) {
   stroke-width: 1.35px !important;
-  filter: drop-shadow(0 2px 3px color-mix(in srgb, var(--shadow-color) 42%, transparent));
 }
 
 .mermaid svg :is(.node > rect, rect.actor, .classGroup rect, .statediagram-state rect) {
@@ -2577,9 +2788,7 @@ summary {
   font-weight: 540 !important;
 }
 
-.mermaid svg :is(.activation0, .activation1, .activation2, .note) {
-  filter: drop-shadow(0 2px 3px color-mix(in srgb, var(--shadow-color) 36%, transparent));
-}
+/* No filter drop-shadow on diagram nodes — SVG filters pop during theme/mode paint. */
 
 .mermaid svg .note {
   rx: 6px;
@@ -2673,7 +2882,7 @@ pre:hover .copy-code-btn,
   height: 42px;
   flex: 0 0 42px;
   border-radius: var(--radius-sm);
-  filter: var(--content-depth-filter);
+  box-shadow: var(--content-depth-shadow);
 }
 
 .help-brand-lockup .eyebrow {
@@ -2883,7 +3092,7 @@ pre:hover .copy-code-btn,
 .drop-indicator {
   position: fixed;
   inset: var(--titlebar-height) 0 var(--toolbar-height);
-  z-index: 40;
+  z-index: var(--z-drop);
   padding: 24px;
   display: grid;
   place-items: center;
@@ -2924,7 +3133,7 @@ body.is-dragging .drop-indicator__box {
   position: fixed;
   right: 14px;
   bottom: calc(var(--toolbar-height) + 12px);
-  z-index: 20;
+  z-index: var(--z-scroll-top);
   border-color: var(--ui-border-color);
   background: color-mix(in srgb, var(--bg-color) 92%, transparent);
   box-shadow: 0 4px 14px var(--shadow-color);
@@ -2952,7 +3161,7 @@ body.is-dragging .drop-indicator__box {
   right: 0;
   bottom: 0;
   left: 0;
-  z-index: 30;
+  z-index: var(--z-toolbar);
   height: var(--toolbar-height);
   padding: 0 8px 0 10px;
   display: flex;
@@ -3058,8 +3267,8 @@ body.is-dragging .drop-indicator__box {
 }
 
 @keyframes status-zoom-enter {
-  from { opacity: 0; filter: blur(0.6px); transform: translateY(3px); }
-  to { opacity: 1; filter: blur(0); transform: translateY(0); }
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .toolbar-command-area {
@@ -3151,7 +3360,7 @@ body.is-reading-tools-open .typography-panel {
   position: fixed;
   top: calc(var(--titlebar-height) + 7px);
   right: calc(var(--window-controls-width) + 10px);
-  z-index: 55;
+  z-index: var(--z-panels);
   width: min(282px, calc(100vw - 16px));
   overflow: hidden;
   border: var(--ui-border-width) solid var(--ui-border-color);
@@ -3278,7 +3487,7 @@ body.is-reading-tools-open .typography-panel {
   position: fixed;
   right: 8px;
   bottom: calc(var(--toolbar-height) + 8px);
-  z-index: 55;
+  z-index: var(--z-panels);
   width: min(294px, calc(100vw - 16px));
   overflow: hidden;
   border: var(--ui-border-width) solid var(--ui-border-color);
@@ -3437,7 +3646,7 @@ body.is-reading-tools-open .typography-panel {
   position: fixed;
   bottom: calc(var(--toolbar-height) + 12px);
   left: 50%;
-  z-index: 60;
+  z-index: var(--z-toast);
   max-width: min(calc(100vw - 32px), 520px);
   padding: 7px 10px;
   display: grid;
@@ -3462,7 +3671,9 @@ body.is-reading-tools-open .typography-panel {
   :root {
     --editor-control-lane: 48px;
     --editor-line-gap: 10px;
-    --line-guide-reserve: 46px;
+    --line-guide-reserve: 54px;
+    --content-edge-fade: 40px;
+    --scroll-edge-size: 44px;
   }
 
   .markdown-body,
@@ -3483,7 +3694,7 @@ body.is-reading-tools-open .typography-panel {
 
   body.is-line-guide .markdown-body,
   body.is-line-guide .source-view {
-    padding-left: 62px;
+    padding-left: 68px;
   }
 
   .line-gutter {
@@ -3653,18 +3864,20 @@ body.is-reading-tools-open .typography-panel {
     --editor-control-lane: 46px;
     --editor-line-gap: 8px;
     --editor-indent-step: 14px;
-    --line-guide-reserve: 42px;
+    --line-guide-reserve: 48px;
+    --content-edge-fade: 36px;
+    --scroll-edge-size: 40px;
   }
 
   body.is-line-guide .markdown-body,
   body.is-line-guide .source-view {
-    padding-left: 52px;
+    padding-left: 58px;
   }
 
   .line-gutter {
     left: 5px;
-    width: 29px;
-    font-size: 0.59rem;
+    width: 34px;
+    font-size: 0.7rem;
   }
 
   .help-shortcuts div {
@@ -3707,20 +3920,67 @@ body.is-reading-tools-open .typography-panel {
   ::view-transition-group(document-surface),
   ::view-transition-old(document-surface),
   ::view-transition-new(document-surface),
-  ::view-transition-group(mode-line-guide),
-  ::view-transition-old(mode-line-guide),
-  ::view-transition-new(mode-line-guide),
   ::view-transition-group(mode-minimap),
   ::view-transition-old(mode-minimap),
   ::view-transition-new(mode-minimap),
+  ::view-transition-group(scroll-edge-top),
+  ::view-transition-old(scroll-edge-top),
+  ::view-transition-new(scroll-edge-top),
+  ::view-transition-group(scroll-edge-bottom),
+  ::view-transition-old(scroll-edge-bottom),
+  ::view-transition-new(scroll-edge-bottom),
+  ::view-transition-group(app-chrome-top),
+  ::view-transition-old(app-chrome-top),
+  ::view-transition-new(app-chrome-top),
+  ::view-transition-group(app-chrome-bottom),
+  ::view-transition-old(app-chrome-bottom),
+  ::view-transition-new(app-chrome-bottom),
+  ::view-transition-group(floating-toast),
+  ::view-transition-old(floating-toast),
+  ::view-transition-new(floating-toast),
+  ::view-transition-group(floating-tooltip),
+  ::view-transition-old(floating-tooltip),
+  ::view-transition-new(floating-tooltip),
+  ::view-transition-group(floating-menu),
+  ::view-transition-old(floating-menu),
+  ::view-transition-new(floating-menu),
+  ::view-transition-group(floating-reading-tools),
+  ::view-transition-old(floating-reading-tools),
+  ::view-transition-new(floating-reading-tools),
+  ::view-transition-group(floating-typography),
+  ::view-transition-old(floating-typography),
+  ::view-transition-new(floating-typography),
+  ::view-transition-group(floating-editor-menu),
+  ::view-transition-old(floating-editor-menu),
+  ::view-transition-new(floating-editor-menu),
+  ::view-transition-group(floating-editor-toolbar),
+  ::view-transition-old(floating-editor-toolbar),
+  ::view-transition-new(floating-editor-toolbar),
+  ::view-transition-group(floating-editor-link),
+  ::view-transition-old(floating-editor-link),
+  ::view-transition-new(floating-editor-link),
+  ::view-transition-group(mode-line-gutter),
+  ::view-transition-old(mode-line-gutter),
+  ::view-transition-new(mode-line-gutter),
+  ::view-transition-group(*.line-number),
+  ::view-transition-old(*.line-number),
+  ::view-transition-new(*.line-number),
   body.is-mode-morphing .markdown-body.is-mode-morph-entering,
   body.is-mode-morphing .source-view.is-mode-morph-entering,
   body.is-mode-morphing .editor-view.is-mode-morph-entering,
-  .line-gutter.is-mode-chrome-morphing,
+  body.is-mode-morphing.is-line-guide .line-number,
+  body.is-mode-morphing .scroll-edge,
   .document-minimap.is-mode-chrome-morphing {
     animation: none !important;
     filter: none !important;
     transform: none !important;
+    transition: none !important;
+  }
+
+  /* Keep the static 1px minimap blur even when morph chrome strips filters. */
+  body.is-mode-morphing .minimap-document,
+  .minimap-document {
+    filter: blur(1px) !important;
   }
 
   html.is-theme-wiping::view-transition-group(root),

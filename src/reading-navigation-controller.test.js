@@ -121,6 +121,57 @@ describe('Reading Navigation Controller', () => {
     expect(view.elements.lineGutter.querySelector('.is-current')?.textContent).toBe('2');
   });
 
+  it('force-refreshes the minimap during mode morph so the VT new snapshot is current', () => {
+    const view = fixture();
+    view.controller.refreshTools();
+    view.controller.refresh();
+    expect(view.elements.minimapDocument.textContent).toContain('Read copy');
+
+    view.document.body.classList.add('is-mode-morphing');
+    view.controller.prepareModeMorph();
+    view.setMode('edit');
+    // Morph lock blocks background updates; force must still rebuild the minimap.
+    view.controller.markDirty({ queue: true });
+    view.controller.refresh();
+    expect(view.elements.minimapDocument.textContent).toContain('Read copy');
+    view.controller.refresh({ force: true });
+    expect(view.elements.minimapDocument.textContent).toContain('Edit copy');
+
+    view.controller.finishModeMorph();
+    expect(view.elements.minimapDocument.textContent).toContain('Edit copy');
+  });
+
+  it('transfers shared line-number nodes with VT names and does not remeasure on finish', () => {
+    const view = fixture();
+    view.controller.refreshTools();
+    view.controller.refresh();
+    const first = view.elements.lineGutter.querySelector('.line-number[data-line="1"]');
+    expect(first).toBeTruthy();
+    expect(first.style.viewTransitionName).toBe('');
+
+    view.document.body.classList.add('is-mode-morphing');
+    view.controller.prepareModeMorph();
+    expect(first.style.viewTransitionName).toBe('openmd-ln-1');
+
+    const previousTop = first.style.top;
+    view.document.querySelector('#read-copy').getBoundingClientRect = () => (
+      { top: 64, left: 60, width: 300, height: 24 }
+    );
+    view.controller.refresh();
+    expect(first.style.top).toBe(previousTop);
+    view.controller.refresh({ force: true });
+    const reused = view.elements.lineGutter.querySelector('.line-number[data-line="1"]');
+    expect(reused).toBe(first);
+    expect(reused.style.top).not.toBe(previousTop);
+    expect(reused.style.viewTransitionName).toBe('openmd-ln-1');
+
+    const topAfterMorphRefresh = reused.style.top;
+    view.controller.finishModeMorph();
+    // Keep morph positions: post-VT remeasure was the land jump.
+    expect(reused.style.top).toBe(topAfterMorphRefresh);
+    expect(reused.style.viewTransitionName).toBe('');
+  });
+
   it('maps minimap pointer and keyboard input to the reader scroll owner', () => {
     const view = fixture();
     view.controller.start();
@@ -137,11 +188,17 @@ describe('Reading Navigation Controller', () => {
 
   it('captures and restores one reader scroll position across mode changes', () => {
     const view = fixture();
+    view.controller.refreshTools();
     view.elements.readerPage.scrollTop = 140;
     const scrollPosition = view.controller.captureScrollPosition();
     view.elements.readerPage.scrollTop = 280;
     view.controller.restoreScrollPosition(scrollPosition);
     expect(view.elements.readerPage.scrollTo).toHaveBeenLastCalledWith({ top: 140, behavior: 'auto' });
+
+    view.elements.readerPage.scrollTop = 90;
+    view.controller.restoreScrollPosition(scrollPosition, { sync: true });
+    expect(view.elements.readerPage.scrollTo).toHaveBeenLastCalledWith({ top: 140, behavior: 'auto' });
+    expect(view.elements.lineGutter.querySelector('.line-number')).toBeTruthy();
 
     view.dom.window.matchMedia = () => ({ matches: true });
     view.controller.scrollToTop();

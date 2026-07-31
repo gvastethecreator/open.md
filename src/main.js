@@ -664,7 +664,13 @@ function mountDocumentModeCoordinator(own) {
       },
       cancelCompetingTransition: () => themeCoordinator?.cancelTransition(),
       captureScrollPosition: () => readingNavigation?.captureScrollPosition(),
-      restoreScrollPosition: (position) => readingNavigation?.restoreScrollPosition(position),
+      restoreScrollPosition: (position, options) => (
+        readingNavigation?.restoreScrollPosition(position, options)
+      ),
+      prepareNavigationMorph: () => readingNavigation?.prepareModeMorph(),
+      animateNavigationMorph: () => readingNavigation?.animateModeMorph(),
+      finishNavigationMorph: () => readingNavigation?.finishModeMorph(),
+      syncNavigationChrome: () => readingNavigation?.refresh({ force: true }),
     },
   }));
   documentModeCoordinator.refresh();
