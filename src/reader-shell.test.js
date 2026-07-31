@@ -135,4 +135,22 @@ describe('reader shell', () => {
 
     shell.dispose();
   });
+
+  it('closes the active document back to an idle empty shell', async () => {
+    renderFixture();
+    const shell = mountReaderShell({
+      window,
+      adapters: createAdapters(async () => payload('Closeable')),
+    });
+    await shell.start({ origin: 'launch', items: [{ path: 'close-me.md' }] });
+    expect(shell.currentDocument()).toMatchObject({ state: 'ready', path: 'close-me.md' });
+    expect(document.querySelector('#content h1')?.textContent).toBe('Closeable');
+
+    expect(shell.close()).toMatchObject({ status: 'closed', path: 'close-me.md' });
+    expect(shell.currentDocument()).toMatchObject({ state: 'idle', path: null, document: null });
+    expect(document.querySelector('#content')?.textContent).toBe('');
+    expect(shell.close()).toMatchObject({ status: 'idle', path: null });
+
+    shell.dispose();
+  });
 });

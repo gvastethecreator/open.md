@@ -333,14 +333,25 @@ export function createEditorBlockInteractionController({
   };
 
   const onDragStart = (event) => {
-    const handle = event.target.closest?.('[data-block-menu]');
-    const wrapper = handle?.closest('[data-block-id]');
-    if (!wrapper || wrapper.hasAttribute('data-block-spacer') || !event.dataTransfer) {
+    const handle = event.target.closest?.('[data-block-menu], [data-block-drag]');
+    if (!handle || !event.dataTransfer) {
+      event.preventDefault();
+      return;
+    }
+    const wrapperFromHandle = handle.closest?.('[data-block-id]');
+    const sourceId = wrapperFromHandle?.dataset.blockId
+      || handle.dataset.blockId
+      || adapters.getDragBlockId?.()
+      || null;
+    const wrapper = wrapperFromHandle
+      || (sourceId
+        ? [...canvas.querySelectorAll('[data-block-id]')].find((node) => node.dataset.blockId === sourceId)
+        : null);
+    if (!sourceId || !wrapper || wrapper.hasAttribute('data-block-spacer')) {
       event.preventDefault();
       return;
     }
     hooks.closeTransientUi?.();
-    const sourceId = wrapper.dataset.blockId;
     reorderCommitted = false;
     originalWrapperOrder = [...canvas.querySelectorAll('[data-block-id]')];
     originalVisibleIds = visibleWrappers(originalWrapperOrder).map((item) => item.dataset.blockId);
@@ -402,8 +413,9 @@ export function createEditorBlockInteractionController({
   const start = () => {
     if (started || disposed) return;
     started = true;
-    canvas.addEventListener('dragstart', onDragStart);
-    canvas.addEventListener('dragend', onDragEnd);
+    // Drag may start from the floating block toolbar (outside the canvas).
+    root.addEventListener('dragstart', onDragStart);
+    root.addEventListener('dragend', onDragEnd);
     canvas.addEventListener('dragover', onDragOver);
     canvas.addEventListener('drop', onDrop);
   };
@@ -411,8 +423,8 @@ export function createEditorBlockInteractionController({
   const dispose = () => {
     if (disposed) return;
     disposed = true;
-    canvas.removeEventListener('dragstart', onDragStart);
-    canvas.removeEventListener('dragend', onDragEnd);
+    root.removeEventListener('dragstart', onDragStart);
+    root.removeEventListener('dragend', onDragEnd);
     canvas.removeEventListener('dragover', onDragOver);
     canvas.removeEventListener('drop', onDrop);
     clearDragState();

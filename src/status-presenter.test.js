@@ -47,6 +47,7 @@ describe('Status Presenter', () => {
     expect(view.elements.primary.textContent).toBe('guide.md');
     expect(view.elements.context.dataset.tooltip).toBe('guide.md · Markdown');
     expect(view.elements.metrics.getAttribute('aria-label')).toBe('12 lines. Zoom 125 percent.');
+    expect(view.elements.metrics.dataset.tooltip).toBeUndefined();
     expect(zoom.querySelector('.status-metric-value').textContent).toBe('125%');
 
     presenter.renderMetrics([

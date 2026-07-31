@@ -54,6 +54,7 @@ function createHarness(options = {}) {
   let available = true;
   let allowExit = true;
   const calls = [];
+  const toasts = [];
   const coordinator = createDocumentModeCoordinator({
     window: view.dom.window,
     document: view.dom.window.document,
@@ -81,12 +82,14 @@ function createHarness(options = {}) {
     hooks: {
       closeTransientUi: () => calls.push('close-ui'),
       cancelCompetingTransition: () => calls.push('cancel-theme'),
+      onToast: (message) => toasts.push(message),
     },
   });
   return {
     ...view,
     coordinator,
     calls,
+    toasts,
     mode: () => mode,
     setMode: (value) => { mode = value; },
     setAvailable: (value) => { available = value; },
@@ -112,6 +115,42 @@ describe('Document Mode Coordinator', () => {
       'close-ui', 'cancel-theme', 'exit', 'source:true',
       'close-ui', 'cancel-theme', 'source:false',
     ]);
+    expect(harness.toasts).toEqual(['Edit mode', 'Source mode', 'Read mode']);
+  });
+
+  it('does not toast when a mode change is blocked', async () => {
+    const harness = createHarness({ reduced: true });
+    harness.setAvailable(false);
+    await expect(harness.coordinator.cycle()).resolves.toBe(false);
+    expect(harness.toasts).toEqual([]);
+
+    harness.setAvailable(true);
+    harness.setMode('edit');
+    harness.setAllowExit(false);
+    await expect(harness.coordinator.cycle()).resolves.toBe(false);
+    expect(harness.mode()).toBe('edit');
+    expect(harness.toasts).toEqual([]);
+  });
+
+  it('freezes mode tooltip copy through intermediate cycle states', async () => {
+    const enterGate = deferred();
+    const harness = createHarness({ reduced: true, enterGate: enterGate.promise });
+    harness.coordinator.refresh();
+    expect(harness.elements.control.dataset.tooltip).toBe('Read');
+
+    const change = harness.coordinator.cycle();
+    // Let performChange mark cycling=true before intermediate refreshes land.
+    await Promise.resolve();
+    await Promise.resolve();
+    // Simulate editor/state refreshes that observe intermediate modes mid-cycle.
+    harness.setMode('edit');
+    harness.coordinator.refresh();
+    expect(harness.elements.control.dataset.tooltip).toBe('Read');
+
+    enterGate.resolve();
+    await change;
+    expect(harness.mode()).toBe('edit');
+    expect(harness.elements.control.dataset.tooltip).toBe('Edit');
   });
 
   it('preserves the reader scroll position across Read, Edit and Source', async () => {

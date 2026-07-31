@@ -30,7 +30,7 @@ describe('reader preferences', () => {
     const result = await preferences.load();
 
     expect(result.status).toBe('loaded');
-    expect(preferences.current()).toEqual({
+    expect(preferences.current()).toMatchObject({
       themeName: 'Ayu Dark',
       readingTools: {
         lineGuide: true,
@@ -42,8 +42,34 @@ describe('reader preferences', () => {
       fonts: { sans: 2, mono: 1 },
       alwaysOnTop: true,
       autoSave: false,
+      advanced: {
+        magicSniff: true,
+        imageDefaultZoom: 'fit',
+        imageZoomAnimation: true,
+        csvRowCap: 500,
+      },
     });
     expect(setAlwaysOnTop).toHaveBeenCalledWith(true);
+  });
+
+  it('persists and normalizes advanced preferences (F13)', async () => {
+    const store = createMemoryPreferenceStore();
+    const preferences = createReaderPreferences({ store });
+    await preferences.load();
+    await preferences.update({
+      advanced: {
+        imageDefaultZoom: '100%',
+        csvRowCap: 99999,
+        magicSniff: false,
+        textMinimapDefault: true,
+      },
+    });
+    const snapshot = preferences.current().advanced;
+    expect(snapshot.imageDefaultZoom).toBe('100%');
+    expect(snapshot.csvRowCap).toBe(5000);
+    expect(snapshot.magicSniff).toBe(false);
+    expect(snapshot.textMinimapDefault).toBe(true);
+    expect(store.dump()['openmd-advanced-preferences-v1']).toContain('100%');
   });
 
   it('falls back safely when persisted JSON or storage access is corrupt', async () => {

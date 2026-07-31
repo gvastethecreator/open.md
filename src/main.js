@@ -97,6 +97,7 @@ const ui = {
   typographyShell: null,
   typographyButton: null,
   typographyPanel: null,
+  themeField: null,
   fontButtons: [],
   alwaysOnTopButton: null,
   autoSaveToggle: null,
@@ -150,9 +151,19 @@ function cacheElements() {
   ui.readingToolsShell = document.getElementById('reading-tools-shell');
   ui.readingToolsPanel = document.getElementById('reading-tools-panel');
   ui.readingToolToggles = [...document.querySelectorAll('[data-reading-tool]')];
+  ui.basicOptionsPanel = document.getElementById('basic-options-panel');
+  ui.advancedOptionsPanel = document.getElementById('advanced-options-panel');
+  ui.advancedOptionsButton = document.getElementById('advanced-options-button');
+  ui.advancedBackButton = document.getElementById('advanced-back-button');
+  ui.readingToolsHeaderLabel = document.getElementById('reading-tools-header-label');
+  ui.advancedToggles = [...document.querySelectorAll('[data-advanced-pref]')];
+  ui.imageDefaultZoomSelect = document.getElementById('image-default-zoom');
+  ui.csvRowCapInput = document.getElementById('csv-row-cap');
+  ui.formatDetectionStatus = document.getElementById('format-detection-status');
   ui.typographyShell = document.getElementById('typography-shell');
   ui.typographyButton = document.getElementById('typography-button');
   ui.typographyPanel = document.getElementById('typography-panel');
+  ui.themeField = document.querySelector('.appearance-theme-field') || document.querySelector('.theme-field');
   ui.fontButtons = [...document.querySelectorAll('[data-font-kind]')];
   ui.alwaysOnTopButton = document.getElementById('always-on-top-button');
   ui.autoSaveToggle = document.getElementById('auto-save-toggle');
@@ -164,6 +175,7 @@ function cacheElements() {
   ui.editorSaveLabel = document.getElementById('editor-save-label');
   ui.editorCommandMenu = document.getElementById('editor-command-menu');
   ui.editorBlockMenu = document.getElementById('editor-block-menu');
+  ui.editorBlockToolbar = document.getElementById('editor-block-toolbar');
   ui.editorInlineToolbar = document.getElementById('editor-inline-toolbar');
   ui.editorCaretEcho = document.getElementById('editor-caret-echo');
   ui.editorLinkPopover = document.getElementById('editor-link-popover');
@@ -389,6 +401,19 @@ function cycleTheme(direction = 1) {
   themeCoordinator?.cycle(direction);
 }
 
+function closeCurrentFile() {
+  const path = getCurrentFilePath();
+  const viewState = documentViewState?.current?.();
+  const hasDocument = Boolean(path)
+    || viewState?.state === 'loading'
+    || viewState?.state === 'failed'
+    || viewState?.state === 'ready';
+  if (!hasDocument) return;
+  // Same dirty gate as open/replace: confirm discard, then clear the shell.
+  if (editorSession && editorSession.canChangeDocument() === false) return;
+  readerShell?.close();
+}
+
 function resetDocumentReadingState() {
   readingNavigation?.reset();
   readerViewport?.reset();
@@ -416,6 +441,21 @@ function mountDocumentViewState(own) {
       closeReadingTools: () => setReadingToolsOpen(false),
       syncViewport: syncViewportState,
       applyReadingTools,
+      applyFormatPreferences: (format) => {
+        if (!format || format === 'markdown' || format === 'image' || ['png', 'jpeg', 'gif', 'webp', 'bmp', 'avif'].includes(format)) {
+          return;
+        }
+        const advanced = readerShell?.preferences?.current?.()?.advanced;
+        if (!advanced || !readerControls) return;
+        // Soft defaults for text companions only when tools still match global defaults.
+        const tools = readerControls.current().readingTools;
+        const patch = {};
+        if (tools.wordWrap === true && advanced.textWordWrapDefault === false) patch.wordWrap = false;
+        if (tools.minimap === false && advanced.textMinimapDefault) patch.minimap = true;
+        if (tools.lineGuide === false && advanced.textLineGuideDefault) patch.lineGuide = true;
+        if (Object.keys(patch).length === 0) return;
+        void readerShell.preferences.update({ readingTools: patch });
+      },
       setStatus: setStatusText,
       updateTitle: updateWindowTitle,
       updateUrl: updateWindowUrl,
@@ -450,6 +490,7 @@ function mountApplicationReaderShell(own) {
       onWarning: showToast,
       onToast: showToast,
       onPreferencesChange: handlePreferenceSnapshot,
+      getPreferences: () => readerShell?.preferences?.current?.(),
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
   }));
@@ -493,9 +534,19 @@ function mountReaderControls(own) {
       readingToolsButton: ui.readingToolsButton,
       readingToolsShell: ui.readingToolsShell,
       readingToolsPanel: ui.readingToolsPanel,
+      basicOptionsPanel: ui.basicOptionsPanel,
+      advancedOptionsPanel: ui.advancedOptionsPanel,
+      advancedOptionsButton: ui.advancedOptionsButton,
+      advancedBackButton: ui.advancedBackButton,
+      readingToolsHeaderLabel: ui.readingToolsHeaderLabel,
+      advancedToggles: ui.advancedToggles,
+      imageDefaultZoomSelect: ui.imageDefaultZoomSelect,
+      csvRowCapInput: ui.csvRowCapInput,
+      formatDetectionStatus: ui.formatDetectionStatus,
       typographyButton: ui.typographyButton,
       typographyShell: ui.typographyShell,
       typographyPanel: ui.typographyPanel,
+      themeField: ui.themeField,
       alwaysOnTopButton: ui.alwaysOnTopButton,
       autoSaveToggle: ui.autoSaveToggle,
       fontButtons: ui.fontButtons,
@@ -511,6 +562,7 @@ function mountReaderControls(own) {
     },
     hooks: {
       isHelpVisible,
+      getDocumentFormat: () => getCurrentDocument()?.format || null,
       captureScrollPosition: () => readingNavigation?.captureScrollPosition(),
       restoreScrollPosition: (position) => readingNavigation?.restoreScrollPosition(position),
       onReadingToolsApplied: ({ sourceActive }) => {
@@ -535,6 +587,7 @@ function mountReaderControls(own) {
           themeCoordinator?.applyName(themeName, { silent: true, persist: false });
         }
       },
+      cycleTheme,
       onPreferenceResult: reportPreferenceResult,
       onToast: showToast,
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
@@ -578,6 +631,7 @@ function mountApplicationEditor(own) {
       canvas: ui.editorCanvas,
       commandMenu: ui.editorCommandMenu,
       blockMenu: ui.editorBlockMenu,
+      blockToolbar: ui.editorBlockToolbar,
       inlineToolbar: ui.editorInlineToolbar,
       caretEcho: ui.editorCaretEcho,
       linkPopover: ui.editorLinkPopover,
@@ -650,7 +704,15 @@ function mountDocumentModeCoordinator(own) {
     },
     adapters: {
       getMode: () => isEditMode ? 'edit' : isSourceViewActive() ? 'source' : 'read',
-      isAvailable: () => Boolean(editorSession && hasLoadedDocument()),
+      isAvailable: () => {
+        if (!editorSession || !hasLoadedDocument()) return false;
+        const doc = getCurrentDocument();
+        if (doc?.kind === 'image') return false;
+        if (doc?.format && ['png', 'jpeg', 'gif', 'webp', 'bmp', 'avif', 'image'].includes(doc.format)) {
+          return false;
+        }
+        return getFileKind(getCurrentFilePath()) !== 'Image';
+      },
       getDocumentIdentity: getCurrentDocument,
       enterEdit: () => editorSession?.enter(),
       exitEdit: () => editorSession?.exit(),
@@ -671,6 +733,7 @@ function mountDocumentModeCoordinator(own) {
       animateNavigationMorph: () => readingNavigation?.animateModeMorph(),
       finishNavigationMorph: () => readingNavigation?.finishModeMorph(),
       syncNavigationChrome: () => readingNavigation?.refresh({ force: true }),
+      onToast: showToast,
     },
   }));
   documentModeCoordinator.refresh();
@@ -823,9 +886,16 @@ function mountReaderKeyboard(own) {
       closeHelp: () => setHelpVisible(false),
       closeReadingTools: () => setReadingToolsOpen(false, { returnFocus: true }),
       closeTypography: () => setTypographyOpen(false, { returnFocus: true }),
-      toggleEdit: () => documentModeCoordinator?.toggleEdit(),
+      toggleEdit: () => {
+        if (getFileKind(getCurrentFilePath()) === 'Image') {
+          showToast('Images open read-only');
+          return;
+        }
+        documentModeCoordinator?.toggleEdit();
+      },
       saveEditor: () => documentSaveCoordinator?.saveEditor(),
       openFile: openFilePicker,
+      closeFile: closeCurrentFile,
       zoomIn: () => setZoom(currentZoom + ZOOM_STEP),
       zoomOut: () => setZoom(currentZoom - ZOOM_STEP),
       resetZoom: () => setZoom(1.0),

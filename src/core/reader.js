@@ -1,8 +1,58 @@
 const PREFERRED_THEME_NAMES = ['Github Light', 'Github Dark', 'GitHub', 'Ayu Light', 'Ayu Dark'];
-const SUPPORTED_EXTENSIONS = ['.md', '.markdown', '.txt'];
+
+/** Product-surface Markdown extensions (associations, picker, rich render). */
+const MARKDOWN_EXTENSIONS = new Set(['md', 'markdown']);
+
+/**
+ * Plain-text extensions: primary `.txt` plus implicit companions.
+ * Companions open via drop/CLI/links but are not registered or listed in the picker.
+ */
+const PLAIN_TEXT_EXTENSIONS = new Set([
+  'txt',
+  'nfo',
+  'json',
+  'ini',
+  'yml',
+  'yaml',
+  'toml',
+  'cfg',
+  'conf',
+  'log',
+  'csv',
+  'env',
+]);
+
+/**
+ * Implicit raster image companions (drop/CLI/links only).
+ * Mirrors native `image_mime_type` / frontend image resource MIME map.
+ */
+const IMAGE_EXTENSIONS = new Set([
+  'png',
+  'jpg',
+  'jpeg',
+  'gif',
+  'webp',
+  'bmp',
+  'avif',
+]);
+
+function extensionOf(filePath) {
+  if (typeof filePath !== 'string' || filePath.trim() === '') return '';
+  const displayName = getDisplayName(filePath).toLowerCase();
+  const dot = displayName.lastIndexOf('.');
+  if (dot <= 0 || dot === displayName.length - 1) return '';
+  return displayName.slice(dot + 1);
+}
 
 export function isSupportedFilePath(filePath) {
-  return typeof filePath === 'string' && SUPPORTED_EXTENSIONS.some((ext) => filePath.toLowerCase().endsWith(ext));
+  const extension = extensionOf(filePath);
+  return MARKDOWN_EXTENSIONS.has(extension)
+    || PLAIN_TEXT_EXTENSIONS.has(extension)
+    || IMAGE_EXTENSIONS.has(extension);
+}
+
+export function isImageFilePath(filePath) {
+  return IMAGE_EXTENSIONS.has(extensionOf(filePath));
 }
 
 export function getDisplayName(filePath) {
@@ -15,9 +65,17 @@ export function getDisplayName(filePath) {
 }
 
 export function getFileKind(filePath) {
-  const displayName = getDisplayName(filePath).toLowerCase();
-  return displayName.endsWith('.txt') ? 'Text' : 'Markdown';
+  const extension = extensionOf(filePath);
+  if (MARKDOWN_EXTENSIONS.has(extension)) return 'Markdown';
+  if (IMAGE_EXTENSIONS.has(extension)) return 'Image';
+  return 'Text';
 }
+
+const KNOWN_KINDS = new Set(['image', 'markdown', 'text']);
+const KNOWN_FORMATS = new Set([
+  'markdown', 'text', 'json', 'yaml', 'toml', 'ini', 'env', 'csv',
+  'png', 'jpeg', 'gif', 'webp', 'bmp', 'avif', 'image',
+]);
 
 export function normalizeDocumentPayload(payload) {
   if (
@@ -32,8 +90,41 @@ export function normalizeDocumentPayload(payload) {
 
   const source = payload.source;
   const fallbackLineCount = source.split('\n').length;
+  const kindRaw = typeof payload.kind === 'string' ? payload.kind : undefined;
+  const kind = kindRaw && KNOWN_KINDS.has(kindRaw)
+    ? kindRaw
+    : kindRaw === 'image'
+      ? 'image'
+      : undefined;
+  const formatRaw = typeof payload.format === 'string' ? payload.format : undefined;
+  let format = formatRaw && KNOWN_FORMATS.has(formatRaw) ? formatRaw : undefined;
+  if (!format && kind === 'image') format = 'image';
+  if (!format && kind === 'markdown') format = 'markdown';
+  if (!format && kind === 'text') format = 'text';
+  // Legacy payloads: kind image only
+  const resolvedKind = kind === 'image'
+    ? 'image'
+    : kind === 'markdown'
+      ? 'markdown'
+      : kind === 'text'
+        ? 'text'
+        : (format && (
+          format === 'png' || format === 'jpeg' || format === 'gif'
+          || format === 'webp' || format === 'bmp' || format === 'avif' || format === 'image'
+        )
+          ? 'image'
+          : format === 'markdown'
+            ? 'markdown'
+            : format
+              ? 'text'
+              : undefined);
 
-  return {
+  const resolvedFormat = format
+    || (resolvedKind === 'image' ? 'image' : undefined)
+    || (resolvedKind === 'markdown' ? 'markdown' : undefined)
+    || (resolvedKind === 'text' ? 'text' : undefined);
+
+  const normalized = {
     html: typeof payload?.html === 'string' ? payload.html : '',
     source,
     lineCount: Math.max(1, Number.isFinite(payload?.lineCount) ? Math.floor(payload.lineCount) : fallbackLineCount),
@@ -47,6 +138,9 @@ export function normalizeDocumentPayload(payload) {
       Number.isFinite(payload?.readingTimeMinutes) ? Math.floor(payload.readingTimeMinutes) : 0
     ),
   };
+  if (resolvedKind) normalized.kind = resolvedKind;
+  if (resolvedFormat) normalized.format = resolvedFormat;
+  return normalized;
 }
 
 export function getScrollEdgeState(scrollTop, scrollHeight, clientHeight, threshold = 1) {

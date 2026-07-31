@@ -1,6 +1,10 @@
 # Editing files
 
-`open.md` can edit an open Markdown or plain-text file without changing its format.
+`open.md` can edit an open Markdown or plain-text companion file without changing its format. Images are view-only and do not enter Edit or Source.
+
+Markdown uses the block live-preview editor. Non-Markdown companions (JSON, CSV,
+YAML, logs, and similar) use a plain monospace buffer so saves preserve text
+without Markdown block rewriting.
 
 ## Enter edit mode
 
@@ -14,11 +18,24 @@ geometry while the window chrome stays fixed. Reduced-motion preferences switch
 the surface immediately. The reader keeps the same scroll position while you
 move between modes.
 
-The document becomes a block canvas. The source file remains Markdown or text;
-there is no private document format. While the caret is in the editor, the
-status bar shows its source line and visible column. The gear in the title bar
-can show source-line numbers and the minimap in Edit as well as Read. Word wrap
-is on by default and can be changed there for Read, Edit and Source.
+Edit mode uses an **Obsidian-style live preview** surface. The source file
+remains Markdown or text; there is no private document format. While the caret
+is in the editor, the status bar shows its source line and visible column. The
+gear in the title bar can show source-line numbers and the minimap in Edit as
+well as Read. Word wrap is on by default and can be changed there for Read,
+Edit and Source.
+
+## Live preview
+
+- The **active line** (the block with the caret) shows **source Markdown** so
+  markup such as `**bold**` stays visible while you type.
+- Other lines render as a **preview** (formatted text without delimiters).
+- The active line is highlighted with a distinct background so you always know
+  where you are editing.
+- Click any preview line to make it active; the previous line returns to
+  preview.
+- Side gutters and per-block control columns are not used, so the text column
+  stays aligned with Read and Source.
 
 ## Work with blocks
 
@@ -31,12 +48,20 @@ Type `/` in an empty block to choose:
 - fenced code;
 - a divider.
 
-Use the controls left of a block to insert, drag, move, duplicate or delete it.
-While dragging, other blocks make room in real time, blank Markdown separator
-rows stay in place, and the page scrolls near its top and bottom edges.
-Select text to show the inline toolbar for bold, italic, strikethrough, code and
-links. <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>1</kbd> through <kbd>3</kbd>
-changes the current block to a heading.
+Block actions live on a **floating toolbar at the bottom** of the window while
+Edit is active:
+
+- add a block;
+- drag handle (drag to reorder, or click for move / duplicate / delete);
+- move up / down, duplicate, delete;
+- change block type.
+
+There are no buttons in the left margin, so typing never shifts the text
+horizontally.
+
+Select text to show the **inline format toolbar** near the selection for bold,
+italic, strikethrough, code and links. <kbd>Ctrl</kbd> + <kbd>Alt</kbd> +
+<kbd>1</kbd> through <kbd>3</kbd> changes the current block to a heading.
 
 Press <kbd>Tab</kbd> or <kbd>Shift</kbd> + <kbd>Tab</kbd> to change list
 indentation. <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>↑</kbd> or <kbd>↓</kbd>
@@ -87,4 +112,4 @@ Mermaid diagrams and image authoring do not have dedicated visual controls; use
 Source view for exact syntax edits. New-file creation, Save As, collaboration,
 comments and cloud sync are outside this mode. To keep the app responsive,
 documents over 2 MiB or 20,000 lines remain available in Read and Source views
-but do not open in the block editor.
+but do not open in the live-preview editor.

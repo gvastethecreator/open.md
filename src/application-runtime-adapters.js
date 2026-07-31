@@ -90,18 +90,31 @@ export function createApplicationRuntimeAdapters({
     relativeSource,
   });
 
+  const readImageFile = (path) => invokeNative('get_standalone_image_bytes', { path });
+
   const openDocument = (path) => invokeNative('open_new_window', { path });
 
-  const highlight = async (container) => {
-    if (!container?.querySelector?.('pre code')) return false;
+  const loadSyntax = async () => {
     if (!syntaxPromise) {
       syntaxPromise = Promise.resolve(syntaxLoader()).catch((error) => {
         syntaxPromise = null;
         throw error;
       });
     }
-    const { highlightCodeBlocks } = await syntaxPromise;
+    return syntaxPromise;
+  };
+
+  const highlight = async (container) => {
+    if (!container?.querySelector?.('pre code')) return false;
+    const { highlightCodeBlocks } = await loadSyntax();
     return highlightCodeBlocks(container);
+  };
+
+  const highlightDocument = async (container, language) => {
+    if (!container || !language) return false;
+    const module = await loadSyntax();
+    if (typeof module.highlightDocument !== 'function') return false;
+    return module.highlightDocument(container, language);
   };
 
   const setAlwaysOnTop = native
@@ -109,12 +122,12 @@ export function createApplicationRuntimeAdapters({
     : undefined;
 
   return Object.freeze({
-    documents: Object.freeze({ open, save, readImage }),
+    documents: Object.freeze({ open, save, readImage, readImageFile }),
     diagrams: Object.freeze({
       prepare: diagrams.prepare,
       render: diagrams.render,
     }),
-    syntax: Object.freeze({ highlight }),
+    syntax: Object.freeze({ highlight, highlightDocument }),
     windows: Object.freeze({ openDocument, ...(setAlwaysOnTop ? { setAlwaysOnTop } : {}) }),
     storage: storage || createOptionalWebPreferenceStore(window) || createMemoryPreferenceStore(),
   });

@@ -130,7 +130,14 @@ describe('Frontend Logic Tests', () => {
       expect(isSupportedFilePath('README.md')).toBe(true);
       expect(isSupportedFilePath('notes.MARKDOWN')).toBe(true);
       expect(isSupportedFilePath('log.txt')).toBe(true);
-      expect(isSupportedFilePath('photo.png')).toBe(false);
+      expect(isSupportedFilePath('config.JSON')).toBe(true);
+      expect(isSupportedFilePath('setup.ini')).toBe(true);
+      expect(isSupportedFilePath('info.nfo')).toBe(true);
+      expect(isSupportedFilePath('settings.toml')).toBe(true);
+      expect(isSupportedFilePath('photo.png')).toBe(true);
+      expect(isSupportedFilePath('cover.WEBP')).toBe(true);
+      expect(isSupportedFilePath('main.rs')).toBe(false);
+      expect(isSupportedFilePath('page.html')).toBe(false);
     });
 
     it('extracts a friendly display name from Windows paths', () => {
@@ -142,6 +149,10 @@ describe('Frontend Logic Tests', () => {
       expect(getFileKind('C:\\docs\\guide.md')).toBe('Markdown');
       expect(getFileKind('notes.markdown')).toBe('Markdown');
       expect(getFileKind('notes.TXT')).toBe('Text');
+      expect(getFileKind('config.json')).toBe('Text');
+      expect(getFileKind('setup.INI')).toBe('Text');
+      expect(getFileKind('photo.png')).toBe('Image');
+      expect(getFileKind('cover.JPEG')).toBe('Image');
     });
 
     it('resolves relative markdown links from the current document', () => {
@@ -176,6 +187,11 @@ describe('Frontend Logic Tests', () => {
         type: 'blocked',
       });
       expect(getLinkAction('./image.png', 'C:\\docs\\guide\\intro.md')).toEqual({
+        type: 'file',
+        path: 'C:/docs/guide/image.png',
+        fragment: '',
+      });
+      expect(getLinkAction('./page.html', 'C:\\docs\\guide\\intro.md')).toEqual({
         type: 'blocked',
       });
     });

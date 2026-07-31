@@ -38,6 +38,20 @@ describe('editor document model', () => {
     expect(serializeEditorDocument(blocks)).toBe(source);
   });
 
+  it('preserves non-Markdown source text on serialize without block rewrite (F9)', () => {
+    const model = createEditorDocumentModel();
+    const source = 'key: value\nlist:\n  - one\n  - two\n';
+    model.load(source, { markdown: false });
+    model.updateBlock(model.snapshot().blocks[0].id, { text: 'key: changed' });
+    const serialized = model.snapshot().source;
+    expect(serialized.startsWith('key: changed')).toBe(true);
+    expect(serialized).not.toContain('# ');
+    // Plain mode must not invent Markdown list/heading structure from free text.
+    expect(serialized).toContain('list:');
+    expect(serialized).toContain('  - one');
+    model.dispose();
+  });
+
   it('keeps plain-text lines free from Markdown block conversion', () => {
     const blocks = parseEditorDocument('# literal\n- also literal', { markdown: false });
     expect(blocks.map((block) => block.type)).toEqual(['paragraph', 'paragraph']);

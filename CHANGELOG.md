@@ -9,6 +9,17 @@ stable release is cut.
 
 ### Added
 
+- Format experience layer: extension + magic-byte resolution on open, explicit
+  payload `format`/`kind`, rich Read for JSON/CSV/INI-family companions, full-
+  document Source highlighting, plain monospace Edit for non-Markdown, image
+  view-only mode with animated zoom (respects reduced motion), and Advanced
+  options under View options (detection status, image defaults, text defaults,
+  CSV row cap).
+- Implicit plain-text companion open support (for example JSON, INI, NFO, and
+  other sidecar config formats) via drop, CLI, and document links. OS
+  associations and the file picker remain Markdown- and `.txt`-focused.
+- Implicit raster image companion open support (PNG, JPEG, GIF, WebP, BMP,
+  AVIF) with a centered fit-to-window view, wheel zoom, and drag pan.
 - Source provenance and the applicable MIT notice for the bundled Gogh theme
   catalogue.
 - Minimal issue and pull-request templates for welcoming contributions.
@@ -25,8 +36,42 @@ stable release is cut.
 - Conditional top and bottom reading-edge cues with a soft fade and blur for
   long, scrollable content.
 
+### Fixed
+
+- Unsupported-file feedback now mentions Markdown, text, and image companions
+  instead of implying images are unsupported.
+- Mislabeled image bytes under a text companion extension open as the image
+  viewer; damaged image extensions fail closed instead of decoding as text.
+- Mode morph no longer double-paints edge scrims (old + new snapshots), which
+  darkened the gradient mid-transition and popped on tear-down. Tooltips and the
+  minimap stay on named View Transition layers above the scrims instead of
+  dropping under them.
+- Status metrics no longer show a redundant tooltip that repeated the same line
+  count / zoom text already visible in the status bar.
+- The document minimap no longer shows a hover tooltip.
+- Ctrl+F4 reliably closes the open file (matched by key or code) and returns to
+  the empty shell, with the same dirty-document confirmation as open/replace.
+
 ### Changed
 
+- Tooltips keep a short open delay, use trigger safe-zones against hover flicker,
+  and update label text in place when the active control’s copy changes (for
+  example during mode cycling) without closing or reopening the shell.
+- Mode tooltips use a short label plus styled shortcut chips; mode morph no longer
+  thrash-updates the open tooltip mid-transition.
+- Toast and tooltip surfaces use a slightly darker solid fill.
+- Mode changes announce `Edit mode`, `Read mode`, or `Source mode` via the
+  existing toast morph pipeline.
+- Ctrl+click (and Ctrl+Shift+click) on the theme/appearance control cycles
+  themes the same way as `T` / `Shift+T`.
+- Ctrl+F4 closes the current file and returns to the empty shell, reusing the
+  dirty-document confirmation.
+
+- Redesigned Edit mode as an Obsidian-style live preview: the active line shows
+  source markup, other lines render as preview, the active line is highlighted,
+  side gutters are removed so text no longer shifts horizontally, and block
+  actions move to a floating bottom toolbar (inline format toolbar stays
+  selection-based).
 - Stabilized Edit-mode block dragging: blank Markdown separators keep their
   layout, blocks make room in real time while dragging, and edge drag
   auto-scroll supports long documents.

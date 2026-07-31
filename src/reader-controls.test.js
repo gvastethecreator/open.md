@@ -12,7 +12,7 @@ function deferred() {
 function fixture({ preferenceGate = null, deferFrames = false } = {}) {
   const dom = new JSDOM(`<!doctype html><body>
     <button id="tools"></button><div id="tools-shell"><div id="tools-panel"></div></div>
-    <button id="type"></button><div id="type-shell"><div id="type-panel"></div></div>
+    <button id="type"></button><div id="type-shell"><label id="theme-field" class="theme-field"><select id="theme-select"></select></label><div id="type-panel"></div></div>
     <button id="top"></button><button id="auto"></button>
     <button data-font-kind="sans"></button><span id="sans-font-name"></span>
     <button data-font-kind="mono"></button><span id="mono-font-name"></span>
@@ -40,6 +40,7 @@ function fixture({ preferenceGate = null, deferFrames = false } = {}) {
     typographyButton: document.querySelector('#type'),
     typographyShell: document.querySelector('#type-shell'),
     typographyPanel: document.querySelector('#type-panel'),
+    themeField: document.querySelector('#theme-field'),
     alwaysOnTopButton: document.querySelector('#top'),
     autoSaveToggle: document.querySelector('#auto'),
     fontButtons: [...document.querySelectorAll('[data-font-kind]')],
@@ -66,6 +67,7 @@ function fixture({ preferenceGate = null, deferFrames = false } = {}) {
     onAutoSaveApplied: vi.fn(),
     onToast: vi.fn(),
     onPreferenceResult: vi.fn(),
+    cycleTheme: vi.fn(),
     captureScrollPosition: vi.fn(() => 140),
     restoreScrollPosition: vi.fn(),
   };
@@ -161,6 +163,42 @@ describe('Reader Controls', () => {
     view.setHelp(true);
     view.controller.setReadingToolsOpen(true);
     expect(view.controller.isReadingToolsOpen()).toBe(false);
+  });
+
+  it('ctrl+clicks theme controls like the T shortcut without opening Appearance', () => {
+    const view = fixture();
+    view.controller.start();
+
+    view.elements.typographyButton.dispatchEvent(new view.dom.window.MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+    }));
+    expect(view.hooks.cycleTheme).toHaveBeenNthCalledWith(1, 1);
+    expect(view.controller.isTypographyOpen()).toBe(false);
+
+    view.elements.typographyButton.dispatchEvent(new view.dom.window.MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+      shiftKey: true,
+    }));
+    expect(view.hooks.cycleTheme).toHaveBeenNthCalledWith(2, -1);
+    expect(view.controller.isTypographyOpen()).toBe(false);
+
+    view.elements.themeField.dispatchEvent(new view.dom.window.MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+    }));
+    expect(view.hooks.cycleTheme).toHaveBeenNthCalledWith(3, 1);
+
+    view.elements.typographyButton.dispatchEvent(new view.dom.window.MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+    }));
+    expect(view.controller.isTypographyOpen()).toBe(true);
+    expect(view.hooks.cycleTheme).toHaveBeenCalledTimes(3);
   });
 
   it('serializes tool and font changes through the preference adapter', async () => {

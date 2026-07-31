@@ -25,13 +25,14 @@ function createResources() {
   };
 }
 
-function createSession({ open, readImage, prepare, render, highlight, resources, hooks } = {}) {
+function createSession({ open, readImage, readImageFile, prepare, render, highlight, resources, hooks } = {}) {
   return createDocumentSession({
     window,
     adapters: {
       documents: {
         open: open || vi.fn(async () => payload()),
         readImage: readImage || vi.fn(async () => new Uint8Array()),
+        readImageFile: readImageFile || vi.fn(async () => new Uint8Array([1, 2, 3])),
       },
       diagrams: {
         prepare: prepare || vi.fn(async () => null),
@@ -85,6 +86,35 @@ describe('document session', () => {
     expect(resources.create).toHaveBeenCalledWith(expect.any(Uint8Array), 'image/png');
     expect(document.querySelector('#content img')?.getAttribute('src')).toBe('blob:test-image');
     expect(document.querySelector('#content img')?.hasAttribute('aria-busy')).toBe(false);
+  });
+
+  it('opens a standalone image companion with the pan/zoom viewer shell', async () => {
+    const resources = createResources();
+    const readImageFile = vi.fn(async () => new Uint8Array([137, 80, 78, 71]));
+    const session = createSession({
+      open: vi.fn(async () => ({
+        html: '<div class="image-document" data-image-document="true" role="img" aria-label="photo.png"></div>',
+        source: '',
+        kind: 'image',
+        lineCount: 1,
+        characterCount: 0,
+        wordCount: 0,
+        readingTimeMinutes: 0,
+      })),
+      readImageFile,
+      resources,
+    });
+
+    await expect(session.open({ path: 'C:\\pics\\photo.png' })).resolves.toMatchObject({
+      status: 'ready',
+      path: 'C:\\pics\\photo.png',
+    });
+
+    expect(readImageFile).toHaveBeenCalledWith('C:\\pics\\photo.png');
+    expect(resources.create).toHaveBeenCalledWith(expect.any(Uint8Array), 'image/png');
+    expect(document.querySelector('#content .image-document')).not.toBeNull();
+    expect(document.querySelector('#content .image-document__img')?.getAttribute('src')).toBe('blob:test-image');
+    expect(session.current()).toMatchObject({ state: 'ready', path: 'C:\\pics\\photo.png' });
   });
 
   it('keeps the document ready and reports one warning when Mermaid fails', async () => {

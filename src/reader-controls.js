@@ -1,6 +1,8 @@
 import {
+  DEFAULT_ADVANCED_PREFERENCES,
   DEFAULT_READING_TOOLS,
   FONT_PRESETS,
+  normalizeAdvancedPreferences,
   normalizeFontIndex,
 } from './reader-preferences.js';
 
@@ -19,6 +21,7 @@ function snapshotValue(snapshot = {}) {
     },
     alwaysOnTop: Boolean(snapshot.alwaysOnTop),
     autoSave: snapshot.autoSave !== false,
+    advanced: normalizeAdvancedPreferences(snapshot.advanced || DEFAULT_ADVANCED_PREFERENCES),
   };
 }
 
@@ -33,6 +36,7 @@ export function createReaderControls({
   const state = snapshotValue(adapters.preferences?.current?.());
   let readingToolsOpen = false;
   let typographyOpen = false;
+  let advancedOpen = false;
   let disposed = false;
   let started = false;
   let sourceChangeGeneration = 0;
@@ -117,11 +121,32 @@ export function createReaderControls({
     if (!typographyOpen && returnFocus) deferFocus(window, elements.typographyButton);
   }
 
+  function setAdvancedOpen(nextOpen, { returnFocus = false } = {}) {
+    if (disposed) return;
+    advancedOpen = Boolean(nextOpen && readingToolsOpen);
+    body.classList.toggle('is-advanced-options', advancedOpen);
+    elements.readingToolsPanel?.classList.toggle('is-advanced-view', advancedOpen);
+    elements.advancedOptionsButton?.setAttribute('aria-expanded', String(advancedOpen));
+    if (elements.advancedOptionsPanel) {
+      elements.advancedOptionsPanel.hidden = !advancedOpen;
+      elements.advancedOptionsPanel.setAttribute('aria-hidden', String(!advancedOpen));
+    }
+    if (elements.basicOptionsPanel) {
+      elements.basicOptionsPanel.hidden = advancedOpen;
+      elements.basicOptionsPanel.setAttribute('aria-hidden', String(advancedOpen));
+    }
+    if (elements.readingToolsHeaderLabel) {
+      elements.readingToolsHeaderLabel.textContent = advancedOpen ? 'Advanced options' : 'View options';
+    }
+    if (!advancedOpen && returnFocus) deferFocus(window, elements.advancedOptionsButton);
+  }
+
   function setReadingToolsOpen(nextOpen, { returnFocus = false } = {}) {
     if (disposed) return;
     const canOpen = !hooks.isHelpVisible?.();
     readingToolsOpen = Boolean(nextOpen && canOpen);
     if (readingToolsOpen) setTypographyOpen(false);
+    else setAdvancedOpen(false);
     body.classList.toggle('is-reading-tools-open', readingToolsOpen);
     elements.readingToolsButton?.setAttribute('aria-expanded', String(readingToolsOpen));
 
@@ -140,8 +165,39 @@ export function createReaderControls({
   }
 
   function closeTransient({ returnFocus = false } = {}) {
+    setAdvancedOpen(false);
     setReadingToolsOpen(false, { returnFocus });
     setTypographyOpen(false, { returnFocus });
+  }
+
+  function updateAdvancedControls() {
+    elements.advancedToggles?.forEach((toggle) => {
+      const key = toggle.dataset.advancedPref;
+      if (!key) return;
+      const value = state.advanced[key];
+      if (typeof value === 'boolean') {
+        toggle.setAttribute('aria-checked', String(value));
+      }
+    });
+    if (elements.imageDefaultZoomSelect) {
+      elements.imageDefaultZoomSelect.value = state.advanced.imageDefaultZoom === '100%' ? '100%' : 'fit';
+    }
+    if (elements.csvRowCapInput) {
+      elements.csvRowCapInput.value = String(state.advanced.csvRowCap);
+    }
+    if (elements.formatDetectionStatus) {
+      const format = hooks.getDocumentFormat?.() || null;
+      elements.formatDetectionStatus.textContent = format
+        ? `Current document format: ${format}`
+        : 'No document open';
+    }
+  }
+
+  async function setAdvancedPref(key, value) {
+    if (disposed || typeof adapters.preferences?.update !== 'function') return;
+    const result = await adapters.preferences.update({ advanced: { [key]: value } });
+    hooks.onPreferenceResult?.(result);
+    updateAdvancedControls();
   }
 
   function updateReadingToolControls() {
@@ -182,8 +238,10 @@ export function createReaderControls({
     Object.assign(state, next, {
       readingTools: { ...next.readingTools },
       fonts: { ...next.fonts },
+      advanced: { ...next.advanced },
     });
     refresh();
+    updateAdvancedControls();
     hooks.onThemeName?.(state.themeName);
     hooks.onAutoSaveApplied?.(state.autoSave);
   }
@@ -275,17 +333,53 @@ export function createReaderControls({
     }
   }
 
+  function handleTypographyButtonClick(event) {
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      hooks.cycleTheme?.(event.shiftKey ? -1 : 1);
+      return;
+    }
+    setTypographyOpen(!typographyOpen);
+  }
+
+  function handleThemeFieldClick(event) {
+    if (!(event.ctrlKey || event.metaKey)) return;
+    // Ctrl+click on the theme row cycles like T without opening the native select.
+    if (event.target?.closest?.('select')) {
+      event.preventDefault();
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    hooks.cycleTheme?.(event.shiftKey ? -1 : 1);
+  }
+
   function start() {
     if (disposed || started) return;
     started = true;
     listen(elements.readingToolsButton, 'click', () => setReadingToolsOpen(!readingToolsOpen));
-    listen(elements.typographyButton, 'click', () => setTypographyOpen(!typographyOpen));
+    listen(elements.typographyButton, 'click', handleTypographyButtonClick);
+    listen(elements.themeField, 'click', handleThemeFieldClick);
     listen(elements.alwaysOnTopButton, 'click', () => { void toggleAlwaysOnTop(); });
     listen(elements.autoSaveToggle, 'click', () => { void toggleAutoSave(); });
+    listen(elements.advancedOptionsButton, 'click', () => setAdvancedOpen(!advancedOpen));
+    listen(elements.advancedBackButton, 'click', () => setAdvancedOpen(false, { returnFocus: true }));
     elements.readingToolToggles?.forEach((toggle) => {
       listen(toggle, 'click', () => {
         void setReadingTool(toggle.dataset.readingTool, toggle.getAttribute('aria-checked') !== 'true');
       });
+    });
+    elements.advancedToggles?.forEach((toggle) => {
+      listen(toggle, 'click', () => {
+        const key = toggle.dataset.advancedPref;
+        if (!key) return;
+        void setAdvancedPref(key, toggle.getAttribute('aria-checked') !== 'true');
+      });
+    });
+    listen(elements.imageDefaultZoomSelect, 'change', (event) => {
+      void setAdvancedPref('imageDefaultZoom', event.target.value === '100%' ? '100%' : 'fit');
+    });
+    listen(elements.csvRowCapInput, 'change', (event) => {
+      void setAdvancedPref('csvRowCap', Number(event.target.value));
     });
     elements.fontButtons?.forEach((button) => {
       listen(button, 'click', () => { void cycleFont(button.dataset.fontKind); });
@@ -295,6 +389,7 @@ export function createReaderControls({
       if (typographyOpen && !elements.typographyShell?.contains(event.target)) setTypographyOpen(false);
     });
     refresh();
+    updateAdvancedControls();
   }
 
   return Object.freeze({
@@ -304,18 +399,23 @@ export function createReaderControls({
     closeTransient,
     setReadingToolsOpen,
     setTypographyOpen,
+    setAdvancedOpen,
     setReadingTool,
+    setAdvancedPref,
     cycleFont,
     toggleAutoSave,
     toggleAlwaysOnTop,
     isReadingToolsOpen: () => readingToolsOpen,
     isTypographyOpen: () => typographyOpen,
+    isAdvancedOpen: () => advancedOpen,
     current: () => ({
       ...state,
       readingTools: { ...state.readingTools },
       fonts: { ...state.fonts },
+      advanced: { ...state.advanced },
       readingToolsOpen,
       typographyOpen,
+      advancedOpen,
     }),
     dispose() {
       if (disposed) return;
