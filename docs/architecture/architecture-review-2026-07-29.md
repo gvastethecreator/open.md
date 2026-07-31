@@ -2,10 +2,10 @@
 
 Date: 2026-07-29; execution updates: 2026-07-30
 Repository baseline: `f6f6a25`; post-acceptance hardening is in the current working tree on `codex/arc-01-05-architecture`
-Status: ARC-01 through ARC-25 accepted, implemented, and locally verified; packaged cross-platform smoke remains a platform gate
-Canonical source: this Markdown file
+Status: ARC-01 through ARC-35 accepted, implemented, and locally verified; packaged cross-platform smoke remains a platform gate
+Canonical source: this Markdown file for ARC-01..25; ARC-26..35 completion lives in [architecture-review-2026-07-31.md](architecture-review-2026-07-31.md)
 Historical visual companion (review baseline only): `.scratch/reports/architecture-open-md/index.html`
-Current visual companion: [`.scratch/reports/architecture-open-md-followup/index.html`](../../.scratch/reports/architecture-open-md-followup/index.html)
+Current visual companion: [`.scratch/reports/architecture-open-md-arc-26-35/index.html`](../../.scratch/reports/architecture-open-md-arc-26-35/index.html)
 
 > Architecture terms stay in English to match the project contract: **module**, **interface**, **implementation**, **depth**, **deep**, **shallow**, **seam**, **adapter**, **leverage**, and **locality**.
 

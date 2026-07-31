@@ -1,5 +1,10 @@
-import { getDisplayName, getFileKind } from './core/reader.js';
-import { getEditorKind, isImageFormat, isMarkdownFormat } from './format-registry.js';
+import { getDisplayName } from './core/reader.js';
+import {
+  getEditorKind,
+  isImageFormat,
+  isMarkdownFormat,
+  resolveFormatId,
+} from './format-registry.js';
 
 function freezeState(snapshot) {
   return Object.freeze({
@@ -8,16 +13,6 @@ function freezeState(snapshot) {
     document: snapshot.document || null,
     ...(snapshot.error ? { error: snapshot.error } : {}),
   });
-}
-
-function resolveFormat(path, document) {
-  if (document?.format) return document.format;
-  if (document?.kind === 'image') return 'image';
-  if (document?.kind === 'markdown') return 'markdown';
-  if (document?.kind === 'text') return 'text';
-  if (path && getFileKind(path) === 'Image') return 'image';
-  if (path && getFileKind(path) === 'Markdown') return 'markdown';
-  return 'text';
 }
 
 export function createDocumentViewStateController({
@@ -33,7 +28,7 @@ export function createDocumentViewStateController({
   const current = () => state;
   const isCurrentPath = (path) => !state.path || state.path === path;
   const setDocumentChrome = (path, document = null) => {
-    const format = resolveFormat(path, document);
+    const format = resolveFormatId(path, document);
     const isImage = Boolean(path) && isImageFormat(format, { kind: document?.kind });
     const body = window.document?.body;
     body?.classList.toggle('is-image-document', isImage);
@@ -47,7 +42,7 @@ export function createDocumentViewStateController({
   };
 
   const setEditorDocument = (path, document) => {
-    const format = resolveFormat(path, document);
+    const format = resolveFormatId(path, document);
     const editorKind = getEditorKind(format, { kind: document?.kind });
     if (editorKind === 'none' || isImageFormat(format, { kind: document?.kind })) {
       adapters.getEditorSession?.()?.clearDocument();
@@ -88,7 +83,7 @@ export function createDocumentViewStateController({
       hooks.updateTitle?.(snapshot.path);
       hooks.updateUrl?.(snapshot.path);
       hooks.applyReadingTools?.();
-      hooks.applyFormatPreferences?.(resolveFormat(snapshot.path, snapshot.document));
+      hooks.applyFormatPreferences?.(resolveFormatId(snapshot.path, snapshot.document));
       return state;
     }
 
@@ -133,11 +128,25 @@ export function createDocumentViewStateController({
     return state;
   };
 
+  /**
+   * Same-path save completion: refresh identity, editor projection, and
+   * optional chrome hooks without a full open cycle.
+   */
+  const applySavedDocument = ({ path, document } = {}) => {
+    if (disposed || !path || !document || !isCurrentPath(path)) return state;
+    setDocumentChrome(path, document);
+    publish({ state: 'ready', path, document });
+    setEditorDocument(path, document);
+    hooks.onSavedDocument?.({ path, document });
+    return state;
+  };
+
   return Object.freeze({
     current,
     handle,
     commitDocument,
     updateDocument,
+    applySavedDocument,
     dispose() {
       disposed = true;
       setDocumentChrome(null, null);

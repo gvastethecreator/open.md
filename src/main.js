@@ -1,17 +1,14 @@
-import { invoke } from '@tauri-apps/api/core';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { openUrl } from '@tauri-apps/plugin-opener';
 import allThemes from './themes.runtime.json';
 import {
-  calculateNewZoom,
   getDisplayName,
-  getEstimatedMinutesRemaining,
-  getFileKind,
   getLinkAction,
   getThemeTokens,
-  getStatusMetricParts,
-  getZoomStatusMetric,
 } from './core/reader.js';
+import {
+  allowsDocumentMode,
+  getFormatLabel,
+  resolveFormatId,
+} from './format-registry.js';
 import { createDocumentSaveCoordinator } from './document-save-coordinator.js';
 import { createEditorSession } from './editor-session.js';
 import { mountReaderShell } from './reader-shell.js';
@@ -33,12 +30,10 @@ import { createDocumentViewStateController } from './document-view-state.js';
 import { createDocumentIngressController } from './document-ingress-controller.js';
 import { createReaderKeyboardController } from './reader-keyboard-controller.js';
 import { createApplicationLifecycleController } from './application-lifecycle.js';
+import { createReaderZoomController } from './reader-zoom-controller.js';
 
-let currentZoom = 1;
-const ZOOM_STEP = 0.1;
-const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 3.0;
 let windowChrome = null;
+let readerZoom = null;
 let readerShell = null;
 let runtimeAdapters = null;
 let editorSession = null;
@@ -195,7 +190,8 @@ function updateWindowTitle(filePath = null) {
 }
 
 async function setupWindowChrome(own) {
-  if (!window.__TAURI_INTERNALS__) return;
+  const nativeWindow = runtimeAdapters?.windows?.getNativeWindow?.();
+  if (!nativeWindow) return;
   windowChrome = own(createWindowChrome({
     document,
     elements: {
@@ -203,7 +199,7 @@ async function setupWindowChrome(own) {
       maximize: ui.windowMaximizeButton,
       close: ui.windowCloseButton,
     },
-    nativeWindow: getCurrentWindow(),
+    nativeWindow,
     onError: (message, error) => {
       console.error(message, error);
       showToast(message);
@@ -241,6 +237,17 @@ function getCurrentDocument() {
   return documentViewState?.current().document || null;
 }
 
+function currentFormatId() {
+  return resolveFormatId(getCurrentFilePath(), getCurrentDocument());
+}
+
+function documentAllowsMode(mode) {
+  const path = getCurrentFilePath();
+  const documentSnapshot = getCurrentDocument();
+  if (!path || !documentSnapshot) return false;
+  return allowsDocumentMode(currentFormatId(), mode, { kind: documentSnapshot.kind, path });
+}
+
 function updateStatus(filePath = null) {
   if (isHelpVisible()) {
     setStatusText('About + Help', 'F1 to close');
@@ -250,12 +257,17 @@ function updateStatus(filePath = null) {
 
   if (filePath) {
     if (isEditMode) {
-      const editorState = editorSession?.current();
       setStatusText(getDisplayName(filePath), 'Editing');
       updateStatusMetrics();
       return;
     }
-    const viewLabel = getCurrentDocument() && readerControls?.current().readingTools.source ? 'Source' : getFileKind(filePath);
+    const formatLabel = getFormatLabel(currentFormatId(), {
+      kind: getCurrentDocument()?.kind,
+      path: filePath,
+    });
+    const viewLabel = getCurrentDocument() && readerControls?.current().readingTools.source
+      ? 'Source'
+      : formatLabel;
     setStatusText(getDisplayName(filePath), viewLabel);
     updateStatusMetrics();
     return;
@@ -266,48 +278,34 @@ function updateStatus(filePath = null) {
 }
 
 function updateStatusMetrics() {
-  if (!ui.statusMetrics) return;
+  if (!ui.statusMetrics || !statusPresenter) return;
 
   if (isEditMode && editorSession) {
     const editorState = editorSession.current();
-    const { cursor, stats } = editorState;
-    const zoom = getZoomStatusMetric(currentZoom * 100);
-    const items = cursor
-      ? [
-          { kind: 'current-line', visible: `Ln ${cursor.line}` },
-          ...(zoom ? [zoom] : []),
-          { kind: 'column', visible: `Col ${cursor.column}` },
-        ]
-      : [
-          { kind: 'blocks', visible: `${stats.blocks} ${stats.blocks === 1 ? 'block' : 'blocks'}` },
-          { kind: 'words', visible: `${stats.words} ${stats.words === 1 ? 'word' : 'words'}` },
-          ...(zoom ? [zoom] : []),
-        ];
-    const accessibleLabel = cursor
-      ? `Line ${cursor.line}. Column ${cursor.column}. ${stats.blocks} blocks. ${stats.words} words. ${stats.characters} characters.${zoom ? ` ${zoom.accessible}.` : ''}`
-      : `${stats.blocks} blocks. ${stats.words} words. ${stats.characters} characters.${zoom ? ` ${zoom.accessible}.` : ''}`;
-    statusPresenter?.renderMetrics(items, accessibleLabel);
+    statusPresenter.renderEditorMetrics({
+      cursor: editorState.cursor,
+      stats: editorState.stats,
+      zoomPercent: readerZoom?.percent?.() ?? 100,
+    });
     return;
   }
 
   const isAvailable = Boolean(getCurrentDocument() && getCurrentFilePath() && !isHelpVisible());
   if (!isAvailable) {
-    statusPresenter?.renderMetrics([], '');
+    statusPresenter.renderMetrics([], '');
     return;
   }
 
-  const metrics = getStatusMetricParts({
+  statusPresenter.renderDocumentMetrics({
     lineCount: getCurrentDocument().lineCount,
     characterCount: getCurrentDocument().characterCount,
-    zoomPercent: currentZoom * 100,
+    zoomPercent: readerZoom?.percent?.() ?? 100,
     currentLine: readingNavigation?.snapshot().currentLine || 1,
     showCurrentLine: readerControls?.current().readingTools.lineGuide,
     readingProgress: readingNavigation?.snapshot().readingProgress || 0,
     readingTimeMinutes: getCurrentDocument().readingTimeMinutes,
     showReadingStats: readerControls?.current().readingTools.stats,
   });
-
-  statusPresenter?.renderMetrics(metrics.items, metrics.accessible.join('. '));
 }
 
 function hasLoadedDocument() {
@@ -461,6 +459,12 @@ function mountDocumentViewState(own) {
       updateUrl: updateWindowUrl,
       markNavigationDirty: () => readingNavigation?.markDirty(),
       handleNavigationScroll: () => readingNavigation?.handleScroll(),
+      onSavedDocument: ({ path, document: savedDocument }) => {
+        if (ui.sourceContent) ui.sourceContent.textContent = savedDocument.source;
+        readingNavigation?.markDirty();
+        responsiveTypography?.schedule();
+        updateStatus(path);
+      },
     },
   }));
 }
@@ -672,16 +676,7 @@ function mountDocumentSaveCoordinator(own) {
     hooks: {
       notify: showToast,
       onTaskCommitted: ({ path, document: savedDocument }) => {
-        documentViewState?.updateDocument({ path, document: savedDocument });
-        editorSession?.setDocument({
-          path,
-          source: savedDocument.source,
-          markdown: getFileKind(path) === 'Markdown',
-        });
-        if (ui.sourceContent) ui.sourceContent.textContent = savedDocument.source;
-        readingNavigation?.markDirty();
-        responsiveTypography?.schedule();
-        updateStatus(path);
+        documentViewState?.applySavedDocument({ path, document: savedDocument });
       },
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
@@ -704,15 +699,7 @@ function mountDocumentModeCoordinator(own) {
     },
     adapters: {
       getMode: () => isEditMode ? 'edit' : isSourceViewActive() ? 'source' : 'read',
-      isAvailable: () => {
-        if (!editorSession || !hasLoadedDocument()) return false;
-        const doc = getCurrentDocument();
-        if (doc?.kind === 'image') return false;
-        if (doc?.format && ['png', 'jpeg', 'gif', 'webp', 'bmp', 'avif', 'image'].includes(doc.format)) {
-          return false;
-        }
-        return getFileKind(getCurrentFilePath()) !== 'Image';
-      },
+      isAvailable: () => Boolean(editorSession && hasLoadedDocument() && documentAllowsMode('edit')),
       getDocumentIdentity: getCurrentDocument,
       enterEdit: () => editorSession?.enter(),
       exitEdit: () => editorSession?.exit(),
@@ -836,7 +823,7 @@ function handleLinkClick(event) {
   event.preventDefault();
 
   if (action.type === 'external') {
-    openUrl(action.href).catch((error) => {
+    Promise.resolve(runtimeAdapters?.windows?.openExternalUrl?.(action.href)).catch((error) => {
       console.error('Failed to open URL:', error);
       showToast('Could not open the external link');
     });
@@ -857,19 +844,18 @@ function handleLinkClick(event) {
   showToast('This link type is not supported');
 }
 
-function setZoom(newZoom) {
-  currentZoom = Math.min(Math.max(newZoom, MIN_ZOOM), MAX_ZOOM);
-  document.documentElement.style.setProperty('--content-scale', currentZoom.toFixed(2));
-  readingNavigation?.markDirty();
-  updateStatus(getCurrentFilePath());
-  showToast(`Zoom: ${Math.round(currentZoom * 100)}%`);
-}
-
-function handleZoom(event) {
-  if (event.ctrlKey) {
-    event.preventDefault();
-    setZoom(calculateNewZoom(currentZoom, event.deltaY, ZOOM_STEP, MIN_ZOOM, MAX_ZOOM));
-  }
+function mountReaderZoom(own) {
+  readerZoom = own(createReaderZoomController({
+    window,
+    document,
+    hooks: {
+      onZoomChange: () => {
+        readingNavigation?.markDirty();
+        updateStatus(getCurrentFilePath());
+      },
+      onToast: showToast,
+    },
+  }));
 }
 
 function mountReaderKeyboard(own) {
@@ -887,8 +873,8 @@ function mountReaderKeyboard(own) {
       closeReadingTools: () => setReadingToolsOpen(false, { returnFocus: true }),
       closeTypography: () => setTypographyOpen(false, { returnFocus: true }),
       toggleEdit: () => {
-        if (getFileKind(getCurrentFilePath()) === 'Image') {
-          showToast('Images open read-only');
+        if (!documentAllowsMode('edit')) {
+          showToast('This document opens read-only');
           return;
         }
         documentModeCoordinator?.toggleEdit();
@@ -896,9 +882,9 @@ function mountReaderKeyboard(own) {
       saveEditor: () => documentSaveCoordinator?.saveEditor(),
       openFile: openFilePicker,
       closeFile: closeCurrentFile,
-      zoomIn: () => setZoom(currentZoom + ZOOM_STEP),
-      zoomOut: () => setZoom(currentZoom - ZOOM_STEP),
-      resetZoom: () => setZoom(1.0),
+      zoomIn: () => readerZoom?.zoomIn(),
+      zoomOut: () => readerZoom?.zoomOut(),
+      resetZoom: () => readerZoom?.reset(),
       cycleTheme,
     },
   }));
@@ -917,7 +903,7 @@ function mountDocumentIngress(own) {
     adapters: {
       openDocument: (value) => readerShell?.open(value),
       canChangeDocument: () => !editorSession || editorSession.canChangeDocument(),
-      acknowledgeOpenFile: (id) => invoke('acknowledge_open_file_request', { id }),
+      acknowledgeOpenFile: (id) => runtimeAdapters.openRequests.acknowledge(id),
     },
     hooks: {
       closeReadingTools: () => setReadingToolsOpen(false),
@@ -934,7 +920,7 @@ function openFilePicker() {
 
 function applicationEvents() {
   return [
-    { target: window, type: 'wheel', listener: handleZoom, options: { passive: false } },
+    { target: window, type: 'wheel', listener: (event) => readerZoom?.handleWheel(event), options: { passive: false } },
     { target: document, type: 'click', listener: handleLinkClick },
     { target: ui.emptyOpenButton, type: 'click', listener: openFilePicker },
     { target: ui.toolbarOpenButton, type: 'click', listener: openFilePicker },
@@ -958,13 +944,8 @@ async function startApplication(own) {
   const queryFilePath = new URLSearchParams(window.location.search).get('file');
   let initialFilePaths = queryFilePath ? [queryFilePath] : [];
 
-  if (initialFilePaths.length === 0 && window.__TAURI_INTERNALS__) {
-    try {
-      const launchPaths = await invoke('get_initial_file_paths');
-      initialFilePaths = Array.isArray(launchPaths) ? launchPaths : [];
-    } catch (error) {
-      console.warn('Could not inspect the launch file:', error);
-    }
+  if (initialFilePaths.length === 0) {
+    initialFilePaths = await runtimeAdapters.openRequests.getInitialFilePaths();
   }
 
   await readerShell.start(initialFilePaths.length > 0 ? {
@@ -973,7 +954,11 @@ async function startApplication(own) {
   } : null);
 }
 
-async function init() {
+/**
+ * Executable application composition seam. Tests may import and await this
+ * without relying on DOMContentLoaded auto-start.
+ */
+export async function startOpenMdApplication() {
   applicationLifecycle = createApplicationLifecycleController({
     window,
     isDirty: () => Boolean(editorSession?.isDirty()),
@@ -1000,6 +985,7 @@ async function init() {
       onDiagnostic: (message, error) => console.warn(`${message}:`, error),
     }));
     mountApplicationReaderShell(own);
+    mountReaderZoom(own);
     mountReaderViewport(own);
     mountReaderControls(own);
     mountApplicationEditor(own);
@@ -1017,14 +1003,20 @@ async function init() {
     }
     await startApplication(own);
   });
+  return Object.freeze({
+    dispose: () => applicationLifecycle?.dispose(),
+    currentPath: () => getCurrentFilePath(),
+    currentDocument: () => getCurrentDocument(),
+    zoom: () => readerZoom?.current?.() ?? 1,
+  });
 }
 
 if (typeof window !== 'undefined' && !window.__VITEST__) {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      init().catch((error) => console.error('open.md initialization failed:', error));
+      startOpenMdApplication().catch((error) => console.error('open.md initialization failed:', error));
     });
   } else {
-    init().catch((error) => console.error('open.md initialization failed:', error));
+    startOpenMdApplication().catch((error) => console.error('open.md initialization failed:', error));
   }
 }

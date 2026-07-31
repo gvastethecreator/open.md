@@ -7,6 +7,16 @@ stable release is cut.
 
 ## [Unreleased]
 
+### Changed
+
+- Architecture batch ARC-26..35: format-detect is the frontend path/support
+  authority; mode availability uses format-registry capabilities; document
+  session and view-state share `resolveFormatId`; image MIME maps and status
+  labels consolidate behind format owners; status metrics composition, zoom
+  lifecycle, task-save projection, and remaining native surfaces leave the
+  composition root; `startOpenMdApplication` is the executable composition
+  seam. Initial boot JS budget is 325 KiB raw.
+
 ### Added
 
 - Format experience layer: extension + magic-byte resolution on open, explicit

@@ -415,3 +415,129 @@ module owns behavior behind a smaller interface, its focused tests cross that
 interface, the old root policy is removed, and the relevant integration gate
 remains green. Do not add an event bus, settings framework, or new public
 runtime contract as part of this batch.
+
+## Batch 2026-07-31 — Format authority and composition residual seams
+
+This execution batch tracks exactly ten distinct improvements after ARC-01..25
+and the half-landed format layer. Workplan IDs continue as ARC-26..35.
+
+### ARC-26 — Frontend path/support authority via format-detect
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** Production path support and family resolution consume
+`format-detect.js`. `core/reader.js` re-exports thin adapters and no longer
+owns extension tables.
+
+- [x] Open Intent / link policy still call `isSupportedFilePath` without a second table.
+- [x] Focused format-detect + main path tests pass.
+
+### ARC-27 — Mode availability via allowsDocumentMode
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** ARC-26.
+
+**What to build:** Edit/Source availability and keyboard edit guards use
+`allowsDocumentMode` instead of hard-coded image arrays and `getFileKind`.
+
+- [x] Image documents refuse edit without root format lists.
+- [x] Mode coordinator `isAvailable` is format-capability based.
+
+### ARC-28 — Shared format resolution helper
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** ARC-26.
+
+**What to build:** `resolveFormatId` is the single payload/path format ladder
+for document session and document view-state.
+
+- [x] Session open and view-state chrome share one resolver.
+- [x] Registry tests cover payload-before-path precedence.
+
+### ARC-29 — Single frontend image MIME map
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** ARC-26.
+
+**What to build:** Session and relative-image resource MIME lookup use the
+format-detect MIME authority (via registry re-export where convenient).
+
+- [x] No local `IMAGE_MIME_BY_FORMAT` table remains in document-session.
+- [x] Image resource tests remain green.
+
+### ARC-30 — Format display labels
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** ARC-28.
+
+**What to build:** Status/chrome labels use `getFormatLabel` for the resolved
+format instead of coarse `getFileKind` at composition call sites.
+
+- [x] Status context shows format-aware labels.
+- [x] Registry tests cover Markdown/Image/JSON labels.
+
+### ARC-31 — Status metrics composition ownership
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** Status Presenter owns document/editor metric composition
+behind `renderDocumentMetrics` / `renderEditorMetrics`.
+
+- [x] Root no longer builds metric item arrays.
+- [x] Presenter tests cover both compositions.
+
+### ARC-32 — Complete runtime adapter native surface
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** Runtime adapters own acknowledge, initial launch paths,
+external URL open, and native window access. `main.js` imports no `@tauri-apps/*`.
+
+- [x] Adapter tests cover the expanded native surface.
+- [x] Composition source audit forbids direct Tauri imports in main.
+
+### ARC-33 — Task-save projection in document view-state
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** ARC-28.
+
+**What to build:** Same-path save completion uses `applySavedDocument` for
+identity + editor projection; root only wires chrome side effects.
+
+- [x] View-state tests cover same-path save and stale path rejection.
+- [x] Save coordinator root fan-out no longer sets editor document directly.
+
+### ARC-34 — Zoom lifecycle owner
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** ARC-31.
+
+**What to build:** `createReaderZoomController` owns scale, clamp, wheel, CSS
+variable, and toast coupling.
+
+- [x] Focused zoom tests cover clamp, wheel, dispose.
+- [x] Keyboard zoom uses the controller.
+
+### ARC-35 — Executable application composition seam
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** ARC-32 and ARC-34.
+
+**What to build:** Export `startOpenMdApplication` as the importable composition
+entrypoint with dispose/current accessors for executable tests.
+
+- [x] Composition test boots real `index.html` under jsdom without Tauri.
+- [x] Auto-start remains gated by `!window.__VITEST__`.

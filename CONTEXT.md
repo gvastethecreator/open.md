@@ -98,15 +98,20 @@ flowchart LR
 - `src/document-ingress-controller.js` owns picker, native association replay,
   drag safety, native drop, dirty-document guards, and ingress teardown.
 - `src/document-view-state.js` owns the current path/document identity and
-  loading, ready, failed, idle, replacement, and save fan-out.
+  loading, ready, failed, idle, replacement, same-path save projection, and
+  save fan-out.
 - `src/reader-viewport-controller.js` owns empty/content/source/help
   projection, inert/ARIA state, help focus, page state, body state, and scroll
   reset.
 - `src/reader-controls.js` owns preference-to-control projection, panel/focus
   rules, reading-tool state, fonts, auto-save, and always-on-top actions.
+- `src/reader-zoom-controller.js` owns content zoom scale, wheel gesture
+  policy, CSS scale publishing, and zoom toast feedback.
+- `src/status-presenter.js` owns identity text and document/editor metric
+  composition (not only DOM metric rendering).
 - `src/reading-navigation-controller.js`, `src/document-mode-coordinator.js`,
-  `src/status-presenter.js`, `src/toast-presenter.js`, and
-  `src/editor-feedback-presenter.js` own their visual lifecycle and disposal.
+  `src/toast-presenter.js`, and `src/editor-feedback-presenter.js` own their
+  visual lifecycle and disposal.
 - Each module owns its timers, listeners, transition/RAF state and disposal;
   the composition root does not coordinate their private revisions or queues.
 - A Read/Edit/Source transition is scoped to the document identity captured at
@@ -131,6 +136,19 @@ flowchart LR
 - Cursor-only updates reuse the frozen source/block/stat projection; moving the
   caret cannot serialize or clone the full document.
 
+### Document format authority
+
+- `src/format-detect.js` owns frontend path support, extension tables, magic
+  reclassification heuristics, and image MIME ids. Native open remains
+  authoritative for filesystem acceptance.
+- `src/format-registry.js` owns format capabilities: allowed modes, editor
+  kind, read renderer, highlight language, display labels, and
+  `resolveFormatId` for payload/path resolution.
+- `src/format-readers.js` owns pure rich-Read HTML for companion formats.
+- Mode availability uses `allowsDocumentMode`; composition root does not keep
+  parallel image format lists.
+- Invariant: payload `format`/`kind` win over path hints when both are present.
+
 ### Content and keyboard actions
 
 - `src/document-content-actions.js` owns Read/Source/Edit context actions,
@@ -138,6 +156,9 @@ flowchart LR
   commands through injected session/save adapters.
 - `src/reader-keyboard-controller.js` owns shortcut precedence and editable
   target guards; command implementations remain injected from the root.
+- `src/main.js` exports `startOpenMdApplication` as the executable composition
+  seam and imports no `@tauri-apps/*` modules directly; runtime adapters own
+  native open/save/image/URL/ack surfaces.
 - Invariant: picker, drop, link, keyboard, and native association paths enter
   through the same Open Intent policy instead of duplicating path or window
   rules.

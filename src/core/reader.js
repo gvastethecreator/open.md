@@ -1,58 +1,20 @@
+import {
+  isSupportedFilePath as detectSupportedFilePath,
+  resolveDocumentFormat,
+} from '../format-detect.js';
+
 const PREFERRED_THEME_NAMES = ['Github Light', 'Github Dark', 'GitHub', 'Ayu Light', 'Ayu Dark'];
 
-/** Product-surface Markdown extensions (associations, picker, rich render). */
-const MARKDOWN_EXTENSIONS = new Set(['md', 'markdown']);
-
 /**
- * Plain-text extensions: primary `.txt` plus implicit companions.
- * Companions open via drop/CLI/links but are not registered or listed in the picker.
+ * Path support authority lives in `format-detect.js`. These re-exports keep
+ * existing callers stable while that module owns extension tables and heuristics.
  */
-const PLAIN_TEXT_EXTENSIONS = new Set([
-  'txt',
-  'nfo',
-  'json',
-  'ini',
-  'yml',
-  'yaml',
-  'toml',
-  'cfg',
-  'conf',
-  'log',
-  'csv',
-  'env',
-]);
-
-/**
- * Implicit raster image companions (drop/CLI/links only).
- * Mirrors native `image_mime_type` / frontend image resource MIME map.
- */
-const IMAGE_EXTENSIONS = new Set([
-  'png',
-  'jpg',
-  'jpeg',
-  'gif',
-  'webp',
-  'bmp',
-  'avif',
-]);
-
-function extensionOf(filePath) {
-  if (typeof filePath !== 'string' || filePath.trim() === '') return '';
-  const displayName = getDisplayName(filePath).toLowerCase();
-  const dot = displayName.lastIndexOf('.');
-  if (dot <= 0 || dot === displayName.length - 1) return '';
-  return displayName.slice(dot + 1);
-}
-
 export function isSupportedFilePath(filePath) {
-  const extension = extensionOf(filePath);
-  return MARKDOWN_EXTENSIONS.has(extension)
-    || PLAIN_TEXT_EXTENSIONS.has(extension)
-    || IMAGE_EXTENSIONS.has(extension);
+  return detectSupportedFilePath(filePath);
 }
 
 export function isImageFilePath(filePath) {
-  return IMAGE_EXTENSIONS.has(extensionOf(filePath));
+  return resolveDocumentFormat(filePath).family === 'image';
 }
 
 export function getDisplayName(filePath) {
@@ -64,10 +26,14 @@ export function getDisplayName(filePath) {
   return normalizedPath.split('/').pop() || filePath;
 }
 
+/**
+ * Coarse product label for status/chrome. Prefer format descriptors when a
+ * resolved document format is available.
+ */
 export function getFileKind(filePath) {
-  const extension = extensionOf(filePath);
-  if (MARKDOWN_EXTENSIONS.has(extension)) return 'Markdown';
-  if (IMAGE_EXTENSIONS.has(extension)) return 'Image';
+  const family = resolveDocumentFormat(filePath).family;
+  if (family === 'markdown') return 'Markdown';
+  if (family === 'image') return 'Image';
   return 'Text';
 }
 
