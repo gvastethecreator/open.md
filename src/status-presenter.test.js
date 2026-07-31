@@ -108,6 +108,65 @@ describe('Status Presenter', () => {
     expect(view.elements.metrics.getAttribute('aria-label')).toContain('Zoom 125 percent');
   });
 
+  it('projects help, ready, document, source and edit identity from one snapshot', () => {
+    const view = fixture();
+    const presenter = createStatusPresenter({
+      window: view.dom.window,
+      document: view.document,
+      elements: view.elements,
+    });
+
+    presenter.project({ helpVisible: true });
+    expect(view.elements.primary.textContent).toBe('About + Help');
+    expect(view.elements.context.textContent).toBe('F1 to close');
+    expect(view.elements.metrics.hidden).toBe(true);
+
+    presenter.project({});
+    expect(view.elements.primary.textContent).toBe('open.md');
+    expect(view.elements.context.textContent).toBe('Ready');
+
+    presenter.project({
+      path: 'C:/docs/guide.md',
+      formatLabel: 'Markdown',
+      documentMetrics: {
+        lineCount: 4,
+        characterCount: 20,
+        zoomPercent: 100,
+        showCurrentLine: false,
+        showReadingStats: false,
+      },
+    });
+    expect(view.elements.primary.textContent).toBe('guide.md');
+    expect(view.elements.context.textContent).toBe('Markdown');
+    expect(view.elements.metrics.querySelector('[data-status-kind="lines"]')).toBeTruthy();
+
+    presenter.project({
+      path: 'C:/docs/guide.md',
+      formatLabel: 'Markdown',
+      sourceActive: true,
+      documentMetrics: {
+        lineCount: 4,
+        characterCount: 20,
+        zoomPercent: 100,
+        showCurrentLine: false,
+        showReadingStats: false,
+      },
+    });
+    expect(view.elements.context.textContent).toBe('Source');
+
+    presenter.project({
+      path: 'C:/docs/guide.md',
+      editMode: true,
+      editorMetrics: {
+        cursor: { line: 1, column: 2 },
+        stats: { blocks: 1, words: 2, characters: 5 },
+        zoomPercent: 100,
+      },
+    });
+    expect(view.elements.context.textContent).toBe('Editing');
+    expect(view.elements.metrics.querySelector('[data-status-kind="column"]')?.textContent).toBe('Col 2');
+  });
+
   it('uses an instant path for reduced motion and clears the surface', () => {
     const view = fixture({ reduced: true });
     const presenter = createStatusPresenter({

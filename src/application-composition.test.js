@@ -15,8 +15,11 @@ describe('application composition seam', () => {
 
   it('exports startOpenMdApplication and boots without Tauri imports in main', async () => {
     const mainSource = readFileSync(join(root, 'src/main.js'), 'utf8');
+    const ingressSource = readFileSync(join(root, 'src/document-ingress-controller.js'), 'utf8');
     expect(mainSource).not.toMatch(/from '@tauri-apps\//);
+    expect(ingressSource).not.toMatch(/from '@tauri-apps\//);
     expect(mainSource).toMatch(/export async function startOpenMdApplication/);
+    expect(mainSource).toMatch(/createDocumentLinkController/);
 
     const dom = new JSDOM(html, {
       url: 'https://open.md.local/',

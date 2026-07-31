@@ -1,4 +1,5 @@
-import { getDisplayName, isSupportedFilePath } from './core/reader.js';
+import { getDisplayName } from './document-path.js';
+import { isSupportedFilePath } from './format-detect.js';
 
 const OPEN_ORIGINS = new Set(['launch', 'association', 'picker', 'drop', 'link']);
 const LOCAL_ORIGINS = new Set(['picker', 'drop', 'link']);

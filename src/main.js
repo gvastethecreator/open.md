@@ -1,13 +1,10 @@
 import allThemes from './themes.runtime.json';
-import {
-  getDisplayName,
-  getLinkAction,
-  getThemeTokens,
-} from './core/reader.js';
+import { getDisplayName } from './document-path.js';
 import {
   allowsDocumentMode,
   getFormatLabel,
   resolveFormatId,
+  softReadingToolPatchForFormat,
 } from './format-registry.js';
 import { createDocumentSaveCoordinator } from './document-save-coordinator.js';
 import { createEditorSession } from './editor-session.js';
@@ -28,6 +25,7 @@ import { createEditorFeedbackPresenter } from './editor-feedback-presenter.js';
 import { createDocumentContentActions } from './document-content-actions.js';
 import { createDocumentViewStateController } from './document-view-state.js';
 import { createDocumentIngressController } from './document-ingress-controller.js';
+import { createDocumentLinkController } from './document-link-controller.js';
 import { createReaderKeyboardController } from './reader-keyboard-controller.js';
 import { createApplicationLifecycleController } from './application-lifecycle.js';
 import { createReaderZoomController } from './reader-zoom-controller.js';
@@ -51,6 +49,7 @@ let readerControls = null;
 let readerViewport = null;
 let editorFeedback = null;
 let documentContentActions = null;
+let documentLinkController = null;
 let documentViewState = null;
 let documentIngress = null;
 let readerKeyboard = null;
@@ -249,63 +248,63 @@ function documentAllowsMode(mode) {
 }
 
 function updateStatus(filePath = null) {
+  if (!statusPresenter) return;
+
+  const path = filePath ?? getCurrentFilePath();
+  const documentSnapshot = getCurrentDocument();
+  const zoomPercent = readerZoom?.percent?.() ?? 100;
+
   if (isHelpVisible()) {
-    setStatusText('About + Help', 'F1 to close');
-    updateStatusMetrics();
+    statusPresenter.project({ helpVisible: true });
     return;
   }
 
-  if (filePath) {
-    if (isEditMode) {
-      setStatusText(getDisplayName(filePath), 'Editing');
-      updateStatusMetrics();
-      return;
-    }
-    const formatLabel = getFormatLabel(currentFormatId(), {
-      kind: getCurrentDocument()?.kind,
-      path: filePath,
-    });
-    const viewLabel = getCurrentDocument() && readerControls?.current().readingTools.source
-      ? 'Source'
-      : formatLabel;
-    setStatusText(getDisplayName(filePath), viewLabel);
-    updateStatusMetrics();
+  if (!path) {
+    statusPresenter.project({});
     return;
   }
-
-  setStatusText('open.md', 'Ready');
-  updateStatusMetrics();
-}
-
-function updateStatusMetrics() {
-  if (!ui.statusMetrics || !statusPresenter) return;
 
   if (isEditMode && editorSession) {
     const editorState = editorSession.current();
-    statusPresenter.renderEditorMetrics({
-      cursor: editorState.cursor,
-      stats: editorState.stats,
-      zoomPercent: readerZoom?.percent?.() ?? 100,
+    statusPresenter.project({
+      path,
+      editMode: true,
+      editorMetrics: {
+        cursor: editorState.cursor,
+        stats: editorState.stats,
+        zoomPercent,
+      },
     });
     return;
   }
 
-  const isAvailable = Boolean(getCurrentDocument() && getCurrentFilePath() && !isHelpVisible());
-  if (!isAvailable) {
-    statusPresenter.renderMetrics([], '');
-    return;
-  }
-
-  statusPresenter.renderDocumentMetrics({
-    lineCount: getCurrentDocument().lineCount,
-    characterCount: getCurrentDocument().characterCount,
-    zoomPercent: readerZoom?.percent?.() ?? 100,
-    currentLine: readingNavigation?.snapshot().currentLine || 1,
-    showCurrentLine: readerControls?.current().readingTools.lineGuide,
-    readingProgress: readingNavigation?.snapshot().readingProgress || 0,
-    readingTimeMinutes: getCurrentDocument().readingTimeMinutes,
-    showReadingStats: readerControls?.current().readingTools.stats,
+  const formatLabel = getFormatLabel(currentFormatId(), {
+    kind: documentSnapshot?.kind,
+    path,
   });
+  const sourceActive = Boolean(documentSnapshot && readerControls?.current().readingTools.source);
+  const hasDocument = Boolean(documentSnapshot);
+  statusPresenter.project({
+    path,
+    formatLabel,
+    sourceActive,
+    documentMetrics: hasDocument
+      ? {
+          lineCount: documentSnapshot.lineCount,
+          characterCount: documentSnapshot.characterCount,
+          zoomPercent,
+          currentLine: readingNavigation?.snapshot().currentLine || 1,
+          showCurrentLine: readerControls?.current().readingTools.lineGuide,
+          readingProgress: readingNavigation?.snapshot().readingProgress || 0,
+          readingTimeMinutes: documentSnapshot.readingTimeMinutes,
+          showReadingStats: readerControls?.current().readingTools.stats,
+        }
+      : null,
+  });
+}
+
+function updateStatusMetrics() {
+  updateStatus(getCurrentFilePath());
 }
 
 function hasLoadedDocument() {
@@ -400,16 +399,9 @@ function cycleTheme(direction = 1) {
 }
 
 function closeCurrentFile() {
-  const path = getCurrentFilePath();
-  const viewState = documentViewState?.current?.();
-  const hasDocument = Boolean(path)
-    || viewState?.state === 'loading'
-    || viewState?.state === 'failed'
-    || viewState?.state === 'ready';
-  if (!hasDocument) return;
-  // Same dirty gate as open/replace: confirm discard, then clear the shell.
-  if (editorSession && editorSession.canChangeDocument() === false) return;
-  readerShell?.close();
+  documentViewState?.requestClose({
+    canChangeDocument: !editorSession || editorSession.canChangeDocument(),
+  });
 }
 
 function resetDocumentReadingState() {
@@ -440,23 +432,20 @@ function mountDocumentViewState(own) {
       syncViewport: syncViewportState,
       applyReadingTools,
       applyFormatPreferences: (format) => {
-        if (!format || format === 'markdown' || format === 'image' || ['png', 'jpeg', 'gif', 'webp', 'bmp', 'avif'].includes(format)) {
-          return;
-        }
         const advanced = readerShell?.preferences?.current?.()?.advanced;
         if (!advanced || !readerControls) return;
-        // Soft defaults for text companions only when tools still match global defaults.
-        const tools = readerControls.current().readingTools;
-        const patch = {};
-        if (tools.wordWrap === true && advanced.textWordWrapDefault === false) patch.wordWrap = false;
-        if (tools.minimap === false && advanced.textMinimapDefault) patch.minimap = true;
-        if (tools.lineGuide === false && advanced.textLineGuideDefault) patch.lineGuide = true;
-        if (Object.keys(patch).length === 0) return;
+        const patch = softReadingToolPatchForFormat(
+          format,
+          readerControls.current().readingTools,
+          advanced,
+        );
+        if (!patch) return;
         void readerShell.preferences.update({ readingTools: patch });
       },
       setStatus: setStatusText,
       updateTitle: updateWindowTitle,
       updateUrl: updateWindowUrl,
+      closeShell: () => readerShell?.close(),
       markNavigationDirty: () => readingNavigation?.markDirty(),
       handleNavigationScroll: () => readingNavigation?.handleScroll(),
       onSavedDocument: ({ path, document: savedDocument }) => {
@@ -474,8 +463,7 @@ function activeDiagramTheme() {
 }
 
 function activeDiagramTokens() {
-  const theme = themeCoordinator?.current();
-  return theme ? getThemeTokens(theme) : null;
+  return themeCoordinator?.diagramTokens?.() || null;
 }
 
 function mountApplicationReaderShell(own) {
@@ -806,42 +794,19 @@ function mountTooltips(own) {
   tooltipController.start();
 }
 
-function handleLinkClick(event) {
-  const target = event.target instanceof Element ? event.target.closest('a') : null;
-  const hrefAttribute = target?.getAttribute('href');
-
-  if (!target || !hrefAttribute) return;
-
-  if (isEditMode && target.closest('#editor-view')) {
-    event.preventDefault();
-    return;
-  }
-
-  const action = getLinkAction(hrefAttribute, getCurrentFilePath(), target.href);
-  if (action.type === 'anchor') return;
-
-  event.preventDefault();
-
-  if (action.type === 'external') {
-    Promise.resolve(runtimeAdapters?.windows?.openExternalUrl?.(action.href)).catch((error) => {
-      console.error('Failed to open URL:', error);
-      showToast('Could not open the external link');
-    });
-    return;
-  }
-
-  if (action.type === 'file') {
-    readerShell?.open({
-      origin: 'link',
-      items: [{ path: action.path, fragment: action.fragment }],
-    }).catch((error) => {
-      console.error('Could not open the linked document:', error);
-      showToast('Could not open the linked document');
-    });
-    return;
-  }
-
-  showToast('This link type is not supported');
+function mountDocumentLinkController(own) {
+  documentLinkController = own(createDocumentLinkController({
+    adapters: {
+      isEditMode: () => isEditMode,
+      getDocumentPath: getCurrentFilePath,
+      openExternalUrl: (href) => runtimeAdapters?.windows?.openExternalUrl?.(href),
+      openDocument: (value) => readerShell?.open(value),
+    },
+    hooks: {
+      onToast: showToast,
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  }));
 }
 
 function mountReaderZoom(own) {
@@ -904,6 +869,11 @@ function mountDocumentIngress(own) {
       openDocument: (value) => readerShell?.open(value),
       canChangeDocument: () => !editorSession || editorSession.canChangeDocument(),
       acknowledgeOpenFile: (id) => runtimeAdapters.openRequests.acknowledge(id),
+      listen: runtimeAdapters.ingress.listen,
+      openFileDialog: runtimeAdapters.ingress.openFileDialog,
+      getCurrentWebview: runtimeAdapters.ingress.getCurrentWebview,
+      listPendingOpenFileRequests: runtimeAdapters.ingress.listPendingOpenFileRequests
+        || runtimeAdapters.openRequests.listPending,
     },
     hooks: {
       closeReadingTools: () => setReadingToolsOpen(false),
@@ -921,7 +891,7 @@ function openFilePicker() {
 function applicationEvents() {
   return [
     { target: window, type: 'wheel', listener: (event) => readerZoom?.handleWheel(event), options: { passive: false } },
-    { target: document, type: 'click', listener: handleLinkClick },
+    { target: document, type: 'click', listener: (event) => documentLinkController?.handleClick(event) },
     { target: ui.emptyOpenButton, type: 'click', listener: openFilePicker },
     { target: ui.toolbarOpenButton, type: 'click', listener: openFilePicker },
     { target: ui.helpToggleButton, type: 'click', listener: toggleHelp },
@@ -994,6 +964,7 @@ export async function startOpenMdApplication() {
     mountDocumentModeCoordinator(own);
     mountReadingNavigation(own);
     mountDocumentContentActions(own);
+    mountDocumentLinkController(own);
     mountDocumentIngress(own);
     mountContextMenu(own);
     mountReaderKeyboard(own);

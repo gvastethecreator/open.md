@@ -1,9 +1,6 @@
-import {
-  getDisplayName,
-  getImageSourcePolicy,
-  getMarkdownSourceTokenRanges,
-  normalizeDocumentPayload,
-} from './core/reader.js';
+import { getDisplayName, getImageSourcePolicy } from './document-path.js';
+import { normalizeDocumentPayload } from './document-payload.js';
+import { getMarkdownSourceTokenRanges } from './markdown-source.js';
 import {
   ImageResourceBudgetError,
   ImageResourcePool,

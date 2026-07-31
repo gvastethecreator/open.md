@@ -1,3 +1,4 @@
+import { getDisplayName } from './document-path.js';
 import {
   getStatusMetricParts,
   getZoomStatusMetric,
@@ -113,6 +114,45 @@ export function createStatusPresenter({ window, document, elements = {} }) {
     renderMetrics([], '');
   }
 
+  /**
+   * Project identity + metrics from one application snapshot so composition
+   * does not re-compose display names, format labels, or metric fan-out.
+   */
+  function project({
+    helpVisible = false,
+    editMode = false,
+    path = null,
+    formatLabel = null,
+    sourceActive = false,
+    documentMetrics = null,
+    editorMetrics = null,
+  } = {}) {
+    if (disposed) return;
+
+    if (helpVisible) {
+      setIdentity({ primary: 'About + Help', context: 'F1 to close' });
+      renderMetrics([], '');
+      return;
+    }
+
+    if (!path) {
+      clear();
+      return;
+    }
+
+    if (editMode) {
+      setIdentity({ primary: getDisplayName(path), context: 'Editing' });
+      if (editorMetrics) renderEditorMetrics(editorMetrics);
+      else renderMetrics([], '');
+      return;
+    }
+
+    const contextLabel = sourceActive ? 'Source' : (formatLabel || 'Document');
+    setIdentity({ primary: getDisplayName(path), context: contextLabel });
+    if (documentMetrics) renderDocumentMetrics(documentMetrics);
+    else renderMetrics([], '');
+  }
+
   function renderDocumentMetrics({
     lineCount,
     characterCount,
@@ -165,6 +205,7 @@ export function createStatusPresenter({ window, document, elements = {} }) {
     renderMetrics,
     renderDocumentMetrics,
     renderEditorMetrics,
+    project,
     clear,
     dispose() {
       if (disposed) return;

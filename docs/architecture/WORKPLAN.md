@@ -1,7 +1,7 @@
 # Architecture workplan
 
-Date: 2026-07-29; updated 2026-07-30
-Status: ARC-01..25 implemented and locally verified
+Date: 2026-07-29; updated 2026-07-31
+Status: ARC-01..45 implemented and locally verified
 
 This ledger tracks the five accepted recommendations from the
 [architecture review](architecture-review-2026-07-29.md). Each slice used
@@ -541,3 +541,133 @@ entrypoint with dispose/current accessors for executable tests.
 
 - [x] Composition test boots real `index.html` under jsdom without Tauri.
 - [x] Auto-start remains gated by `!window.__VITEST__`.
+
+## Batch 2026-07-31 — Residual composition and domain drain
+
+This execution batch tracks exactly ten distinct improvements after ARC-01..35.
+Workplan IDs continue as ARC-36..45. Prefer domain locality over padding
+`core/reader.js` into trivial one-export files without a real owner.
+
+### ARC-36 — Own document link activation
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** One Document Link Controller owns click interception,
+edit-surface suppression, external open, relative document open, and blocked
+feedback through injected shell/window adapters.
+
+- [x] Anchor links remain default browser behavior.
+- [x] External, file, blocked, and editor-surface paths are tested.
+- [x] `main.js` only mounts and binds the controller.
+
+### ARC-37 — Own status identity projection
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** Status Presenter owns help/ready/edit/source/format identity
+plus metrics fan-out from one `project` (or equivalent) interface.
+
+- [x] Root no longer composes display names and format labels for status.
+- [x] Focused presenter tests cover help, ready, document, source, and edit.
+
+### ARC-38 — Companion soft-defaults via format registry
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** Format registry owns companion-text detection and soft
+reading-tool patches; root stops hard-coding image format arrays.
+
+- [x] Companion text formats receive soft defaults only when tools still match globals.
+- [x] Images and associated Markdown/TXT are skipped.
+- [x] Registry tests cover the patch helper.
+
+### ARC-39 — Own document close policy
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** Document view-state owns close eligibility (loading/ready/failed
+identity + dirty gate) and shell close fan-out.
+
+- [x] Empty ready state does not close.
+- [x] Dirty editor blocks close without shell side effects.
+- [x] View-state tests cover the gate.
+
+### ARC-40 — Ingress native surface via runtime adapters
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** Runtime adapters own listen/list-pending/dialog/webview
+defaults. Document ingress no longer imports `@tauri-apps/*`.
+
+- [x] Adapter tests cover the ingress surface.
+- [x] Composition/ingress source audit forbids Tauri imports in ingress.
+
+### ARC-41 — Theme coordinator owns diagram tokens
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** Theme coordinator exposes `diagramTokens()` so composition
+does not import theme token derivation for diagram preparation.
+
+- [x] Root drops `getThemeTokens` import.
+- [x] Coordinator tests cover null and current-theme tokens.
+
+### ARC-42 — Document payload authority module
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** `document-payload.js` owns payload validation and kind/format
+normalization; session/save import it; `core/reader` re-exports for compatibility.
+
+- [x] Production session/save no longer source payload rules from the bag.
+- [x] Existing payload tests remain green via re-export or direct import.
+
+### ARC-43 — Markdown source operations module
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** `markdown-source.js` owns source token ranges and task
+checkbox mutation used by session highlighting and save coordination.
+
+- [x] Session and save import the domain module.
+- [x] Token and task mutation tests remain green.
+
+### ARC-44 — Document path and link policy module
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** ARC-36.
+
+**What to build:** `document-path.js` owns display name, relative resolution,
+link action classification, and image source policy.
+
+- [x] Link controller, session, open-intent, and view-state use the path module.
+- [x] Path/link policy tests remain green.
+
+### ARC-45 — Reading geometry module
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** `reading-geometry.js` owns scroll progress, edge state, line
+ranges, anchors, gutter left, and minimap viewport geometry for navigation.
+
+- [x] Reading navigation imports geometry from the domain module.
+- [x] Geometry tests remain green via re-export or direct import.

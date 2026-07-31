@@ -142,23 +142,44 @@ flowchart LR
   reclassification heuristics, and image MIME ids. Native open remains
   authoritative for filesystem acceptance.
 - `src/format-registry.js` owns format capabilities: allowed modes, editor
-  kind, read renderer, highlight language, display labels, and
-  `resolveFormatId` for payload/path resolution.
+  kind, read renderer, highlight language, display labels,
+  `resolveFormatId`, companion-text detection, and soft reading-tool patches
+  for companion formats.
 - `src/format-readers.js` owns pure rich-Read HTML for companion formats.
 - Mode availability uses `allowsDocumentMode`; composition root does not keep
   parallel image format lists.
 - Invariant: payload `format`/`kind` win over path hints when both are present.
+
+### Document path, payload, and source domains
+
+- `src/document-path.js` owns display names, relative path resolution, link
+  action classification, and relative image source policy.
+- `src/document-payload.js` owns frontend open/save payload validation and
+  kind/format normalization.
+- `src/markdown-source.js` owns Markdown source token ranges and task-checkbox
+  mutation used by session highlighting and save coordination.
+- `src/reading-geometry.js` owns scroll progress, edge state, line ranges,
+  anchors, gutter placement, and minimap viewport geometry.
+- `src/core/reader.js` remains a compatibility re-export facade plus theme,
+  status-metric, and presentation helpers that still lack a deeper sole owner.
 
 ### Content and keyboard actions
 
 - `src/document-content-actions.js` owns Read/Source/Edit context actions,
   selection capture, clipboard fallback, paste, task toggles, and editor block
   commands through injected session/save adapters.
+- `src/document-link-controller.js` owns Read-surface link activation
+  (external open, relative document open, edit-surface suppression).
 - `src/reader-keyboard-controller.js` owns shortcut precedence and editable
   target guards; command implementations remain injected from the root.
 - `src/main.js` exports `startOpenMdApplication` as the executable composition
   seam and imports no `@tauri-apps/*` modules directly; runtime adapters own
-  native open/save/image/URL/ack surfaces.
+  native open/save/image/URL/ack and ingress listen/dialog/webview surfaces.
+  Document ingress likewise has no direct `@tauri-apps/*` imports.
+- `src/status-presenter.js` owns identity + metric projection from one
+  application snapshot (`project`).
+- `src/document-view-state.js` owns close eligibility and shell close fan-out
+  through `requestClose`.
 - Invariant: picker, drop, link, keyboard, and native association paths enter
   through the same Open Intent policy instead of duplicating path or window
   rules.

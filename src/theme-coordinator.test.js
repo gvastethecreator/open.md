@@ -177,4 +177,20 @@ describe('Theme Coordinator', () => {
     expect(persist).toHaveBeenCalledOnce();
     expect(persist).toHaveBeenCalledWith('Dark');
   });
+
+  it('exposes diagram tokens for the confirmed theme only', async () => {
+    const { dom, elements } = fixture();
+    const coordinator = createThemeCoordinator({
+      window: dom.window,
+      document: dom.window.document,
+      themes: THEMES,
+      elements,
+    });
+
+    expect(coordinator.diagramTokens()).toBeNull();
+    await coordinator.start('Dark');
+    const tokens = coordinator.diagramTokens();
+    expect(tokens).toMatchObject({ background: '#111827' });
+    expect(coordinator.diagramTheme()).toBe('dark');
+  });
 });

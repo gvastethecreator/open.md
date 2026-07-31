@@ -1,4 +1,4 @@
-import { getDisplayName } from './core/reader.js';
+import { getDisplayName } from './document-path.js';
 import {
   getEditorKind,
   isImageFormat,
@@ -141,12 +141,29 @@ export function createDocumentViewStateController({
     return state;
   };
 
+  /**
+   * Close eligibility: any non-idle identity (including loading/failed) may close
+   * unless the dirty-document gate refuses replacement.
+   */
+  const requestClose = ({ canChangeDocument } = {}) => {
+    if (disposed) return { status: 'disposed' };
+    const hasDocument = Boolean(state.path)
+      || state.state === 'loading'
+      || state.state === 'failed'
+      || state.state === 'ready';
+    if (!hasDocument) return { status: 'empty' };
+    if (canChangeDocument === false) return { status: 'blocked' };
+    hooks.closeShell?.();
+    return { status: 'closed' };
+  };
+
   return Object.freeze({
     current,
     handle,
     commitDocument,
     updateDocument,
     applySavedDocument,
+    requestClose,
     dispose() {
       disposed = true;
       setDocumentChrome(null, null);
