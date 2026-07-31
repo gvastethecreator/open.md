@@ -183,10 +183,11 @@ if (
 
 if (
   !stylesCss.includes('.typography-panel')
-  || !stylesCss.includes('body.has-scroll-before .app-shell::before')
-  || !stylesCss.includes('backdrop-filter: blur(2.5px)')
+  || !stylesCss.includes('--content-edge-fade')
+  || !stylesCss.includes('mask-image: linear-gradient(')
+  || !stylesCss.includes('.reader-page')
 ) {
-  throw new Error('src/styles.css must preserve typography controls and conditional scroll-edge depth cues');
+  throw new Error('src/styles.css must preserve typography controls and content edge fade masks');
 }
 if (
   !stylesCss.includes('@font-face')

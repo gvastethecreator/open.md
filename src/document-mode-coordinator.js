@@ -37,7 +37,6 @@ export function createDocumentModeCoordinator({
     for (const cleanup of [...animationCleanups]) cleanup();
     [elements.readSurface, elements.sourceSurface, elements.editSurface]
       .forEach((surface) => surface?.classList.remove('is-mode-morph-entering'));
-    elements.lineGutter?.classList.remove('is-mode-chrome-morphing');
     elements.minimap?.classList.remove('is-mode-chrome-morphing');
     elements.control?.querySelector('i')?.classList.remove('is-mode-changing');
   };
@@ -48,9 +47,10 @@ export function createDocumentModeCoordinator({
     fallbackTimeoutId = null;
     activeTransition = null;
     clearOneShotAnimations();
-    document.body.classList.remove('is-mode-morphing');
+    document.body.classList.remove('is-mode-morphing', 'is-mode-morphing-fallback');
     delete document.body.dataset.modeMorphFrom;
     delete document.body.dataset.modeMorphTo;
+    hooks.finishNavigationMorph?.();
   };
 
   const replayOneShot = (element, className) => {
@@ -79,9 +79,7 @@ export function createDocumentModeCoordinator({
   };
 
   const replayChromeMorph = () => {
-    if (document.body.classList.contains('is-line-guide')) {
-      replayOneShot(elements.lineGutter, 'is-mode-chrome-morphing');
-    }
+    // Line numbers keep element identity and translate via CSS / view transitions.
     if (document.body.classList.contains('is-minimap')) {
       replayOneShot(elements.minimap, 'is-mode-chrome-morphing');
     }
@@ -103,8 +101,10 @@ export function createDocumentModeCoordinator({
     const generation = ++morphGeneration;
     document.body.classList.add('is-mode-morphing');
     document.body.dataset.modeMorphFrom = initialMode;
+    hooks.prepareNavigationMorph?.();
 
     const runFallback = async () => {
+      document.body.classList.add('is-mode-morphing-fallback');
       try {
         const result = await update();
         if (disposed || generation !== morphGeneration) return result;
@@ -114,6 +114,7 @@ export function createDocumentModeCoordinator({
           finishMorph(generation);
           return result;
         }
+        hooks.animateNavigationMorph?.();
         replayOneShot(surfaceFor(nextMode), 'is-mode-morph-entering');
         replayChromeMorph();
         fallbackTimeoutId = window.setTimeout(() => finishMorph(generation), 380);
@@ -210,11 +211,21 @@ export function createDocumentModeCoordinator({
       const initialMode = current();
       hooks.closeTransientUi?.();
       cycling = true;
+      let restoredInsideMorph = false;
       try {
-        return await runMorph(() => update(initialMode, { documentIdentity, isCurrentDocument }));
+        return await runMorph(async () => {
+          const result = await update(initialMode, { documentIdentity, isCurrentDocument });
+          if (hasScrollSnapshot && isCurrentDocument()) {
+            hooks.restoreScrollPosition?.(scrollPosition, { sync: true });
+            restoredInsideMorph = true;
+          } else if (isCurrentDocument()) {
+            hooks.syncNavigationChrome?.();
+          }
+          return result;
+        });
       } finally {
-        if (hasScrollSnapshot && isCurrentDocument()) {
-          hooks.restoreScrollPosition?.(scrollPosition);
+        if (hasScrollSnapshot && isCurrentDocument() && !restoredInsideMorph) {
+          hooks.restoreScrollPosition?.(scrollPosition, { sync: true });
         }
         if (generation === changeGeneration && !disposed) {
           cycling = false;

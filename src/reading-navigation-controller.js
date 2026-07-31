@@ -30,6 +30,9 @@ export function createReadingNavigationController({
   let minimapContentHeight = 0;
   let started = false;
   let disposed = false;
+  let morphLocked = false;
+  let morphOrigins = null;
+  const morphAnimations = new Set();
 
   const requestFrame = (callback) => (
     window.requestAnimationFrame?.(callback) ?? window.setTimeout(callback, 0)
@@ -110,14 +113,132 @@ export function createReadingNavigationController({
       .sort((left, right) => left.top - right.top);
   };
 
-  const createLineNumber = (line, top, isCurrent = false, lineHeight = 20) => {
-    const label = document.createElement('span');
+  const lineTransitionName = (line) => `openmd-ln-${line}`;
+  const modeMorphActive = () => document.body.classList.contains('is-mode-morphing');
+  const reducedMotion = () => Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  const LINE_MORPH_MS = 280;
+  const LINE_MORPH_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+
+  const cancelMorphAnimations = () => {
+    for (const animation of morphAnimations) {
+      try { animation.cancel(); } catch { /* already finished */ }
+    }
+    morphAnimations.clear();
+  };
+
+  const trackMorphAnimation = (animation) => {
+    if (!animation) return;
+    morphAnimations.add(animation);
+    Promise.resolve(animation.finished)
+      .catch(() => undefined)
+      .finally(() => morphAnimations.delete(animation));
+  };
+
+  const applyLineNumber = (label, {
+    line,
+    top,
+    isCurrent = false,
+    lineHeight = 20,
+    enableTransitionName = false,
+  }) => {
     label.className = `line-number${isCurrent ? ' is-current' : ''}`;
+    label.dataset.line = String(line);
     label.textContent = String(line);
     label.style.top = `${Math.max(0, top)}px`;
     label.style.height = `${Math.max(1, lineHeight)}px`;
     label.style.lineHeight = `${Math.max(1, lineHeight)}px`;
+    // Shared digits keep a stable name so VT can transfer them between modes.
+    label.style.viewTransitionName = enableTransitionName ? lineTransitionName(line) : '';
+  };
+
+  const createLineNumber = (line, top, isCurrent = false, lineHeight = 20, enableTransitionName = false) => {
+    const label = document.createElement('span');
+    applyLineNumber(label, {
+      line,
+      top,
+      isCurrent,
+      lineHeight,
+      enableTransitionName,
+    });
     return label;
+  };
+
+  const existingLineNumbers = () => {
+    const map = new Map();
+    if (!elements.lineGutter) return map;
+    for (const node of elements.lineGutter.querySelectorAll(':scope > .line-number')) {
+      const line = Number.parseInt(node.dataset.line, 10);
+      if (!Number.isFinite(line) || line < 1) continue;
+      map.set(line, node);
+    }
+    return map;
+  };
+
+  const prepareModeMorph = () => {
+    morphLocked = true;
+    cancelFrame(updateFrameId);
+    updateFrameId = null;
+    cancelMorphAnimations();
+    morphOrigins = new Map();
+    if (!elements.lineGutter || elements.lineGutter.hidden || !adapters.isLineGuideEnabled?.()) return;
+    for (const [line, label] of existingLineNumbers()) {
+      morphOrigins.set(line, label.getBoundingClientRect());
+      // Stamp names before old-state capture so shared digits can shape-transfer.
+      label.style.viewTransitionName = lineTransitionName(line);
+    }
+  };
+
+  const animateModeMorph = () => {
+    // Live FLIP only for the non-View-Transition fallback. During VT the live DOM is hidden.
+    if (
+      !morphOrigins
+      || reducedMotion()
+      || !document.body.classList.contains('is-mode-morphing-fallback')
+    ) return;
+
+    cancelMorphAnimations();
+    for (const [, label] of existingLineNumbers()) {
+      if (typeof label.animate !== 'function') continue;
+      const line = Number.parseInt(label.dataset.line, 10);
+      const previous = morphOrigins.get(line);
+      const targetOpacity = label.classList.contains('is-current') ? 1 : 0.44;
+      if (!previous) {
+        trackMorphAnimation(label.animate(
+          [
+            { opacity: 0, transform: 'translateY(3px)' },
+            { opacity: targetOpacity, transform: 'translate(0px, 0px)' },
+          ],
+          { duration: 200, easing: LINE_MORPH_EASE, fill: 'none' },
+        ));
+        continue;
+      }
+      const current = label.getBoundingClientRect();
+      const dx = previous.left - current.left;
+      const dy = previous.top - current.top;
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
+      trackMorphAnimation(label.animate(
+        [
+          { transform: `translate(${dx}px, ${dy}px)` },
+          { transform: 'translate(0px, 0px)' },
+        ],
+        { duration: LINE_MORPH_MS, easing: LINE_MORPH_EASE, fill: 'both' },
+      ));
+    }
+    morphOrigins = null;
+  };
+
+  const finishModeMorph = () => {
+    cancelMorphAnimations();
+    if (elements.lineGutter) {
+      for (const label of elements.lineGutter.querySelectorAll(':scope > .line-number')) {
+        label.style.viewTransitionName = '';
+        label.style.transform = '';
+      }
+    }
+    morphOrigins = null;
+    morphLocked = false;
+    // Line guide + minimap were force-refreshed inside the VT update. Do not
+    // rewrite minimap viewport geometry here — that was the selection pop-in.
   };
 
   const positionLineGutter = () => {
@@ -128,10 +249,10 @@ export function createReadingNavigationController({
     const stageRect = elements.documentStage.getBoundingClientRect();
     const viewStyles = window.getComputedStyle(view);
     const compact = Boolean(window.matchMedia?.('(max-width: 460px)').matches);
-    const digitWidth = String(adapters.getDocument?.()?.lineCount || 1).length * (compact ? 6 : 7);
+    const digitWidth = String(adapters.getDocument?.()?.lineCount || 1).length * (compact ? 7.5 : 9);
     const editorControlLane = Number.parseFloat(viewStyles.getPropertyValue('--editor-control-lane')) || 52;
     const editorLineGap = Number.parseFloat(viewStyles.getPropertyValue('--editor-line-gap')) || 12;
-    elements.lineGutter.style.width = `${Math.max(compact ? 29 : 34, digitWidth + 8)}px`;
+    elements.lineGutter.style.width = `${Math.max(compact ? 34 : 40, digitWidth + 10)}px`;
     const gutterRect = elements.lineGutter.getBoundingClientRect();
     const editMode = mode() === 'edit';
     const gap = editMode ? editorControlLane + editorLineGap : (compact ? 8 : 12);
@@ -141,7 +262,7 @@ export function createReadingNavigationController({
       paddingLeft: editMode
         ? editorControlLane + (Number.parseFloat(viewStyles.paddingLeft) || 0)
         : Number.parseFloat(viewStyles.paddingLeft) || 0,
-      gutterWidth: gutterRect.width || 34,
+      gutterWidth: gutterRect.width || (compact ? 34 : 40),
       gap,
     });
     elements.lineGutter.style.left = `${left}px`;
@@ -157,9 +278,13 @@ export function createReadingNavigationController({
       || !currentDocument
     ) return;
 
+    const morphing = modeMorphActive();
+    // Edit hides Read/Source with display:none; flush layout before measuring anchors.
+    if (morphing && elements.documentStage) void elements.documentStage.offsetHeight;
+
     positionLineGutter();
     const { scrollTop, clientHeight } = elements.readerPage;
-    const fragment = document.createDocumentFragment();
+    const desired = [];
     let nextCurrentLine = 1;
 
     if (mode() === 'source') {
@@ -176,7 +301,12 @@ export function createReadingNavigationController({
       nextCurrentLine = range.current;
       for (let line = range.first; line <= range.last; line += 1) {
         const top = paddingTop + ((line - 1) * lineHeight);
-        fragment.appendChild(createLineNumber(line, top, line === nextCurrentLine, lineHeight));
+        desired.push({
+          line,
+          top,
+          isCurrent: line === nextCurrentLine,
+          lineHeight,
+        });
       }
     } else {
       const anchors = getRenderedLineAnchors();
@@ -192,16 +322,58 @@ export function createReadingNavigationController({
         if (anchor.top < visibleStart || anchor.top > visibleEnd) continue;
         const isCurrent = anchor.line === nextCurrentLine;
         if (!isCurrent && anchor.top - lastVisibleTop < 13) continue;
-        fragment.appendChild(createLineNumber(anchor.line, anchor.top, isCurrent, anchor.lineHeight));
+        desired.push({
+          line: anchor.line,
+          top: anchor.top,
+          isCurrent,
+          lineHeight: anchor.lineHeight,
+        });
         lastVisibleTop = anchor.top;
         currentIsVisible ||= isCurrent;
       }
       if (!currentIsVisible) {
-        fragment.appendChild(createLineNumber(nextCurrentLine, readingOffset, true));
+        desired.push({
+          line: nextCurrentLine,
+          top: readingOffset,
+          isCurrent: true,
+          lineHeight: 20,
+        });
       }
     }
 
-    elements.lineGutter.replaceChildren(fragment);
+    const existing = existingLineNumbers();
+    const nextNodes = [];
+    const kept = new Set();
+    // Shared digits keep VT names (transfer). New digits enter with the surface;
+    // removed ones exit via the old snapshot name stamped in prepareModeMorph.
+    for (const item of desired) {
+      kept.add(item.line);
+      const shared = existing.has(item.line);
+      const enableTransitionName = morphing && shared;
+      let label = existing.get(item.line);
+      if (label) {
+        applyLineNumber(label, { ...item, enableTransitionName });
+      } else {
+        label = createLineNumber(
+          item.line,
+          item.top,
+          item.isCurrent,
+          item.lineHeight,
+          false,
+        );
+      }
+      nextNodes.push(label);
+    }
+    for (const [line, label] of existing) {
+      if (kept.has(line)) continue;
+      label.style.viewTransitionName = '';
+      label.remove();
+    }
+    const currentNodes = [...elements.lineGutter.children];
+    const orderMatches = currentNodes.length === nextNodes.length
+      && nextNodes.every((node, index) => currentNodes[index] === node);
+    if (!orderMatches) elements.lineGutter.replaceChildren(...nextNodes);
+
     if (nextCurrentLine !== currentLine) {
       currentLine = nextCurrentLine;
       reportMetrics();
@@ -303,8 +475,9 @@ export function createReadingNavigationController({
     elements.minimap.setAttribute('aria-valuetext', `${readingProgress}% through document`);
   };
 
-  const refresh = () => {
+  const refresh = ({ force = false } = {}) => {
     if (disposed || !adapters.getDocument?.() || !elements.readerPage || adapters.isHelpVisible?.()) return;
+    if (morphLocked && !force) return;
     const nextProgress = getReadingProgress(
       elements.readerPage.scrollTop,
       elements.readerPage.scrollHeight,
@@ -313,13 +486,18 @@ export function createReadingNavigationController({
     const progressChanged = nextProgress !== readingProgress;
     readingProgress = nextProgress;
     renderLineGuide();
-    renderMinimapDocument();
-    updateMinimapViewport();
+    // During mode morph, force refresh must rebuild the minimap so the VT
+    // new-state snapshot shows the destination mode (not a post-morph pop).
+    if (!morphLocked || force) {
+      if (force) minimapDirty = true;
+      renderMinimapDocument();
+      updateMinimapViewport();
+    }
     if (progressChanged) reportMetrics();
   };
 
   const queueUpdate = () => {
-    if (disposed || updateFrameId !== null) return;
+    if (disposed || morphLocked || updateFrameId !== null) return;
     updateFrameId = requestFrame(() => {
       updateFrameId = null;
       refresh();
@@ -415,11 +593,12 @@ export function createReadingNavigationController({
   };
 
   const captureScrollPosition = () => elements.readerPage?.scrollTop ?? 0;
-  const restoreScrollPosition = (position) => {
+  const restoreScrollPosition = (position, { sync = false } = {}) => {
     if (!elements.readerPage) return;
     const top = Number.isFinite(position) ? Math.max(0, position) : 0;
     elements.readerPage.scrollTo({ top, behavior: 'auto' });
-    queueUpdate();
+    if (sync) refresh({ force: true });
+    else queueUpdate();
   };
 
   const reset = () => {
@@ -484,6 +663,9 @@ export function createReadingNavigationController({
     scrollToTop,
     captureScrollPosition,
     restoreScrollPosition,
+    prepareModeMorph,
+    animateModeMorph,
+    finishModeMorph,
     reset,
     start,
     dispose,

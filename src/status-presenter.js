@@ -68,8 +68,8 @@ export function createStatusPresenter({ window, document, elements = {} }) {
         ) {
           value.getAnimations?.().forEach((animation) => animation.cancel());
           const animation = value.animate([
-            { opacity: 0, filter: 'blur(0.6px)', transform: 'translateY(3px)' },
-            { opacity: 1, filter: 'blur(0)', transform: 'translateY(0)' },
+            { opacity: 0, transform: 'translateY(3px)' },
+            { opacity: 1, transform: 'translateY(0)' },
           ], {
             duration: 160,
             easing: 'cubic-bezier(0.2, 0, 0, 1)',

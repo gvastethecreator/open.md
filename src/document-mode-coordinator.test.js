@@ -290,7 +290,7 @@ describe('Document Mode Coordinator', () => {
     await animated.coordinator.cycle();
     await new Promise((resolve) => animated.dom.window.setTimeout(resolve, 2));
     expect(animated.elements.editSurface.classList.contains('is-mode-morph-entering')).toBe(true);
-    expect(animated.elements.lineGutter.classList.contains('is-mode-chrome-morphing')).toBe(true);
+    expect(animated.elements.lineGutter.classList.contains('is-mode-chrome-morphing')).toBe(false);
     expect(animated.elements.minimap.classList.contains('is-mode-chrome-morphing')).toBe(true);
     animated.coordinator.dispose();
     expect(animated.dom.window.document.querySelector('.is-mode-morph-entering')).toBeNull();
@@ -304,6 +304,76 @@ describe('Document Mode Coordinator', () => {
     reduced.setAvailable(false);
     reduced.coordinator.refresh();
     expect(reduced.elements.control.disabled).toBe(true);
+  });
+
+  it('prepares and finishes navigation morph hooks around a mode change', async () => {
+    const harness = createHarness({ viewTransitions: true });
+    const prepareNavigationMorph = vi.fn();
+    const animateNavigationMorph = vi.fn();
+    const finishNavigationMorph = vi.fn();
+    const syncNavigationChrome = vi.fn();
+    const restoreScrollPosition = vi.fn();
+    const captureScrollPosition = vi.fn(() => 42);
+    const coordinator = createDocumentModeCoordinator({
+      window: harness.dom.window,
+      document: harness.dom.window.document,
+      elements: harness.elements,
+      adapters: {
+        getMode: harness.mode,
+        isAvailable: () => true,
+        enterEdit: async () => {
+          harness.setMode('edit');
+          return true;
+        },
+        exitEdit: () => {
+          harness.setMode('read');
+          return true;
+        },
+        setSource: async (active) => {
+          harness.setMode(active ? 'source' : 'read');
+        },
+      },
+      hooks: {
+        captureScrollPosition,
+        restoreScrollPosition,
+        prepareNavigationMorph,
+        animateNavigationMorph,
+        finishNavigationMorph,
+        syncNavigationChrome,
+      },
+    });
+    await coordinator.cycle();
+    expect(prepareNavigationMorph).toHaveBeenCalledOnce();
+    expect(restoreScrollPosition).toHaveBeenCalledWith(42, { sync: true });
+    expect(finishNavigationMorph).toHaveBeenCalled();
+    expect(animateNavigationMorph).not.toHaveBeenCalled();
+    expect(syncNavigationChrome).not.toHaveBeenCalled();
+
+    const fallback = createHarness();
+    const animateFallback = vi.fn();
+    const fallbackCoordinator = createDocumentModeCoordinator({
+      window: fallback.dom.window,
+      document: fallback.dom.window.document,
+      elements: fallback.elements,
+      adapters: {
+        getMode: fallback.mode,
+        isAvailable: () => true,
+        enterEdit: async () => {
+          fallback.setMode('edit');
+          return true;
+        },
+        exitEdit: () => {
+          fallback.setMode('read');
+          return true;
+        },
+        setSource: async (active) => {
+          fallback.setMode(active ? 'source' : 'read');
+        },
+      },
+      hooks: { animateNavigationMorph: animateFallback },
+    });
+    await fallbackCoordinator.cycle();
+    expect(animateFallback).toHaveBeenCalledOnce();
   });
 
   it.each([false, true])('does not restore stale morph markers after async cancellation (view transition: %s)', async (viewTransitions) => {
@@ -322,7 +392,6 @@ describe('Document Mode Coordinator', () => {
     expect(harness.dom.window.document.body.dataset.modeMorphFrom).toBeUndefined();
     expect(harness.dom.window.document.body.dataset.modeMorphTo).toBeUndefined();
     expect(harness.elements.editSurface.classList.contains('is-mode-morph-entering')).toBe(false);
-    expect(harness.elements.lineGutter.classList.contains('is-mode-chrome-morphing')).toBe(false);
     expect(harness.elements.minimap.classList.contains('is-mode-chrome-morphing')).toBe(false);
   });
 });

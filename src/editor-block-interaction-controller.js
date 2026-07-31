@@ -26,6 +26,9 @@ export function createEditorBlockInteractionController({
   let dragWrappers = null;
   let dragWrapperIndexes = null;
   let dragIdIndexes = null;
+  let originalWrapperOrder = null;
+  let originalVisibleIds = null;
+  let reorderCommitted = false;
   let autoScrollFrame = null;
   let autoScrollVelocity = 0;
   let lastDragClientY = null;
@@ -68,11 +71,13 @@ export function createEditorBlockInteractionController({
       const deltaY = previous ? previous.top - current.top : 0;
       const entering = wrapper.dataset.blockId === enteringId && !previous;
       if (!entering && Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) return;
+      // Translate-only FLIP: scale/filter keyframes force layer rebuilds and pop
+      // when many blocks reflow together.
       const animation = wrapper.animate(
         entering
           ? [
-              { opacity: 0, transform: 'translateY(-5px) scale(0.985)' },
-              { opacity: 1, transform: 'translateY(0) scale(1)' },
+              { opacity: 0, transform: 'translateY(-5px)' },
+              { opacity: 1, transform: 'translateY(0)' },
             ]
           : [
               { transform: `translate(${deltaX}px, ${deltaY}px)` },
@@ -99,6 +104,103 @@ export function createEditorBlockInteractionController({
     autoScrollVelocity = 0;
     if (autoScrollFrame !== null) window.cancelAnimationFrame?.(autoScrollFrame);
     autoScrollFrame = null;
+  };
+
+  const isSpacer = (wrapper) => wrapper?.hasAttribute?.('data-block-spacer');
+
+  const visibleWrappers = (wrappers = [...canvas.querySelectorAll('[data-block-id]')]) => {
+    const visible = wrappers.filter((wrapper) => !isSpacer(wrapper));
+    return visible.length > 0 ? visible : wrappers;
+  };
+
+  const refreshDropCaches = () => {
+    const wrappers = [...canvas.querySelectorAll('[data-block-id]')];
+    const visible = visibleWrappers(wrappers);
+    dragWrappers = visible;
+    dragWrapperIndexes = new Map(visible.map((wrapper, index) => [wrapper, index]));
+    dragIdIndexes = new Map(visible.map((wrapper, index) => [wrapper.dataset.blockId, index]));
+    return visible;
+  };
+
+  const restoreOriginalOrder = () => {
+    if (!originalWrapperOrder?.length) return false;
+    const current = [...canvas.querySelectorAll('[data-block-id]')];
+    const same = current.length === originalWrapperOrder.length
+      && current.every((wrapper, index) => wrapper === originalWrapperOrder[index]);
+    if (same) return false;
+    const previousLayout = captureLayout();
+    originalWrapperOrder.forEach((wrapper) => {
+      if (wrapper.isConnected || canvas.contains(wrapper)) canvas.append(wrapper);
+    });
+    refreshDropCaches();
+    animateLayout(previousLayout);
+    return true;
+  };
+
+  const applyLiveReorder = (sourceId, location) => {
+    if (!sourceId || !location?.wrapper) return false;
+    const all = [...canvas.querySelectorAll('[data-block-id]')];
+    if (all.length === 0) return false;
+
+    const slots = [];
+    all.forEach((wrapper, index) => {
+      if (!isSpacer(wrapper)) slots.push(index);
+    });
+    const visible = slots.length > 0 ? slots.map((index) => all[index]) : all;
+    const source = visible.find((wrapper) => wrapper.dataset.blockId === sourceId);
+    const target = location.wrapper;
+    if (!source || !visible.includes(target)) return false;
+
+    const sourceIndex = visible.indexOf(source);
+    const targetIndex = visible.indexOf(target);
+    if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return false;
+
+    let destination = targetIndex + (location.position === 'after' ? 1 : 0);
+    if (sourceIndex < destination) destination -= 1;
+    if (destination === sourceIndex) return false;
+
+    const nextVisible = visible.slice();
+    const [moving] = nextVisible.splice(sourceIndex, 1);
+    nextVisible.splice(destination, 0, moving);
+
+    const nextAll = all.slice();
+    if (slots.length > 0) {
+      slots.forEach((slot, index) => {
+        nextAll[slot] = nextVisible[index];
+      });
+    } else {
+      nextVisible.forEach((wrapper, index) => {
+        nextAll[index] = wrapper;
+      });
+    }
+
+    if (nextAll.every((wrapper, index) => wrapper === all[index])) return false;
+
+    const previousLayout = captureLayout();
+    nextAll.forEach((wrapper) => canvas.append(wrapper));
+    refreshDropCaches();
+    animateLayout(previousLayout);
+    return true;
+  };
+
+  const commitFromDom = (sourceId) => {
+    if (!sourceId) return false;
+    const finalVisibleIds = visibleWrappers().map((wrapper) => wrapper.dataset.blockId);
+    if (
+      originalVisibleIds
+      && originalVisibleIds.length === finalVisibleIds.length
+      && originalVisibleIds.every((id, index) => id === finalVisibleIds[index])
+    ) {
+      return false;
+    }
+
+    const sourceIndex = finalVisibleIds.indexOf(sourceId);
+    if (sourceIndex < 0) return false;
+    const previousId = finalVisibleIds[sourceIndex - 1];
+    const nextId = finalVisibleIds[sourceIndex + 1];
+    if (previousId) return Boolean(adapters.moveRelative?.(sourceId, previousId, 'after'));
+    if (nextId) return Boolean(adapters.moveRelative?.(sourceId, nextId, 'before'));
+    return false;
   };
 
   const runAutoScroll = () => {
@@ -170,6 +272,8 @@ export function createEditorBlockInteractionController({
     dragWrappers = null;
     dragWrapperIndexes = null;
     dragIdIndexes = null;
+    originalWrapperOrder = null;
+    originalVisibleIds = null;
     lastDragClientY = null;
     dragState = null;
   };
@@ -180,12 +284,7 @@ export function createEditorBlockInteractionController({
 
   const dropWrappers = () => {
     if (dragWrappers) return dragWrappers;
-    const wrappers = [...canvas.querySelectorAll('[data-block-id]')];
-    const visible = wrappers.filter((wrapper) => !wrapper.hasAttribute('data-block-spacer'));
-    dragWrappers = visible.length > 0 ? visible : wrappers;
-    dragWrapperIndexes = new Map(dragWrappers.map((wrapper, index) => [wrapper, index]));
-    dragIdIndexes = new Map(dragWrappers.map((wrapper, index) => [wrapper.dataset.blockId, index]));
-    return dragWrappers;
+    return refreshDropCaches();
   };
 
   const getDropLocation = (event) => {
@@ -222,8 +321,10 @@ export function createEditorBlockInteractionController({
     const targetId = location?.wrapper.dataset.blockId || null;
     const position = location?.position || null;
     if (dragState?.targetId === targetId && dragState?.position === position) return;
+    if (location && dragState?.sourceId) {
+      applyLiveReorder(dragState.sourceId, location);
+    }
     clearDropTargets();
-    if (location) location.wrapper.classList.add(`is-drag-target-${position}`);
     dragState = {
       sourceId: dragState?.sourceId || null,
       targetId,
@@ -240,8 +341,11 @@ export function createEditorBlockInteractionController({
     }
     hooks.closeTransientUi?.();
     const sourceId = wrapper.dataset.blockId;
+    reorderCommitted = false;
+    originalWrapperOrder = [...canvas.querySelectorAll('[data-block-id]')];
+    originalVisibleIds = visibleWrappers(originalWrapperOrder).map((item) => item.dataset.blockId);
     dragState = { sourceId, targetId: null, position: null };
-    dropWrappers();
+    refreshDropCaches();
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData(BLOCK_DRAG_MIME, sourceId);
     event.dataTransfer.setDragImage?.(createDragPreview(wrapper), 16, 16);
@@ -250,7 +354,11 @@ export function createEditorBlockInteractionController({
     root.classList.add('is-block-dragging');
   };
 
-  const onDragEnd = () => clearDragState();
+  const onDragEnd = () => {
+    if (!reorderCommitted) restoreOriginalOrder();
+    clearDragState();
+    reorderCommitted = false;
+  };
 
   const onDragOver = (event) => {
     if (!dragState && !hasBlockDragType(event.dataTransfer)) return;
@@ -266,22 +374,28 @@ export function createEditorBlockInteractionController({
     event.preventDefault();
     event.stopPropagation();
     const sourceId = event.dataTransfer?.getData(BLOCK_DRAG_MIME) || dragState?.sourceId;
-    const location = normalizeDropLocation(getDropLocation(event), sourceId);
-    const targetId = location?.wrapper.dataset.blockId;
-    const position = location?.position;
-    if (!sourceId || !targetId || !position || sourceId === targetId) {
+    if (!sourceId) {
       clearDragState();
+      reorderCommitted = false;
       return;
     }
+
+    const location = normalizeDropLocation(getDropLocation(event), sourceId);
+    if (location) applyLiveReorder(sourceId, location);
+
+    const changed = commitFromDom(sourceId);
+    reorderCommitted = true;
     clearDragState();
-    const previousLayout = captureLayout();
-    if (!adapters.moveRelative?.(sourceId, targetId, position)) {
+
+    if (!changed) {
       adapters.focusBlock?.(sourceId);
       return;
     }
+
+    const previousLayout = captureLayout();
     adapters.render?.();
     animateLayout(previousLayout);
-    hooks.onReorder?.(sourceId, targetId, position);
+    hooks.onReorder?.(sourceId);
     adapters.focusBlock?.(sourceId);
   };
 
@@ -302,6 +416,7 @@ export function createEditorBlockInteractionController({
     canvas.removeEventListener('dragover', onDragOver);
     canvas.removeEventListener('drop', onDrop);
     clearDragState();
+    reorderCommitted = false;
     cancelAnimations();
   };
 

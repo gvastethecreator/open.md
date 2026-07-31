@@ -54,13 +54,22 @@ function fixture({ reduced = false, pendingAnimations = false, withSpacer = fals
   };
   layout();
   const moveRelative = vi.fn((id, targetId, position) => {
-    const source = blocks.indexOf(id);
-    const target = blocks.indexOf(targetId);
+    const isSpacerId = (blockId) => canvas.querySelector(`[data-block-id="${blockId}"]`)
+      ?.hasAttribute('data-block-spacer');
+    const visibleSlots = blocks
+      .map((blockId, index) => (isSpacerId(blockId) ? -1 : index))
+      .filter((index) => index >= 0);
+    const visibleBlocks = visibleSlots.map((index) => blocks[index]);
+    const source = visibleBlocks.indexOf(id);
+    const target = visibleBlocks.indexOf(targetId);
     let destination = target + (position === 'after' ? 1 : 0);
     if (source < destination) destination -= 1;
-    if (source < 0 || source === destination) return false;
-    const [block] = blocks.splice(source, 1);
-    blocks.splice(destination, 0, block);
+    if (source < 0 || target < 0 || source === destination) return false;
+    const [block] = visibleBlocks.splice(source, 1);
+    visibleBlocks.splice(destination, 0, block);
+    visibleSlots.forEach((slot, index) => {
+      blocks[slot] = visibleBlocks[index];
+    });
     return true;
   });
   const render = vi.fn(() => {
@@ -141,7 +150,7 @@ describe('Editor Block Interaction Controller', () => {
     view.canvas.append(entering);
     view.controller.animateLayout(previous, { enteringId: 'new' });
     expect(view.animations.length).toBeGreaterThanOrEqual(2);
-    expect(view.animations.at(-1).keyframes[0]).toMatchObject({ opacity: 0 });
+    expect(view.animations.at(-1).keyframes[0]).toMatchObject({ opacity: 0, transform: 'translateY(-5px)' });
     expect(view.animations.at(-1).options).toMatchObject({ duration: 220 });
   });
 
@@ -153,7 +162,7 @@ describe('Editor Block Interaction Controller', () => {
     expect(view.animations).toHaveLength(0);
   });
 
-  it('maps before/after drag targets to deterministic model destinations and ignores self-drop', () => {
+  it('reorders blocks live on dragover, commits once on drop, and ignores self-drop', () => {
     const view = fixture();
     const transfer = dataTransfer();
     const handle = view.canvas.querySelector('[data-block-id="a"] [data-block-menu]');
@@ -166,7 +175,10 @@ describe('Editor Block Interaction Controller', () => {
     expect(transfer.setDragImage.mock.calls[0].slice(1)).toEqual([16, 16]);
     const target = view.canvas.querySelector('[data-block-id="c"]');
     dragEvent(view, 'dragover', target, { y: 140, transfer });
-    expect(target.classList.contains('is-drag-target-after')).toBe(true);
+    expect([...view.canvas.querySelectorAll('[data-block-id]')].map((node) => node.dataset.blockId))
+      .toEqual(['b', 'c', 'a']);
+    expect(view.canvas.querySelector('[data-block-id="a"]').classList.contains('is-dragging')).toBe(true);
+    expect(view.moveRelative).not.toHaveBeenCalled();
     dragEvent(view, 'drop', target, { y: 140, transfer });
     expect(view.moveRelative).toHaveBeenCalledWith('a', 'c', 'after');
     expect(view.blocks()).toEqual(['b', 'c', 'a']);
@@ -180,7 +192,7 @@ describe('Editor Block Interaction Controller', () => {
     expect(view.moveRelative).toHaveBeenCalledTimes(1);
   });
 
-  it('uses the drop pointer location instead of a stale prior target', () => {
+  it('restores the original order when a live drag ends without a drop commit', () => {
     const view = fixture();
     const transfer = dataTransfer();
     const source = view.canvas.querySelector('[data-block-id="a"]');
@@ -188,36 +200,38 @@ describe('Editor Block Interaction Controller', () => {
 
     dragEvent(view, 'dragstart', source.querySelector('[data-block-menu]'), { y: 10, transfer });
     dragEvent(view, 'dragover', target, { y: 140, transfer });
-    expect(target.classList.contains('is-drag-target-after')).toBe(true);
-    dragEvent(view, 'drop', source, { y: 10, transfer });
+    expect([...view.canvas.querySelectorAll('[data-block-id]')].map((node) => node.dataset.blockId))
+      .toEqual(['b', 'c', 'a']);
+    dragEvent(view, 'dragend', source, { y: 140, transfer });
 
     expect(view.moveRelative).not.toHaveBeenCalled();
-    expect(view.canvas.querySelector('.is-drag-target-before, .is-drag-target-after')).toBeNull();
+    expect([...view.canvas.querySelectorAll('[data-block-id]')].map((node) => node.dataset.blockId))
+      .toEqual(['a', 'b', 'c']);
+    expect(view.root.classList.contains('is-block-dragging')).toBe(false);
   });
 
-  it('skips spacer rows, suppresses no-op slots and keeps a stable target', async () => {
+  it('skips spacer rows, keeps separators stable, and commits the live visible order', async () => {
     const view = fixture({ withSpacer: true });
     const transfer = dataTransfer();
     const source = view.canvas.querySelector('[data-block-id="a"] [data-block-menu]');
     const spacer = view.canvas.querySelector('[data-block-id="gap"]');
     const target = view.canvas.querySelector('[data-block-id="b"]');
-    const classChanges = [];
-    const observer = new view.dom.window.MutationObserver((records) => classChanges.push(...records));
-    observer.observe(target, { attributes: true, attributeFilter: ['class'] });
 
     dragEvent(view, 'dragstart', source, { y: 10, transfer });
     dragEvent(view, 'dragover', spacer, { y: 80, transfer });
-    expect(view.canvas.querySelector('.is-drag-target-before, .is-drag-target-after')).toBeNull();
+    expect([...view.canvas.querySelectorAll('[data-block-id]')].map((node) => node.dataset.blockId))
+      .toEqual(['a', 'gap', 'b', 'c']);
 
     dragEvent(view, 'dragover', target, { y: 139, transfer });
     dragEvent(view, 'dragover', target, { y: 139, transfer });
     await Promise.resolve();
-    expect(target.classList.contains('is-drag-target-after')).toBe(true);
-    expect(classChanges).toHaveLength(1);
+    expect([...view.canvas.querySelectorAll('[data-block-id]')].map((node) => node.dataset.blockId))
+      .toEqual(['b', 'gap', 'a', 'c']);
+    expect(view.moveRelative).not.toHaveBeenCalled();
 
     dragEvent(view, 'drop', target, { y: 139, transfer });
     expect(view.moveRelative).toHaveBeenCalledWith('a', 'b', 'after');
-    observer.disconnect();
+    expect(view.blocks()).toEqual(['b', 'gap', 'a', 'c']);
   });
 
   it('does not start a drag from a Markdown spacer row', () => {
