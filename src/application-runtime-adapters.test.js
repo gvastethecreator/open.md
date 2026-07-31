@@ -56,12 +56,17 @@ describe('Application Runtime Adapters', () => {
 
   it('maps native document, image, window and pin operations without leaking commands', async () => {
     const view = fixture({ native: true });
-    const invoke = vi.fn(async (command, args) => ({ command, args }));
+    const invoke = vi.fn(async (command, args) => {
+      if (command === 'get_initial_file_paths') return ['launch.md'];
+      return { command, args };
+    });
     const nativeWindow = { setAlwaysOnTop: vi.fn(async () => {}) };
+    const openUrl = vi.fn(async () => {});
     const adapters = createApplicationRuntimeAdapters({
       window: view.window,
       invoke,
       getCurrentWindow: () => nativeWindow,
+      openUrl,
     });
 
     await adapters.documents.open('notes.md');
@@ -70,6 +75,10 @@ describe('Application Runtime Adapters', () => {
     await adapters.documents.readImageFile('photo.png');
     await adapters.windows.openDocument('other.md');
     await adapters.windows.setAlwaysOnTop(true);
+    await adapters.openRequests.acknowledge(7);
+    await adapters.windows.openExternalUrl('https://example.com');
+    await expect(adapters.openRequests.getInitialFilePaths()).resolves.toEqual(['launch.md']);
+    expect(adapters.windows.getNativeWindow()).toBe(nativeWindow);
 
     expect(invoke.mock.calls).toEqual([
       ['get_file_content', { path: 'notes.md' }],
@@ -77,8 +86,11 @@ describe('Application Runtime Adapters', () => {
       ['get_image_bytes', { documentPath: 'notes.md', relativeSource: 'assets/pixel.png' }],
       ['get_standalone_image_bytes', { path: 'photo.png' }],
       ['open_new_window', { path: 'other.md' }],
+      ['acknowledge_open_file_request', { id: 7 }],
+      ['get_initial_file_paths', undefined],
     ]);
     expect(nativeWindow.setAlwaysOnTop).toHaveBeenCalledWith(true);
+    expect(openUrl).toHaveBeenCalledWith('https://example.com');
   });
 
   it('loads syntax lazily once and allows retry after a failed import', async () => {

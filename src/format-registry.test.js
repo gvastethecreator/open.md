@@ -3,8 +3,11 @@ import {
   allowsDocumentMode,
   getEditorKind,
   getFormatDescriptor,
+  getFormatLabel,
   getReadRenderer,
+  imageMimeForFormat,
   isImageFormat,
+  resolveFormatId,
 } from './format-registry.js';
 
 describe('format registry', () => {
@@ -31,5 +34,19 @@ describe('format registry', () => {
     expect(getReadRenderer('csv')).toBe('csv-table');
     expect(getReadRenderer('yaml')).toBe('structured-text');
     expect(getFormatDescriptor('markdown').readRenderer).toBe('markdown');
+  });
+
+  it('resolves format id from payload before path', () => {
+    expect(resolveFormatId('notes.txt', { format: 'json', kind: 'text' })).toBe('json');
+    expect(resolveFormatId('photo.PNG', null)).toBe('png');
+    expect(resolveFormatId('README.md', { kind: 'markdown' })).toBe('markdown');
+  });
+
+  it('owns display labels and image MIME ids', () => {
+    expect(getFormatLabel('json')).toBe('JSON');
+    expect(getFormatLabel('png')).toBe('Image');
+    expect(getFormatLabel('markdown')).toBe('Markdown');
+    expect(imageMimeForFormat('webp')).toBe('image/webp');
+    expect(imageMimeForFormat('unknown')).toBeNull();
   });
 });

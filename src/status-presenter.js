@@ -1,3 +1,8 @@
+import {
+  getStatusMetricParts,
+  getZoomStatusMetric,
+} from './core/reader.js';
+
 function prefersReducedMotion(window) {
   return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
 }
@@ -108,9 +113,58 @@ export function createStatusPresenter({ window, document, elements = {} }) {
     renderMetrics([], '');
   }
 
+  function renderDocumentMetrics({
+    lineCount,
+    characterCount,
+    zoomPercent,
+    currentLine,
+    showCurrentLine,
+    readingProgress,
+    readingTimeMinutes,
+    showReadingStats,
+  } = {}) {
+    const metrics = getStatusMetricParts({
+      lineCount,
+      characterCount,
+      zoomPercent,
+      currentLine,
+      showCurrentLine,
+      readingProgress,
+      readingTimeMinutes,
+      showReadingStats,
+    });
+    renderMetrics(metrics.items, metrics.accessible.join('. '));
+    return metrics;
+  }
+
+  function renderEditorMetrics({ cursor, stats, zoomPercent } = {}) {
+    const zoom = getZoomStatusMetric(zoomPercent);
+    const blocks = Number(stats?.blocks) || 0;
+    const words = Number(stats?.words) || 0;
+    const characters = Number(stats?.characters) || 0;
+    const items = cursor
+      ? [
+          { kind: 'current-line', visible: `Ln ${cursor.line}` },
+          ...(zoom ? [zoom] : []),
+          { kind: 'column', visible: `Col ${cursor.column}` },
+        ]
+      : [
+          { kind: 'blocks', visible: `${blocks} ${blocks === 1 ? 'block' : 'blocks'}` },
+          { kind: 'words', visible: `${words} ${words === 1 ? 'word' : 'words'}` },
+          ...(zoom ? [zoom] : []),
+        ];
+    const accessibleLabel = cursor
+      ? `Line ${cursor.line}. Column ${cursor.column}. ${blocks} blocks. ${words} words. ${characters} characters.${zoom ? ` ${zoom.accessible}.` : ''}`
+      : `${blocks} blocks. ${words} words. ${characters} characters.${zoom ? ` ${zoom.accessible}.` : ''}`;
+    renderMetrics(items, accessibleLabel);
+    return { items, accessibleLabel };
+  }
+
   return Object.freeze({
     setIdentity,
     renderMetrics,
+    renderDocumentMetrics,
+    renderEditorMetrics,
     clear,
     dispose() {
       if (disposed) return;

@@ -2,6 +2,11 @@
  * Format capabilities: modes, editor kind, read renderer, highlight language.
  */
 
+import {
+  getFormatFromPath,
+  imageMimeForFormat as mimeForFormat,
+} from './format-detect.js';
+
 const DESCRIPTORS = Object.freeze({
   markdown: Object.freeze({
     id: 'markdown',
@@ -137,6 +142,41 @@ export function getReadRenderer(format, hint = {}) {
 
 export function getHighlightLanguage(format, hint = {}) {
   return getFormatDescriptor(format, hint).highlightLanguage;
+}
+
+/**
+ * Resolve the canonical format id from a document payload and optional path.
+ * Payload fields win; path is a last-resort ingress hint before open settles.
+ */
+export function resolveFormatId(path = null, document = null) {
+  if (document?.format) return document.format;
+  if (document?.kind === 'image') return 'image';
+  if (document?.kind === 'markdown') return 'markdown';
+  if (document?.kind === 'text') return 'text';
+  if (typeof path === 'string' && path.trim()) {
+    return getFormatFromPath(path) || 'text';
+  }
+  return 'text';
+}
+
+/**
+ * Human status/chrome label for a format. Fine formats stay product-readable.
+ */
+export function getFormatLabel(format, hint = {}) {
+  const descriptor = getFormatDescriptor(format, hint);
+  if (descriptor.family === 'markdown') return 'Markdown';
+  if (descriptor.family === 'image') return 'Image';
+  if (descriptor.id === 'json') return 'JSON';
+  if (descriptor.id === 'yaml') return 'YAML';
+  if (descriptor.id === 'toml') return 'TOML';
+  if (descriptor.id === 'csv') return 'CSV';
+  if (descriptor.id === 'ini') return 'INI';
+  if (descriptor.id === 'env') return 'Env';
+  return 'Text';
+}
+
+export function imageMimeForFormat(format) {
+  return mimeForFormat(format);
 }
 
 export function listFormatDescriptors() {

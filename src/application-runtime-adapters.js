@@ -50,6 +50,7 @@ export function createApplicationRuntimeAdapters({
   window,
   invoke = defaultInvoke,
   getCurrentWindow = defaultGetCurrentWindow,
+  openUrl = null,
   syntaxLoader = () => import('./syntax-highlighter.js'),
   diagrams = { prepare: prepareMermaidDiagrams, render: renderMermaidDiagrams },
   storage,
@@ -121,6 +122,27 @@ export function createApplicationRuntimeAdapters({
     ? (value) => getCurrentWindow().setAlwaysOnTop(value)
     : undefined;
 
+  const getNativeWindow = () => (native ? getCurrentWindow() : null);
+
+  const openExternalUrl = async (url) => {
+    if (!native) return Promise.reject(nativeAccessError());
+    if (typeof openUrl === 'function') return openUrl(url);
+    const opener = await import('@tauri-apps/plugin-opener');
+    return opener.openUrl(url);
+  };
+
+  const acknowledgeOpenFile = (id) => invokeNative('acknowledge_open_file_request', { id });
+
+  const getInitialFilePaths = async () => {
+    if (!native) return [];
+    try {
+      const paths = await invokeNative('get_initial_file_paths');
+      return Array.isArray(paths) ? paths : [];
+    } catch {
+      return [];
+    }
+  };
+
   return Object.freeze({
     documents: Object.freeze({ open, save, readImage, readImageFile }),
     diagrams: Object.freeze({
@@ -128,7 +150,16 @@ export function createApplicationRuntimeAdapters({
       render: diagrams.render,
     }),
     syntax: Object.freeze({ highlight, highlightDocument }),
-    windows: Object.freeze({ openDocument, ...(setAlwaysOnTop ? { setAlwaysOnTop } : {}) }),
+    windows: Object.freeze({
+      openDocument,
+      getNativeWindow,
+      openExternalUrl,
+      ...(setAlwaysOnTop ? { setAlwaysOnTop } : {}),
+    }),
+    openRequests: Object.freeze({
+      acknowledge: acknowledgeOpenFile,
+      getInitialFilePaths,
+    }),
     storage: storage || createOptionalWebPreferenceStore(window) || createMemoryPreferenceStore(),
   });
 }

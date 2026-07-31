@@ -1,9 +1,7 @@
 import {
   getDisplayName,
-  getFileKind,
   getImageSourcePolicy,
   getMarkdownSourceTokenRanges,
-  isImageFilePath,
   normalizeDocumentPayload,
 } from './core/reader.js';
 import {
@@ -14,22 +12,11 @@ import {
 import {
   getHighlightLanguage,
   getReadRenderer,
+  imageMimeForFormat,
   isImageFormat,
   isMarkdownFormat,
+  resolveFormatId,
 } from './format-registry.js';
-
-const IMAGE_MIME_BY_FORMAT = Object.freeze({
-  png: 'image/png',
-  jpeg: 'image/jpeg',
-  gif: 'image/gif',
-  webp: 'image/webp',
-  bmp: 'image/bmp',
-  avif: 'image/avif',
-});
-
-function imageMimeForFormat(format) {
-  return IMAGE_MIME_BY_FORMAT[format] || null;
-}
 
 const MAX_LOCAL_IMAGES = 100;
 const IMAGE_LOAD_CONCURRENCY = 4;
@@ -383,15 +370,9 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
       const openedDocument = normalizeDocumentPayload(await adapters.documents.open(path));
       if (!isCurrent(candidate)) return { status: 'superseded', path };
 
-      const format = openedDocument.format
-        || (openedDocument.kind === 'image' ? 'image' : undefined)
-        || (getFileKind(path) === 'Markdown' ? 'markdown' : getFileKind(path) === 'Image' ? 'image' : 'text');
-      const isImageDocument = isImageFormat(format, { kind: openedDocument.kind })
-        || openedDocument.kind === 'image'
-        || isImageFilePath(path);
-      const isMarkdown = isMarkdownFormat(format, { kind: openedDocument.kind })
-        || openedDocument.kind === 'markdown'
-        || getFileKind(path) === 'Markdown';
+      const format = resolveFormatId(path, openedDocument);
+      const isImageDocument = isImageFormat(format, { kind: openedDocument.kind });
+      const isMarkdown = isMarkdownFormat(format, { kind: openedDocument.kind });
 
       let readHtml = openedDocument.html;
       if (!isImageDocument && !isMarkdown) {

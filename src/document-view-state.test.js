@@ -93,4 +93,31 @@ describe('Document View State', () => {
     view.controller.handle({ state: 'loading', path: 'ignored.md' });
     expect(view.controller.current()).toEqual({ state: 'idle', path: null, document: null });
   });
+
+  it('applies same-path save completion through one projection seam', () => {
+    const view = fixture();
+    const onSavedDocument = vi.fn();
+    view.hooks.onSavedDocument = onSavedDocument;
+    const controller = createDocumentViewStateController({
+      window: {},
+      adapters: { getEditorSession: () => view.editorSession },
+      hooks: view.hooks,
+    });
+    controller.handle({ state: 'loading', path: 'notes.md' });
+    controller.handle({ state: 'ready', path: 'notes.md', document: payload('Notes') });
+    view.editorSession.setDocument.mockClear();
+
+    const saved = payload('Saved');
+    controller.applySavedDocument({ path: 'notes.md', document: saved });
+    expect(controller.current()).toMatchObject({ state: 'ready', path: 'notes.md', document: saved });
+    expect(view.editorSession.setDocument).toHaveBeenCalledWith({
+      path: 'notes.md',
+      source: '# Saved',
+      markdown: true,
+    });
+    expect(onSavedDocument).toHaveBeenCalledWith({ path: 'notes.md', document: saved });
+
+    controller.applySavedDocument({ path: 'other.md', document: payload('Other') });
+    expect(controller.current().path).toBe('notes.md');
+  });
 });

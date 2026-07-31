@@ -77,6 +77,37 @@ describe('Status Presenter', () => {
     expect(view.elements.metrics.querySelector('.status-metric-value').textContent).toBe('120%');
   });
 
+  it('composes document and editor metric snapshots behind one interface', () => {
+    const view = fixture();
+    const presenter = createStatusPresenter({
+      window: view.dom.window,
+      document: view.document,
+      elements: view.elements,
+    });
+
+    presenter.renderDocumentMetrics({
+      lineCount: 10,
+      characterCount: 40,
+      zoomPercent: 100,
+      currentLine: 3,
+      showCurrentLine: true,
+      readingProgress: 20,
+      readingTimeMinutes: 5,
+      showReadingStats: false,
+    });
+    expect(view.elements.metrics.querySelector('[data-status-kind="lines"]')?.textContent).toContain('10');
+    expect(view.elements.metrics.querySelector('[data-status-kind="current-line"]')?.textContent).toBe('Ln 3');
+
+    presenter.renderEditorMetrics({
+      cursor: { line: 2, column: 4 },
+      stats: { blocks: 3, words: 9, characters: 20 },
+      zoomPercent: 125,
+    });
+    expect(view.elements.metrics.querySelector('[data-status-kind="current-line"]')?.textContent).toBe('Ln 2');
+    expect(view.elements.metrics.querySelector('[data-status-kind="column"]')?.textContent).toBe('Col 4');
+    expect(view.elements.metrics.getAttribute('aria-label')).toContain('Zoom 125 percent');
+  });
+
   it('uses an instant path for reduced motion and clears the surface', () => {
     const view = fixture({ reduced: true });
     const presenter = createStatusPresenter({
