@@ -58,11 +58,11 @@ export function createReaderControls({
       const next = presets[(index + 1) % presets.length];
       const button = elements.fontButtons?.find((candidate) => candidate.dataset.fontKind === kind);
       const name = document.getElementById(`${kind}-font-name`);
-      const kindLabel = kind === 'sans' ? 'Sans' : 'Mono';
+      const kindLabel = kind === 'sans' ? 'Text font' : 'Monospaced font';
 
       if (name) name.textContent = current.name;
       if (button) {
-        const label = `${kindLabel} font: ${current.name}. Activate for ${next.name}`;
+        const label = `${kindLabel}: ${current.name}. Activate for ${next.name}`;
         button.setAttribute('aria-label', label);
         button.dataset.tooltip = label;
       }
@@ -83,9 +83,11 @@ export function createReaderControls({
   function updateAutoSaveControl() {
     elements.autoSaveToggle?.setAttribute('aria-checked', String(state.autoSave));
     if (elements.autoSaveToggle) {
-      const label = `Auto-save: ${state.autoSave ? 'on' : 'off'}`;
-      elements.autoSaveToggle.setAttribute('aria-label', label);
-      elements.autoSaveToggle.dataset.tooltip = label;
+      // Keep the static description tooltip; surface on/off only in aria-label.
+      elements.autoSaveToggle.setAttribute(
+        'aria-label',
+        `Auto-save: ${state.autoSave ? 'on' : 'off'}`,
+      );
     }
   }
 
@@ -110,14 +112,18 @@ export function createReaderControls({
     advancedOpen = Boolean(nextOpen && readingToolsOpen);
     body.classList.toggle('is-advanced-options', advancedOpen);
     elements.readingToolsPanel?.classList.toggle('is-advanced-view', advancedOpen);
+    elements.optionsDeck?.classList.toggle('is-advanced-view', advancedOpen);
     elements.advancedOptionsButton?.setAttribute('aria-expanded', String(advancedOpen));
+    // Keep both panes in the layout for the horizontal slide; gate interaction with inert.
     if (elements.advancedOptionsPanel) {
-      elements.advancedOptionsPanel.hidden = !advancedOpen;
+      elements.advancedOptionsPanel.hidden = false;
       elements.advancedOptionsPanel.setAttribute('aria-hidden', String(!advancedOpen));
+      elements.advancedOptionsPanel.toggleAttribute('inert', !advancedOpen);
     }
     if (elements.basicOptionsPanel) {
-      elements.basicOptionsPanel.hidden = advancedOpen;
+      elements.basicOptionsPanel.hidden = false;
       elements.basicOptionsPanel.setAttribute('aria-hidden', String(advancedOpen));
+      elements.basicOptionsPanel.toggleAttribute('inert', advancedOpen);
     }
     if (elements.readingToolsHeaderLabel) {
       elements.readingToolsHeaderLabel.textContent = advancedOpen ? 'Advanced options' : 'View options';
@@ -166,12 +172,6 @@ export function createReaderControls({
     }
     if (elements.csvRowCapInput) {
       elements.csvRowCapInput.value = String(state.advanced.csvRowCap);
-    }
-    if (elements.formatDetectionStatus) {
-      const format = hooks.getDocumentFormat?.() || null;
-      elements.formatDetectionStatus.textContent = format
-        ? `Current document format: ${format}`
-        : 'No document open';
     }
     applyEdgeFade();
   }
@@ -237,7 +237,7 @@ export function createReaderControls({
     const result = await adapters.preferences.update({ fonts: { [kind]: nextIndex } });
     hooks.onPreferenceResult?.(result);
     const currentIndex = normalizeFontIndex(state.fonts[kind], presets.length);
-    hooks.onToast?.(`${kind === 'sans' ? 'Sans' : 'Mono'} font: ${presets[currentIndex].name}`);
+    hooks.onToast?.(`${kind === 'sans' ? 'Text font' : 'Monospaced font'}: ${presets[currentIndex].name}`);
   }
 
   async function setReadingTool(tool, nextValue) {
@@ -317,20 +317,60 @@ export function createReaderControls({
     }
   }
 
-  function handleThemeFieldClick(event) {
-    if (!(event.ctrlKey || event.metaKey)) return;
-    // Ctrl+click on the theme row cycles like T without opening the native select.
-    if (event.target?.closest?.('select')) {
-      event.preventDefault();
+  function themeSelect() {
+    return elements.themeField?.querySelector?.('select')
+      || elements.themeSelect
+      || document.getElementById('theme-select');
+  }
+
+  function openThemeSelect(select) {
+    if (!select) return;
+    if (typeof select.showPicker === 'function') {
+      try {
+        select.showPicker();
+        return;
+      } catch {
+        // showPicker can reject without a trusted gesture; fall through.
+      }
     }
+    select.focus({ preventScroll: true });
+    select.click();
+  }
+
+  function handleThemeFieldClick(event) {
+    if (event.ctrlKey || event.metaKey) {
+      // Ctrl+click on the theme row cycles like T without opening the native select.
+      if (event.target?.closest?.('select')) {
+        event.preventDefault();
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      hooks.cycleTheme?.(event.shiftKey ? -1 : 1);
+      return;
+    }
+
+    const select = themeSelect();
+    if (!select) return;
+    // Native select already handles clicks on itself.
+    if (event.target === select || select.contains?.(event.target)) return;
     event.preventDefault();
-    event.stopPropagation();
-    hooks.cycleTheme?.(event.shiftKey ? -1 : 1);
+    openThemeSelect(select);
   }
 
   function start() {
     if (disposed || started) return;
     started = true;
+    // Ensure advanced pane participates in the slide deck (no hard hidden swap).
+    if (elements.advancedOptionsPanel) {
+      elements.advancedOptionsPanel.hidden = false;
+      elements.advancedOptionsPanel.toggleAttribute('inert', true);
+      elements.advancedOptionsPanel.setAttribute('aria-hidden', 'true');
+    }
+    if (elements.basicOptionsPanel) {
+      elements.basicOptionsPanel.hidden = false;
+      elements.basicOptionsPanel.toggleAttribute('inert', false);
+      elements.basicOptionsPanel.setAttribute('aria-hidden', 'false');
+    }
     listen(elements.readingToolsButton, 'click', () => setReadingToolsOpen(!readingToolsOpen));
     listen(elements.themeField, 'click', handleThemeFieldClick);
     listen(elements.alwaysOnTopButton, 'click', () => { void toggleAlwaysOnTop(); });

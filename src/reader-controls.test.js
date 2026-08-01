@@ -192,6 +192,59 @@ describe('Reader Controls', () => {
     expect(view.hooks.cycleTheme).toHaveBeenNthCalledWith(2, -1);
   });
 
+  it('opens the theme select when the whole theme row is activated', () => {
+    const view = fixture();
+    const select = view.document.querySelector('#theme-select');
+    select.showPicker = vi.fn();
+    select.focus = vi.fn();
+    select.click = vi.fn();
+    view.controller.start();
+
+    view.elements.themeField.dispatchEvent(new view.dom.window.MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+    }));
+    expect(select.showPicker).toHaveBeenCalledOnce();
+    expect(view.hooks.cycleTheme).not.toHaveBeenCalled();
+  });
+
+  it('slides between basic and advanced options without hard-hiding panes', () => {
+    const view = fixture();
+    const basic = view.document.createElement('div');
+    basic.id = 'basic-options-panel';
+    const advanced = view.document.createElement('div');
+    advanced.id = 'advanced-options-panel';
+    advanced.hidden = true;
+    const deck = view.document.createElement('div');
+    deck.id = 'options-deck';
+    deck.append(basic, advanced);
+    view.elements.readingToolsPanel.append(deck);
+    view.elements.basicOptionsPanel = basic;
+    view.elements.advancedOptionsPanel = advanced;
+    view.elements.optionsDeck = deck;
+    view.elements.advancedOptionsButton = view.document.createElement('button');
+    view.elements.readingToolsHeaderLabel = view.document.createElement('span');
+    view.controller.start();
+    view.controller.setReadingToolsOpen(true);
+
+    view.controller.setAdvancedOpen(true);
+    expect(view.controller.isAdvancedOpen()).toBe(true);
+    expect(view.elements.readingToolsPanel.classList.contains('is-advanced-view')).toBe(true);
+    expect(deck.classList.contains('is-advanced-view')).toBe(true);
+    expect(basic.hidden).toBe(false);
+    expect(advanced.hidden).toBe(false);
+    expect(basic.getAttribute('aria-hidden')).toBe('true');
+    expect(advanced.getAttribute('aria-hidden')).toBe('false');
+    expect(basic.hasAttribute('inert')).toBe(true);
+    expect(advanced.hasAttribute('inert')).toBe(false);
+
+    view.controller.setAdvancedOpen(false);
+    expect(view.elements.readingToolsPanel.classList.contains('is-advanced-view')).toBe(false);
+    expect(deck.classList.contains('is-advanced-view')).toBe(false);
+    expect(basic.hasAttribute('inert')).toBe(false);
+    expect(advanced.hasAttribute('inert')).toBe(true);
+  });
+
   it('serializes tool and font changes through the preference adapter', async () => {
     const view = fixture();
     view.controller.start();

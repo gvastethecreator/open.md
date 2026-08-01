@@ -76,6 +76,59 @@ describe('Tooltip Controller', () => {
     expect(view.tooltip.querySelector('.app-tooltip-text')?.textContent).toBe('Second action');
   });
 
+  it('keeps full delay after a hide (no post-hide grace flash)', async () => {
+    vi.useFakeTimers();
+    const view = fixture({ reduced: true });
+    const one = view.document.querySelector('#one');
+    one.dispatchEvent(new view.dom.window.MouseEvent('pointerover', { bubbles: true, clientX: 30, clientY: 50 }));
+    await vi.advanceTimersByTimeAsync(420);
+    expect(view.tooltip.hidden).toBe(false);
+
+    one.dispatchEvent(new view.dom.window.MouseEvent('pointerout', {
+      bubbles: true,
+      relatedTarget: view.document.body,
+      clientX: 200,
+      clientY: 200,
+    }));
+    await vi.advanceTimersByTimeAsync(140);
+    // Soft hide animation is skipped under reduced motion → already closed.
+    expect(view.tooltip.hidden).toBe(true);
+
+    one.dispatchEvent(new view.dom.window.MouseEvent('pointerover', { bubbles: true, clientX: 30, clientY: 50 }));
+    await vi.advanceTimersByTimeAsync(419);
+    expect(view.tooltip.hidden).toBe(true);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(view.tooltip.hidden).toBe(false);
+  });
+
+  it('morphs left-side tooltips without recentering over the host', async () => {
+    const view = fixture({ reduced: true });
+    const host = view.document.createElement('button');
+    host.dataset.tooltip = 'Short';
+    host.dataset.tooltipSide = 'left';
+    host.getBoundingClientRect = () => ({ left: 300, top: 100, right: 380, bottom: 130, width: 80, height: 30 });
+    view.document.body.append(host);
+
+    host.dispatchEvent(new view.dom.window.FocusEvent('focusin', { bubbles: true }));
+    expect(view.tooltip.hidden).toBe(false);
+    expect(view.tooltip.dataset.side).toBe('left');
+    const leftBefore = Number.parseFloat(view.tooltip.style.left);
+
+    host.dataset.tooltip = 'A much longer tooltip label';
+    await Promise.resolve();
+    await Promise.resolve();
+    await new Promise((resolve) => view.dom.window.setTimeout(resolve, 0));
+
+    expect(view.tooltip.hidden).toBe(false);
+    expect(view.tooltip.dataset.side).toBe('left');
+    expect(view.tooltip.dataset.state).toBe('open');
+    const leftAfter = Number.parseFloat(view.tooltip.style.left);
+    // Still anchored left of the host, not centered over it.
+    expect(leftAfter + view.tooltip.getBoundingClientRect().width).toBeLessThanOrEqual(300);
+    expect(Number.isFinite(leftBefore)).toBe(true);
+    expect(Number.isFinite(leftAfter)).toBe(true);
+  });
+
   it('keeps the open shell when the pointer leaves into the trigger safe-zone', async () => {
     vi.useFakeTimers();
     const view = fixture({ reduced: true });

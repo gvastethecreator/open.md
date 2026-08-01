@@ -1,6 +1,6 @@
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
-import { createThemeCoordinator } from './theme-coordinator.js';
+import { createThemeCoordinator, getThemePreviewColors } from './theme-coordinator.js';
 
 const THEMES = [
   { name: 'Light', background: '#ffffff', foreground: '#111111', color_05: '#0969da' },
@@ -45,6 +45,65 @@ function fixture({ reduced = false, viewTransitions = false } = {}) {
 }
 
 describe('Theme Coordinator', () => {
+  it('exposes three signature preview colors for theme pills', () => {
+    expect(getThemePreviewColors(THEMES[0])).toEqual({
+      background: '#ffffff',
+      foreground: '#111111',
+      accent: '#0969da',
+    });
+    expect(getThemePreviewColors({ name: 'Bare', background: '#000', foreground: '#fff' })).toEqual({
+      background: '#000',
+      foreground: '#fff',
+      accent: '#fff',
+    });
+  });
+
+  it('renders a three-segment color pill and sun/moon tone icon for each theme option', async () => {
+    const { dom, elements } = fixture();
+    const coordinator = createThemeCoordinator({
+      window: dom.window,
+      document: dom.window.document,
+      themes: THEMES,
+      elements,
+      curatedNames: ['Light'],
+    });
+
+    await coordinator.start('Light');
+    const options = [...elements.select.querySelectorAll('option')];
+    expect(options).toHaveLength(2);
+    // Coordinator sorts themes by name, so option values index the sorted list.
+    const sortedThemes = [...THEMES].sort((left, right) => (
+      left.name.localeCompare(right.name, undefined, { sensitivity: 'base' })
+    ));
+
+    for (const option of options) {
+      const theme = sortedThemes[Number(option.value)];
+      const pill = option.querySelector('.theme-color-pill');
+      const segments = [...option.querySelectorAll('.theme-color-pill__segment')];
+      const label = option.querySelector('.theme-option-label');
+      const tone = option.querySelector('.theme-tone-icon');
+      const expectedTone = theme.name === 'Dark' ? 'dark' : 'light';
+      expect(theme).toBeTruthy();
+      expect(label?.textContent).toBe(theme.name);
+      expect(option.textContent).toContain(theme.name);
+      expect(pill?.getAttribute('aria-hidden')).toBe('true');
+      expect(segments).toHaveLength(3);
+      expect(option.dataset.tone).toBe(expectedTone);
+      expect(tone?.dataset.tone).toBe(expectedTone);
+      expect(tone?.getAttribute('aria-hidden')).toBe('true');
+      expect(tone?.classList.contains(expectedTone === 'dark' ? 'ti-moon' : 'ti-sun')).toBe(true);
+      const colors = getThemePreviewColors(theme);
+      expect(segments.map((segment) => segment.dataset.color)).toEqual([
+        colors.background,
+        colors.foreground,
+        colors.accent,
+      ]);
+      for (const segment of segments) {
+        expect(segment.style.backgroundColor).toBeTruthy();
+      }
+    }
+  });
+
   it('coalesces rapid requests and never commits stale prepared diagrams', async () => {
     const { dom, elements } = fixture();
     const first = deferred();

@@ -19,6 +19,7 @@ import { createThemeCoordinator } from './theme-coordinator.js';
 import { createWindowChrome } from './window-chrome.js';
 import { createContextMenuController } from './context-menu-controller.js';
 import { createTooltipController } from './tooltip-controller.js';
+import { createScrollbarVisibilityController } from './scrollbar-visibility-controller.js';
 import { createStatusPresenter } from './status-presenter.js';
 import { createReaderViewportController } from './reader-viewport-controller.js';
 import { createEditorFeedbackPresenter } from './editor-feedback-presenter.js';
@@ -44,6 +45,7 @@ let toastPresenter = null;
 let themeCoordinator = null;
 let contextMenuController = null;
 let tooltipController = null;
+let scrollbarVisibility = null;
 let statusPresenter = null;
 let readerControls = null;
 let readerViewport = null;
@@ -145,13 +147,14 @@ function cacheElements() {
   ui.readingToolToggles = [...document.querySelectorAll('[data-reading-tool]')];
   ui.basicOptionsPanel = document.getElementById('basic-options-panel');
   ui.advancedOptionsPanel = document.getElementById('advanced-options-panel');
+  ui.optionsDeck = document.getElementById('options-deck');
   ui.advancedOptionsButton = document.getElementById('advanced-options-button');
   ui.advancedBackButton = document.getElementById('advanced-back-button');
   ui.readingToolsHeaderLabel = document.getElementById('reading-tools-header-label');
   ui.advancedToggles = [...document.querySelectorAll('[data-advanced-pref]')];
   ui.imageDefaultZoomSelect = document.getElementById('image-default-zoom');
   ui.csvRowCapInput = document.getElementById('csv-row-cap');
-  ui.formatDetectionStatus = document.getElementById('format-detection-status');
+
   ui.themeField = document.querySelector('.appearance-theme-field') || document.querySelector('.theme-field');
   ui.fontButtons = [...document.querySelectorAll('[data-font-kind]')];
   ui.alwaysOnTopButton = document.getElementById('always-on-top-button');
@@ -381,7 +384,6 @@ async function initThemes(own) {
       themes: allThemes,
       elements: {
         select: document.getElementById('theme-select'),
-        name: document.getElementById('theme-name'),
       },
       hooks: {
         shouldPrepareDiagrams: () => Boolean(getCurrentFilePath() && ui.content?.querySelector('.mermaid')),
@@ -535,13 +537,14 @@ function mountReaderControls(own) {
       readingToolsPanel: ui.readingToolsPanel,
       basicOptionsPanel: ui.basicOptionsPanel,
       advancedOptionsPanel: ui.advancedOptionsPanel,
+      optionsDeck: ui.optionsDeck,
       advancedOptionsButton: ui.advancedOptionsButton,
       advancedBackButton: ui.advancedBackButton,
       readingToolsHeaderLabel: ui.readingToolsHeaderLabel,
       advancedToggles: ui.advancedToggles,
       imageDefaultZoomSelect: ui.imageDefaultZoomSelect,
       csvRowCapInput: ui.csvRowCapInput,
-      formatDetectionStatus: ui.formatDetectionStatus,
+
       themeField: ui.themeField,
       alwaysOnTopButton: ui.alwaysOnTopButton,
       autoSaveToggle: ui.autoSaveToggle,
@@ -558,7 +561,6 @@ function mountReaderControls(own) {
     },
     hooks: {
       isHelpVisible,
-      getDocumentFormat: () => getCurrentDocument()?.format || null,
       captureScrollPosition: () => readingNavigation?.captureScrollPosition(),
       restoreScrollPosition: (position) => readingNavigation?.restoreScrollPosition(position),
       onReadingToolsApplied: ({ sourceActive }) => {
@@ -797,6 +799,18 @@ function mountTooltips(own) {
   tooltipController.start();
 }
 
+function mountScrollbarVisibility(own) {
+  scrollbarVisibility = own(createScrollbarVisibilityController({
+    window,
+    document,
+    roots: [
+      document.getElementById('reader-page'),
+      document.getElementById('help-stage'),
+    ],
+  }));
+  scrollbarVisibility.start();
+}
+
 function mountDocumentLinkController(own) {
   documentLinkController = own(createDocumentLinkController({
     adapters: {
@@ -950,6 +964,7 @@ export async function startOpenMdApplication() {
     }));
     toastPresenter = own(createToastPresenter({ window, document, element: ui.toast }));
     mountTooltips(own);
+    mountScrollbarVisibility(own);
     responsiveTypography = own(createResponsiveTypography({
       window,
       root: document,
