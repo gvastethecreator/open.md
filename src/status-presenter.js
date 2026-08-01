@@ -1,8 +1,6 @@
 import { getDisplayName } from './document-path.js';
-import {
-  getStatusMetricParts,
-  getZoomStatusMetric,
-} from './core/reader.js';
+import { getZoomStatusMetric } from './core/reader.js';
+import { getFormatStatusMetrics } from './status-metrics.js';
 
 function prefersReducedMotion(window) {
   return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
@@ -123,6 +121,7 @@ export function createStatusPresenter({ window, document, elements = {} }) {
     editMode = false,
     path = null,
     formatLabel = null,
+    statusProfile = null,
     sourceActive = false,
     documentMetrics = null,
     editorMetrics = null,
@@ -142,18 +141,34 @@ export function createStatusPresenter({ window, document, elements = {} }) {
 
     if (editMode) {
       setIdentity({ primary: getDisplayName(path), context: 'Editing' });
-      if (editorMetrics) renderEditorMetrics(editorMetrics);
-      else renderMetrics([], '');
+      // Format-aware metrics (e.g. JSON props) may replace generic editor metrics.
+      if (documentMetrics) {
+        renderDocumentMetrics({
+          ...documentMetrics,
+          statusProfile: documentMetrics.statusProfile || statusProfile,
+        });
+      } else if (editorMetrics) {
+        renderEditorMetrics(editorMetrics);
+      } else {
+        renderMetrics([], '');
+      }
       return;
     }
 
     const contextLabel = sourceActive ? 'Source' : (formatLabel || 'Document');
     setIdentity({ primary: getDisplayName(path), context: contextLabel });
-    if (documentMetrics) renderDocumentMetrics(documentMetrics);
-    else renderMetrics([], '');
+    if (documentMetrics) {
+      renderDocumentMetrics({
+        ...documentMetrics,
+        statusProfile: documentMetrics.statusProfile || statusProfile,
+      });
+    } else {
+      renderMetrics([], '');
+    }
   }
 
   function renderDocumentMetrics({
+    statusProfile = 'markdown',
     lineCount,
     characterCount,
     zoomPercent,
@@ -162,8 +177,18 @@ export function createStatusPresenter({ window, document, elements = {} }) {
     readingProgress,
     readingTimeMinutes,
     showReadingStats,
+    keyCount,
+    itemCount,
+    rootType,
+    invalid,
+    rowCount,
+    columnCount,
+    naturalWidth,
+    naturalHeight,
+    scale,
+    fitScale,
   } = {}) {
-    const metrics = getStatusMetricParts({
+    const metrics = getFormatStatusMetrics(statusProfile || 'markdown', {
       lineCount,
       characterCount,
       zoomPercent,
@@ -172,6 +197,16 @@ export function createStatusPresenter({ window, document, elements = {} }) {
       readingProgress,
       readingTimeMinutes,
       showReadingStats,
+      keyCount,
+      itemCount,
+      rootType,
+      invalid,
+      rowCount,
+      columnCount,
+      naturalWidth,
+      naturalHeight,
+      scale,
+      fitScale,
     });
     renderMetrics(metrics.items, metrics.accessible.join('. '));
     return metrics;

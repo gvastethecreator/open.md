@@ -10,8 +10,13 @@ Markdown uses a live-preview editor with two presentations:
 - **Block editor** (View options → Editing): optional per-block islands with
   slash commands, floating toolbar, and drag reorder.
 
-Non-Markdown companions (JSON, CSV, YAML, logs, and similar) use a plain
-monospace buffer so saves preserve text without Markdown block rewriting.
+Non-Markdown companions (CSV, YAML, logs, and similar) use a plain monospace
+buffer so saves preserve text without Markdown block rewriting.
+
+**JSON** uses a minimal property editor when the file parses as an object or
+array: top-level keys (or items) appear as editable rows; nested values edit
+as JSON text. Invalid or very large JSON falls back to the plain buffer.
+Source mode always shows the full text. Markdown block tools stay Markdown-only.
 
 ## Enter edit mode
 
@@ -44,7 +49,15 @@ Edit and Source.
 - Click a preview line to make it the sole active source line.
 - Multi-line selection does not re-project lines mid-drag (avoids height jumps);
   only the active caret line stays in source Markdown.
+- Keyboard: ↑/↓ move hard lines with a preferred column; ←/→ cross line edges;
+  Home/End are line bounds; Ctrl/Cmd+Home/End are document bounds.
+- Active-line highlight is a full-width band (animated when motion is allowed);
+  the caret can show a short trail effect (Neovide-style).
 - No block toolbar, slash menu, or drag handles.
+
+Advanced options → **Reduce motion** disables non-essential editor animation
+(trail, active-line band motion, caret motion). The OS
+`prefers-reduced-motion` setting is always honored as well.
 
 ### Block editor (optional)
 

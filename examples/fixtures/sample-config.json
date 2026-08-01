@@ -1,0 +1,11 @@
+{
+  "name": "open.md",
+  "version": 1,
+  "features": [
+    "read",
+    "edit"
+  ],
+  "nested": {
+    "depth": 2
+  }
+}

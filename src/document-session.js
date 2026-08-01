@@ -5,6 +5,7 @@ import {
   ImageResourceBudgetError,
   ImageResourcePool,
   getImageMimeType,
+  toUint8Array,
 } from './image-resources.js';
 import {
   getHighlightLanguage,
@@ -124,29 +125,44 @@ function enhanceCodeBlocks({ window, document, content, clipboard, onToast, onDi
     icon.setAttribute('aria-hidden', 'true');
     button.appendChild(icon);
 
+    let resetTimer = null;
+    const restoreIdle = () => {
+      resetTimer = null;
+      icon.className = 'iconoir-copy';
+      button.classList.remove('is-copied', 'is-copy-error');
+      button.setAttribute('aria-label', 'Copy code block');
+      button.dataset.tooltip = 'Copy code';
+    };
+
     button.addEventListener('click', async () => {
+      if (resetTimer != null) {
+        window.clearTimeout?.(resetTimer);
+        resetTimer = null;
+      }
       try {
         if (typeof clipboard?.writeText !== 'function') {
           throw new Error('Clipboard access is unavailable');
         }
-        await clipboard.writeText(code.innerText);
+        // Prefer textContent when innerText is empty (common in jsdom / some WebViews).
+        const text = String(code.innerText || code.textContent || '');
+        await clipboard.writeText(text);
         icon.className = 'iconoir-check';
+        button.classList.add('is-copied');
+        button.classList.remove('is-copy-error');
         button.setAttribute('aria-label', 'Code copied');
         button.dataset.tooltip = 'Copied';
         onToast?.('Code copied');
       } catch (error) {
         onDiagnostic?.('Could not copy code', error);
         icon.className = 'iconoir-refresh';
+        button.classList.add('is-copy-error');
+        button.classList.remove('is-copied');
         button.setAttribute('aria-label', 'Retry copying code');
         button.dataset.tooltip = 'Retry copy';
         onToast?.('Could not copy the code');
       }
 
-      window.setTimeout(() => {
-        icon.className = 'iconoir-copy';
-        button.setAttribute('aria-label', 'Copy code block');
-        button.dataset.tooltip = 'Copy code';
-      }, 2000);
+      resetTimer = window.setTimeout(restoreIdle, 2000);
     });
 
     pre.appendChild(button);
@@ -201,11 +217,18 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
   let generation = 0;
   let disposed = false;
   let imageViewer = null;
+  let imageViewerBytes = null;
+  let imageViewerMime = null;
+  let imageViewerPath = null;
   let state = Object.freeze({ state: 'idle', path: null, document: null });
 
   const disposeImageViewer = () => {
     imageViewer?.dispose?.();
     imageViewer = null;
+    imageViewerBytes = null;
+    imageViewerMime = null;
+    imageViewerPath = null;
+    hooks.onImageStateChange?.(null);
   };
 
   const notify = (nextState) => {
@@ -332,11 +355,20 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
       padding: 24,
       animateZoom: (hooks.getPreferences?.() || adapters.preferences?.current?.())?.advanced?.imageZoomAnimation !== false,
       defaultZoom: (hooks.getPreferences?.() || adapters.preferences?.current?.())?.advanced?.imageDefaultZoom || 'fit',
+      onScaleChange: () => {
+        if (!isCurrent(candidate)) return;
+        hooks.onImageStateChange?.(imageViewer?.getState?.() || null);
+      },
     });
+    // Retain a copy of bytes for copy/download while this generation is current.
+    imageViewerBytes = toUint8Array(bytes) || bytes;
+    imageViewerMime = mimeType;
+    imageViewerPath = path;
 
     if (sourceContent) sourceContent.textContent = '';
     content.removeAttribute('aria-busy');
     notify({ state: 'ready', path, document: openedDocument });
+    hooks.onImageStateChange?.(imageViewer?.getState?.() || null);
     focusContent({
       content,
       readerPage,
@@ -525,6 +557,16 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
     prepareDiagrams,
     refreshDiagrams,
     current: () => state,
+    getImageViewer: () => imageViewer,
+    getImageMedia: () => (
+      imageViewerBytes
+        ? Object.freeze({
+            bytes: imageViewerBytes,
+            mimeType: imageViewerMime,
+            path: imageViewerPath,
+          })
+        : null
+    ),
     dispose() {
       if (disposed) return;
       disposed = true;

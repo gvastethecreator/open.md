@@ -153,6 +153,67 @@ describe('document session', () => {
     expect(prepared.commit).not.toHaveBeenCalled();
   });
 
+  it('marks the code-block copy button as copied with check feedback on success', async () => {
+    vi.useFakeTimers();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    const session = createDocumentSession({
+      window,
+      adapters: {
+        documents: {
+          open: vi.fn(async () => payload({
+            html: '<pre><code class="language-javascript">const calm = true;</code></pre>',
+          })),
+          readImage: vi.fn(async () => new Uint8Array()),
+          readImageFile: vi.fn(async () => new Uint8Array([1, 2, 3])),
+        },
+        diagrams: {
+          prepare: vi.fn(async () => null),
+          render: vi.fn(async () => false),
+        },
+        syntax: {
+          highlight: vi.fn(async () => false),
+        },
+        resources: createResources(),
+        clipboard: { writeText },
+      },
+    });
+
+    await session.open({ path: 'code.md' });
+    const buttons = document.querySelectorAll('#content .copy-code-btn');
+    expect(buttons).toHaveLength(1);
+    const button = buttons[0];
+    expect(button.getAttribute('aria-label')).toBe('Copy code block');
+    const icon = button.querySelector('i');
+    expect(icon?.className).toContain('iconoir-copy');
+
+    button.click();
+    await writeText.mock.results[0].value;
+
+    expect(writeText).toHaveBeenCalled();
+    expect(String(writeText.mock.calls[0][0])).toContain('const calm');
+    expect(button.classList.contains('is-copied')).toBe(true);
+    expect(button.classList.contains('is-copy-error')).toBe(false);
+    expect(button.getAttribute('aria-label')).toBe('Code copied');
+    expect(button.dataset.tooltip).toBe('Copied');
+    expect(icon?.className).toContain('iconoir-check');
+
+    // Second click while success is active must not leave mixed error classes.
+    button.click();
+    await writeText.mock.results[1].value;
+    expect(button.classList.contains('is-copied')).toBe(true);
+    expect(button.classList.contains('is-copy-error')).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(button.classList.contains('is-copied')).toBe(false);
+    expect(button.getAttribute('aria-label')).toBe('Copy code block');
+    expect(button.dataset.tooltip).toBe('Copy code');
+    expect(icon?.className).toContain('iconoir-copy');
+
+    // No double inject on re-open enrichment path: still one button.
+    expect(document.querySelectorAll('#content .copy-code-btn')).toHaveLength(1);
+    vi.useRealTimers();
+  });
+
   it('runs deferred syntax enrichment and preserves readable code when it fails', async () => {
     const onWarning = vi.fn();
     const onDiagnostic = vi.fn();

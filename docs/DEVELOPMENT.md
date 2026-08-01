@@ -106,8 +106,14 @@ handoff and default-app policy.
   diagram and serializes operations on Mermaid's singleton renderer.
 - `src/image-resources.js` owns the 64 MiB per-document Blob URL budget and
   revocation lifecycle; Rust returns validated local image bytes directly.
+- `src/status-metrics.js` owns format-aware status metric builders (profiles
+  from `format-registry`).
+- `src/json-property-model.js` and `src/json-property-editor.js` own minimal
+  JSON property editing; the editor session mounts them when
+  `editorKind` is `json-props`.
 - `src-tauri/src/document_access.rs` owns canonical document/image access,
-  supported types, rendering, metadata, containment, and native byte limits.
+  supported types, rendering, metadata, containment, native byte limits, and
+  user-chosen binary export (`save_bytes`).
 - `src-tauri/src/images.rs` is the binary-response adapter for validated
   image bytes. `src-tauri/src/open_requests.rs` owns stable native delivery
   IDs, in-process pending replay, acknowledgment, and live coordinator-window

@@ -7,9 +7,13 @@ import {
   serializeEditorDocument,
 } from './editor-document.js';
 import { createEditorClassicSurface } from './editor-classic-surface.js';
+import { createEditorCaretTrail } from './editor-caret-trail.js';
 import { createEditorOverlayController } from './editor-overlay-controller.js';
 import { createEditorSelectionController } from './editor-selection-controller.js';
 import { createEditorBlockInteractionController } from './editor-block-interaction-controller.js';
+import { shouldReduceMotion } from './reader-preferences.js';
+import { createJsonPropertyEditor } from './json-property-editor.js';
+import { parseJsonPropertyModel } from './json-property-model.js';
 
 const MAX_EDITABLE_CHARACTERS = 2 * 1024 * 1024;
 const MAX_EDITABLE_BLOCKS = 20_000;
@@ -128,6 +132,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   let selectionController = null;
   let blockInteractionController = null;
   let classicSurface = null;
+  let caretTrail = null;
+  let jsonPropertyEditor = null;
   let disposed = false;
   let blockLineCounts = new Map();
   /** Block ids temporarily showing source while a multi-line selection spans them (Block multi-select). */
@@ -135,11 +141,25 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   const drafts = new Map();
 
   const isMarkdown = () => activeDocument?.markdown !== false;
+  const wantsJsonProps = () => activeDocument?.presentation === 'json-props';
   /** Classic (default) = continuous line live-preview; Block = block islands + tools. */
-  const isBlockEditor = () => Boolean(adapters.isBlockEditor?.());
-  const isClassic = () => mode === 'edit' && !isBlockEditor();
-  const source = () => documentSnapshot.source;
-  const dirty = () => mode === 'edit' && source() !== savedSource;
+  const isBlockEditor = () => Boolean(adapters.isBlockEditor?.()) && !wantsJsonProps();
+  const isJsonProps = () => mode === 'edit' && wantsJsonProps() && Boolean(jsonPropertyEditor);
+  const isClassic = () => mode === 'edit' && !isBlockEditor() && !isJsonProps();
+  const flushJsonProps = () => {
+    if (!isJsonProps()) return { ok: true, skipped: true };
+    return jsonPropertyEditor.flushPending?.() || { ok: true, skipped: true };
+  };
+  const source = () => (
+    isJsonProps()
+      ? jsonPropertyEditor.source()
+      : documentSnapshot.source
+  );
+  const dirty = () => {
+    if (mode !== 'edit') return false;
+    if (isJsonProps() && jsonPropertyEditor.hasPendingChanges?.()) return true;
+    return source() !== savedSource;
+  };
   const snapshot = () => Object.freeze({
     mode,
     path: activeDocument?.path || null,
@@ -148,9 +168,15 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     error: saveError,
     stats: documentSnapshot.stats,
     cursor: documentSnapshot.cursor,
-    presentation: isBlockEditor() ? 'block' : 'classic',
+    presentation: isJsonProps() ? 'json-props' : isBlockEditor() ? 'block' : 'classic',
   });
   const notify = () => hooks.onStateChange?.(snapshot());
+
+  const disposeJsonPropertyEditor = () => {
+    jsonPropertyEditor?.dispose?.();
+    jsonPropertyEditor = null;
+    root.classList.remove('is-json-props-presentation');
+  };
 
   const setCursor = (nextCursor) => {
     if (!documentModel.setCursor(nextCursor)) return;
@@ -521,13 +547,17 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   const updateContextChrome = () => {
     const markdown = isMarkdown();
     if (contextLabel) {
-      contextLabel.textContent = markdown
-        ? (isBlockEditor() ? 'Block live preview' : 'Live preview')
-        : 'Plain-text editor';
+      contextLabel.textContent = wantsJsonProps()
+        ? 'JSON properties'
+        : markdown
+          ? (isBlockEditor() ? 'Block live preview' : 'Live preview')
+          : 'Plain-text editor';
     }
     if (!contextHint) return;
     contextHint.replaceChildren();
-    if (markdown && isBlockEditor()) {
+    if (wantsJsonProps()) {
+      contextHint.textContent = 'Edit top-level keys · nested values as JSON';
+    } else if (markdown && isBlockEditor()) {
       contextHint.append('Type ');
       const shortcut = document.createElement('kbd');
       shortcut.textContent = '/';
@@ -638,9 +668,17 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
   function applyPresentationChrome() {
     const blockMode = isBlockEditor();
+    const jsonMode = isJsonProps();
     root.classList.toggle('is-block-presentation', blockMode && mode === 'edit');
-    root.classList.toggle('is-classic-presentation', !blockMode && mode === 'edit');
-    if (mode === 'edit' && !blockMode) {
+    root.classList.toggle('is-classic-presentation', !blockMode && !jsonMode && mode === 'edit');
+    root.classList.toggle('is-json-props-presentation', jsonMode);
+    if (mode === 'edit' && jsonMode) {
+      canvas.contentEditable = 'false';
+      canvas.removeAttribute('role');
+      canvas.removeAttribute('aria-multiline');
+      canvas.setAttribute('aria-label', 'JSON property editor');
+      canvas.classList.remove('is-classic-surface');
+    } else if (mode === 'edit' && !blockMode) {
       canvas.contentEditable = 'true';
       canvas.setAttribute('role', 'textbox');
       canvas.setAttribute('aria-multiline', 'true');
@@ -657,6 +695,14 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
   function render({ previousLayout = null, enteringId = null } = {}) {
     if (!previousLayout) cancelBlockAnimations();
+
+    // JSON property surface owns the canvas; never reproject Markdown blocks over it.
+    if (isJsonProps()) {
+      applyPresentationChrome();
+      if (blockToolbar) blockToolbar.hidden = true;
+      root.classList.toggle('is-empty-document', source().length === 0);
+      return;
+    }
 
     // Classic: continuous source-line surface (never block islands).
     if (isClassic()) {
@@ -833,12 +879,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
   const handleCanvasKeydown = (event) => {
     if (isClassic()) {
-      if (classicSurface?.handleKeydown?.(event)) {
-        saveState = 'idle';
-        saveError = '';
-        notify();
-      }
-      // Classic keeps browser undo for the host; still allow app history shortcuts.
+      // App history first (override browser undo for model history).
       if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'z') {
         event.preventDefault();
         restoreHistory(event.shiftKey ? 'redo' : 'undo');
@@ -849,6 +890,12 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
         restoreHistory('redo');
         return;
       }
+      if (classicSurface?.handleKeydown?.(event)) {
+        saveState = 'idle';
+        saveError = '';
+        notify();
+      }
+      // Do not swallow unhandled keys — leave them to the browser.
       return;
     }
     const wrapper = event.target.closest?.('[data-block-id]');
@@ -1065,14 +1112,66 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       );
       return false;
     }
-    documentModel.load(initialSource, { markdown: activeDocument.markdown });
+
+    disposeJsonPropertyEditor();
+
+    let useJsonProps = wantsJsonProps();
+    if (useJsonProps) {
+      const parsed = parseJsonPropertyModel(initialSource);
+      if (!parsed.ok) {
+        // Invalid / primitive / oversized JSON falls back to plain monospace edit.
+        useJsonProps = false;
+        if (parsed.reason === 'invalid') {
+          hooks.onUnavailable?.('Invalid JSON — editing as plain text');
+        } else if (parsed.reason === 'too-large') {
+          hooks.onUnavailable?.('Large JSON — editing as plain text');
+        }
+      }
+    }
+
+    documentModel.load(initialSource, {
+      markdown: Boolean(activeDocument.markdown) && !useJsonProps,
+    });
     savedSource = activeDocument.source;
     mode = 'edit';
     saveState = draft ? 'recovered' : 'idle';
     saveError = '';
     activeBlockId = documentSnapshot.blocks[0]?.id || null;
     selectionSourceIds = new Set();
+
+    if (useJsonProps) {
+      activeDocument = { ...activeDocument, presentation: 'json-props' };
+      jsonPropertyEditor = createJsonPropertyEditor({
+        window,
+        root: canvas,
+        onChange: ({ source: nextSource }) => {
+          documentModel.applySource(nextSource);
+          saveState = 'idle';
+          saveError = '';
+          notify();
+        },
+        onDiagnostic: hooks.onDiagnostic,
+      });
+      jsonPropertyEditor.load(initialSource);
+      applyPresentationChrome();
+      updateContextChrome();
+      root.hidden = false;
+      root.removeAttribute('inert');
+      if (blockToolbar) blockToolbar.hidden = true;
+      notify();
+      queueMicrotask(() => {
+        canvas.querySelector('[data-json-value]')?.focus?.({ preventScroll: true });
+      });
+      return true;
+    }
+
+    // Ensure plain path if we fell back from json-props.
+    if (wantsJsonProps() && !useJsonProps) {
+      activeDocument = { ...activeDocument, presentation: 'default', markdown: false };
+    }
+
     render();
+    applyPresentationChrome();
     updateContextChrome();
     root.hidden = false;
     root.removeAttribute('inert');
@@ -1091,6 +1190,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
   const exit = ({ force = false } = {}) => {
     if (mode !== 'edit') return true;
+    flushJsonProps();
     if (dirty() && !force) {
       const discard = window.confirm('Discard unsaved changes and return to reading?');
       if (!discard) return false;
@@ -1101,6 +1201,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     cancelBlockAnimations();
     selectionController?.clear();
     if (classicSurface?.isMounted?.()) classicSurface.unmount();
+    disposeJsonPropertyEditor();
     mode = 'read';
     saveState = 'idle';
     saveError = '';
@@ -1119,6 +1220,16 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
    */
   const refreshPresentation = () => {
     if (disposed || mode !== 'edit') return;
+    // JSON props ignore Classic/Block preference flips; keep the property surface.
+    if (isJsonProps()) {
+      flushJsonProps();
+      jsonPropertyEditor?.load?.(source());
+      applyPresentationChrome();
+      updateContextChrome();
+      if (blockToolbar) blockToolbar.hidden = true;
+      notify();
+      return;
+    }
     if (classicSurface?.isMounted?.()) {
       classicSurface.commitFromDom?.();
     } else {
@@ -1149,8 +1260,22 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     if (disposed || mode !== 'edit' || !activeDocument || saveState === 'saving') {
       return { status: 'unavailable' };
     }
-    if (isClassic()) classicSurface?.commitFromDom?.();
-    else commitAllSourceBlocks();
+    if (isJsonProps()) {
+      const flushed = flushJsonProps();
+      if (flushed && flushed.ok === false) {
+        // Park autosave (observeEditor skips saveState error) until the next edit.
+        saveState = 'error';
+        saveError = flushed.error || 'Fix invalid JSON values before saving';
+        notify();
+        hooks.onUnavailable?.(saveError);
+        return { status: 'unavailable', error: flushed.error };
+      }
+      documentModel.applySource(source());
+    } else if (isClassic()) {
+      classicSurface?.commitFromDom?.();
+    } else {
+      commitAllSourceBlocks();
+    }
     const savingDocument = activeDocument;
     const savingPath = savingDocument.path;
     const nextSource = source();
@@ -1178,17 +1303,34 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     }
   };
 
-  const setDocument = ({ path, source: nextSource, markdown = true }) => {
+  const setDocument = ({
+    path,
+    source: nextSource,
+    markdown = true,
+    presentation = 'default',
+  }) => {
     const normalizedSource = String(nextSource ?? '');
     const sameActiveEditor = mode === 'edit' && activeDocument?.path === path;
-    if (activeDocument?.path && activeDocument.path !== path && dirty()) {
-      drafts.set(activeDocument.path, { source: source(), savedSource });
-      hooks.onDraftPreserved?.(activeDocument.path);
+    if (activeDocument?.path && activeDocument.path !== path) {
+      // Commit in-progress JSON cells before judging dirty / stashing a draft.
+      flushJsonProps();
+      if (dirty()) {
+        drafts.set(activeDocument.path, { source: source(), savedSource });
+        hooks.onDraftPreserved?.(activeDocument.path);
+      }
     }
-    activeDocument = { path, source: normalizedSource, markdown: Boolean(markdown) };
+    activeDocument = {
+      path,
+      source: normalizedSource,
+      markdown: Boolean(markdown),
+      presentation: presentation === 'json-props' ? 'json-props' : 'default',
+    };
     updateContextChrome();
     if (sameActiveEditor) {
       savedSource = normalizedSource;
+      if (isJsonProps()) {
+        jsonPropertyEditor?.load(normalizedSource);
+      }
       saveState = source() === normalizedSource ? 'saved' : 'idle';
       saveError = '';
       notify();
@@ -1197,6 +1339,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   };
 
   const clearDocument = () => {
+    flushJsonProps();
     if (dirty() && activeDocument?.path) {
       drafts.set(activeDocument.path, { source: source(), savedSource });
     }
@@ -1208,11 +1351,30 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   };
 
   const canChangeDocument = () => {
+    flushJsonProps();
     if (!dirty()) return true;
     const discard = window.confirm('Discard unsaved changes?');
     if (discard) exit({ force: true });
     return discard;
   };
+
+  const resolveReduceMotion = () => shouldReduceMotion(
+    window,
+    adapters.getAdvancedPreferences?.() || null,
+  );
+
+  const activeLineBand = elements.activeLineBand
+    || document.getElementById('editor-active-line-band');
+  const trailCanvas = elements.caretTrail
+    || document.getElementById('editor-caret-trail');
+
+  if (trailCanvas) {
+    caretTrail = createEditorCaretTrail({
+      window,
+      canvas: trailCanvas,
+      adapters: { shouldReduceMotion: resolveReduceMotion },
+    });
+  }
 
   classicSurface = createEditorClassicSurface({
     window,
@@ -1222,6 +1384,9 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       getSource: () => source(),
       applySource: (next) => documentModel.applySource(next),
       setCursor,
+      shouldReduceMotion: resolveReduceMotion,
+      getActiveLineBand: () => activeLineBand,
+      getBandHost: () => root,
     },
     hooks: {
       onChange: () => {
@@ -1268,6 +1433,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       isMarkdown: () => isMarkdown(),
       getActiveBlockId: () => activeBlockId,
       setCursor,
+      shouldReduceMotion: resolveReduceMotion,
+      getCaretTrail: () => caretTrail,
       updateBlockFromElement,
     },
     hooks: {
@@ -1325,6 +1492,10 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     current: snapshot,
     source,
     contextFor,
+    jsonPropertyActions: Object.freeze({
+      duplicate: (path) => jsonPropertyEditor?.duplicate?.(path),
+      remove: (path) => jsonPropertyEditor?.remove?.(path),
+    }),
     applyInlineCommand: (command) => selectionController?.applyFromCurrentSelection(command) || false,
     openLinkFromSelection: () => selectionController?.openLinkFromCurrentSelection() || false,
     performBlockAction,
@@ -1338,10 +1509,12 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       canvas.removeEventListener('change', handleCanvasChange);
       document.removeEventListener('selectionchange', handleSelectionChange);
       blockToolbar?.removeEventListener('click', handleBlockToolbarClick);
+      disposeJsonPropertyEditor();
       overlayController?.dispose();
       selectionController?.dispose();
       blockInteractionController?.dispose();
       classicSurface?.dispose?.();
+      caretTrail?.dispose?.();
       unsubscribeDocumentModel();
       documentModel.dispose();
       clearDragState();

@@ -222,6 +222,7 @@
 .ti-file-text::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/file-text.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/file-text.svg"); }
 .ti-pencil::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/pencil.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/pencil.svg"); }
 .ti-blocks::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/blocks.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/blocks.svg"); }
+.ti-player-pause::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/player-pause.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/player-pause.svg"); }
 .ti-adjustments::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/adjustments.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/adjustments.svg"); }
 .ti-file-search::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/file-search.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/file-search.svg"); }
 .ti-blur::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/blur.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/blur.svg"); }
@@ -855,11 +856,64 @@ body.is-mode-morphing .editor-link-popover:not([hidden]) {
   animation: quiet-enter var(--motion-slow) var(--motion-ease-out) both;
 }
 
-.empty-logo {
+.empty-logo-shell {
+  position: relative;
   width: 68px;
   height: 68px;
   margin-bottom: 8px;
+  overflow: hidden;
+  border-radius: 16px;
+  isolation: isolate;
+  flex-shrink: 0;
+}
+
+.empty-logo {
+  display: block;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
+}
+
+/* One-shot sheen across the empty-state logo (boot + hover). */
+.empty-logo-shell::after {
+  content: "";
+  position: absolute;
+  inset: -12% -40%;
+  background: linear-gradient(
+    105deg,
+    transparent 36%,
+    color-mix(in srgb, #ffffff 0%, transparent) 44%,
+    color-mix(in srgb, #ffffff 72%, transparent) 50%,
+    color-mix(in srgb, #ffffff 0%, transparent) 56%,
+    transparent 64%
+  );
+  transform: translateX(-130%) skewX(-16deg);
+  opacity: 0;
+  pointer-events: none;
+  mix-blend-mode: soft-light;
+  will-change: transform, opacity;
+}
+
+.empty-logo-shell.is-shimmering::after {
+  opacity: 1;
+  animation: empty-logo-shimmer 1.15s var(--motion-ease-out) both;
+}
+
+@keyframes empty-logo-shimmer {
+  0% {
+    transform: translateX(-130%) skewX(-16deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  78% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(130%) skewX(-16deg);
+    opacity: 0;
+  }
 }
 
 .empty-content h1 {
@@ -1135,6 +1189,89 @@ body.is-image-document .editor-view {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.88em;
+}
+
+/* Minimal JSON property editor (Edit mode for valid object/array JSON). */
+.editor-view.is-json-props-presentation .editor-canvas,
+.editor-view.is-json-props-presentation #editor-canvas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.5rem 0 1.5rem;
+  min-height: 12rem;
+}
+
+.json-props {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.json-props__row {
+  display: grid;
+  grid-template-columns: minmax(5rem, 0.35fr) auto minmax(0, 1fr);
+  gap: 0.55rem 0.75rem;
+  align-items: start;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--border-color) 80%, transparent);
+  background: color-mix(in srgb, var(--bg-color) 92%, var(--text-color));
+}
+
+.json-props__key {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--text-color) 78%, transparent);
+  word-break: break-word;
+  padding-top: 0.2rem;
+}
+
+.json-props__type {
+  font-size: 0.72em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--text-color) 48%, transparent);
+  padding-top: 0.35rem;
+}
+
+.json-props__value {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  min-height: 1.5rem;
+  padding: 0.2rem 0.35rem;
+  border-radius: 6px;
+  outline: none;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-color);
+}
+
+.json-props__value:focus-visible {
+  box-shadow: 0 0 0 var(--focus-ring-width) var(--focus-ring-color);
+  background: color-mix(in srgb, var(--bg-color) 70%, transparent);
+}
+
+.json-props__value.is-invalid {
+  box-shadow: 0 0 0 1px color-mix(in srgb, #c0392b 55%, transparent);
+}
+
+.json-props__add {
+  align-self: flex-start;
+  margin-top: 0.35rem;
+  border: 1px dashed color-mix(in srgb, var(--border-color) 90%, transparent);
+  background: transparent;
+  color: color-mix(in srgb, var(--text-color) 72%, transparent);
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.json-props__add:hover,
+.json-props__add:focus-visible {
+  border-color: color-mix(in srgb, var(--ui-accent, #087f86) 40%, var(--border-color));
+  color: var(--text-color);
 }
 
 .format-read-table th,
@@ -1884,6 +2021,39 @@ body.is-line-guide .editor-end-hint {
   box-shadow: none;
 }
 
+.editor-view {
+  position: relative;
+}
+
+.editor-active-line-band {
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  top: 0;
+  height: 0;
+  pointer-events: none;
+  background: var(--editor-active-line-bg);
+  box-shadow: inset 2px 0 0 var(--editor-active-line-border);
+  /* FLIP travel uses transform + height; full-bleed is left/right 0 + width 100%. */
+  will-change: transform, height;
+  box-sizing: border-box;
+}
+
+.editor-view.is-classic-presentation .classic-line.is-active-line {
+  /* Row keeps typography; full-bleed fill is the band layer. */
+  background: transparent;
+  box-shadow: none;
+}
+
+.editor-view.is-classic-presentation .editor-canvas,
+.editor-view.is-classic-presentation .editor-context,
+.editor-view.is-classic-presentation .editor-end-hint {
+  position: relative;
+  z-index: 1;
+}
+
 .editor-caret-echo {
   position: fixed;
   z-index: 68;
@@ -1896,6 +2066,16 @@ body.is-line-guide .editor-end-hint {
   transform: translateX(-1px) scaleY(1);
   transform-origin: center;
   animation: editor-caret-blink 1.05s step-end infinite;
+}
+
+.editor-caret-trail {
+  position: fixed;
+  z-index: 67;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
 }
 
 .editor-caret-echo.is-moving {
@@ -3420,12 +3600,13 @@ summary {
   position: absolute;
   top: 8px;
   right: 8px;
+  z-index: 2;
   width: 28px;
   height: 28px;
   padding: 0;
   display: grid;
   place-items: center;
-  border: var(--ui-border-width) solid color-mix(in srgb, var(--code-block-text) 1%, transparent);
+  border: var(--ui-border-width) solid color-mix(in srgb, var(--code-block-text) 12%, transparent);
   border-radius: var(--radius-sm);
   color: var(--code-block-text);
   background: color-mix(in srgb, var(--code-block-bg) 86%, transparent);
@@ -3436,7 +3617,8 @@ summary {
     opacity var(--motion-fast) var(--motion-ease-out),
     transform var(--motion-fast) var(--motion-ease-out),
     border-color var(--motion-fast) var(--motion-ease-standard),
-    color var(--motion-fast) var(--motion-ease-standard);
+    color var(--motion-fast) var(--motion-ease-standard),
+    background-color var(--motion-fast) var(--motion-ease-standard);
 }
 
 .copy-code-btn > i {
@@ -3444,14 +3626,28 @@ summary {
 }
 
 pre:hover .copy-code-btn,
-.copy-code-btn:focus-visible {
+pre:focus-within .copy-code-btn,
+.copy-code-btn:focus-visible,
+.copy-code-btn.is-copied,
+.copy-code-btn.is-copy-error {
   opacity: 1;
   transform: translateY(0);
 }
 
 .copy-code-btn:hover {
-  border-color: color-mix(in srgb, var(--ui-accent) 1%, transparent);
+  border-color: color-mix(in srgb, var(--ui-accent) 35%, transparent);
   color: var(--ui-accent);
+}
+
+.copy-code-btn.is-copied {
+  color: var(--ui-accent);
+  border-color: color-mix(in srgb, var(--ui-accent) 40%, transparent);
+  background: color-mix(in srgb, var(--ui-accent) 12%, var(--code-block-bg));
+}
+
+.copy-code-btn.is-copy-error {
+  color: var(--danger-color, #e35);
+  border-color: color-mix(in srgb, var(--danger-color, #e35) 35%, transparent);
 }
 
 .help-content {
@@ -4838,6 +5034,14 @@ label.appearance-theme-field.reading-tool-toggle .theme-select {
     animation: none !important;
   }
 
+  .editor-active-line-band {
+    transition: none !important;
+  }
+
+  .editor-caret-trail {
+    display: none !important;
+  }
+
   ::view-transition-group(document-surface),
   ::view-transition-old(document-surface),
   ::view-transition-new(document-surface),
@@ -4920,4 +5124,29 @@ label.appearance-theme-field.reading-tool-toggle .theme-select {
   .window-control:active > i {
     transform: none !important;
   }
+}
+
+/* App Advanced preference: same kill-switch as prefers-reduced-motion. */
+body.is-app-reduce-motion *,
+body.is-app-reduce-motion *::before,
+body.is-app-reduce-motion *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0s !important;
+}
+
+body.is-app-reduce-motion .editor-caret-echo {
+  opacity: 1;
+  animation: none !important;
+}
+
+body.is-app-reduce-motion .editor-active-line-band,
+body.is-app-reduce-motion .editor-active-line-band * {
+  transition: none !important;
+}
+
+body.is-app-reduce-motion .editor-caret-trail {
+  display: none !important;
 }

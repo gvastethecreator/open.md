@@ -59,6 +59,7 @@ describe('Document View State', () => {
       path: 'second.md',
       source: '# Second',
       markdown: true,
+      presentation: 'default',
     });
     expect(view.hooks.updateUrl).toHaveBeenCalledWith('second.md');
     expect(view.hooks.applyReadingTools).toHaveBeenCalled();
@@ -130,6 +131,7 @@ describe('Document View State', () => {
       path: 'notes.md',
       source: '# Saved',
       markdown: true,
+      presentation: 'default',
     });
     expect(onSavedDocument).toHaveBeenCalledWith({ path: 'notes.md', document: saved });
 

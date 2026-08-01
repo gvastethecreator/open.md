@@ -142,10 +142,15 @@ flowchart LR
   reclassification heuristics, and image MIME ids. Native open remains
   authoritative for filesystem acceptance.
 - `src/format-registry.js` owns format capabilities: allowed modes, editor
-  kind, read renderer, highlight language, display labels,
+  kind, read renderer, highlight language, display labels, status profiles,
   `resolveFormatId`, companion-text detection, and soft reading-tool patches
   for companion formats.
 - `src/format-readers.js` owns pure rich-Read HTML for companion formats.
+- `src/status-metrics.js` owns pure status metric composition by status
+  profile (markdown, text, json, csv, image).
+- `src/json-property-model.js` / `src/json-property-editor.js` own minimal
+  JSON property edit (parse/rows/serialize and DOM projection). Markdown
+  block serialization must not rewrite JSON.
 - Mode availability uses `allowsDocumentMode`; composition root does not keep
   parallel image format lists.
 - Invariant: payload `format`/`kind` win over path hints when both are present.
@@ -165,9 +170,10 @@ flowchart LR
 
 ### Content and keyboard actions
 
-- `src/document-content-actions.js` owns Read/Source/Edit context actions,
-  selection capture, clipboard fallback, paste, task toggles, and editor block
-  commands through injected session/save adapters.
+- `src/document-content-actions.js` owns Read/Source/Edit context actions
+  (including format-aware image/JSON menus), selection capture, clipboard
+  text/image fallback, paste, task toggles, and editor block commands through
+  injected session/save adapters.
 - `src/document-link-controller.js` owns Read-surface link activation
   (external open, relative document open, edit-surface suppression).
 - `src/reader-keyboard-controller.js` owns shortcut precedence and editable

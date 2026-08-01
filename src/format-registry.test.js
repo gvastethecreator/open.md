@@ -5,6 +5,7 @@ import {
   getFormatDescriptor,
   getFormatLabel,
   getReadRenderer,
+  getStatusProfile,
   imageMimeForFormat,
   isCompanionTextFormat,
   isImageFormat,
@@ -20,14 +21,23 @@ describe('format registry', () => {
     expect(isImageFormat('jpeg')).toBe(true);
   });
 
-  it('exposes read/edit/source for companions with plain editor', () => {
-    for (const format of ['json', 'csv', 'yaml', 'toml', 'ini', 'text']) {
+  it('exposes read/edit/source for companions with plain or json-props editors', () => {
+    for (const format of ['csv', 'yaml', 'toml', 'ini', 'text']) {
       expect(allowsDocumentMode(format, 'read')).toBe(true);
       expect(allowsDocumentMode(format, 'edit')).toBe(true);
       expect(allowsDocumentMode(format, 'source')).toBe(true);
       expect(getEditorKind(format)).toBe('plain');
     }
+    expect(getEditorKind('json')).toBe('json-props');
     expect(getEditorKind('markdown')).toBe('blocks');
+  });
+
+  it('owns status profiles per format family', () => {
+    expect(getStatusProfile('markdown')).toBe('markdown');
+    expect(getStatusProfile('json')).toBe('json');
+    expect(getStatusProfile('csv')).toBe('csv');
+    expect(getStatusProfile('png')).toBe('image');
+    expect(getStatusProfile('yaml')).toBe('text');
   });
 
   it('maps rich read renderers', () => {

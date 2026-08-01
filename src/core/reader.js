@@ -10,6 +10,14 @@ import {
   isSupportedFilePath as detectSupportedFilePath,
   resolveDocumentFormat,
 } from '../format-detect.js';
+import {
+  getCsvStatusMetrics,
+  getDocumentStatusMetrics,
+  getFormatStatusMetrics,
+  getImageStatusMetrics,
+  getJsonStatusMetrics,
+  getTextCompanionStatusMetrics,
+} from '../status-metrics.js';
 
 export {
   getDisplayName,
@@ -32,6 +40,14 @@ export {
   getScrollEdgeState,
   getVisibleSourceLineRange,
 } from '../reading-geometry.js';
+export {
+  getCsvStatusMetrics,
+  getDocumentStatusMetrics,
+  getFormatStatusMetrics,
+  getImageStatusMetrics,
+  getJsonStatusMetrics,
+  getTextCompanionStatusMetrics,
+};
 
 const PREFERRED_THEME_NAMES = ['Github Light', 'Github Dark', 'GitHub', 'Ayu Light', 'Ayu Dark'];
 
@@ -60,10 +76,6 @@ export function getEstimatedMinutesRemaining(totalMinutes, progressPercent) {
   return Math.ceil(total * (1 - (progress / 100)));
 }
 
-function formatMetricNumber(value) {
-  return Math.max(0, Math.floor(Number(value) || 0)).toLocaleString('en-US');
-}
-
 export function getZoomStatusMetric(zoomPercent) {
   const safeZoom = Math.max(1, Math.round(Number(zoomPercent) || 100));
   return safeZoom === 100
@@ -75,62 +87,9 @@ export function getZoomStatusMetric(zoomPercent) {
       };
 }
 
-export function getStatusMetricParts({
-  lineCount,
-  characterCount,
-  zoomPercent,
-  currentLine,
-  showCurrentLine,
-  readingProgress,
-  readingTimeMinutes,
-  showReadingStats,
-}) {
-  const safeLineCount = Math.max(1, Math.floor(Number(lineCount) || 1));
-  const safeCharacterCount = Math.max(0, Math.floor(Number(characterCount) || 0));
-  const lineLabel = `${formatMetricNumber(safeLineCount)} ${safeLineCount === 1 ? 'line' : 'lines'}`;
-  const characterValue = formatMetricNumber(safeCharacterCount);
-  const characterLabel = `${characterValue} ${safeCharacterCount === 1 ? 'char' : 'chars'}`;
-  const characterAccessibleLabel = `${characterValue} ${safeCharacterCount === 1 ? 'character' : 'characters'}`;
-  const items = [
-    { kind: 'lines', visible: lineLabel, accessible: lineLabel },
-    { kind: 'characters', visible: characterLabel, accessible: characterAccessibleLabel },
-  ];
-
-  if (showCurrentLine) {
-    const safeCurrentLine = Math.max(1, Math.floor(Number(currentLine) || 1));
-    items.push({
-      kind: 'current-line',
-      visible: `Ln ${safeCurrentLine}`,
-      accessible: `Line ${safeCurrentLine}`,
-    });
-  }
-
-  const zoom = getZoomStatusMetric(zoomPercent);
-  if (zoom) items.push(zoom);
-
-  if (showReadingStats) {
-    const safeProgress = Math.min(100, Math.max(0, Math.round(Number(readingProgress) || 0)));
-    const remainingMinutes = getEstimatedMinutesRemaining(readingTimeMinutes, safeProgress);
-    items.push({
-      kind: 'progress',
-      visible: `${safeProgress}%`,
-      accessible: `${safeProgress} percent through document`,
-    });
-
-    if (Number(readingTimeMinutes) > 0) {
-      items.push({
-        kind: 'reading-time',
-        visible: remainingMinutes > 0 ? `${remainingMinutes} min left` : 'read',
-        accessible: remainingMinutes > 0 ? `${remainingMinutes} minutes left` : 'Document read',
-      });
-    }
-  }
-
-  return {
-    items,
-    visible: items.map(({ visible }) => visible),
-    accessible: items.map(({ accessible }) => accessible),
-  };
+/** Compatibility wrapper — prefer getDocumentStatusMetrics / getFormatStatusMetrics */
+export function getStatusMetricParts(fields = {}) {
+  return getDocumentStatusMetrics(fields);
 }
 
 export function getWindowControlPresentation(isMaximized) {

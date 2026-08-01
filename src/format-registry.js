@@ -16,6 +16,7 @@ const DESCRIPTORS = Object.freeze({
     readRenderer: 'markdown',
     highlightLanguage: 'markdown',
     productSurface: 'associated',
+    statusProfile: 'markdown',
   }),
   text: Object.freeze({
     id: 'text',
@@ -25,15 +26,17 @@ const DESCRIPTORS = Object.freeze({
     readRenderer: 'plain',
     highlightLanguage: null,
     productSurface: 'associated',
+    statusProfile: 'text',
   }),
   json: Object.freeze({
     id: 'json',
     family: 'text',
     modes: Object.freeze(['read', 'edit', 'source']),
-    editorKind: 'plain',
+    editorKind: 'json-props',
     readRenderer: 'json-tree',
     highlightLanguage: 'json',
     productSurface: 'companion',
+    statusProfile: 'json',
   }),
   yaml: Object.freeze({
     id: 'yaml',
@@ -43,6 +46,7 @@ const DESCRIPTORS = Object.freeze({
     readRenderer: 'structured-text',
     highlightLanguage: 'yaml',
     productSurface: 'companion',
+    statusProfile: 'text',
   }),
   toml: Object.freeze({
     id: 'toml',
@@ -52,6 +56,7 @@ const DESCRIPTORS = Object.freeze({
     readRenderer: 'structured-text',
     highlightLanguage: 'ini',
     productSurface: 'companion',
+    statusProfile: 'text',
   }),
   ini: Object.freeze({
     id: 'ini',
@@ -61,6 +66,7 @@ const DESCRIPTORS = Object.freeze({
     readRenderer: 'structured-text',
     highlightLanguage: 'ini',
     productSurface: 'companion',
+    statusProfile: 'text',
   }),
   env: Object.freeze({
     id: 'env',
@@ -70,6 +76,7 @@ const DESCRIPTORS = Object.freeze({
     readRenderer: 'structured-text',
     highlightLanguage: 'properties',
     productSurface: 'companion',
+    statusProfile: 'text',
   }),
   csv: Object.freeze({
     id: 'csv',
@@ -79,6 +86,7 @@ const DESCRIPTORS = Object.freeze({
     readRenderer: 'csv-table',
     highlightLanguage: null,
     productSurface: 'companion',
+    statusProfile: 'csv',
   }),
   png: imageDescriptor('png'),
   jpeg: imageDescriptor('jpeg'),
@@ -98,6 +106,7 @@ function imageDescriptor(id) {
     readRenderer: 'image',
     highlightLanguage: null,
     productSurface: 'companion',
+    statusProfile: 'image',
   });
 }
 
@@ -142,6 +151,13 @@ export function getReadRenderer(format, hint = {}) {
 
 export function getHighlightLanguage(format, hint = {}) {
   return getFormatDescriptor(format, hint).highlightLanguage;
+}
+
+/**
+ * Status bar metric profile for a format (markdown | text | json | csv | image).
+ */
+export function getStatusProfile(format, hint = {}) {
+  return getFormatDescriptor(format, hint).statusProfile || 'text';
 }
 
 /**

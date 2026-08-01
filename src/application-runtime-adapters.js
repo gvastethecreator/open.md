@@ -2,12 +2,16 @@ import { invoke as defaultInvoke } from '@tauri-apps/api/core';
 import { listen as defaultListen } from '@tauri-apps/api/event';
 import { getCurrentWebview as defaultGetCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow as defaultGetCurrentWindow } from '@tauri-apps/api/window';
-import { open as defaultOpenFileDialog } from '@tauri-apps/plugin-dialog';
+import {
+  open as defaultOpenFileDialog,
+  save as defaultSaveFileDialog,
+} from '@tauri-apps/plugin-dialog';
 import {
   createMemoryPreferenceStore,
   createOptionalWebPreferenceStore,
 } from './reader-preferences.js';
 import { prepareMermaidDiagrams, renderMermaidDiagrams } from './mermaid-renderer.js';
+import { toUint8Array } from './image-resources.js';
 
 const NATIVE_ACCESS_ERROR = 'Native file access is unavailable in this browser preview.';
 
@@ -56,6 +60,7 @@ export function createApplicationRuntimeAdapters({
   listen = defaultListen,
   getCurrentWebview = defaultGetCurrentWebview,
   openFileDialog = defaultOpenFileDialog,
+  saveFileDialog = defaultSaveFileDialog,
   openUrl = null,
   syntaxLoader = () => import('./syntax-highlighter.js'),
   diagrams = { prepare: prepareMermaidDiagrams, render: renderMermaidDiagrams },
@@ -97,7 +102,75 @@ export function createApplicationRuntimeAdapters({
     relativeSource,
   });
 
-  const readImageFile = (path) => invokeNative('get_standalone_image_bytes', { path });
+  const readImageFile = (path) => {
+    // Browser/dev smoke only: inject fixture bytes without Tauri IPC.
+    if (import.meta.env.DEV) {
+      const previewMap = window?.__OPENMD_PREVIEW_IMAGE_BYTES__;
+      const preview = previewMap && typeof previewMap === 'object' ? previewMap[path] : null;
+      if (preview != null) {
+        const bytes = toUint8Array(preview)
+          || (Array.isArray(preview) ? Uint8Array.from(preview) : null);
+        if (bytes) return Promise.resolve(bytes);
+      }
+    }
+    return invokeNative('get_standalone_image_bytes', { path });
+  };
+
+  const extensionForMime = (mimeType = '', path = '') => {
+    const fromPath = String(path).match(/\.([a-z0-9]+)$/i)?.[1];
+    if (fromPath) return fromPath.toLowerCase();
+    if (mimeType.includes('jpeg')) return 'jpg';
+    if (mimeType.includes('png')) return 'png';
+    if (mimeType.includes('webp')) return 'webp';
+    if (mimeType.includes('gif')) return 'gif';
+    if (mimeType.includes('bmp')) return 'bmp';
+    if (mimeType.includes('avif')) return 'avif';
+    return 'png';
+  };
+
+  const bytesToUint8Array = (bytes) => {
+    const fromHelper = toUint8Array(bytes);
+    if (fromHelper) return fromHelper;
+    if (Array.isArray(bytes)) return Uint8Array.from(bytes);
+    throw new Error('Image bytes are unavailable');
+  };
+
+  const downloadImage = async ({
+    bytes,
+    mimeType = 'image/png',
+    path = '',
+    defaultName = 'image',
+  } = {}) => {
+    const payload = bytesToUint8Array(bytes);
+    const extension = extensionForMime(mimeType, path);
+    const baseName = String(defaultName || 'image').replace(/\.[^.]+$/, '') || 'image';
+
+    if (!native) {
+      const blob = new Blob([payload], { type: mimeType || 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = window.document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${baseName}.${extension}`;
+      window.document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1_000);
+      return { status: 'saved', path: null };
+    }
+
+    const destination = await saveFileDialog({
+      defaultPath: `${baseName}.${extension}`,
+      filters: [{ name: 'Image', extensions: [extension] }],
+    });
+    if (!destination) return { status: 'cancelled' };
+
+    // Pass Uint8Array through IPC (avoid Array.from on multi-MiB images).
+    await invokeNative('save_file_bytes', {
+      path: destination,
+      contents: payload,
+    });
+    return { status: 'saved', path: destination };
+  };
 
   const openDocument = (path) => invokeNative('open_new_window', { path });
 
@@ -160,7 +233,7 @@ export function createApplicationRuntimeAdapters({
   };
 
   return Object.freeze({
-    documents: Object.freeze({ open, save, readImage, readImageFile }),
+    documents: Object.freeze({ open, save, readImage, readImageFile, downloadImage }),
     diagrams: Object.freeze({
       prepare: diagrams.prepare,
       render: diagrams.render,
