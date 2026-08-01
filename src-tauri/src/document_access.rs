@@ -1045,7 +1045,10 @@ mod tests {
         let payload = [0x89_u8, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 
         save_bytes(&destination, &payload).expect("export should write");
-        assert_eq!(fs::read(&destination).expect("export should exist"), payload);
+        assert_eq!(
+            fs::read(&destination).expect("export should exist"),
+            payload
+        );
 
         // Overwrite path uses the same atomic replace helper as document saves.
         let next = [1_u8, 2, 3, 4];
@@ -1056,7 +1059,10 @@ mod tests {
         assert!(save_bytes(&destination, &oversized)
             .unwrap_err()
             .contains("too large"));
-        assert_eq!(fs::read(&destination).expect("failed export keeps prior bytes"), next);
+        assert_eq!(
+            fs::read(&destination).expect("failed export keeps prior bytes"),
+            next
+        );
     }
 
     #[cfg(target_os = "windows")]

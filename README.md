@@ -1,20 +1,28 @@
 # open.md
 
-A quiet desktop viewer for Markdown and plain-text files.
+A quiet desktop reader and editor for local Markdown and plain-text files.
 
 [Project site](https://gvastethecreator.github.io/open.md/) · [Source and issues](https://github.com/gvastethecreator/open.md)
 
-`open.md` is a small Tauri desktop application for reading `.md`, `.markdown`,
-and `.txt` files. Drop a file onto the window, open it from the file picker, or
-use the operating system's **Open with** menu. The app renders local documents
-without fetching remote images or modifying the files it opens.
+`open.md` is a small Tauri desktop application for reading and editing `.md`,
+`.markdown`, and `.txt` files, plus companion formats opened in-app (JSON, CSV,
+common config/text sidecars, and local raster images). Drop a file onto the
+window, open it from the file picker, or use the operating system's **Open
+with** menu. Documents stay local: the app does not fetch remote images.
+Opening a file never writes to it; **Edit** and save change only the document
+you choose to modify.
 
-> Status: early development (`0.1.0` development milestone). The reading path
-> is usable, but behaviour may still change before a tagged release.
+> Status: early development (`0.1.0` development milestone). The reading and
+> editing paths are usable, but behaviour may still change before a tagged
+> release.
 
 ## Features
 
-- Markdown, Markdown-with-extension, and plain-text viewing.
+- Markdown and plain-text reading, plus in-app companions (JSON, CSV, config-
+  style text, and local raster images).
+- Edit mode with **Classic** live preview by default (active line as source,
+  other lines rendered) and an optional block editor under View options.
+  Source mode shows the full file. See [Editing](docs/EDITING.md).
 - Drag and drop, native file associations, and multi-window document opens.
   Optional single-instance mode (Advanced → System) reuses one process for
   Open with / second launches; multiple instances are allowed by default.
@@ -54,6 +62,7 @@ repository does not currently publish installers or hosted release binaries.
 
 - [Development and checks](docs/DEVELOPMENT.md) — project layout, local
   commands, and CI expectations.
+- [Editing](docs/EDITING.md) — Classic and block editors, modes, and save.
 - [GitHub Pages landing](docs/PAGES.md) — local preview, deployment, and media
   provenance.
 - [File associations](docs/FILE_ASSOCIATIONS.md) — how packaged builds

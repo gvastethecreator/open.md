@@ -224,7 +224,6 @@
 .ti-blocks::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/blocks.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/blocks.svg"); }
 .ti-player-pause::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/player-pause.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/player-pause.svg"); }
 .ti-adjustments::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/adjustments.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/adjustments.svg"); }
-.ti-file-search::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/file-search.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/file-search.svg"); }
 .ti-blur::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/blur.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/blur.svg"); }
 .ti-arrows-random::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/arrows-random.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/arrows-random.svg"); }
 .ti-folder::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/folder.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/folder.svg"); }

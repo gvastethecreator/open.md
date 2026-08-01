@@ -7,21 +7,28 @@ It describes the repository layout, the local checks, and the CI gates for
 ## Repository layout
 
 - `src/` — the Vite composition root, reader shell, document/open/preference
-  owners, deferred Mermaid renderer, bounded image resources, styles, tests,
-  and theme data.
-- `src-tauri/` — native document access and open-request modules, thin Tauri
-  adapters, configuration, capabilities, and file-association metadata.
+  owners, editor surface and session modules, deferred Mermaid renderer,
+  bounded image resources, styles, tests, and theme data.
+- `src-tauri/` — native document access, open-request, settings, and
+  file-association modules, thin Tauri adapters, configuration, and
+  capabilities.
 - `scripts/` — focused static validation used by the frontend check.
 - `docs/` — developer and provenance documentation; private audit notes belong
-  under the ignored `.local/` directory.
+  under the ignored `.local/` directory. Architecture ARC-01..45 are closed in
+  [architecture/WORKPLAN.md](architecture/WORKPLAN.md); reviews there are
+  historical completion records, not an open ticket queue.
 
 The frontend and native layers communicate through the Tauri command/event
-bridge. The app is a viewer: opening a document does not write to it, and
-relative images are resolved within the opened document's directory.
+bridge. Opening a document is read-only until the user enters **Edit** and
+saves; relative images resolve within the opened document's directory and the
+app never fetches remote images. OS associations still register as a viewer
+role; in-app edit does not change that bundle policy. See
+[Editing](EDITING.md) and [File associations](FILE_ASSOCIATIONS.md).
 
 ## Local setup
 
-Install Rust stable, Bun 1.1 or newer, and the platform prerequisites listed by
+Install Rust stable, **Bun 1.3.14** (see `packageManager` in `package.json` and
+CI), and the platform prerequisites listed by
 [Tauri](https://v2.tauri.app/start/prerequisites/). Bun is required by the
 repository's Tauri development and build configuration.
 

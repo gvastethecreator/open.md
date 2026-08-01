@@ -70,7 +70,10 @@ pub fn get_status() -> FileAssociationStatus {
     }
     #[cfg(not(any(target_os = "windows", target_os = "macos", unix)))]
     {
-        status_base("unavailable", "File associations are not supported on this platform.")
+        status_base(
+            "unavailable",
+            "File associations are not supported on this platform.",
+        )
     }
 }
 
@@ -159,7 +162,8 @@ fn macos_request() -> Result<FileAssociationActionResult, String> {
     if modern.map(|s| s.success()).unwrap_or(false) {
         return Ok(FileAssociationActionResult {
             outcome: "opened_settings",
-            detail: "Opened System Settings. Set open.md as the default for Markdown and text.".into(),
+            detail: "Opened System Settings. Set open.md as the default for Markdown and text."
+                .into(),
         });
     }
 
@@ -173,7 +177,9 @@ fn macos_request() -> Result<FileAssociationActionResult, String> {
 
     Ok(FileAssociationActionResult {
         outcome: "opened_settings",
-        detail: "Opened System Settings. Use Get Info → Open with → Change All on a .md file if needed.".into(),
+        detail:
+            "Opened System Settings. Use Get Info → Open with → Change All on a .md file if needed."
+                .into(),
     })
 }
 

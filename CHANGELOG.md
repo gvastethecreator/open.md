@@ -9,6 +9,13 @@ stable release is cut.
 
 ### Changed
 
+- Maintenance: frontend packages updated to latest (`vite` 8.2, `jsdom` 30,
+  `@tauri-apps/plugin-dialog` 2.7.2); Rust lockfile refreshed to latest
+  compatible crates (`serde`/`serde_json`, dialog plugin, transitive tokio and
+  related). README, development guide, contributing notes, and GitHub Pages
+  landing copy now describe local edit/save and companion formats instead of a
+  pure viewer. `.gitignore` covers accidental non-Bun lockfiles and common
+  editor/Windows build noise. Removed unused `.ti-file-search` CSS mask rule.
 - Edit mode defaults to **Classic** continuous source-line live preview
   (`editor-classic-surface.js`): only the active hard line is raw Markdown
   (with type-scaled typography), other lines are rendered, no block islands.
