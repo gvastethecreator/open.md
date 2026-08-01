@@ -64,8 +64,25 @@ export function createReadingNavigationController({
     if (!elements.documentStage) return [];
     const stageTop = elements.documentStage.getBoundingClientRect().top;
     const seenLines = new Set();
-    const anchors = mode() === 'edit'
-      ? [...(elements.editorCanvas?.querySelectorAll('[data-source-line-start]') || [])].flatMap((wrapper) => {
+    let anchors = [];
+    if (mode() === 'edit') {
+      const classicRows = [...(elements.editorCanvas?.querySelectorAll('[data-classic-line]') || [])];
+      if (classicRows.length > 0) {
+        // Classic continuous surface: one source line per hard-line row.
+        anchors = classicRows.map((row) => {
+          const index = Number.parseInt(row.dataset.classicLine, 10);
+          const content = row.querySelector('[data-classic-content]') || row;
+          const styles = window.getComputedStyle(content);
+          const lineHeight = Number.parseFloat(styles.lineHeight)
+            || Math.min(Math.max(content.getBoundingClientRect().height, 16), 32);
+          return {
+            line: index + 1,
+            top: content.getBoundingClientRect().top - stageTop,
+            lineHeight,
+          };
+        });
+      } else {
+        anchors = [...(elements.editorCanvas?.querySelectorAll('[data-source-line-start]') || [])].flatMap((wrapper) => {
           const content = wrapper.querySelector('[data-editor-content]');
           if (!content) return [];
           const sourceStart = Number.parseInt(wrapper.dataset.sourceLineStart, 10);
@@ -85,8 +102,10 @@ export function createReadingNavigationController({
             top: top + (index * lineHeight),
             lineHeight,
           }));
-        })
-      : [...(elements.readView?.querySelectorAll('.source-line-anchor[data-source-line]') || [])]
+        });
+      }
+    } else {
+      anchors = [...(elements.readView?.querySelectorAll('.source-line-anchor[data-source-line]') || [])]
         .map((anchor) => {
           let visualTarget = anchor.nextElementSibling;
           while (visualTarget?.classList.contains('source-line-anchor')) {
@@ -104,6 +123,7 @@ export function createReadingNavigationController({
               : Math.min(Math.max(targetRect.height, 16), 28),
           };
         });
+    }
 
     return anchors
       .filter((anchor) => {

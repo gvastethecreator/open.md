@@ -288,6 +288,36 @@ export function createEditorClassicSurface({
   };
 
   /**
+   * Keep the active hard line inside the document scrollport (.reader-page).
+   * Call only after keyboard navigation — never from mount/render (mode morph
+   * must preserve scroll). Matches Block focusBlock scrollIntoView nearest.
+   */
+  const ensureActiveLineVisible = () => {
+    if (disposed || !mounted) return;
+    const row = canvas.querySelector(`[data-classic-line="${activeLine}"]`);
+    if (!row) return;
+    const target = row.querySelector('[data-classic-content]') || row;
+    try {
+      target.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    } catch {
+      /* jsdom / inert hosts */
+    }
+    scheduleActiveLineBand();
+  };
+
+  /** PageUp/Down step from the real scroll viewport, not canvas document height. */
+  const pageLineStep = () => {
+    const scroller = canvas.closest?.('.reader-page') || canvas;
+    const row = canvas.querySelector(`[data-classic-line="${activeLine}"]`);
+    let lineH = 28;
+    if (row && typeof row.getBoundingClientRect === 'function') {
+      const height = row.getBoundingClientRect().height;
+      if (Number.isFinite(height) && height > 0) lineH = Math.max(18, height);
+    }
+    return Math.max(1, Math.floor((scroller.clientHeight || 240) / lineH));
+  };
+
+  /**
    * Move the active hard line. When `retainPreferred` is true, the caret is
    * clamped to the target line length but preferredColumn is kept unclamped so
    * later longer lines restore the original column (editor-standard sticky col).
@@ -317,7 +347,7 @@ export function createEditorClassicSurface({
     if (retainPreferred && savedPreferred != null) {
       preferredColumn = savedPreferred;
     }
-    scheduleActiveLineBand();
+    ensureActiveLineVisible();
   };
 
   const ensureActiveSourceContent = () => {
@@ -381,7 +411,7 @@ export function createEditorClassicSurface({
       selectionLines = new Set();
       render({ source: joinLines(lines), focusLine: activeLine, caret: 0 });
       canvas.focus?.({ preventScroll: true });
-      scheduleActiveLineBand();
+      ensureActiveLineVisible();
       return true;
     }
 
@@ -400,7 +430,7 @@ export function createEditorClassicSurface({
       selectionLines = new Set();
       render({ source: joinLines(lines), focusLine: activeLine, caret });
       canvas.focus?.({ preventScroll: true });
-      scheduleActiveLineBand();
+      ensureActiveLineVisible();
       return true;
     }
 
@@ -462,15 +492,13 @@ export function createEditorClassicSurface({
 
     if (event.key === 'PageUp' && selection?.isCollapsed) {
       event.preventDefault();
-      const step = Math.max(1, Math.floor((canvas.clientHeight || 240) / 28));
-      goToLine(activeLine - step, preferredColumn, { retainPreferred: true });
+      goToLine(activeLine - pageLineStep(), preferredColumn, { retainPreferred: true });
       return true;
     }
 
     if (event.key === 'PageDown' && selection?.isCollapsed) {
       event.preventDefault();
-      const step = Math.max(1, Math.floor((canvas.clientHeight || 240) / 28));
-      goToLine(activeLine + step, preferredColumn, { retainPreferred: true });
+      goToLine(activeLine + pageLineStep(), preferredColumn, { retainPreferred: true });
       return true;
     }
 

@@ -121,6 +121,35 @@ describe('Reading Navigation Controller', () => {
     expect(view.elements.lineGutter.querySelector('.is-current')?.textContent).toBe('2');
   });
 
+  it('places Classic edit line-guide numbers on hard-line row geometry', () => {
+    const view = fixture();
+    // Replace Block islands with Classic source-line rows.
+    view.elements.editorCanvas.innerHTML = `
+      <div data-classic-line="0" class="classic-line"><div data-classic-content>one</div></div>
+      <div data-classic-line="1" class="classic-line"><div data-classic-content>two</div></div>
+      <div data-classic-line="2" class="classic-line is-active-line"><div data-classic-content>three</div></div>
+    `;
+    const tops = [24, 48, 96];
+    view.elements.editorCanvas.querySelectorAll('[data-classic-line]').forEach((row, index) => {
+      const content = row.querySelector('[data-classic-content]');
+      const top = tops[index];
+      const rect = { top, left: 60, width: 300, height: 24, right: 360, bottom: top + 24 };
+      row.getBoundingClientRect = () => rect;
+      content.getBoundingClientRect = () => rect;
+    });
+
+    view.setMode('edit');
+    view.controller.refreshTools();
+    view.controller.refresh();
+
+    const current = view.elements.lineGutter.querySelector('.is-current');
+    expect(current?.textContent).toBe('2');
+    // stageTop = 0; classic line index 1 → source line 2 at top 48px
+    expect(current?.style.top).toBe('48px');
+    expect(view.elements.lineGutter.querySelector('[data-line="1"]')?.style.top).toBe('24px');
+    expect(view.elements.lineGutter.querySelector('[data-line="3"]')?.style.top).toBe('96px');
+  });
+
   it('force-refreshes the minimap during mode morph so the VT new snapshot is current', () => {
     const view = fixture();
     view.controller.refreshTools();
