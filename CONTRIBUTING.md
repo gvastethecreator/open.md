@@ -9,7 +9,7 @@ the [Security policy](SECURITY.md) before sharing vulnerability details.
 Install:
 
 - [Rust](https://www.rust-lang.org/) stable (edition 2021)
-- [Bun](https://bun.sh/) 1.1 or newer
+- [Bun](https://bun.sh/) 1.3.14 (matches `packageManager` and CI)
 - The platform dependencies required by
   [Tauri v2](https://v2.tauri.app/start/prerequisites/)
 

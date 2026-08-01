@@ -14,8 +14,15 @@ dist
 dist-ssr
 *.local
 
+# Accidental lockfiles (this repo uses Bun + bun.lock)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
 # Tauri / Rust build outputs
 src-tauri/target/
+*.pdb
+*.ilk
 
 # Tauri generated schema files
 src-tauri/gen/
@@ -37,6 +44,7 @@ coverage
 .DS_Store
 Thumbs.db
 desktop.ini
+ehthumbs.db
 
 # Editor / IDE directories and files
 .vscode/*
@@ -48,7 +56,11 @@ desktop.ini
 *.njsproj
 *.sln
 *.sw?
+*.bak
+*.orig
+*~
 
 # Local-only audit reports (not for the public repo)
 .local/
 .scratch/
+.snapshots/

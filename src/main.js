@@ -1,100 +1,63 @@
-import { invoke } from '@tauri-apps/api/core';
-import { listen } from '@tauri-apps/api/event';
-import { getCurrentWebview } from '@tauri-apps/api/webview';
-import { getCurrentWindow } from '@tauri-apps/api/window';
-import { open } from '@tauri-apps/plugin-dialog';
-import { openUrl } from '@tauri-apps/plugin-opener';
 import allThemes from './themes.runtime.json';
+import { getDisplayName } from './document-path.js';
 import {
-  DEFAULT_READING_TOOLS,
-  calculateNewZoom,
-  getCurrentLineFromAnchors,
-  getDisplayName,
-  getEstimatedMinutesRemaining,
-  getFileKind,
-  getImageSourcePolicy,
-  getLineGutterLeft,
-  getLinkAction,
-  getMarkdownSourceTokenRanges,
-  getMinimapViewportGeometry,
-  getPreferredThemeIndex,
-  getReadingProgress,
-  getScrollEdgeState,
-  getStatusMetricParts,
-  getThemeTokens,
-  getViewportMode,
-  getVisibleSourceLineRange,
-  getWindowControlPresentation,
-  isColorDark,
-  isSupportedFilePath,
-  normalizeDocumentPayload,
-  normalizeCycleIndex,
-  normalizeOpenFileRequest,
-  normalizeReadingTools,
-} from './core/reader.js';
-import {
-  ImageResourceBudgetError,
-  ImageResourcePool,
-  getImageMimeType,
-} from './image-resources.js';
-import { renderMermaidDiagrams } from './mermaid-renderer.js';
+  allowsDocumentMode,
+  getFormatLabel,
+  getStatusProfile,
+  resolveFormatId,
+} from './format-registry.js';
+import { resolvePathTheme, upsertPathTheme } from './path-theme-memory.js';
+import { createDocumentSaveCoordinator } from './document-save-coordinator.js';
+import { createEditorSession } from './editor-session.js';
+import { mountReaderShell } from './reader-shell.js';
+import { createReaderControls } from './reader-controls.js';
+import { createApplicationRuntimeAdapters } from './application-runtime-adapters.js';
+import { createResponsiveTypography } from './responsive-typography.js';
+import { createReadingNavigationController } from './reading-navigation-controller.js';
+import { createDocumentModeCoordinator } from './document-mode-coordinator.js';
+import { createToastPresenter } from './toast-presenter.js';
+import { createThemeCoordinator } from './theme-coordinator.js';
+import { createWindowChrome } from './window-chrome.js';
+import { createContextMenuController } from './context-menu-controller.js';
+import { createTooltipController } from './tooltip-controller.js';
+import { createScrollbarVisibilityController } from './scrollbar-visibility-controller.js';
+import { createStatusPresenter } from './status-presenter.js';
+import { createReaderViewportController } from './reader-viewport-controller.js';
+import { createEditorFeedbackPresenter } from './editor-feedback-presenter.js';
+import { createDocumentContentActions } from './document-content-actions.js';
+import { createDocumentViewStateController } from './document-view-state.js';
+import { createDocumentIngressController } from './document-ingress-controller.js';
+import { createDocumentLinkController } from './document-link-controller.js';
+import { createReaderKeyboardController } from './reader-keyboard-controller.js';
+import { createApplicationLifecycleController } from './application-lifecycle.js';
+import { createReaderZoomController } from './reader-zoom-controller.js';
 
-let currentZoom = 1;
-const ZOOM_STEP = 0.1;
-const MIN_ZOOM = 0.5;
-const MAX_ZOOM = 3.0;
-const THEME_STORAGE_KEY = 'openmd-theme';
-const READING_TOOLS_STORAGE_KEY = 'openmd-reading-tools-v1';
-const FONT_PREFERENCES_STORAGE_KEY = 'openmd-font-preferences-v1';
-const ALWAYS_ON_TOP_STORAGE_KEY = 'openmd-always-on-top';
-const CURATED_THEME_NAMES = ['Paper', 'Github Light', 'Github Dark', 'Ayu Light', 'Ayu Dark'];
-const FONT_PRESETS = Object.freeze({
-  sans: Object.freeze([
-    { name: 'System', value: 'Inter, "Segoe UI", Helvetica, Arial, sans-serif' },
-    { name: 'Humanist', value: 'Candara, "Trebuchet MS", "Segoe UI", sans-serif' },
-    { name: 'Classic sans', value: '"Gill Sans", "Gill Sans MT", Calibri, Arial, sans-serif' },
-  ]),
-  mono: Object.freeze([
-    { name: 'Cascadia', value: '"Cascadia Code", "Cascadia Mono", "SFMono-Regular", Consolas, monospace' },
-    { name: 'Consolas', value: 'Consolas, "Liberation Mono", Menlo, monospace' },
-    { name: 'Courier', value: '"Courier New", Courier, monospace' },
-  ]),
-});
-const MAX_LOCAL_IMAGES = 100;
-const IMAGE_LOAD_CONCURRENCY = 4;
-const imageResourcePool = new ImageResourcePool();
-
-let themes = [];
-let currentThemeIndex = -1;
-let dragDropUnlisten = null;
-let fileOpenRequestUnlisten = null;
-let toastTimeoutId = null;
-let scrollRafId = null;
-let currentFilePath = null;
-let isHelpVisible = false;
-let focusBeforeHelp = null;
-let loadRequestId = 0;
-let currentDocument = null;
-let readingTools = { ...DEFAULT_READING_TOOLS };
-let isReadingToolsOpen = false;
-let fontPreferences = { sans: 0, mono: 0 };
-let isTypographyOpen = false;
-let isAlwaysOnTop = false;
-let nativeWindow = null;
-let currentSourceLine = 1;
-let currentReadingProgress = 0;
-let readingUiRafId = null;
-let minimapResizeObserver = null;
-let isMinimapDragging = false;
-let isMinimapDocumentDirty = true;
-let minimapCloneRevision = 0;
-let minimapContentHeight = 0;
-let viewScrollPositions = { rendered: 0, source: 0 };
-let windowChromeUnlisteners = [];
-let fileOpenRequestsReady = false;
-let queuedFileOpenRequests = [];
-let fileOpenRequestChain = Promise.resolve();
-const handledFileOpenRequestIds = new Set();
+let windowChrome = null;
+let readerZoom = null;
+let readerShell = null;
+let runtimeAdapters = null;
+let editorSession = null;
+let isEditMode = false;
+let responsiveTypography = null;
+let documentSaveCoordinator = null;
+let documentModeCoordinator = null;
+let readingNavigation = null;
+let toastPresenter = null;
+let themeCoordinator = null;
+let contextMenuController = null;
+let tooltipController = null;
+let scrollbarVisibility = null;
+let statusPresenter = null;
+let readerControls = null;
+let imageViewState = null;
+let readerViewport = null;
+let editorFeedback = null;
+let documentContentActions = null;
+let documentLinkController = null;
+let documentViewState = null;
+let documentIngress = null;
+let readerKeyboard = null;
+let applicationLifecycle = null;
 
 const ui = {
   windowFileTitle: null,
@@ -122,7 +85,6 @@ const ui = {
   toast: null,
   toolbar: null,
   toolbarActions: null,
-  actionsToggleButton: null,
   statusPrimary: null,
   statusContext: null,
   statusMetrics: null,
@@ -130,11 +92,26 @@ const ui = {
   readingToolsShell: null,
   readingToolsPanel: null,
   readingToolToggles: [],
-  typographyShell: null,
-  typographyButton: null,
-  typographyPanel: null,
+
+  themeField: null,
   fontButtons: [],
   alwaysOnTopButton: null,
+  autoSaveToggle: null,
+  editorView: null,
+  editorCanvas: null,
+  editModeButton: null,
+  editModeLabel: null,
+  editorSaveButton: null,
+  editorSaveLabel: null,
+  editorCommandMenu: null,
+  editorBlockMenu: null,
+  editorInlineToolbar: null,
+  editorCaretEcho: null,
+  editorLinkPopover: null,
+  editorLinkInput: null,
+  editorLinkApply: null,
+  editorContextLabel: null,
+  editorContextHint: null,
 };
 
 function cacheElements() {
@@ -163,7 +140,6 @@ function cacheElements() {
   ui.toast = document.getElementById('toast');
   ui.toolbar = document.getElementById('app-toolbar');
   ui.toolbarActions = document.getElementById('toolbar-actions');
-  ui.actionsToggleButton = document.getElementById('actions-toggle-button');
   ui.statusPrimary = document.getElementById('status-pill');
   ui.statusContext = document.getElementById('status-context');
   ui.statusMetrics = document.getElementById('status-metrics');
@@ -171,97 +147,66 @@ function cacheElements() {
   ui.readingToolsShell = document.getElementById('reading-tools-shell');
   ui.readingToolsPanel = document.getElementById('reading-tools-panel');
   ui.readingToolToggles = [...document.querySelectorAll('[data-reading-tool]')];
-  ui.typographyShell = document.getElementById('typography-shell');
-  ui.typographyButton = document.getElementById('typography-button');
-  ui.typographyPanel = document.getElementById('typography-panel');
+  ui.basicOptionsPanel = document.getElementById('basic-options-panel');
+  ui.advancedOptionsPanel = document.getElementById('advanced-options-panel');
+  ui.optionsDeck = document.getElementById('options-deck');
+  ui.advancedOptionsButton = document.getElementById('advanced-options-button');
+  ui.advancedBackButton = document.getElementById('advanced-back-button');
+  ui.readingToolsHeaderLabel = document.getElementById('reading-tools-header-label');
+  ui.advancedToggles = [...document.querySelectorAll('[data-advanced-pref]')];
+  ui.imageDefaultZoomSelect = document.getElementById('image-default-zoom');
+  ui.csvRowCapInput = document.getElementById('csv-row-cap');
+  ui.allowMultipleInstancesToggle = document.getElementById('allow-multiple-instances-toggle');
+  ui.fileAssociationButton = document.getElementById('file-association-button');
+
+  ui.themeField = document.querySelector('.appearance-theme-field') || document.querySelector('.theme-field');
   ui.fontButtons = [...document.querySelectorAll('[data-font-kind]')];
   ui.alwaysOnTopButton = document.getElementById('always-on-top-button');
-}
-
-function renderSourceContent(source, isMarkdown = true) {
-  if (!ui.sourceContent) return;
-  if (!isMarkdown) {
-    ui.sourceContent.textContent = String(source);
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-  const lines = String(source).split('\n');
-  lines.forEach((line, lineIndex) => {
-    let cursor = 0;
-    for (const range of getMarkdownSourceTokenRanges(line)) {
-      if (range.start > cursor) fragment.append(document.createTextNode(line.slice(cursor, range.start)));
-      const token = document.createElement('strong');
-      token.className = 'source-markup-token';
-      token.textContent = line.slice(range.start, range.end);
-      fragment.append(token);
-      cursor = range.end;
-    }
-    if (cursor < line.length) fragment.append(document.createTextNode(line.slice(cursor)));
-    if (lineIndex < lines.length - 1) fragment.append(document.createTextNode('\n'));
-  });
-
-  ui.sourceContent.replaceChildren(fragment);
+  ui.autoSaveToggle = document.getElementById('auto-save-toggle');
+  ui.editorView = document.getElementById('editor-view');
+  ui.editorCanvas = document.getElementById('editor-canvas');
+  ui.editModeButton = document.getElementById('edit-mode-button');
+  ui.editModeLabel = document.getElementById('edit-mode-label');
+  ui.editorSaveButton = document.getElementById('editor-save-button');
+  ui.editorSaveLabel = document.getElementById('editor-save-label');
+  ui.editorCommandMenu = document.getElementById('editor-command-menu');
+  ui.editorBlockMenu = document.getElementById('editor-block-menu');
+  ui.editorBlockToolbar = document.getElementById('editor-block-toolbar');
+  ui.editorInlineToolbar = document.getElementById('editor-inline-toolbar');
+  ui.editorCaretEcho = document.getElementById('editor-caret-echo');
+  ui.editorLinkPopover = document.getElementById('editor-link-popover');
+  ui.editorLinkInput = document.getElementById('editor-link-input');
+  ui.editorLinkApply = document.getElementById('editor-link-apply');
+  ui.editorContextLabel = document.getElementById('editor-context-label');
+  ui.editorContextHint = document.getElementById('editor-context-hint');
 }
 
 function updateWindowTitle(filePath = null) {
-  const visibleTitle = isHelpVisible ? 'Help' : filePath ? getDisplayName(filePath) : 'Ready';
+  const visibleTitle = isHelpVisible() ? 'About + Help' : filePath ? getDisplayName(filePath) : 'Ready';
   document.title = visibleTitle === 'Ready' ? 'open.md' : `open.md — ${visibleTitle}`;
   if (ui.windowFileTitle) {
     ui.windowFileTitle.textContent = visibleTitle;
-    ui.windowFileTitle.title = visibleTitle;
+    ui.windowFileTitle.dataset.tooltip = visibleTitle;
   }
 }
 
-async function setupWindowChrome() {
-  if (!window.__TAURI_INTERNALS__) return;
-
-  nativeWindow = getCurrentWindow();
-  const syncMaximizePresentation = async () => {
-    const maximized = await nativeWindow.isMaximized();
-    const presentation = getWindowControlPresentation(maximized);
-    const icon = ui.windowMaximizeButton?.querySelector('i');
-    if (icon) icon.className = presentation.iconClass;
-    if (ui.windowMaximizeButton) {
-      ui.windowMaximizeButton.setAttribute('aria-label', presentation.label);
-      ui.windowMaximizeButton.title = presentation.label;
-    }
-    document.body.classList.toggle('is-window-maximized', maximized);
-  };
-
-  const runWindowAction = async (action, failureMessage, afterAction = null) => {
-    try {
-      await action();
-      await afterAction?.();
-    } catch (error) {
-      console.error(failureMessage, error);
-      showToast(failureMessage, 'error');
-    }
-  };
-
-  const toggleMaximize = () => runWindowAction(
-    () => nativeWindow.toggleMaximize(),
-    'Could not resize the window',
-    syncMaximizePresentation
-  );
-
-  ui.windowMinimizeButton?.addEventListener('click', () => {
-    runWindowAction(() => nativeWindow.minimize(), 'Could not minimize the window');
-  });
-  ui.windowMaximizeButton?.addEventListener('click', toggleMaximize);
-  ui.windowCloseButton?.addEventListener('click', () => {
-    runWindowAction(() => nativeWindow.close(), 'Could not close the window');
-  });
-  try {
-    await nativeWindow.setAlwaysOnTop(isAlwaysOnTop);
-  } catch (error) {
-    isAlwaysOnTop = false;
-    saveAlwaysOnTopPreference();
-    updateAlwaysOnTopControl();
-    console.warn('Could not restore the always-on-top preference:', error);
-  }
-  await syncMaximizePresentation();
-  windowChromeUnlisteners.push(await nativeWindow.onResized(syncMaximizePresentation));
+async function setupWindowChrome(own) {
+  const nativeWindow = runtimeAdapters?.windows?.getNativeWindow?.();
+  if (!nativeWindow) return;
+  windowChrome = own(createWindowChrome({
+    document,
+    elements: {
+      minimize: ui.windowMinimizeButton,
+      maximize: ui.windowMaximizeButton,
+      close: ui.windowCloseButton,
+    },
+    nativeWindow,
+    onError: (message, error) => {
+      console.error(message, error);
+      showToast(message);
+    },
+  }));
+  await windowChrome.start();
 }
 
 function updateWindowUrl(filePath = null) {
@@ -277,1639 +222,960 @@ function updateWindowUrl(filePath = null) {
   window.history.replaceState({}, '', url);
 }
 
-function renderImageError(image, reason) {
-  const message = document.createElement('span');
-  message.className = 'image-error';
-  message.setAttribute('role', 'status');
-  const label = image.getAttribute('alt')?.trim();
-  message.textContent = label ? `${label}: ${reason}` : reason;
-  image.replaceWith(message);
+function setStatusText(primary, context = '', title = [primary, context].filter(Boolean).join(' · ')) {
+  statusPresenter?.setIdentity({ primary, context, title });
 }
 
-async function hydrateRelativeImages(documentPath, requestId) {
-  if (!ui.content || !documentPath) return;
+function isHelpVisible() {
+  return readerViewport?.isHelpVisible() ?? false;
+}
 
-  const images = [...ui.content.querySelectorAll('img')];
-  images.slice(MAX_LOCAL_IMAGES).forEach((image) => {
-    renderImageError(image, 'Image limit exceeded');
+function getCurrentFilePath() {
+  return documentViewState?.current().path || null;
+}
+
+function getCurrentDocument() {
+  return documentViewState?.current().document || null;
+}
+
+function currentFormatId() {
+  return resolveFormatId(getCurrentFilePath(), getCurrentDocument());
+}
+
+function documentAllowsMode(mode) {
+  const path = getCurrentFilePath();
+  const documentSnapshot = getCurrentDocument();
+  if (!path || !documentSnapshot) return false;
+  return allowsDocumentMode(currentFormatId(), mode, { kind: documentSnapshot.kind, path });
+}
+
+function summarizeJsonSource(source) {
+  try {
+    const value = JSON.parse(String(source ?? ''));
+    if (Array.isArray(value)) {
+      return { rootType: 'array', itemCount: value.length, keyCount: null, invalid: false };
+    }
+    if (value && typeof value === 'object') {
+      return { rootType: 'object', keyCount: Object.keys(value).length, itemCount: null, invalid: false };
+    }
+    return { rootType: typeof value, keyCount: 0, itemCount: null, invalid: false };
+  } catch {
+    return { rootType: null, keyCount: null, itemCount: null, invalid: true };
+  }
+}
+
+function summarizeCsvSource(source) {
+  const text = String(source ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  if (!text) return { rowCount: 0, columnCount: 0 };
+  const lines = text.split('\n');
+  while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+  if (lines.length === 0) return { rowCount: 0, columnCount: 0 };
+  // Lightweight column estimate: respect quoted commas poorly is OK for status glance.
+  let maxCols = 0;
+  for (const line of lines.slice(0, 50)) {
+    let cols = 1;
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i += 1) {
+      const ch = line[i];
+      if (ch === '"') inQuotes = !inQuotes;
+      else if (ch === ',' && !inQuotes) cols += 1;
+    }
+    maxCols = Math.max(maxCols, cols);
+  }
+  return { rowCount: lines.length, columnCount: maxCols };
+}
+
+function updateStatus(filePath = null) {
+  if (!statusPresenter) return;
+
+  const path = filePath ?? getCurrentFilePath();
+  const documentSnapshot = getCurrentDocument();
+  const zoomPercent = readerZoom?.percent?.() ?? 100;
+  const formatId = currentFormatId();
+  const statusProfile = getStatusProfile(formatId, {
+    kind: documentSnapshot?.kind,
+    path,
   });
 
-  const pendingImages = images.slice(0, MAX_LOCAL_IMAGES);
-  let nextImageIndex = 0;
-
-  const hydrateNextImage = async () => {
-    while (nextImageIndex < pendingImages.length) {
-      if (requestId !== loadRequestId) return;
-
-      const image = pendingImages[nextImageIndex];
-      nextImageIndex += 1;
-
-      const policy = getImageSourcePolicy(image.getAttribute('src'));
-      if (policy.type !== 'relative') {
-        renderImageError(image, policy.reason);
-        continue;
-      }
-
-      const mimeType = getImageMimeType(policy.source);
-      if (!mimeType) {
-        renderImageError(image, 'This local image format is not supported');
-        continue;
-      }
-
-      image.removeAttribute('src');
-      image.setAttribute('aria-busy', 'true');
-
-      let objectUrl = null;
-      try {
-        const response = await invoke('get_image_bytes', {
-          documentPath,
-          relativeSource: policy.source,
-        });
-
-        if (requestId !== loadRequestId || !image.isConnected) return;
-        objectUrl = imageResourcePool.create(response, mimeType);
-        if (requestId !== loadRequestId || !image.isConnected) {
-          imageResourcePool.revoke(objectUrl);
-          return;
-        }
-
-        image.src = objectUrl;
-        if (requestId !== loadRequestId || !image.isConnected) {
-          imageResourcePool.revoke(objectUrl);
-          return;
-        }
-
-        if (typeof image.decode === 'function') {
-          await image.decode();
-        }
-
-        if (requestId !== loadRequestId || !image.isConnected) {
-          imageResourcePool.revoke(objectUrl);
-          return;
-        }
-        image.removeAttribute('aria-busy');
-      } catch (error) {
-        if (requestId !== loadRequestId) {
-          if (objectUrl) imageResourcePool.revoke(objectUrl);
-          return;
-        }
-        if (objectUrl) imageResourcePool.revoke(objectUrl);
-        const reason = error instanceof ImageResourceBudgetError
-          || error?.code === 'IMAGE_RESOURCE_BUDGET_EXCEEDED'
-          ? 'Image budget exceeded (64 MiB per document)'
-          : 'Image unavailable';
-        console.warn('Could not load a relative image:', error);
-        if (requestId === loadRequestId && image.isConnected) {
-          renderImageError(image, reason);
-        }
-      }
-    }
-  };
-
-  const workerCount = Math.min(IMAGE_LOAD_CONCURRENCY, pendingImages.length);
-  await Promise.all(Array.from({ length: workerCount }, hydrateNextImage));
-}
-
-function populateThemeSelect() {
-  const select = document.getElementById('theme-select');
-  if (!select) return;
-  select.innerHTML = '';
-
-  const curatedNames = new Set(CURATED_THEME_NAMES.map((name) => name.toLowerCase()));
-  const recommendedGroup = document.createElement('optgroup');
-  recommendedGroup.label = 'Recommended';
-  const catalogGroup = document.createElement('optgroup');
-  catalogGroup.label = 'All themes';
-
-  const appendOption = (group, index) => {
-    const option = document.createElement('option');
-    option.value = String(index);
-    option.textContent = themes[index].name;
-    if (index === currentThemeIndex) option.selected = true;
-    group.appendChild(option);
-  };
-
-  for (const themeName of CURATED_THEME_NAMES) {
-    const index = themes.findIndex((theme) => theme.name.toLowerCase() === themeName.toLowerCase());
-    if (index >= 0) appendOption(recommendedGroup, index);
-  }
-
-  for (let i = 0; i < themes.length; i += 1) {
-    if (!curatedNames.has(themes[i].name.toLowerCase())) {
-      appendOption(catalogGroup, i);
-    }
-  }
-
-  if (recommendedGroup.children.length > 0) select.appendChild(recommendedGroup);
-  if (catalogGroup.children.length > 0) select.appendChild(catalogGroup);
-}
-function updateThemeCopy() {
-  const select = document.getElementById('theme-select');
-  if (select && currentThemeIndex >= 0) {
-    select.value = String(currentThemeIndex);
-    const themeLabel = `Theme: ${themes[currentThemeIndex].name}`;
-    select.title = themeLabel;
-    select.setAttribute('aria-label', themeLabel);
-    select.closest('.theme-field')?.setAttribute('title', themeLabel);
-  }
-}
-function setStatusText(primary, context = '', title = [primary, context].filter(Boolean).join(' · ')) {
-  const primaryElement = ui.statusPrimary || document.getElementById('status-pill');
-  const contextElement = ui.statusContext || document.getElementById('status-context');
-  if (!primaryElement) return;
-
-  primaryElement.textContent = primary;
-  primaryElement.title = title;
-  if (contextElement) {
-    contextElement.textContent = context;
-    contextElement.title = title;
-  }
-}
-function updateStatus(filePath = null) {
-  if (isHelpVisible) {
-    setStatusText('Help', 'F1 to close');
-    updateStatusMetrics();
+  if (isHelpVisible()) {
+    statusPresenter.project({ helpVisible: true });
     return;
   }
 
-  if (filePath) {
-    const viewLabel = currentDocument && readingTools.source ? 'Source' : getFileKind(filePath);
-    setStatusText(getDisplayName(filePath), viewLabel);
-    updateStatusMetrics();
+  if (!path) {
+    imageViewState = null;
+    statusPresenter.project({});
     return;
   }
 
-  setStatusText('open.md', 'Ready');
-  updateStatusMetrics();
+  if (isEditMode && editorSession) {
+    const editorState = editorSession.current();
+    if (editorState.presentation === 'json-props') {
+      const liveSource = editorSession.source?.() ?? documentSnapshot?.source ?? '';
+      const summary = summarizeJsonSource(liveSource);
+      statusPresenter.project({
+        path,
+        editMode: true,
+        statusProfile: 'json',
+        documentMetrics: {
+          statusProfile: 'json',
+          lineCount: liveSource.split('\n').length,
+          characterCount: [...liveSource].length,
+          zoomPercent,
+          ...summary,
+        },
+      });
+      return;
+    }
+    statusPresenter.project({
+      path,
+      editMode: true,
+      editorMetrics: {
+        cursor: editorState.cursor,
+        stats: editorState.stats,
+        zoomPercent,
+      },
+    });
+    return;
+  }
+
+  const formatLabel = getFormatLabel(formatId, {
+    kind: documentSnapshot?.kind,
+    path,
+  });
+  const sourceActive = Boolean(documentSnapshot && readerControls?.current().readingTools.source);
+  const hasDocument = Boolean(documentSnapshot);
+  let documentMetrics = null;
+  if (hasDocument) {
+    if (statusProfile === 'image') {
+      documentMetrics = {
+        statusProfile: 'image',
+        naturalWidth: imageViewState?.naturalWidth || 0,
+        naturalHeight: imageViewState?.naturalHeight || 0,
+        scale: imageViewState?.scale ?? 1,
+        fitScale: imageViewState?.fitScale ?? 1,
+      };
+    } else if (statusProfile === 'json') {
+      const summary = summarizeJsonSource(documentSnapshot.source);
+      documentMetrics = {
+        statusProfile: 'json',
+        lineCount: documentSnapshot.lineCount,
+        characterCount: documentSnapshot.characterCount,
+        zoomPercent,
+        ...summary,
+      };
+    } else if (statusProfile === 'csv') {
+      const csvShape = summarizeCsvSource(documentSnapshot.source);
+      documentMetrics = {
+        statusProfile: 'csv',
+        lineCount: documentSnapshot.lineCount,
+        characterCount: documentSnapshot.characterCount,
+        zoomPercent,
+        rowCount: documentSnapshot.rowCount ?? csvShape.rowCount,
+        columnCount: documentSnapshot.columnCount ?? csvShape.columnCount,
+      };
+    } else if (statusProfile === 'markdown') {
+      documentMetrics = {
+        statusProfile: 'markdown',
+        lineCount: documentSnapshot.lineCount,
+        characterCount: documentSnapshot.characterCount,
+        zoomPercent,
+        currentLine: readingNavigation?.snapshot().currentLine || 1,
+        showCurrentLine: readerControls?.current().readingTools.lineGuide,
+        readingProgress: readingNavigation?.snapshot().readingProgress || 0,
+        readingTimeMinutes: documentSnapshot.readingTimeMinutes,
+        showReadingStats: readerControls?.current().readingTools.stats,
+      };
+    } else {
+      documentMetrics = {
+        statusProfile: 'text',
+        lineCount: documentSnapshot.lineCount,
+        characterCount: documentSnapshot.characterCount,
+        zoomPercent,
+        currentLine: readingNavigation?.snapshot().currentLine || 1,
+        showCurrentLine: readerControls?.current().readingTools.lineGuide,
+      };
+    }
+  }
+  statusPresenter.project({
+    path,
+    formatLabel,
+    statusProfile,
+    sourceActive,
+    documentMetrics,
+  });
 }
 
 function updateStatusMetrics() {
-  if (!ui.statusMetrics) return;
-
-  const isAvailable = Boolean(currentDocument && currentFilePath && !isHelpVisible);
-  if (!isAvailable) {
-    ui.statusMetrics.hidden = true;
-    ui.statusMetrics.textContent = '';
-    ui.statusMetrics.removeAttribute('aria-label');
-    return;
-  }
-
-  const metrics = getStatusMetricParts({
-    lineCount: currentDocument.lineCount,
-    characterCount: currentDocument.characterCount,
-    zoomPercent: currentZoom * 100,
-    currentLine: currentSourceLine,
-    showCurrentLine: readingTools.lineGuide,
-    readingProgress: currentReadingProgress,
-    readingTimeMinutes: currentDocument.readingTimeMinutes,
-    showReadingStats: readingTools.stats,
-  });
-
-  ui.statusMetrics.hidden = false;
-  ui.statusMetrics.textContent = metrics.visible.join(' · ');
-  ui.statusMetrics.title = metrics.accessible.join('. ');
-  ui.statusMetrics.setAttribute('aria-label', metrics.accessible.join('. '));
+  updateStatus(getCurrentFilePath());
 }
 
 function hasLoadedDocument() {
-  return Boolean(currentDocument && currentFilePath);
+  return Boolean(getCurrentDocument() && getCurrentFilePath());
 }
 
 function isSourceViewActive() {
-  return hasLoadedDocument() && readingTools.source;
+  return hasLoadedDocument() && readerControls?.current().readingTools.source && !isEditMode;
 }
 
-function loadReadingToolPreferences() {
-  try {
-    const saved = localStorage.getItem(READING_TOOLS_STORAGE_KEY);
-    readingTools = saved ? normalizeReadingTools(JSON.parse(saved)) : { ...DEFAULT_READING_TOOLS };
-  } catch (error) {
-    console.warn('Could not read saved reading tools:', error);
-    readingTools = { ...DEFAULT_READING_TOOLS };
+function reportPreferenceResult(result) {
+  if (result?.status === 'volatile') {
+    showToast('Preference applied for this session only');
   }
 }
 
-function saveReadingToolPreferences() {
-  try {
-    localStorage.setItem(READING_TOOLS_STORAGE_KEY, JSON.stringify(readingTools));
-  } catch (error) {
-    console.warn('Could not save reading tools:', error);
-  }
+function handlePreferenceSnapshot(snapshot) {
+  readerControls?.applySnapshot(snapshot);
 }
 
-function updateFontControls() {
-  for (const kind of Object.keys(FONT_PRESETS)) {
-    const presets = FONT_PRESETS[kind];
-    const index = normalizeCycleIndex(fontPreferences[kind], presets.length);
-    const current = presets[index];
-    const next = presets[(index + 1) % presets.length];
-    const button = ui.fontButtons.find((candidate) => candidate.dataset.fontKind === kind);
-    const name = document.getElementById(`${kind}-font-name`);
-    const kindLabel = kind === 'sans' ? 'Sans' : 'Mono';
-
-    if (name) name.textContent = current.name;
-    if (button) {
-      const label = `${kindLabel} font: ${current.name}. Activate for ${next.name}`;
-      button.setAttribute('aria-label', label);
-      button.title = label;
-    }
-  }
-}
-
-function applyFontPreferences({ announceKind = null } = {}) {
-  const root = document.documentElement;
-  for (const kind of Object.keys(FONT_PRESETS)) {
-    const presets = FONT_PRESETS[kind];
-    const index = normalizeCycleIndex(fontPreferences[kind], presets.length);
-    fontPreferences[kind] = index;
-    root.style.setProperty(`--font-${kind}`, presets[index].value);
-  }
-
-  updateFontControls();
-  isMinimapDocumentDirty = true;
-  queueReadingUiUpdate();
-
-  if (announceKind && FONT_PRESETS[announceKind]) {
-    const label = announceKind === 'sans' ? 'Sans' : 'Mono';
-    showToast(`${label} font: ${FONT_PRESETS[announceKind][fontPreferences[announceKind]].name}`);
-  }
-}
-
-function loadVisualPreferences() {
-  try {
-    const savedFonts = JSON.parse(localStorage.getItem(FONT_PREFERENCES_STORAGE_KEY) || '{}');
-    fontPreferences = Object.fromEntries(
-      Object.keys(FONT_PRESETS).map((kind) => [
-        kind,
-        normalizeCycleIndex(savedFonts?.[kind], FONT_PRESETS[kind].length),
-      ])
-    );
-  } catch (error) {
-    console.warn('Could not read saved font preferences:', error);
-    fontPreferences = { sans: 0, mono: 0 };
-  }
-
-  try {
-    isAlwaysOnTop = localStorage.getItem(ALWAYS_ON_TOP_STORAGE_KEY) === 'true';
-  } catch (error) {
-    console.warn('Could not read the always-on-top preference:', error);
-    isAlwaysOnTop = false;
-  }
-
-  applyFontPreferences();
-  updateAlwaysOnTopControl();
-}
-
-function saveFontPreferences() {
-  try {
-    localStorage.setItem(FONT_PREFERENCES_STORAGE_KEY, JSON.stringify(fontPreferences));
-  } catch (error) {
-    console.warn('Could not save font preferences:', error);
-  }
-}
-
-function cycleFont(kind) {
-  const presets = FONT_PRESETS[kind];
-  if (!presets) return;
-
-  fontPreferences = {
-    ...fontPreferences,
-    [kind]: normalizeCycleIndex(fontPreferences[kind] + 1, presets.length),
-  };
-  saveFontPreferences();
-  applyFontPreferences({ announceKind: kind });
-}
-
-function setTypographyOpen(nextOpen, { returnFocus = false } = {}) {
-  isTypographyOpen = Boolean(nextOpen && !isHelpVisible);
-  if (isTypographyOpen) setReadingToolsOpen(false);
-  document.body.classList.toggle('is-typography-open', isTypographyOpen);
-  ui.typographyButton?.setAttribute('aria-expanded', String(isTypographyOpen));
-
-  if (ui.typographyButton) {
-    const label = isTypographyOpen ? 'Close typography options' : 'Open typography options';
-    ui.typographyButton.setAttribute('aria-label', label);
-    ui.typographyButton.title = label;
-  }
-
-  if (ui.typographyPanel) {
-    ui.typographyPanel.setAttribute('aria-hidden', String(!isTypographyOpen));
-    ui.typographyPanel.toggleAttribute('inert', !isTypographyOpen);
-  }
-
-  if (!isTypographyOpen && returnFocus) {
-    queueMicrotask(() => ui.typographyButton?.focus());
-  }
-}
-
-function updateAlwaysOnTopControl() {
-  const label = `Always on top: ${isAlwaysOnTop ? 'on' : 'off'}`;
-  document.body.classList.toggle('is-always-on-top', isAlwaysOnTop);
-  ui.alwaysOnTopButton?.setAttribute('aria-checked', String(isAlwaysOnTop));
-  if (ui.alwaysOnTopButton) {
-    ui.alwaysOnTopButton.setAttribute('aria-label', label);
-    ui.alwaysOnTopButton.title = label;
-  }
-}
-
-function saveAlwaysOnTopPreference() {
-  try {
-    localStorage.setItem(ALWAYS_ON_TOP_STORAGE_KEY, String(isAlwaysOnTop));
-  } catch (error) {
-    console.warn('Could not save the always-on-top preference:', error);
-  }
-}
-
-async function toggleAlwaysOnTop() {
-  if (!nativeWindow) {
-    showToast('Always on top is available in the desktop app');
-    return;
-  }
-
-  const nextValue = !isAlwaysOnTop;
-  if (ui.alwaysOnTopButton) ui.alwaysOnTopButton.disabled = true;
-  try {
-    await nativeWindow.setAlwaysOnTop(nextValue);
-    isAlwaysOnTop = nextValue;
-    saveAlwaysOnTopPreference();
-    updateAlwaysOnTopControl();
-    showToast(`Always on top ${nextValue ? 'on' : 'off'}`);
-  } catch (error) {
-    console.error('Could not change the always-on-top setting:', error);
-    showToast('Could not change always on top');
-  } finally {
-    if (ui.alwaysOnTopButton) ui.alwaysOnTopButton.disabled = false;
-  }
-}
 
 function setReadingToolsOpen(nextOpen, { returnFocus = false } = {}) {
-  const canOpen = hasLoadedDocument() && !isHelpVisible;
-  isReadingToolsOpen = Boolean(nextOpen && canOpen);
-  if (isReadingToolsOpen) setTypographyOpen(false);
-  document.body.classList.toggle('is-reading-tools-open', isReadingToolsOpen);
-  ui.readingToolsButton?.setAttribute('aria-expanded', String(isReadingToolsOpen));
-
-  if (ui.readingToolsButton) {
-    const label = isReadingToolsOpen ? 'Close reading tools' : 'Open reading tools';
-    ui.readingToolsButton.setAttribute('aria-label', label);
-    ui.readingToolsButton.title = label;
-  }
-
-  if (ui.readingToolsPanel) {
-    ui.readingToolsPanel.setAttribute('aria-hidden', String(!isReadingToolsOpen));
-    ui.readingToolsPanel.toggleAttribute('inert', !isReadingToolsOpen);
-  }
-
-  if (!isReadingToolsOpen && returnFocus) {
-    queueMicrotask(() => ui.readingToolsButton?.focus());
-  }
-}
-
-function updateReadingToolControls() {
-  const available = hasLoadedDocument();
-  const hasActiveTool = available && Object.values(readingTools).some(Boolean);
-
-  if (ui.readingToolsButton) {
-    ui.readingToolsButton.disabled = !available;
-    ui.readingToolsButton.classList.toggle('is-active', hasActiveTool);
-    if (!available) ui.readingToolsButton.title = 'Open a file to use reading tools';
-  }
-
-  ui.readingToolToggles.forEach((toggle) => {
-    const tool = toggle.dataset.readingTool;
-    toggle.disabled = !available;
-    toggle.setAttribute('aria-checked', String(Boolean(readingTools[tool])));
-  });
-
-  if (!available) setReadingToolsOpen(false);
+  readerControls?.setReadingToolsOpen(nextOpen, { returnFocus });
 }
 
 function applyReadingTools() {
-  const available = hasLoadedDocument();
-  const sourceActive = available && readingTools.source;
-  const lineGuideActive = available && readingTools.lineGuide;
-  const minimapActive = available && readingTools.minimap;
-
-  document.body.classList.toggle('is-source-view', sourceActive);
-  document.body.classList.toggle('is-line-guide', lineGuideActive);
-  document.body.classList.toggle('is-minimap', minimapActive);
-  ui.content?.classList.toggle('hidden', sourceActive);
-  ui.sourceView?.classList.toggle('hidden', !sourceActive);
-
-  if (ui.lineGutter) {
-    ui.lineGutter.hidden = !lineGuideActive;
-    if (!lineGuideActive) ui.lineGutter.replaceChildren();
-  }
-
-  if (ui.documentMinimap) {
-    ui.documentMinimap.hidden = !minimapActive;
-    isMinimapDocumentDirty = minimapActive;
-    if (!minimapActive) {
-      minimapContentHeight = 0;
-      ui.minimapDocument?.replaceChildren();
-    }
-  }
-
-  updateReadingToolControls();
-  updateStatus(currentFilePath);
-  queueReadingUiUpdate();
+  readerControls?.refresh();
+  updateStatus(getCurrentFilePath());
 }
 
-function setReadingTool(tool, nextValue) {
-  if (!Object.hasOwn(DEFAULT_READING_TOOLS, tool) || !hasLoadedDocument()) return;
-
-  const next = Boolean(nextValue);
-  if (readingTools[tool] === next) return;
-
-  if (tool === 'source' && ui.readerPage) {
-    const previousView = readingTools.source ? 'source' : 'rendered';
-    viewScrollPositions[previousView] = ui.readerPage.scrollTop;
-  }
-
-  readingTools = { ...readingTools, [tool]: next };
-  saveReadingToolPreferences();
-  applyReadingTools();
-
-  if (tool === 'source' && ui.readerPage) {
-    const nextView = next ? 'source' : 'rendered';
-    requestAnimationFrame(() => {
-      ui.readerPage?.scrollTo({ top: viewScrollPositions[nextView] || 0, behavior: 'auto' });
-      queueReadingUiUpdate();
-      (next ? ui.sourceView : ui.content)?.focus({ preventScroll: true });
-    });
-  }
-
-  const labels = {
-    lineGuide: 'Line guide',
-    minimap: 'Minimap',
-    source: 'Source view',
-    stats: 'Reading stats',
-  };
-  showToast(`${labels[tool]} ${next ? 'on' : 'off'}`);
+async function setReadingTool(tool, nextValue) {
+  return readerControls?.setReadingTool(tool, nextValue);
 }
 
 function syncViewportState() {
-  const mode = getViewportMode(Boolean(currentFilePath), isHelpVisible);
-  const readerMode = currentFilePath ? 'content' : 'empty';
-  const sourceActive = readerMode === 'content' && isSourceViewActive();
-
-  if (ui.emptyStage) {
-    ui.emptyStage.classList.toggle('hidden', readerMode !== 'empty');
-  }
-
-  if (ui.helpStage) {
-    ui.helpStage.setAttribute('aria-hidden', String(mode !== 'help'));
-    ui.helpStage.toggleAttribute('inert', mode !== 'help');
-  }
-
-  if (ui.documentStage) {
-    ui.documentStage.classList.toggle('hidden', readerMode !== 'content');
-  }
-
-  if (ui.content) {
-    ui.content.classList.toggle('hidden', readerMode !== 'content' || sourceActive);
-  }
-
-  if (ui.sourceView) {
-    ui.sourceView.classList.toggle('hidden', readerMode !== 'content' || !sourceActive);
-  }
-
-  if (ui.readerPage) {
-    ui.readerPage.setAttribute('aria-hidden', String(mode === 'help'));
-    ui.readerPage.toggleAttribute('inert', mode === 'help');
-  }
-
-  if (ui.viewport) {
-    ui.viewport.setAttribute('data-page', mode === 'help' ? '2' : '1');
-  }
-
-  document.body.classList.toggle('is-help-open', mode === 'help');
-  ui.helpToggleButton?.setAttribute('aria-expanded', String(mode === 'help'));
-  if (ui.helpToggleButton) {
-    const helpLabel = mode === 'help' ? 'Close help' : 'Open help';
-    ui.helpToggleButton.setAttribute('aria-label', helpLabel);
-    ui.helpToggleButton.title = `${helpLabel} (F1)`;
-  }
+  readerViewport?.sync({
+    hasFilePath: Boolean(getCurrentFilePath()),
+    sourceActive: isSourceViewActive(),
+  });
 }
 
 function setHelpVisible(nextVisible, { manageFocus = true } = {}) {
-  if (nextVisible === isHelpVisible) return;
-
-  if (nextVisible && manageFocus) {
-    focusBeforeHelp = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
-  }
-
-  isHelpVisible = nextVisible;
-  if (nextVisible) {
-    setReadingToolsOpen(false);
-    setTypographyOpen(false);
-  }
-  syncViewportState();
-  updateStatus(currentFilePath);
-  updateWindowTitle(currentFilePath);
-  setActionsPinned(false);
-
-  if (nextVisible) {
-    ui.helpStage?.scrollTo({ top: 0, behavior: 'auto' });
-  }
-  handleScroll();
-
-  if (!manageFocus) return;
-
-  if (nextVisible) {
-    queueMicrotask(() => ui.helpTitle?.focus());
-    return;
-  }
-
-  const returnTarget = focusBeforeHelp?.isConnected
-    ? focusBeforeHelp
-    : ui.helpToggleButton;
-  focusBeforeHelp = null;
-  queueMicrotask(() => returnTarget?.focus());
+  readerViewport?.setHelpVisible(nextVisible, { manageFocus });
 }
 
 function toggleHelp() {
-  setHelpVisible(!isHelpVisible);
+  readerViewport?.toggleHelp();
 }
 
-function setDragState(isActive) {
-  document.body.classList.toggle('is-dragging', isActive);
+function applyPathRememberedTheme(path) {
+  const prefs = readerShell?.preferences?.current?.();
+  if (!prefs?.advanced?.pathRemembersTheme || !path || !themeCoordinator) return;
+  const remembered = resolvePathTheme(path, prefs.pathThemes?.entries);
+  if (!remembered || themeCoordinator.current()?.name === remembered) return;
+  void themeCoordinator.applyName(remembered, { silent: true, persist: false });
 }
 
-async function initThemes() {
+function persistThemePreference(themeName) {
+  const prefs = readerShell?.preferences?.current?.();
+  const path = getCurrentFilePath();
+  if (prefs?.advanced?.pathRemembersTheme && path && themeName) {
+    const entries = upsertPathTheme(prefs.pathThemes?.entries, path, themeName);
+    return readerShell.preferences.update({
+      themeName,
+      pathThemes: { version: 1, entries },
+    });
+  }
+  return readerShell.preferences.update({ themeName });
+}
+
+async function initThemes(own) {
   try {
-    themes = [...allThemes].sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: 'base' }));
-    let savedThemeName = null;
-    try {
-      savedThemeName = localStorage.getItem(THEME_STORAGE_KEY);
-    } catch (error) {
-      console.warn('Could not read the saved theme:', error);
-    }
-    currentThemeIndex = getPreferredThemeIndex(themes, savedThemeName);
-
-    populateThemeSelect();
-    updateThemeCopy();
-
-    if (currentThemeIndex >= 0) {
-      applyTheme(themes[currentThemeIndex], { silent: true });
-    }
+    const prefs = readerShell.preferences.current();
+    const savedThemeName = prefs.themeName;
+    const randomAtStart = Boolean(prefs.advanced?.randomThemeAtStart);
+    themeCoordinator = own(createThemeCoordinator({
+      window,
+      document,
+      themes: allThemes,
+      elements: {
+        select: document.getElementById('theme-select'),
+      },
+      hooks: {
+        shouldPrepareDiagrams: () => Boolean(getCurrentFilePath() && ui.content?.querySelector('.mermaid')),
+        prepareDiagrams: (diagramTheme, diagramTokens) => readerShell?.prepareAppearance({
+          diagramTheme,
+          diagramTokens,
+        }),
+        persist: (themeName) => persistThemePreference(themeName),
+        onPersistResult: reportPreferenceResult,
+        notify: showToast,
+        beforeTransition: () => documentModeCoordinator?.cancelTransition(),
+        onCommit: () => readingNavigation?.markDirty(),
+        onError: (message, error) => console.error(`${message}:`, error),
+      },
+    }));
+    await themeCoordinator.start(savedThemeName, { random: randomAtStart });
   } catch (error) {
+    themeCoordinator = null;
     console.error('Failed to initialize themes:', error);
     showToast('Could not load themes');
   }
 }
 
-function applyTheme(theme, { silent = false } = {}) {
-  if (!theme) return;
-
-  const root = document.documentElement;
-  const tokens = getThemeTokens(theme);
-  root.style.setProperty('--bg-color', tokens.background);
-  root.style.setProperty('--text-color', tokens.text);
-  root.style.setProperty('--border-color', tokens.border);
-  root.style.setProperty('--link-color', tokens.link);
-  root.style.setProperty('--accent-color', tokens.accent);
-  root.style.setProperty('--ui-accent', tokens.accent);
-  root.style.setProperty('--accent-foreground', tokens.accentForeground);
-  root.style.setProperty('--code-bg', tokens.surface);
-  root.style.setProperty('--heading-1', tokens.text);
-  root.style.setProperty('--heading-2', tokens.text);
-  root.style.setProperty('--heading-3', tokens.text);
-  root.style.setProperty('--heading-4', tokens.text);
-  root.style.setProperty('--heading-5', tokens.text);
-  root.style.setProperty('--quote-color', tokens.quote);
-  root.style.setProperty('--panel-bg', tokens.surface);
-  root.style.setProperty('--toolbar-bg', tokens.surface);
-  root.style.setProperty('--danger-color', tokens.danger);
-  root.style.setProperty('--shadow-color', tokens.shadow);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', tokens.background);
-
-  const isDark = isColorDark(tokens.background);
-  root.style.colorScheme = isDark ? 'dark' : 'light';
-
-  currentThemeIndex = themes.findIndex((item) => item.name === theme.name);
-
-  try {
-    localStorage.setItem(THEME_STORAGE_KEY, theme.name);
-  } catch (error) {
-    console.warn('Could not persist the selected theme:', error);
-  }
-  updateThemeCopy();
-
-  if (!silent) {
-    showToast(`Theme: ${theme.name}`);
-  }
-
-  if (currentFilePath && ui.content?.querySelector('.mermaid')) {
-    renderMermaidDiagrams(ui.content, { reset: true, theme: isDark ? 'dark' : 'default' })
-      .then(markMinimapDirty)
-      .catch((error) => {
-        console.error('Mermaid theme update error:', error);
-        showToast('The diagram could not update for this theme');
-      });
-  }
-  isMinimapDocumentDirty = true;
-  queueReadingUiUpdate();
-}
-
 function showToast(message) {
-  let toast = ui.toast || document.getElementById('toast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'toast';
-    toast.className = 'toast';
-    toast.setAttribute('role', 'status');
-    toast.setAttribute('aria-live', 'polite');
-    toast.setAttribute('aria-atomic', 'true');
-    document.body.appendChild(toast);
-    ui.toast = toast;
-  }
-  toast.textContent = message;
-  toast.classList.add('show');
-
-  clearTimeout(toastTimeoutId);
-  toastTimeoutId = setTimeout(() => {
-    toast.classList.remove('show');
-  }, 2000);
+  toastPresenter?.show(message);
 }
 
 function cycleTheme(direction = 1) {
-  if (themes.length === 0) return;
-  currentThemeIndex = (currentThemeIndex + direction + themes.length) % themes.length;
-  applyTheme(themes[currentThemeIndex]);
+  themeCoordinator?.cycle(direction);
 }
 
-function renderLoadingState(filePath) {
-  const loading = document.createElement('div');
-  loading.className = 'loading';
-  loading.setAttribute('role', 'status');
-  loading.textContent = `Opening ${getDisplayName(filePath)}…`;
-  ui.content.replaceChildren(loading);
-}
-
-function renderErrorState(error) {
-  const panel = document.createElement('div');
-  panel.className = 'error';
-
-  const title = document.createElement('h1');
-  title.textContent = 'Could not open the file';
-
-  const message = document.createElement('p');
-  message.textContent = String(error);
-
-  const retryButton = document.createElement('button');
-  retryButton.className = 'primary-button';
-  retryButton.type = 'button';
-  const retryIcon = document.createElement('i');
-  retryIcon.className = 'iconoir-folder';
-  retryIcon.setAttribute('aria-hidden', 'true');
-  const retryLabel = document.createElement('span');
-  retryLabel.textContent = 'Choose another file';
-  retryButton.append(retryIcon, retryLabel);
-  retryButton.addEventListener('click', openFilePicker);
-
-  panel.append(title, message, retryButton);
-  ui.content.replaceChildren(panel);
-}
-
-function enhanceTables() {
-  ui.content.querySelectorAll('table').forEach((table) => {
-    if (table.parentElement?.classList.contains('table-scroll')) return;
-
-    const wrapper = document.createElement('div');
-    wrapper.className = 'table-scroll';
-    wrapper.setAttribute('tabindex', '0');
-    wrapper.setAttribute('role', 'region');
-    wrapper.setAttribute('aria-label', 'Scrollable table');
-    table.before(wrapper);
-    wrapper.appendChild(table);
+function closeCurrentFile() {
+  documentViewState?.requestClose({
+    canChangeDocument: !editorSession || editorSession.canChangeDocument(),
   });
 }
 
-function enhanceCodeBlocks() {
-  ui.content.querySelectorAll('pre').forEach((pre) => {
-    const code = pre.querySelector('code');
-    if (!code || pre.querySelector('.copy-code-btn')) return;
+function resetDocumentReadingState() {
+  readingNavigation?.reset();
+  readerViewport?.reset();
+}
 
-    const button = document.createElement('button');
-    button.className = 'copy-code-btn';
-    button.type = 'button';
-    button.setAttribute('aria-label', 'Copy code block');
-    button.title = 'Copy code';
-    const icon = document.createElement('i');
-    icon.className = 'iconoir-copy';
-    icon.setAttribute('aria-hidden', 'true');
-    button.appendChild(icon);
-    button.addEventListener('click', async () => {
-      try {
-        if (!navigator.clipboard?.writeText) {
-          throw new Error('Clipboard access is unavailable');
-        }
-        await navigator.clipboard.writeText(code.innerText);
-        icon.className = 'iconoir-check';
-        button.setAttribute('aria-label', 'Code copied');
-        button.title = 'Copied';
-        showToast('Code copied');
-      } catch (error) {
-        console.error('Could not copy code:', error);
-        icon.className = 'iconoir-refresh';
-        button.setAttribute('aria-label', 'Retry copying code');
-        button.title = 'Retry copy';
-        showToast('Could not copy the code');
-      }
+function handleDocumentSessionState(snapshot) {
+  documentViewState?.handle(snapshot);
+}
 
-      setTimeout(() => {
-        icon.className = 'iconoir-copy';
-        button.setAttribute('aria-label', 'Copy code block');
-        button.title = 'Copy code';
-      }, 2000);
-    });
+function commitDocumentViewState(value) {
+  documentViewState?.commitDocument(value);
+}
 
-    pre.appendChild(button);
+function mountDocumentViewState(own) {
+  documentViewState = own(createDocumentViewStateController({
+    window,
+    adapters: {
+      getEditorSession: () => editorSession,
+    },
+    hooks: {
+      replaceDocument: (value) => value
+        ? documentSaveCoordinator?.replaceDocument(value)
+        : documentSaveCoordinator?.replaceDocument(),
+      resetReadingState: resetDocumentReadingState,
+      closeReadingTools: () => setReadingToolsOpen(false),
+      syncViewport: syncViewportState,
+      applyReadingTools,
+      onDocumentReady: ({ path }) => {
+        applyPathRememberedTheme(path);
+      },
+      setStatus: setStatusText,
+      updateTitle: updateWindowTitle,
+      updateUrl: updateWindowUrl,
+      closeShell: () => readerShell?.close(),
+      markNavigationDirty: () => readingNavigation?.markDirty(),
+      handleNavigationScroll: () => readingNavigation?.handleScroll(),
+      onSavedDocument: ({ path, document: savedDocument }) => {
+        if (ui.sourceContent) ui.sourceContent.textContent = savedDocument.source;
+        readingNavigation?.markDirty();
+        responsiveTypography?.schedule();
+        updateStatus(path);
+      },
+    },
+  }));
+}
+
+function activeDiagramTheme() {
+  return themeCoordinator?.diagramTheme() || 'default';
+}
+
+function activeDiagramTokens() {
+  return themeCoordinator?.diagramTokens?.() || null;
+}
+
+function mountApplicationReaderShell(own) {
+  runtimeAdapters = createApplicationRuntimeAdapters({ window });
+  readerShell = own(mountReaderShell({
+    window,
+    adapters: runtimeAdapters,
+    hooks: {
+      getDiagramTheme: activeDiagramTheme,
+      getDiagramTokens: activeDiagramTokens,
+      isSourceActive: isSourceViewActive,
+      chooseAnotherFile: openFilePicker,
+      onDocumentCommitted: commitDocumentViewState,
+      onStateChange: handleDocumentSessionState,
+      onSettled: () => readingNavigation?.handleScroll(),
+      onImageStateChange: (next) => {
+        imageViewState = next;
+        updateStatusMetrics();
+      },
+      onWarning: showToast,
+      onToast: showToast,
+      onPreferencesChange: handlePreferenceSnapshot,
+      getPreferences: () => readerShell?.preferences?.current?.(),
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  }));
+}
+
+function mountReaderViewport(own) {
+  readerViewport = own(createReaderViewportController({
+    window,
+    document,
+    elements: {
+      viewport: ui.viewport,
+      readerPage: ui.readerPage,
+      content: ui.content,
+      sourceView: ui.sourceView,
+      helpStage: ui.helpStage,
+      helpTitle: ui.helpTitle,
+      documentStage: ui.documentStage,
+      emptyStage: ui.emptyStage,
+      helpToggleButton: ui.helpToggleButton,
+    },
+    hooks: {
+      closeTransientUi: () => readerControls?.closeTransient(),
+      onHelpChanged: () => {
+        updateStatus(getCurrentFilePath());
+        updateWindowTitle(getCurrentFilePath());
+        readingNavigation?.handleScroll();
+      },
+    },
+  }));
+  readerViewport.sync({
+    hasFilePath: Boolean(getCurrentFilePath()),
+    sourceActive: isSourceViewActive(),
   });
 }
 
-function focusLoadedContent(fragment = '') {
-  ui.readerPage?.scrollTo({ top: 0, behavior: 'auto' });
+function mountReaderControls(own) {
+  readerControls = own(createReaderControls({
+    window,
+    document,
+    elements: {
+      readingToolsButton: ui.readingToolsButton,
+      readingToolsShell: ui.readingToolsShell,
+      readingToolsPanel: ui.readingToolsPanel,
+      basicOptionsPanel: ui.basicOptionsPanel,
+      advancedOptionsPanel: ui.advancedOptionsPanel,
+      optionsDeck: ui.optionsDeck,
+      advancedOptionsButton: ui.advancedOptionsButton,
+      advancedBackButton: ui.advancedBackButton,
+      readingToolsHeaderLabel: ui.readingToolsHeaderLabel,
+      advancedToggles: ui.advancedToggles,
+      imageDefaultZoomSelect: ui.imageDefaultZoomSelect,
+      csvRowCapInput: ui.csvRowCapInput,
+      allowMultipleInstancesToggle: ui.allowMultipleInstancesToggle,
+      fileAssociationButton: ui.fileAssociationButton,
 
-  if (isSourceViewActive()) {
-    ui.sourceView?.focus({ preventScroll: true });
-    return;
-  }
-
-  if (fragment) {
-    let fragmentId = fragment.slice(1);
-    try {
-      fragmentId = decodeURIComponent(fragmentId);
-    } catch {
-      fragmentId = '';
-    }
-
-    const fragmentTarget = fragmentId
-      ? [...ui.content.querySelectorAll('[id]')].find((element) => element.id === fragmentId)
-      : null;
-
-    if (fragmentTarget) {
-      fragmentTarget.setAttribute('tabindex', '-1');
-      fragmentTarget.focus({ preventScroll: true });
-      fragmentTarget.scrollIntoView({ block: 'start' });
-      return;
-    }
-  }
-
-  ui.content.focus({ preventScroll: true });
-}
-
-async function loadContent(filePath = null, { fragment = '' } = {}) {
-  if (!ui.content) {
-    console.error('Content element not found!');
-    return;
-  }
-
-  if (!filePath) {
-    const urlParams = new URLSearchParams(window.location.search);
-    filePath = urlParams.get('file');
-  }
-
-  if (!filePath) {
-    loadRequestId += 1;
-    imageResourcePool.clear();
-    currentFilePath = null;
-    currentDocument = null;
-    isMinimapDocumentDirty = true;
-    currentSourceLine = 1;
-    currentReadingProgress = 0;
-    viewScrollPositions = { rendered: 0, source: 0 };
-    isHelpVisible = false;
-    focusBeforeHelp = null;
-    ui.content.removeAttribute('aria-busy');
-    ui.content.replaceChildren();
-    if (ui.sourceContent) ui.sourceContent.textContent = '';
-    syncViewportState();
-    applyReadingTools();
-    updateWindowTitle();
-    updateWindowUrl();
-    handleScroll();
-    return;
-  }
-
-  const requestId = ++loadRequestId;
-  imageResourcePool.clear();
-  currentFilePath = filePath;
-  currentDocument = null;
-  isMinimapDocumentDirty = true;
-  currentSourceLine = 1;
-  currentReadingProgress = 0;
-  viewScrollPositions = { rendered: 0, source: 0 };
-  isHelpVisible = false;
-  focusBeforeHelp = null;
-  setReadingToolsOpen(false);
-  if (ui.sourceContent) ui.sourceContent.textContent = '';
-  ui.content.setAttribute('aria-busy', 'true');
-  renderLoadingState(filePath);
-  syncViewportState();
-  applyReadingTools();
-  setStatusText(getDisplayName(filePath), 'Opening…');
-  updateWindowTitle(filePath);
-
-  try {
-    const documentPayload = normalizeDocumentPayload(
-      await invoke('get_file_content', { path: filePath })
-    );
-    if (requestId !== loadRequestId) return;
-    currentDocument = documentPayload;
-    ui.content.innerHTML = documentPayload.html;
-    renderSourceContent(documentPayload.source, getFileKind(filePath) === 'Markdown');
-    ui.content.removeAttribute('aria-busy');
-    updateWindowTitle(filePath);
-    updateWindowUrl(filePath);
-
-    const images = ui.content.querySelectorAll('img');
-    images.forEach((img) => {
-      img.setAttribute('loading', 'lazy');
-    });
-
-    await hydrateRelativeImages(filePath, requestId);
-    if (requestId !== loadRequestId) return;
-    enhanceTables();
-    enhanceCodeBlocks();
-
-    try {
-      const activeTheme = themes[currentThemeIndex];
-      const mermaidTheme = activeTheme && isColorDark(getThemeTokens(activeTheme).background)
-        ? 'dark'
-        : 'default';
-      await renderMermaidDiagrams(ui.content, { theme: mermaidTheme });
-      if (requestId !== loadRequestId) return;
-    } catch (error) {
-      if (requestId !== loadRequestId) return;
-      console.error('Mermaid render error:', error);
-      showToast('One or more diagrams could not be rendered');
-    }
-
-    applyReadingTools();
-    focusLoadedContent(fragment);
-    handleScroll();
-  } catch (error) {
-    if (requestId !== loadRequestId) return;
-    imageResourcePool.clear();
-    console.error('Error loading content:', error);
-    ui.content.removeAttribute('aria-busy');
-    currentDocument = null;
-    isMinimapDocumentDirty = true;
-    if (ui.sourceContent) ui.sourceContent.textContent = '';
-    updateWindowTitle(filePath);
-    updateWindowUrl(filePath);
-    renderErrorState(error);
-    applyReadingTools();
-    setStatusText(getDisplayName(filePath), 'Could not open');
-    focusLoadedContent();
-    handleScroll();
-  }
-}
-
-function handleLinkClick(event) {
-  const target = event.target instanceof Element ? event.target.closest('a') : null;
-  const hrefAttribute = target?.getAttribute('href');
-
-  if (!target || !hrefAttribute) return;
-
-  const action = getLinkAction(hrefAttribute, currentFilePath, target.href);
-  if (action.type === 'anchor') return;
-
-  event.preventDefault();
-
-  if (action.type === 'external') {
-    openUrl(action.href).catch((error) => {
-      console.error('Failed to open URL:', error);
-      showToast('Could not open the external link');
-    });
-    return;
-  }
-
-  if (action.type === 'file') {
-    loadContent(action.path, { fragment: action.fragment });
-    return;
-  }
-
-  showToast('This link type is not supported');
-}
-
-function setZoom(newZoom) {
-  currentZoom = Math.min(Math.max(newZoom, MIN_ZOOM), MAX_ZOOM);
-  document.documentElement.style.setProperty('--content-scale', currentZoom.toFixed(2));
-  isMinimapDocumentDirty = true;
-  updateStatus(currentFilePath);
-  queueReadingUiUpdate();
-  showToast(`Zoom: ${Math.round(currentZoom * 100)}%`);
-}
-
-function handleZoom(event) {
-  if (event.ctrlKey) {
-    event.preventDefault();
-    setZoom(calculateNewZoom(currentZoom, event.deltaY, ZOOM_STEP, MIN_ZOOM, MAX_ZOOM));
-  }
-}
-
-function getRenderedLineAnchors() {
-  if (!ui.content || !ui.documentStage) return [];
-
-  const stageTop = ui.documentStage.getBoundingClientRect().top;
-  const seenLines = new Set();
-  return [...ui.content.querySelectorAll('.source-line-anchor[data-source-line]')]
-    .map((anchor) => {
-      let visualTarget = anchor.nextElementSibling;
-      while (visualTarget?.classList.contains('source-line-anchor')) {
-        visualTarget = visualTarget.nextElementSibling;
-      }
-      visualTarget ||= anchor;
-      const targetRect = visualTarget.getBoundingClientRect();
-      const targetStyles = getComputedStyle(visualTarget);
-      const targetLineHeight = Number.parseFloat(targetStyles.lineHeight);
-      return {
-        line: Number.parseInt(anchor.dataset.sourceLine, 10),
-        top: targetRect.top - stageTop,
-        lineHeight: Number.isFinite(targetLineHeight)
-          ? targetLineHeight
-          : Math.min(Math.max(targetRect.height, 16), 28),
-      };
-    })
-    .filter((anchor) => {
-      if (!Number.isFinite(anchor.line) || anchor.line < 1 || seenLines.has(anchor.line)) return false;
-      seenLines.add(anchor.line);
-      return true;
-    })
-    .sort((left, right) => left.top - right.top);
-}
-
-function createLineNumber(line, top, isCurrent = false, lineHeight = 20) {
-  const label = document.createElement('span');
-  label.className = `line-number${isCurrent ? ' is-current' : ''}`;
-  label.textContent = String(line);
-  label.style.top = `${Math.max(0, top)}px`;
-  label.style.height = `${Math.max(1, lineHeight)}px`;
-  label.style.lineHeight = `${Math.max(1, lineHeight)}px`;
-  return label;
-}
-
-function positionLineGutter() {
-  if (!ui.lineGutter || !ui.documentStage) return;
-  const activeView = isSourceViewActive() ? ui.sourceView : ui.content;
-  if (!activeView) return;
-
-  const viewRect = activeView.getBoundingClientRect();
-  const stageRect = ui.documentStage.getBoundingClientRect();
-  const viewStyles = getComputedStyle(activeView);
-  const compact = window.matchMedia?.('(max-width: 460px)').matches;
-  const digitWidth = String(currentDocument?.lineCount || 1).length * (compact ? 6 : 7);
-  ui.lineGutter.style.width = `${Math.max(compact ? 29 : 34, digitWidth + 8)}px`;
-  const gutterRect = ui.lineGutter.getBoundingClientRect();
-  const gap = compact ? 8 : 12;
-  const left = getLineGutterLeft({
-    viewLeft: viewRect.left,
-    stageLeft: stageRect.left,
-    paddingLeft: Number.parseFloat(viewStyles.paddingLeft) || 0,
-    gutterWidth: gutterRect.width || 34,
-    gap,
-  });
-  ui.lineGutter.style.left = `${left}px`;
-}
-
-function renderLineGuide() {
-  if (!ui.lineGutter || ui.lineGutter.hidden || !ui.readerPage || !currentDocument) return;
-
-  positionLineGutter();
-  const { scrollTop, clientHeight } = ui.readerPage;
-  const fragment = document.createDocumentFragment();
-  let nextCurrentLine = 1;
-
-  if (isSourceViewActive()) {
-    const styles = getComputedStyle(ui.sourceView);
-    const lineHeight = Number.parseFloat(styles.lineHeight) || 20;
-    const paddingTop = Number.parseFloat(styles.paddingTop) || 0;
-    const range = getVisibleSourceLineRange({
-      scrollTop,
-      clientHeight,
-      lineHeight,
-      paddingTop,
-      lineCount: currentDocument.lineCount,
-    });
-    nextCurrentLine = range.current;
-
-    for (let line = range.first; line <= range.last; line += 1) {
-      const top = paddingTop + ((line - 1) * lineHeight);
-      fragment.appendChild(createLineNumber(line, top, line === nextCurrentLine, lineHeight));
-    }
-  } else {
-    const anchors = getRenderedLineAnchors();
-    const readingOffset = scrollTop + Math.min(48, clientHeight * 0.08);
-    nextCurrentLine = getCurrentLineFromAnchors(anchors, readingOffset);
-    const visibleStart = scrollTop - 18;
-    const visibleEnd = scrollTop + clientHeight + 18;
-    let lastVisibleTop = Number.NEGATIVE_INFINITY;
-    let currentIsVisible = false;
-
-    for (const anchor of anchors) {
-      if (anchor.top < visibleStart || anchor.top > visibleEnd) continue;
-      const isCurrent = anchor.line === nextCurrentLine;
-      if (!isCurrent && anchor.top - lastVisibleTop < 13) continue;
-      fragment.appendChild(createLineNumber(anchor.line, anchor.top, isCurrent, anchor.lineHeight));
-      lastVisibleTop = anchor.top;
-      currentIsVisible ||= isCurrent;
-    }
-
-    if (!currentIsVisible) {
-      fragment.appendChild(createLineNumber(nextCurrentLine, readingOffset, true));
-    }
-  }
-
-  ui.lineGutter.replaceChildren(fragment);
-  if (nextCurrentLine !== currentSourceLine) {
-    currentSourceLine = nextCurrentLine;
-    updateStatusMetrics();
-  }
-}
-
-function markMinimapDirty() {
-  isMinimapDocumentDirty = true;
-  queueReadingUiUpdate();
-}
-
-function sanitizeMinimapClone(clone) {
-  clone.setAttribute('aria-hidden', 'true');
-  clone.setAttribute('inert', '');
-  clone.classList.remove('hidden');
-  clone.querySelectorAll('.copy-code-btn').forEach((button) => button.remove());
-
-  const elements = [clone, ...clone.querySelectorAll('*')];
-  const idMap = new Map();
-  const prefix = `openmd-minimap-${++minimapCloneRevision}-`;
-
-  elements.forEach((element) => {
-    if (element.id) {
-      const nextId = `${prefix}${element.id}`;
-      idMap.set(element.id, nextId);
-      element.id = nextId;
-    }
-    element.removeAttribute('tabindex');
-    element.removeAttribute('autofocus');
-    element.removeAttribute('aria-live');
-    element.removeAttribute('aria-controls');
-    if (element.matches('a')) element.removeAttribute('href');
-    if (element.matches('audio, video')) element.removeAttribute('controls');
-  });
-
-  if (idMap.size > 0) {
-    elements.forEach((element) => {
-      [...element.attributes].forEach((attribute) => {
-        let nextValue = attribute.value;
-        idMap.forEach((nextId, previousId) => {
-          nextValue = nextValue.replaceAll(`#${previousId}`, `#${nextId}`);
+      themeField: ui.themeField,
+      alwaysOnTopButton: ui.alwaysOnTopButton,
+      autoSaveToggle: ui.autoSaveToggle,
+      fontButtons: ui.fontButtons,
+      readingToolToggles: ui.readingToolToggles,
+      content: ui.content,
+      sourceView: ui.sourceView,
+    },
+    adapters: {
+      preferences: readerShell.preferences,
+      system: runtimeAdapters?.system,
+      isDocumentAvailable: hasLoadedDocument,
+      isEditMode: () => isEditMode,
+      getDocumentIdentity: getCurrentDocument,
+    },
+    hooks: {
+      isHelpVisible,
+      captureScrollPosition: () => readingNavigation?.captureScrollPosition(),
+      restoreScrollPosition: (position) => readingNavigation?.restoreScrollPosition(position),
+      onReadingToolsApplied: ({ sourceActive }) => {
+        readerViewport?.sync({
+          hasFilePath: Boolean(getCurrentFilePath()),
+          sourceActive,
         });
-        if (nextValue !== attribute.value) element.setAttribute(attribute.name, nextValue);
-      });
-    });
-  }
+        documentModeCoordinator?.refresh();
+        readingNavigation?.refreshTools();
+        responsiveTypography?.schedule();
+        // Classic ↔ Block presentation can flip from View options while editing.
+        if (editorSession?.isEditing?.()) editorSession.refreshPresentation?.();
+        updateStatus(getCurrentFilePath());
+      },
+      onFontsApplied: () => {
+        readingNavigation?.markDirty();
+        responsiveTypography?.schedule();
+      },
+      onAutoSaveApplied: (enabled) => {
+        documentSaveCoordinator?.setAutoSaveEnabled(enabled, editorSession?.current());
+      },
+      onThemeName: (themeName) => {
+        if (themeName && themeCoordinator?.current()?.name !== themeName) {
+          themeCoordinator?.applyName(themeName, { silent: true, persist: false });
+        }
+      },
+      cycleTheme,
+      onPreferenceResult: reportPreferenceResult,
+      onToast: showToast,
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  }));
+  readerControls.start();
 }
 
-function renderMinimapDocument() {
-  if (
-    !isMinimapDocumentDirty
-    || !ui.documentMinimap
-    || ui.documentMinimap.hidden
-    || !ui.minimapDocument
-    || !ui.readerPage
-  ) return;
-
-  const activeView = isSourceViewActive() ? ui.sourceView : ui.content;
-  if (!activeView) return;
-  const trackRect = ui.documentMinimap.getBoundingClientRect();
-  const viewRect = activeView.getBoundingClientRect();
-  const viewStyles = getComputedStyle(activeView);
-  if (trackRect.width <= 0 || trackRect.height <= 0 || viewRect.width <= 0) return;
-
-  const documentWidth = Math.max(1, viewRect.width);
-  const documentHeight = Math.max(
-    1,
-    activeView.scrollHeight,
-    viewRect.height,
-    ui.readerPage.scrollHeight
-  );
-  const clone = activeView.cloneNode(true);
-  sanitizeMinimapClone(clone);
-  clone.style.width = `${documentWidth}px`;
-  clone.style.maxWidth = 'none';
-  clone.style.minHeight = '0';
-  clone.style.margin = '0';
-
-  ui.minimapDocument.style.width = `${documentWidth}px`;
-  ui.minimapDocument.style.height = `${documentHeight}px`;
-  ui.minimapDocument.style.fontSize = viewStyles.fontSize;
-  ui.minimapDocument.style.lineHeight = viewStyles.lineHeight;
-  const scale = Math.min(trackRect.width / documentWidth, trackRect.height / documentHeight);
-  minimapContentHeight = documentHeight * scale;
-  ui.minimapDocument.style.left = `${(trackRect.width - (documentWidth * scale)) / 2}px`;
-  ui.minimapDocument.style.transform = `scale(${scale})`;
-  ui.minimapDocument.replaceChildren(clone);
-  isMinimapDocumentDirty = false;
-}
-
-function updateMinimapViewport() {
-  if (
-    !ui.documentMinimap
-    || ui.documentMinimap.hidden
-    || !ui.minimapViewport
-    || !ui.readerPage
-  ) return;
-
-  const geometry = getMinimapViewportGeometry({
-    scrollTop: ui.readerPage.scrollTop,
-    scrollHeight: ui.readerPage.scrollHeight,
-    clientHeight: ui.readerPage.clientHeight,
-    trackHeight: ui.documentMinimap.getBoundingClientRect().height,
-    contentHeight: minimapContentHeight,
-  });
-  ui.minimapViewport.style.top = `${geometry.top}px`;
-  ui.minimapViewport.style.height = `${geometry.height}px`;
-  ui.documentMinimap.setAttribute('aria-valuenow', String(currentReadingProgress));
-  ui.documentMinimap.setAttribute('aria-valuetext', `${currentReadingProgress}% through document`);
-}
-
-function updateReadingUi() {
-  if (!currentDocument || !ui.readerPage || isHelpVisible) return;
-  const nextProgress = getReadingProgress(
-    ui.readerPage.scrollTop,
-    ui.readerPage.scrollHeight,
-    ui.readerPage.clientHeight
-  );
-  const progressChanged = nextProgress !== currentReadingProgress;
-  currentReadingProgress = nextProgress;
-  renderLineGuide();
-  renderMinimapDocument();
-  updateMinimapViewport();
-  if (progressChanged) updateStatusMetrics();
-}
-
-function queueReadingUiUpdate() {
-  if (readingUiRafId) return;
-  readingUiRafId = requestAnimationFrame(() => {
-    readingUiRafId = null;
-    updateReadingUi();
-  });
-}
-
-function scrollFromMinimapPointer(event) {
-  if (!ui.documentMinimap || !ui.readerPage) return;
-  const rect = ui.documentMinimap.getBoundingClientRect();
-  const ratio = Math.min(Math.max((event.clientY - rect.top) / Math.max(1, rect.height), 0), 1);
-  const maxScroll = Math.max(0, ui.readerPage.scrollHeight - ui.readerPage.clientHeight);
-  ui.readerPage.scrollTo({ top: ratio * maxScroll, behavior: 'auto' });
-}
-
-function handleMinimapPointerDown(event) {
-  if (event.button !== 0) return;
-  isMinimapDragging = true;
-  ui.documentMinimap?.setPointerCapture?.(event.pointerId);
-  scrollFromMinimapPointer(event);
-}
-
-function handleMinimapPointerMove(event) {
-  if (isMinimapDragging) scrollFromMinimapPointer(event);
-}
-
-function handleMinimapPointerUp(event) {
-  isMinimapDragging = false;
-  if (ui.documentMinimap?.hasPointerCapture?.(event.pointerId)) {
-    ui.documentMinimap.releasePointerCapture(event.pointerId);
-  }
-}
-
-function handleMinimapKeyboard(event) {
-  if (!ui.readerPage) return;
-  const maxScroll = Math.max(0, ui.readerPage.scrollHeight - ui.readerPage.clientHeight);
-  let nextScroll = null;
-
-  if (event.key === 'Home') nextScroll = 0;
-  if (event.key === 'End') nextScroll = maxScroll;
-  if (event.key === 'ArrowUp') nextScroll = ui.readerPage.scrollTop - 48;
-  if (event.key === 'ArrowDown') nextScroll = ui.readerPage.scrollTop + 48;
-  if (event.key === 'PageUp') nextScroll = ui.readerPage.scrollTop - (ui.readerPage.clientHeight * 0.8);
-  if (event.key === 'PageDown') nextScroll = ui.readerPage.scrollTop + (ui.readerPage.clientHeight * 0.8);
-  if (nextScroll === null) return;
-
-  event.preventDefault();
-  ui.readerPage.scrollTo({ top: Math.min(Math.max(nextScroll, 0), maxScroll), behavior: 'auto' });
-}
-
-function setupReadingResizeObserver() {
-  if (typeof ResizeObserver !== 'function') return;
-  minimapResizeObserver = new ResizeObserver(() => {
-    isMinimapDocumentDirty = true;
-    queueReadingUiUpdate();
-  });
-  [ui.documentStage, ui.content, ui.sourceView].filter(Boolean).forEach((element) => {
-    minimapResizeObserver.observe(element);
-  });
-}
-
-function getActiveScroller() {
-  return isHelpVisible ? ui.helpStage : ui.readerPage;
-}
-
-function handleScroll() {
-  if (scrollRafId) return;
-  scrollRafId = requestAnimationFrame(() => {
-    scrollRafId = null;
-    const scroller = getActiveScroller();
-    if (!scroller) return;
-    const { scrollTop, scrollHeight, clientHeight } = scroller;
-    const maxScroll = scrollHeight - clientHeight;
-    const edges = getScrollEdgeState(scrollTop, scrollHeight, clientHeight);
-
-    document.body.classList.toggle('has-scroll-before', edges.before);
-    document.body.classList.toggle('has-scroll-after', edges.after);
-
-    if (ui.scrollToTop && maxScroll > 0 && scrollTop > maxScroll * 0.5) {
-      ui.scrollToTop.classList.add('show');
-    } else if (ui.scrollToTop) {
-      ui.scrollToTop.classList.remove('show');
-    }
-    if (!isHelpVisible) updateReadingUi();
-  });
-}
-
-function scrollToTop() {
-  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  getActiveScroller()?.scrollTo({
-    top: 0,
-    behavior: reduceMotion ? 'auto' : 'smooth'
-  });
-}
-
-function setActionsPinned(nextPinned) {
-  document.body.classList.toggle('is-actions-pinned', nextPinned);
-  ui.actionsToggleButton?.setAttribute('aria-expanded', String(nextPinned));
-  if (ui.actionsToggleButton) {
-    const label = nextPinned ? 'Hide actions' : 'Show actions';
-    ui.actionsToggleButton.setAttribute('aria-label', label);
-    ui.actionsToggleButton.title = label;
-  }
-}
-
-function toggleActions() {
-  setActionsPinned(!document.body.classList.contains('is-actions-pinned'));
-}
-
-function toggleReadingTools() {
-  setReadingToolsOpen(!isReadingToolsOpen);
-}
-
-function toggleTypography() {
-  setTypographyOpen(!isTypographyOpen);
-}
-
-function handleFontCycle(event) {
-  cycleFont(event.currentTarget.dataset.fontKind);
-}
-
-function handleReadingToolToggle(event) {
-  const tool = event.currentTarget.dataset.readingTool;
-  setReadingTool(tool, event.currentTarget.getAttribute('aria-checked') !== 'true');
-}
-
-function setupActionRevealMode() {
-  if (!ui.actionsToggleButton || !window.matchMedia) return;
-  const hoverQuery = window.matchMedia('(hover: hover)');
-  const syncToggle = () => {
-    ui.actionsToggleButton.hidden = hoverQuery.matches;
-    if (hoverQuery.matches) setActionsPinned(false);
+function handleEditorState(snapshot) {
+  const nextEditMode = snapshot.mode === 'edit';
+  const feedback = editorFeedback?.render(snapshot) || {
+    isEditMode: nextEditMode,
+    modeChanged: nextEditMode !== isEditMode,
   };
-  syncToggle();
-  hoverQuery.addEventListener?.('change', syncToggle);
+  const modeChanged = feedback.modeChanged;
+  if (modeChanged) contextMenuController?.close({ immediate: true });
+  isEditMode = feedback.isEditMode;
+
+  documentModeCoordinator?.refresh();
+
+  documentSaveCoordinator?.observeEditor(snapshot);
+  if (isEditMode) readingNavigation?.markDirty();
+  responsiveTypography?.schedule();
+  if (modeChanged) applyReadingTools();
+  else updateStatus(getCurrentFilePath());
 }
 
-function handleKeyboard(event) {
-  if (event.key === 'F1') {
-    event.preventDefault();
-    toggleHelp();
-    return;
-  }
+function mountApplicationEditor(own) {
+  editorFeedback = own(createEditorFeedbackPresenter({
+    window,
+    document,
+    elements: {
+      editorSaveButton: ui.editorSaveButton,
+      editorSaveLabel: ui.editorSaveLabel,
+    },
+  }));
+  editorSession = own(createEditorSession({
+    window,
+    elements: {
+      root: ui.editorView,
+      canvas: ui.editorCanvas,
+      commandMenu: ui.editorCommandMenu,
+      blockMenu: ui.editorBlockMenu,
+      blockToolbar: ui.editorBlockToolbar,
+      inlineToolbar: ui.editorInlineToolbar,
+      caretEcho: ui.editorCaretEcho,
+      linkPopover: ui.editorLinkPopover,
+      linkInput: ui.editorLinkInput,
+      linkApply: ui.editorLinkApply,
+      contextLabel: ui.editorContextLabel,
+      contextHint: ui.editorContextHint,
+    },
+    adapters: {
+      save: (path, source) => runtimeAdapters.documents.save(path, source),
+      isBlockEditor: () => Boolean(readerControls?.current().readingTools.blockEditor),
+      getAdvancedPreferences: () => readerControls?.current()?.advanced
+        || readerShell?.preferences?.current()?.advanced
+        || null,
+    },
+    hooks: {
+      onStateChange: handleEditorState,
+      onCursorChange: () => {
+        updateStatusMetrics();
+        if (readerControls?.current().readingTools.lineGuide) readingNavigation?.queueUpdate();
+      },
+      onSaved: async () => {
+        await readerShell?.reload();
+      },
+      onHistoryRestore: (action) => showToast(action === 'redo' ? 'Redone' : 'Undone'),
+      onDraftPreserved: (path) => showToast(`Unsaved draft kept for ${getDisplayName(path)}`),
+      onUnavailable: showToast,
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  }));
+  handleEditorState(editorSession.current());
+}
 
-  if (event.key === 'Escape' && isHelpVisible) {
-    event.preventDefault();
-    setHelpVisible(false);
-    return;
-  }
+function mountDocumentSaveCoordinator(own) {
+  documentSaveCoordinator = own(createDocumentSaveCoordinator({
+    window,
+    adapters: {
+      isEditing: () => Boolean(editorSession?.isEditing()),
+      saveEditor: () => editorSession?.save(),
+      saveDocument: (path, source) => runtimeAdapters.documents.save(path, source),
+    },
+    hooks: {
+      notify: showToast,
+      onTaskCommitted: ({ path, document: savedDocument }) => {
+        documentViewState?.applySavedDocument({ path, document: savedDocument });
+      },
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  }));
+  documentSaveCoordinator.setAutoSaveEnabled(readerControls?.current().autoSave !== false, editorSession.current());
+}
 
-  if (event.key === 'Escape' && isReadingToolsOpen) {
-    event.preventDefault();
-    setReadingToolsOpen(false, { returnFocus: true });
-    return;
-  }
+function mountDocumentModeCoordinator(own) {
+  documentModeCoordinator = own(createDocumentModeCoordinator({
+    window,
+    document,
+    elements: {
+      control: ui.editModeButton,
+      label: ui.editModeLabel,
+      readSurface: ui.content,
+      sourceSurface: ui.sourceView,
+      editSurface: ui.editorView,
+      lineGutter: ui.lineGutter,
+      minimap: ui.documentMinimap,
+    },
+    adapters: {
+      getMode: () => isEditMode ? 'edit' : isSourceViewActive() ? 'source' : 'read',
+      isAvailable: () => Boolean(editorSession && hasLoadedDocument() && documentAllowsMode('edit')),
+      getDocumentIdentity: getCurrentDocument,
+      enterEdit: () => editorSession?.enter(),
+      exitEdit: () => editorSession?.exit(),
+      setSource: (active) => setReadingTool('source', active),
+    },
+    hooks: {
+      closeTransientUi: () => {
+        setHelpVisible(false);
+        setReadingToolsOpen(false);
+      },
+      cancelCompetingTransition: () => themeCoordinator?.cancelTransition(),
+      captureScrollPosition: () => readingNavigation?.captureScrollPosition(),
+      restoreScrollPosition: (position, options) => (
+        readingNavigation?.restoreScrollPosition(position, options)
+      ),
+      prepareNavigationMorph: () => readingNavigation?.prepareModeMorph(),
+      animateNavigationMorph: () => readingNavigation?.animateModeMorph(),
+      finishNavigationMorph: () => readingNavigation?.finishModeMorph(),
+      syncNavigationChrome: () => readingNavigation?.refresh({ force: true }),
+      onToast: showToast,
+    },
+  }));
+  documentModeCoordinator.refresh();
+}
 
-  if (event.key === 'Escape' && isTypographyOpen) {
-    event.preventDefault();
-    setTypographyOpen(false, { returnFocus: true });
-    return;
-  }
+function mountReadingNavigation(own) {
+  readingNavigation = own(createReadingNavigationController({
+    window,
+    document,
+    elements: {
+      readerPage: ui.readerPage,
+      helpStage: ui.helpStage,
+      documentStage: ui.documentStage,
+      readView: ui.content,
+      sourceView: ui.sourceView,
+      editView: ui.editorView,
+      editorCanvas: ui.editorCanvas,
+      lineGutter: ui.lineGutter,
+      minimap: ui.documentMinimap,
+      minimapDocument: ui.minimapDocument,
+      minimapViewport: ui.minimapViewport,
+      scrollToTop: ui.scrollToTop,
+    },
+    adapters: {
+      getDocument: getCurrentDocument,
+      getFilePath: getCurrentFilePath,
+      getMode: () => isEditMode ? 'edit' : isSourceViewActive() ? 'source' : 'read',
+      isHelpVisible,
+      isLineGuideEnabled: () => readerControls?.current().readingTools.lineGuide,
+      isMinimapEnabled: () => readerControls?.current().readingTools.minimap,
+      getEditorCursorLine: () => editorSession?.current().cursor?.line,
+    },
+    hooks: {
+      onMetricsChange: updateStatusMetrics,
+    },
+  }));
+  readingNavigation.start();
+  readingNavigation.refreshTools();
+}
 
-  if (event.key === 'Escape' && document.body.classList.contains('is-actions-pinned')) {
-    event.preventDefault();
-    setActionsPinned(false);
-    return;
-  }
+function mountDocumentContentActions(own) {
+  documentContentActions = own(createDocumentContentActions({
+    window,
+    document,
+    elements: {
+      content: ui.content,
+      sourceView: ui.sourceView,
+      sourceContent: ui.sourceContent,
+      editorView: ui.editorView,
+    },
+    adapters: {
+      isDocumentAvailable: hasLoadedDocument,
+      isHelpVisible,
+      isEditMode: () => isEditMode,
+      isSourceActive: isSourceViewActive,
+      getDocument: getCurrentDocument,
+      getDocumentPath: getCurrentFilePath,
+      getEditorSession: () => editorSession,
+      getImageViewer: () => readerShell?.getImageViewer?.(),
+      getImageMedia: () => readerShell?.getImageMedia?.(),
+      downloadImage: (payload) => runtimeAdapters?.documents?.downloadImage?.(payload),
+      toggleReadTask: (payload) => documentSaveCoordinator?.toggleReadTask(payload),
+    },
+    hooks: { onToast: showToast },
+  }));
+}
 
-  if (event.ctrlKey && event.key.toLowerCase() === 'o') {
-    event.preventDefault();
-    openFilePicker();
-    return;
-  }
+function mountContextMenu(own) {
+  contextMenuController = own(createContextMenuController({
+    window,
+    document,
+    resolveContext: ({ target }) => documentContentActions?.resolveContext({ target }),
+    hooks: {
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  }));
+  contextMenuController.start();
+}
 
-  if (event.ctrlKey && (event.key === '=' || event.key === '+')) {
-    event.preventDefault();
-    setZoom(currentZoom + ZOOM_STEP);
-  } else if (event.ctrlKey && event.key === '-') {
-    event.preventDefault();
-    setZoom(currentZoom - ZOOM_STEP);
-  } else if (event.ctrlKey && event.key === '0') {
-    event.preventDefault();
-    setZoom(1.0);
-  }
+function mountTooltips(own) {
+  tooltipController = own(createTooltipController({
+    window,
+    document,
+    hooks: {
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  }));
+  tooltipController.start();
+}
 
-  const isTypingField = ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target?.tagName)
-    || event.target?.isContentEditable;
-  if (!isTypingField && (event.key === 't' || event.key === 'T') && !event.metaKey && !event.altKey) {
-    event.preventDefault();
-    if (event.ctrlKey || event.shiftKey) {
-      cycleTheme(-1);
-    } else {
-      cycleTheme(1);
-    }
-  }
+function mountScrollbarVisibility(own) {
+  scrollbarVisibility = own(createScrollbarVisibilityController({
+    window,
+    document,
+    roots: [
+      document.getElementById('reader-page'),
+      document.getElementById('help-stage'),
+    ],
+  }));
+  scrollbarVisibility.start();
+}
+
+function mountDocumentLinkController(own) {
+  documentLinkController = own(createDocumentLinkController({
+    adapters: {
+      isEditMode: () => isEditMode,
+      getDocumentPath: getCurrentFilePath,
+      openExternalUrl: (href) => runtimeAdapters?.windows?.openExternalUrl?.(href),
+      openDocument: (value) => readerShell?.open(value),
+    },
+    hooks: {
+      onToast: showToast,
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  }));
+}
+
+function mountReaderZoom(own) {
+  readerZoom = own(createReaderZoomController({
+    window,
+    document,
+    hooks: {
+      onZoomChange: () => {
+        readingNavigation?.markDirty();
+        updateStatus(getCurrentFilePath());
+      },
+      onToast: showToast,
+    },
+  }));
+}
+
+function mountReaderKeyboard(own) {
+  readerKeyboard = own(createReaderKeyboardController({
+    window,
+    adapters: {
+      isHelpVisible,
+      isReadingToolsOpen: () => readerControls?.isReadingToolsOpen(),
+      isEditMode: () => isEditMode,
+    },
+    hooks: {
+      toggleHelp,
+      closeHelp: () => setHelpVisible(false),
+      closeReadingTools: () => setReadingToolsOpen(false, { returnFocus: true }),
+      toggleEdit: () => {
+        if (!documentAllowsMode('edit')) {
+          showToast('This document opens read-only');
+          return;
+        }
+        documentModeCoordinator?.toggleEdit();
+      },
+      saveEditor: () => documentSaveCoordinator?.saveEditor(),
+      openFile: openFilePicker,
+      closeFile: closeCurrentFile,
+      zoomIn: () => readerZoom?.zoomIn(),
+      zoomOut: () => readerZoom?.zoomOut(),
+      resetZoom: () => readerZoom?.reset(),
+      cycleTheme,
+    },
+  }));
+  readerKeyboard.start();
 }
 
 function handleThemeSelection(event) {
-  const index = parseInt(event.target.value, 10);
-  if (!isNaN(index) && index >= 0 && index < themes.length) {
-    applyTheme(themes[index]);
-    setReadingToolsOpen(false);
-    setActionsPinned(false);
-  }
+  const index = Number.parseInt(event.target.value, 10);
+  if (Number.isInteger(index)) themeCoordinator?.applyIndex(index);
 }
 
-async function handleIncomingFiles(filePaths) {
-  const supportedFiles = (filePaths || []).filter(isSupportedFilePath);
-
-  if (supportedFiles.length === 0) {
-    showToast('Only .md, .markdown and .txt files are supported');
-    return;
-  }
-
-  await loadContent(supportedFiles[0]);
-
-  if (supportedFiles.length > 1) {
-    for (let index = 1; index < supportedFiles.length; index += 1) {
-      try {
-        await invoke('open_new_window', { path: supportedFiles[index] });
-      } catch (error) {
-        console.error('Could not open an additional window:', error);
-        showToast(`Could not open ${getDisplayName(supportedFiles[index])}`);
-      }
-    }
-
-    showToast(`${supportedFiles.length} files opened`);
-  }
+function mountDocumentIngress(own) {
+  documentIngress = own(createDocumentIngressController({
+    window,
+    document,
+    adapters: {
+      openDocument: (value) => readerShell?.open(value),
+      canChangeDocument: () => !editorSession || editorSession.canChangeDocument(),
+      acknowledgeOpenFile: (id) => runtimeAdapters.openRequests.acknowledge(id),
+      listen: runtimeAdapters.ingress.listen,
+      openFileDialog: runtimeAdapters.ingress.openFileDialog,
+      getCurrentWebview: runtimeAdapters.ingress.getCurrentWebview,
+      listPendingOpenFileRequests: runtimeAdapters.ingress.listPendingOpenFileRequests
+        || runtimeAdapters.openRequests.listPending,
+    },
+    hooks: {
+      closeReadingTools: () => setReadingToolsOpen(false),
+      onToast: showToast,
+      onWarning: (message, error) => console.warn(`${message}:`, error),
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  }));
 }
 
-async function handleNativeOpenFileRequest(value) {
-  const request = normalizeOpenFileRequest(value);
-  if (!request || handledFileOpenRequestIds.has(request.id)) return;
-  handledFileOpenRequestIds.add(request.id);
-
-  try {
-    const supportedFiles = request.paths.filter(isSupportedFilePath);
-    if (supportedFiles.length === 0) {
-      showToast('Only .md, .markdown and .txt files are supported');
-      return;
-    }
-
-    if (!currentFilePath) {
-      await handleIncomingFiles(supportedFiles);
-      return;
-    }
-
-    for (const path of supportedFiles) {
-      try {
-        await invoke('open_new_window', { path });
-      } catch (error) {
-        console.error('Could not open an associated file:', error);
-        showToast(`Could not open ${getDisplayName(path)}`);
-      }
-    }
-
-    if (supportedFiles.length > 1) showToast(`${supportedFiles.length} files opened`);
-  } finally {
-    if (window.__TAURI_INTERNALS__) {
-      invoke('acknowledge_open_file_request', { id: request.id }).catch((error) => {
-        console.warn('Could not acknowledge the file-open request:', error);
-      });
-    }
-  }
+function openFilePicker() {
+  return documentIngress?.openPicker();
 }
 
-function scheduleNativeOpenFileRequest(value) {
-  const request = normalizeOpenFileRequest(value);
-  if (!request) return;
-
-  if (!fileOpenRequestsReady) {
-    queuedFileOpenRequests.push(request);
-    return;
-  }
-
-  fileOpenRequestChain = fileOpenRequestChain
-    .then(() => handleNativeOpenFileRequest(request))
-    .catch((error) => {
-      console.error('Could not process the file-open request:', error);
-      showToast('Could not open the associated file');
-    });
+function applicationEvents() {
+  return [
+    { target: window, type: 'wheel', listener: (event) => readerZoom?.handleWheel(event), options: { passive: false } },
+    { target: document, type: 'click', listener: (event) => documentLinkController?.handleClick(event) },
+    { target: ui.emptyOpenButton, type: 'click', listener: openFilePicker },
+    { target: ui.toolbarOpenButton, type: 'click', listener: openFilePicker },
+    { target: ui.helpToggleButton, type: 'click', listener: toggleHelp },
+    { target: ui.closeHelpButton, type: 'click', listener: () => setHelpVisible(false) },
+    { target: ui.content, type: 'change', listener: (event) => documentContentActions?.handleReadTaskToggle(event) },
+    { target: ui.editModeButton, type: 'click', listener: () => documentModeCoordinator?.cycle() },
+    { target: ui.editorSaveButton, type: 'click', listener: () => documentSaveCoordinator?.saveEditor() },
+    { target: document.getElementById('theme-select'), type: 'change', listener: handleThemeSelection },
+  ];
 }
 
-async function setupFileAssociationEvents() {
-  if (!window.__TAURI_INTERNALS__ || getCurrentWindow().label !== 'main') return;
+const EMPTY_LOGO_SHIMMER_DELAY_MS = 2000;
+const EMPTY_LOGO_SHIMMER_CLASS = 'is-shimmering';
+const EMPTY_LOGO_SHIMMER_NAME = 'empty-logo-shimmer';
 
-  try {
-    fileOpenRequestUnlisten = await listen('open-file-request', (event) => {
-      scheduleNativeOpenFileRequest(event.payload);
-    });
-    const pendingRequests = await invoke('take_pending_open_file_requests');
-    if (Array.isArray(pendingRequests)) pendingRequests.forEach(scheduleNativeOpenFileRequest);
-  } catch (error) {
-    console.warn('Native file-open events are unavailable in this runtime:', error);
-  }
-}
+/**
+ * Empty-state logo sheen: once after boot delay, then on Open file hover only.
+ * A pass always runs to its built-in exit fade; re-enter is ignored while busy
+ * so rapid button hover cannot restart a loop.
+ */
+function mountEmptyLogoShimmer({ window, own, listen }) {
+  const shell = document.getElementById('empty-logo-shell');
+  if (!shell) return;
 
-async function flushQueuedFileOpenRequests() {
-  fileOpenRequestsReady = true;
-  const requests = queuedFileOpenRequests;
-  queuedFileOpenRequests = [];
-  requests.forEach(scheduleNativeOpenFileRequest);
-  await fileOpenRequestChain;
-}
+  let busy = false;
 
-async function openFilePicker() {
-  setReadingToolsOpen(false);
-  setActionsPinned(false);
-  try {
-    const selected = await open({
-      multiple: true,
-      directory: false,
-      filters: [
-        {
-          name: 'Markdown and text',
-          extensions: ['md', 'markdown', 'txt'],
-        },
-      ],
-    });
+  const play = () => {
+    if (busy) return;
+    busy = true;
+    shell.classList.remove(EMPTY_LOGO_SHIMMER_CLASS);
+    // Force a style flush so a later idle play can restart keyframes.
+    void shell.offsetWidth;
+    shell.classList.add(EMPTY_LOGO_SHIMMER_CLASS);
+  };
 
-    if (selected === null) {
-      return;
-    }
-
-    await handleIncomingFiles(Array.isArray(selected) ? selected : [selected]);
-  } catch (error) {
-    console.error('Open dialog failed:', error);
-    showToast('Could not open the file picker');
-  }
-}
-
-function setupDomDragSafety() {
-  window.addEventListener('dragover', (event) => {
-    event.preventDefault();
+  listen(shell, 'animationend', (event) => {
+    if (event.animationName !== EMPTY_LOGO_SHIMMER_NAME) return;
+    if (event.target !== shell && !shell.contains(event.target)) return;
+    shell.classList.remove(EMPTY_LOGO_SHIMMER_CLASS);
+    busy = false;
   });
 
-  window.addEventListener('drop', (event) => {
-    event.preventDefault();
+  const openButton = document.getElementById('empty-open-button');
+  if (openButton) listen(openButton, 'mouseenter', play);
+
+  const emptyStage = document.getElementById('empty-stage');
+  const bootOnEmpty = Boolean(emptyStage && !emptyStage.classList.contains('hidden'));
+  let timer = 0;
+  if (bootOnEmpty) {
+    timer = window.setTimeout(play, EMPTY_LOGO_SHIMMER_DELAY_MS);
+  }
+
+  own(() => {
+    if (timer) window.clearTimeout(timer);
+    shell.classList.remove(EMPTY_LOGO_SHIMMER_CLASS);
+    busy = false;
   });
 }
 
-async function setupDragAndDrop() {
-  setupDomDragSafety();
-
-  if (!window.__TAURI_INTERNALS__) return;
-
-  try {
-    dragDropUnlisten = await getCurrentWebview().onDragDropEvent(async (event) => {
-      if (event.payload.type === 'over') {
-        setDragState(true);
-        return;
-      }
-
-      if (event.payload.type === 'drop') {
-        setDragState(false);
-        await handleIncomingFiles(event.payload.paths);
-        return;
-      }
-
-      setDragState(false);
-    });
-  } catch (error) {
-    console.warn('Drag & drop listener unavailable in this runtime:', error);
+async function startApplication(own) {
+  const preferenceResult = await readerShell.preferences.load();
+  if (preferenceResult.status === 'fallback') {
+    console.warn('One or more saved preferences could not be restored:', preferenceResult.warnings);
   }
-}
-
-function registerEvents() {
-  window.addEventListener('wheel', handleZoom, { passive: false });
-  window.addEventListener('keydown', handleKeyboard);
-  window.addEventListener('beforeunload', () => {
-    if (typeof dragDropUnlisten === 'function') {
-      dragDropUnlisten();
-    }
-    if (typeof fileOpenRequestUnlisten === 'function') {
-      fileOpenRequestUnlisten();
-    }
-    minimapResizeObserver?.disconnect();
-    imageResourcePool.clear();
-    windowChromeUnlisteners.forEach((unlisten) => unlisten());
-    windowChromeUnlisteners = [];
-  });
-  window.addEventListener('resize', queueReadingUiUpdate, { passive: true });
-  window.addEventListener('resize', handleScroll, { passive: true });
-  document.addEventListener('click', handleLinkClick);
-  document.addEventListener('pointerdown', (event) => {
-    if (isReadingToolsOpen && !ui.readingToolsShell?.contains(event.target)) {
-      setReadingToolsOpen(false);
-    }
-    if (isTypographyOpen && !ui.typographyShell?.contains(event.target)) {
-      setTypographyOpen(false);
-    }
-    if (
-      document.body.classList.contains('is-actions-pinned')
-      && !ui.toolbar?.contains(event.target)
-    ) {
-      setActionsPinned(false);
-    }
-  });
-
-  ui.emptyOpenButton?.addEventListener('click', openFilePicker);
-  ui.toolbarOpenButton?.addEventListener('click', openFilePicker);
-  ui.helpToggleButton?.addEventListener('click', toggleHelp);
-  ui.closeHelpButton?.addEventListener('click', () => setHelpVisible(false));
-  ui.scrollToTop?.addEventListener('click', scrollToTop);
-  ui.readerPage?.addEventListener('scroll', handleScroll, { passive: true });
-  ui.helpStage?.addEventListener('scroll', handleScroll, { passive: true });
-  ui.actionsToggleButton?.addEventListener('click', toggleActions);
-  ui.readingToolsButton?.addEventListener('click', toggleReadingTools);
-  ui.typographyButton?.addEventListener('click', toggleTypography);
-  ui.alwaysOnTopButton?.addEventListener('click', toggleAlwaysOnTop);
-  ui.readingToolToggles.forEach((toggle) => {
-    toggle.addEventListener('click', handleReadingToolToggle);
-  });
-  ui.fontButtons.forEach((button) => {
-    button.addEventListener('click', handleFontCycle);
-  });
-  ui.documentMinimap?.addEventListener('pointerdown', handleMinimapPointerDown);
-  ui.documentMinimap?.addEventListener('pointermove', handleMinimapPointerMove);
-  ui.documentMinimap?.addEventListener('pointerup', handleMinimapPointerUp);
-  ui.documentMinimap?.addEventListener('pointercancel', handleMinimapPointerUp);
-  ui.documentMinimap?.addEventListener('keydown', handleMinimapKeyboard);
-  document.getElementById('theme-select')?.addEventListener('change', handleThemeSelection);
-}
-
-async function init() {
-  cacheElements();
-  loadReadingToolPreferences();
-  loadVisualPreferences();
-  syncViewportState();
-  registerEvents();
-  await setupFileAssociationEvents();
-  await setupWindowChrome();
-  setupActionRevealMode();
-  setupReadingResizeObserver();
-  await initThemes();
+  await documentIngress?.start();
+  await setupWindowChrome(own);
+  await initThemes(own);
   const queryFilePath = new URLSearchParams(window.location.search).get('file');
-  let initialFilePath = queryFilePath;
+  let initialFilePaths = queryFilePath ? [queryFilePath] : [];
 
-  if (!initialFilePath && window.__TAURI_INTERNALS__) {
-    try {
-      initialFilePath = await invoke('get_initial_file_path');
-    } catch (error) {
-      console.warn('Could not inspect the launch file:', error);
-    }
+  if (initialFilePaths.length === 0) {
+    initialFilePaths = await runtimeAdapters.openRequests.getInitialFilePaths();
   }
 
-  await loadContent(initialFilePath);
-  await flushQueuedFileOpenRequests();
-  await setupDragAndDrop();
+  await readerShell.start(initialFilePaths.length > 0 ? {
+    origin: 'launch',
+    items: initialFilePaths.map((path) => ({ path })),
+  } : null);
+}
+
+/**
+ * Executable application composition seam. Tests may import and await this
+ * without relying on DOMContentLoaded auto-start.
+ */
+export async function startOpenMdApplication() {
+  applicationLifecycle = createApplicationLifecycleController({
+    window,
+    isDirty: () => Boolean(editorSession?.isDirty()),
+    hooks: {
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  });
+  await applicationLifecycle.start(async ({ own, listen }) => {
+    cacheElements();
+    statusPresenter = own(createStatusPresenter({
+      window,
+      document,
+      elements: {
+        primary: ui.statusPrimary,
+        context: ui.statusContext,
+        metrics: ui.statusMetrics,
+      },
+    }));
+    toastPresenter = own(createToastPresenter({ window, document, element: ui.toast }));
+    mountTooltips(own);
+    mountScrollbarVisibility(own);
+    responsiveTypography = own(createResponsiveTypography({
+      window,
+      root: document,
+      onDiagnostic: (message, error) => console.warn(`${message}:`, error),
+    }));
+    mountApplicationReaderShell(own);
+    mountReaderZoom(own);
+    mountReaderViewport(own);
+    mountReaderControls(own);
+    mountApplicationEditor(own);
+    mountDocumentSaveCoordinator(own);
+    mountDocumentViewState(own);
+    mountDocumentModeCoordinator(own);
+    mountReadingNavigation(own);
+    mountDocumentContentActions(own);
+    mountDocumentLinkController(own);
+    mountDocumentIngress(own);
+    mountContextMenu(own);
+    mountReaderKeyboard(own);
+    syncViewportState();
+    for (const binding of applicationEvents()) {
+      listen(binding.target, binding.type, binding.listener, binding.options);
+    }
+    await startApplication(own);
+    mountEmptyLogoShimmer({ window, own, listen });
+  });
+  return Object.freeze({
+    dispose: () => applicationLifecycle?.dispose(),
+    currentPath: () => getCurrentFilePath(),
+    currentDocument: () => getCurrentDocument(),
+    zoom: () => readerZoom?.current?.() ?? 1,
+  });
 }
 
 if (typeof window !== 'undefined' && !window.__VITEST__) {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      init().catch((error) => console.error('open.md initialization failed:', error));
+      startOpenMdApplication().catch((error) => console.error('open.md initialization failed:', error));
     });
   } else {
-    init().catch((error) => console.error('open.md initialization failed:', error));
+    startOpenMdApplication().catch((error) => console.error('open.md initialization failed:', error));
   }
 }

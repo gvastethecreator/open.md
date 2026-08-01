@@ -1,0 +1,289 @@
+:root {
+  color-scheme: light;
+  --canvas: #f7f9fa;
+  --paper: #ffffff;
+  --ink: #18212b;
+  --muted: #53616d;
+  --edge: #d7dde2;
+  --accent: #087f86;
+  --accent-soft: #d9f0ef;
+  --marker: #dff7a6;
+  --dark: #101419;
+  --dark-muted: #aeb9c2;
+  --gutter: clamp(1rem, 4vw, 4.5rem);
+  --content: 96rem;
+  font-family: Inter, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-synthesis: none;
+  scrollbar-color: #98a6b0 transparent;
+  scrollbar-gutter: stable;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  min-width: 20rem;
+  color: var(--ink);
+  background: var(--canvas);
+  font-size: 1rem;
+  line-height: 1.55;
+  text-rendering: optimizeLegibility;
+}
+
+body::-webkit-scrollbar { width: 0.72rem; }
+body::-webkit-scrollbar-track { background: transparent; }
+body::-webkit-scrollbar-thumb { border: 0.2rem solid transparent; border-radius: 1rem; background: #98a6b0; background-clip: padding-box; }
+body::-webkit-scrollbar-thumb:hover { background: #6d7c87; background-clip: padding-box; }
+
+img, video { display: block; max-width: 100%; }
+a { color: inherit; text-underline-offset: 0.22em; text-decoration-thickness: 0.08em; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { font: inherit; }
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 20;
+  top: 0.75rem;
+  left: 0.75rem;
+  padding: 0.7rem 0.9rem;
+  color: var(--paper);
+  background: var(--ink);
+  transform: translateY(-160%);
+}
+.skip-link:focus { transform: translateY(0); }
+
+.site-header {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 4.5rem;
+  padding: 0 var(--gutter);
+  border-bottom: 1px solid var(--edge);
+  background: color-mix(in srgb, var(--canvas) 92%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+.wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-weight: 780;
+  letter-spacing: -0.035em;
+  text-decoration: none;
+}
+.wordmark img { width: 1.75rem; height: 1.75rem; }
+
+.site-nav { display: flex; align-items: center; gap: clamp(1rem, 2.4vw, 2.25rem); font-size: 0.9rem; }
+.site-nav a { text-decoration: none; }
+.site-nav a:hover { text-decoration: underline; }
+.nav-repo { font-weight: 760; }
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(19rem, 0.78fr) minmax(0, 1.47fr);
+  align-items: center;
+  gap: clamp(2rem, 4vw, 5rem);
+  min-height: calc(100svh - 4.5rem);
+  padding: clamp(4rem, 8vh, 7rem) 0 clamp(3rem, 7vh, 6rem) var(--gutter);
+  overflow: hidden;
+}
+
+.hero-copy { width: min(100%, 31rem); }
+.eyebrow {
+  margin: 0 0 1.3rem;
+  color: var(--accent);
+  font: 760 0.73rem/1.25 "Cascadia Code", "Cascadia Mono", Consolas, monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+h1, h2, h3, p { text-wrap: pretty; }
+h1, h2, h3 { color: var(--ink); }
+h1 {
+  margin: 0;
+  font-size: clamp(3.8rem, 5.4vw, 6.2rem);
+  line-height: 0.86;
+  letter-spacing: -0.072em;
+}
+h2 {
+  margin: 0;
+  font-size: clamp(2.6rem, 4.7vw, 5rem);
+  line-height: 0.94;
+  letter-spacing: -0.058em;
+}
+h3 { margin: 0; font-size: clamp(1.3rem, 2vw, 1.9rem); line-height: 1.1; letter-spacing: -0.035em; }
+
+.hero-summary { margin: 1.7rem 0 0; max-width: 29rem; font-size: clamp(1.04rem, 1.35vw, 1.22rem); line-height: 1.6; }
+.hero-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 1.2rem; margin-top: 2rem; }
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  min-height: 3.1rem;
+  padding: 0 1.15rem;
+  border: 1px solid currentColor;
+  font-weight: 760;
+  text-decoration: none;
+}
+.button-primary { color: var(--paper); background: var(--ink); border-color: var(--ink); }
+.button-primary:hover { color: var(--ink); background: var(--marker); }
+.text-link { font-weight: 700; }
+.release-note { margin: 1.1rem 0 0; color: var(--muted); font-size: 0.88rem; }
+.release-note strong { color: var(--ink); }
+
+.hero-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 2rem 0 0; padding-top: 1rem; border-top: 1px solid var(--edge); }
+.hero-facts div { min-width: 0; }
+.hero-facts dt { color: var(--muted); font: 700 0.68rem/1.2 "Cascadia Code", Consolas, monospace; text-transform: uppercase; letter-spacing: 0.08em; }
+.hero-facts dd { margin: 0.35rem 0 0; font: 600 0.77rem/1.45 "Cascadia Code", Consolas, monospace; }
+
+.hero-artifact { position: relative; margin: 0; min-width: 0; }
+.hero-artifact img { width: 100%; height: auto; min-height: 0; object-fit: contain; border: 1px solid #20272e; box-shadow: 0 2.5rem 6rem rgba(24, 33, 43, 0.2); }
+.hero-artifact figcaption {
+  position: absolute;
+  left: -1rem;
+  bottom: -1rem;
+  display: flex;
+  gap: 1.25rem;
+  padding: 0.75rem 1rem;
+  color: var(--ink);
+  background: var(--marker);
+  font: 720 0.72rem/1.2 "Cascadia Code", Consolas, monospace;
+}
+.hero-artifact figcaption span + span { color: #46513c; font-weight: 600; }
+
+.capability-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+}
+.capability-strip p { display: flex; gap: 1rem; margin: 0; min-height: 6.2rem; padding: 1.35rem var(--gutter); align-items: center; font-weight: 720; }
+.capability-strip p + p { border-left: 1px solid var(--ink); }
+.capability-strip span { color: var(--accent); font: 760 0.72rem/1 "Cascadia Code", Consolas, monospace; }
+
+.section { width: min(100%, var(--content)); margin: 0 auto; padding: clamp(5.5rem, 11vw, 11rem) var(--gutter); }
+.section-heading { display: grid; grid-template-columns: minmax(14rem, 0.55fr) minmax(18rem, 1fr); gap: 2rem clamp(2rem, 7vw, 8rem); align-items: end; }
+.section-heading .eyebrow { grid-column: 1 / -1; margin-bottom: 0; }
+.section-heading > p:last-child { max-width: 32rem; margin: 0; color: var(--muted); font-size: 1.06rem; }
+
+.shot-tabs { display: none; gap: 0.4rem; margin: 3.5rem 0 1.2rem; padding-bottom: 0.8rem; border-bottom: 1px solid var(--edge); }
+.has-js .shot-tabs { display: flex; }
+.shot-tabs button { min-height: 2.75rem; padding: 0 1rem; border: 1px solid transparent; color: var(--muted); background: transparent; cursor: pointer; font-weight: 730; }
+.shot-tabs button:hover { color: var(--ink); }
+.shot-tabs button[aria-selected="true"] { color: var(--ink); border-color: var(--ink); background: var(--paper); }
+
+.shot-panels { margin-top: 3rem; }
+.has-js .shot-panels { margin-top: 0; }
+.has-js .shot-panel[hidden] { display: none; }
+.shot-panel { display: grid; grid-template-columns: minmax(0, 1fr) 18rem; gap: 2rem; align-items: end; margin: 0 0 4rem; }
+.shot-frame { display: grid; place-items: center; min-height: 34rem; overflow: hidden; border: 1px solid var(--ink); background: var(--dark); }
+.shot-frame img { width: 100%; height: 100%; object-fit: contain; }
+.shot-frame-narrow img { width: auto; max-height: 43rem; }
+.shot-panel figcaption { margin: 0; color: var(--muted); font-size: 0.94rem; }
+.shot-panel figcaption strong { display: block; margin-bottom: 0.35rem; color: var(--ink); font-size: 1.05rem; }
+
+.motion-section {
+  display: grid;
+  grid-template-columns: minmax(17rem, 0.55fr) minmax(0, 1.45fr);
+  gap: clamp(2.5rem, 7vw, 8rem);
+  align-items: center;
+  padding: clamp(5.5rem, 9vw, 9rem) var(--gutter);
+  color: var(--paper);
+  background: var(--dark);
+}
+.motion-section h2 { color: var(--paper); }
+.motion-section .eyebrow { color: #78cfd0; }
+.motion-copy p:last-child { max-width: 29rem; color: var(--dark-muted); }
+.video-shell { border: 1px solid #36414a; background: #080b0e; }
+.video-shell video { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; }
+.video-error { margin: 0; padding: 2rem; color: var(--dark-muted); }
+
+.reading-path .section-heading { grid-template-columns: 1fr; max-width: 48rem; }
+.path-list { margin: 4rem 0 0; padding: 0; list-style: none; border-top: 1px solid var(--ink); }
+.path-list li { display: grid; grid-template-columns: 4rem minmax(0, 1fr); gap: 1.5rem; padding: 2rem 0; border-bottom: 1px solid var(--edge); }
+.path-list > li > span { padding-top: 0.3rem; color: var(--accent); font: 760 0.75rem/1 "Cascadia Code", Consolas, monospace; }
+.path-list p { max-width: 50rem; margin: 0.6rem 0 0; color: var(--muted); }
+
+.run-section {
+  display: grid;
+  grid-template-columns: minmax(18rem, 0.8fr) minmax(20rem, 1fr);
+  gap: clamp(3rem, 8vw, 9rem);
+  align-items: end;
+  padding: clamp(5rem, 9vw, 8rem) var(--gutter);
+  color: var(--paper);
+  background: var(--accent);
+}
+.run-section h2 { color: var(--paper); }
+.run-section .eyebrow { color: #c6ffff; }
+.run-section p:not(.eyebrow) { max-width: 35rem; color: #e7ffff; }
+.run-links { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 1.4rem; margin-top: 2rem; }
+.button-light { color: var(--ink); background: var(--paper); border-color: var(--paper); }
+.button-light:hover { background: var(--marker); }
+.run-links > a:not(.button) { color: var(--paper); font-weight: 700; }
+.run-section pre { margin: 0; padding: clamp(1.5rem, 3vw, 2.5rem); overflow: auto; border: 1px solid rgba(255,255,255,0.55); color: var(--paper); background: rgba(8, 43, 47, 0.35); font: 600 clamp(0.86rem, 1.5vw, 1.02rem)/1.9 "Cascadia Code", Consolas, monospace; scrollbar-color: #d7ffff transparent; }
+.run-section code span { color: var(--marker); }
+
+.site-footer { display: flex; justify-content: space-between; gap: 2rem; padding: 2.2rem var(--gutter); border-top: 1px solid var(--edge); background: var(--canvas); font-size: 0.87rem; }
+.site-footer p { margin: 0; color: var(--muted); }
+.site-footer nav { display: flex; gap: 1.4rem; }
+
+@media (max-width: 70rem) {
+  .hero { grid-template-columns: minmax(17rem, 0.78fr) minmax(0, 1.22fr); }
+  .section-heading { grid-template-columns: 1fr; max-width: 52rem; }
+  .shot-panel { grid-template-columns: 1fr; }
+  .shot-frame { min-height: 28rem; }
+  .shot-panel figcaption { max-width: 36rem; }
+}
+
+@media (max-width: 48rem) {
+  .site-header { min-height: 4rem; }
+  .site-nav > a:not(.nav-repo) { display: none; }
+  .hero { display: flex; flex-direction: column; align-items: stretch; min-height: 0; padding: 4rem var(--gutter) 4.5rem; }
+  h1 { font-size: clamp(3.6rem, 17vw, 5.2rem); }
+  .hero-copy { width: 100%; }
+  .hero-artifact { margin: 1rem calc(var(--gutter) * -1) 0 0; }
+  .hero-artifact img { width: 118%; max-width: none; height: auto; min-height: 0; }
+  .hero-artifact figcaption { left: 0.75rem; bottom: -1.2rem; flex-direction: column; gap: 0.25rem; }
+  .hero-facts { grid-template-columns: 1fr; }
+  .capability-strip { grid-template-columns: 1fr; }
+  .capability-strip p { min-height: 4.8rem; }
+  .capability-strip p + p { border-left: 0; border-top: 1px solid var(--ink); }
+  .section { padding-top: 6rem; padding-bottom: 6rem; }
+  .shot-tabs { overflow-x: auto; scrollbar-width: thin; }
+  .shot-tabs button { flex: 0 0 auto; }
+  .shot-frame { min-height: 22rem; }
+  .shot-frame-wide img { width: 135%; max-width: none; object-position: top left; }
+  .shot-frame-narrow img { max-height: 35rem; }
+  .motion-section, .run-section { grid-template-columns: 1fr; }
+  .motion-section { padding-top: 5.5rem; padding-bottom: 5.5rem; }
+  .path-list li { grid-template-columns: 2.5rem minmax(0, 1fr); gap: 0.75rem; }
+  .site-footer { flex-direction: column; }
+  .site-footer nav { flex-wrap: wrap; }
+}
+
+@media (max-width: 24rem) {
+  .wordmark img { display: none; }
+  .hero-actions { align-items: stretch; flex-direction: column; }
+  .hero-actions .button { width: 100%; }
+  .hero-artifact figcaption { max-width: calc(100% - 1.5rem); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}
+
+@media (forced-colors: active) {
+  .button, .hero-artifact img, .shot-frame, .video-shell { border: 2px solid CanvasText; }
+  .hero-artifact figcaption { border: 1px solid CanvasText; }
+}

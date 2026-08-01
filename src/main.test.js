@@ -9,25 +9,26 @@ import {
   getDisplayName,
   getFileKind,
   getCurrentLineFromAnchors,
+  getDocumentModePresentation,
   getEstimatedMinutesRemaining,
   getLineGutterLeft,
   getMarkdownSourceTokenRanges,
   getImageSourcePolicy,
   getLinkAction,
+  getMinimapScrollTopFromPointer,
   getMinimapViewportGeometry,
   getReadingProgress,
   getScrollEdgeState,
+  setMarkdownTaskChecked,
   getStatusMetricParts,
   getViewportMode,
   getVisibleSourceLineRange,
   getWindowControlPresentation,
   isSupportedFilePath,
   normalizeDocumentPayload,
-  normalizeOpenFileRequest,
-  normalizeCycleIndex,
-  normalizeReadingTools,
   resolveRelativeFilePath,
 } from './core/reader.js';
+import { normalizeFontIndex, normalizeReadingTools } from './reader-preferences.js';
 
 describe('Frontend Logic Tests', () => {
   describe('getPreferredThemeIndex', () => {
@@ -61,6 +62,9 @@ describe('Frontend Logic Tests', () => {
 
       for (const theme of allThemes) {
         const tokens = getThemeTokens(theme);
+        const lightCodeSurface = !isColorDark(tokens.codeBackground);
+        const codeTextMinimum = lightCodeSurface ? 7 : 4.5;
+        const syntaxMinimum = lightCodeSurface ? 6 : 4.5;
         const checks = [
           ['text/background', getContrastRatio(tokens.text, tokens.background), 4.5],
           ['link/background', getContrastRatio(tokens.link, tokens.background), 4.5],
@@ -68,6 +72,16 @@ describe('Frontend Logic Tests', () => {
           ['accent foreground/accent', getContrastRatio(tokens.accentForeground, tokens.accent), 4.5],
           ['quote/background', getContrastRatio(tokens.quote, tokens.background), 4.5],
           ['text/surface', getContrastRatio(tokens.text, tokens.surface), 4.5],
+          ['code text/code background', getContrastRatio(tokens.codeText, tokens.codeBackground), codeTextMinimum],
+          ['syntax comment/code background', getContrastRatio(tokens.syntaxComment, tokens.codeBackground), syntaxMinimum],
+          ['syntax keyword/code background', getContrastRatio(tokens.syntaxKeyword, tokens.codeBackground), syntaxMinimum],
+          ['syntax string/code background', getContrastRatio(tokens.syntaxString, tokens.codeBackground), syntaxMinimum],
+          ['syntax number/code background', getContrastRatio(tokens.syntaxNumber, tokens.codeBackground), syntaxMinimum],
+          ['syntax title/code background', getContrastRatio(tokens.syntaxTitle, tokens.codeBackground), syntaxMinimum],
+          ['syntax property/code background', getContrastRatio(tokens.syntaxProperty, tokens.codeBackground), syntaxMinimum],
+          ['syntax meta/code background', getContrastRatio(tokens.syntaxMeta, tokens.codeBackground), syntaxMinimum],
+          ['syntax addition/code background', getContrastRatio(tokens.syntaxAddition, tokens.codeBackground), syntaxMinimum],
+          ['syntax deletion/code background', getContrastRatio(tokens.syntaxDeletion, tokens.codeBackground), syntaxMinimum],
         ];
 
         for (const [label, ratio, minimum] of checks) {
@@ -92,6 +106,24 @@ describe('Frontend Logic Tests', () => {
       expect(getContrastRatio(tokens.text, tokens.background)).toBeGreaterThanOrEqual(4.5);
       expect(getContrastRatio(tokens.link, tokens.background)).toBeGreaterThanOrEqual(4.5);
     });
+
+    it('keeps syntax roles chromatically distinct in representative light and dark themes', () => {
+      for (const themeName of ['Github Light', 'Github Dark', 'Ayu Light', 'Ayu Dark']) {
+        const theme = allThemes.find(({ name }) => name === themeName);
+        const tokens = getThemeTokens(theme);
+        const syntaxColors = new Set([
+          tokens.syntaxComment,
+          tokens.syntaxKeyword,
+          tokens.syntaxString,
+          tokens.syntaxNumber,
+          tokens.syntaxTitle,
+          tokens.syntaxProperty,
+          tokens.syntaxMeta,
+        ]);
+
+        expect(syntaxColors.size, themeName).toBeGreaterThanOrEqual(4);
+      }
+    });
   });
 
   describe('file helpers', () => {
@@ -99,7 +131,14 @@ describe('Frontend Logic Tests', () => {
       expect(isSupportedFilePath('README.md')).toBe(true);
       expect(isSupportedFilePath('notes.MARKDOWN')).toBe(true);
       expect(isSupportedFilePath('log.txt')).toBe(true);
-      expect(isSupportedFilePath('photo.png')).toBe(false);
+      expect(isSupportedFilePath('config.JSON')).toBe(true);
+      expect(isSupportedFilePath('setup.ini')).toBe(true);
+      expect(isSupportedFilePath('info.nfo')).toBe(true);
+      expect(isSupportedFilePath('settings.toml')).toBe(true);
+      expect(isSupportedFilePath('photo.png')).toBe(true);
+      expect(isSupportedFilePath('cover.WEBP')).toBe(true);
+      expect(isSupportedFilePath('main.rs')).toBe(false);
+      expect(isSupportedFilePath('page.html')).toBe(false);
     });
 
     it('extracts a friendly display name from Windows paths', () => {
@@ -111,6 +150,10 @@ describe('Frontend Logic Tests', () => {
       expect(getFileKind('C:\\docs\\guide.md')).toBe('Markdown');
       expect(getFileKind('notes.markdown')).toBe('Markdown');
       expect(getFileKind('notes.TXT')).toBe('Text');
+      expect(getFileKind('config.json')).toBe('Text');
+      expect(getFileKind('setup.INI')).toBe('Text');
+      expect(getFileKind('photo.png')).toBe('Image');
+      expect(getFileKind('cover.JPEG')).toBe('Image');
     });
 
     it('resolves relative markdown links from the current document', () => {
@@ -145,6 +188,11 @@ describe('Frontend Logic Tests', () => {
         type: 'blocked',
       });
       expect(getLinkAction('./image.png', 'C:\\docs\\guide\\intro.md')).toEqual({
+        type: 'file',
+        path: 'C:/docs/guide/image.png',
+        fragment: '',
+      });
+      expect(getLinkAction('./page.html', 'C:\\docs\\guide\\intro.md')).toEqual({
         type: 'blocked',
       });
     });
@@ -198,7 +246,7 @@ describe('Frontend Logic Tests', () => {
       expect(tokens('plain a_b identifier')).toEqual([]);
     });
 
-    it('normalizes structured and legacy document payloads', () => {
+    it('normalizes structured payloads and rejects the removed string contract', () => {
       expect(normalizeDocumentPayload({
         html: '<h1>Title</h1>',
         source: '# Title\n',
@@ -214,16 +262,11 @@ describe('Frontend Logic Tests', () => {
         wordCount: 2,
         readingTimeMinutes: 1,
       });
-      expect(normalizeDocumentPayload('<p>Legacy</p>')).toMatchObject({
-        html: '<p>Legacy</p>',
-        source: '',
-        lineCount: 1,
-        characterCount: 0,
-      });
+      expect(() => normalizeDocumentPayload('<p>Legacy</p>')).toThrow('Invalid document payload');
     });
 
-    it('keeps essential document counts and labels zoom explicitly', () => {
-      expect(getStatusMetricParts({
+    it('keeps essential document counts and only exposes a custom zoom', () => {
+      const defaultZoom = getStatusMetricParts({
         lineCount: 42,
         characterCount: 1280,
         zoomPercent: 100,
@@ -232,16 +275,31 @@ describe('Frontend Logic Tests', () => {
         readingProgress: 25,
         readingTimeMinutes: 8,
         showReadingStats: true,
-      })).toEqual({
-        visible: ['42 lines', '1,280 chars', 'Zoom 100%', 'Ln 9', '25%', '6 min left'],
-        accessible: [
-          '42 lines',
-          '1,280 characters',
-          'Zoom 100 percent',
-          'Line 9',
-          '25 percent through document',
-          '6 minutes left',
-        ],
+      });
+
+      expect(defaultZoom.visible).toEqual(['42 lines', '1,280 chars', 'Ln 9', '25%', '6 min left']);
+      expect(defaultZoom.accessible).toEqual([
+        '42 lines',
+        '1,280 characters',
+        'Line 9',
+        '25 percent through document',
+        '6 minutes left',
+      ]);
+      expect(defaultZoom.items.some(({ kind }) => kind === 'zoom')).toBe(false);
+
+      const customZoom = getStatusMetricParts({
+        lineCount: 1,
+        characterCount: 8,
+        zoomPercent: 125,
+        currentLine: 3,
+        showCurrentLine: true,
+        showReadingStats: false,
+      });
+      expect(customZoom.visible).toEqual(['1 line', '8 chars', 'Ln 3', '125%']);
+      expect(customZoom.items).toContainEqual({
+        kind: 'zoom',
+        visible: '125%',
+        accessible: 'Zoom 125 percent',
       });
     });
 
@@ -256,38 +314,75 @@ describe('Frontend Logic Tests', () => {
       });
     });
 
-    it('accepts only explicit persisted booleans', () => {
+    it('accepts explicit booleans and fills missing tool defaults', () => {
       expect(normalizeReadingTools({
         lineGuide: true,
         minimap: 'true',
         source: false,
         stats: 1,
+        wordWrap: false,
       })).toEqual({
         lineGuide: true,
         minimap: false,
         source: false,
         stats: false,
+        wordWrap: false,
+        blockEditor: false,
       });
+      expect(normalizeReadingTools({})).toEqual({
+        lineGuide: false,
+        minimap: false,
+        source: false,
+        stats: false,
+        wordWrap: true,
+        blockEditor: false,
+      });
+      expect(normalizeReadingTools({ blockEditor: true }).blockEditor).toBe(true);
+    });
+
+    it('updates only the task marker at the rendered source line', () => {
+      const source = '# Tasks\r\n\r\n- [ ] First\r\n  1. [X] Nested\r\n- plain';
+      expect(setMarkdownTaskChecked(source, 3, true)).toEqual({
+        source: '# Tasks\r\n\r\n- [x] First\r\n  1. [X] Nested\r\n- plain',
+        changed: true,
+      });
+      expect(setMarkdownTaskChecked(source, 4, false)).toEqual({
+        source: '# Tasks\r\n\r\n- [ ] First\r\n  1. [ ] Nested\r\n- plain',
+        changed: true,
+      });
+      expect(setMarkdownTaskChecked(source, 5, true)).toBeNull();
+      expect(setMarkdownTaskChecked(source, 99, true)).toBeNull();
+    });
+
+    it('cycles the document mode presentation through read, edit, and source', () => {
+      expect(getDocumentModePresentation('read')).toMatchObject({
+        mode: 'read',
+        label: 'Read',
+        iconClass: 'iconoir-book',
+        nextMode: 'edit',
+        ariaLabel: 'Read mode. Switch to Edit mode',
+      });
+      expect(getDocumentModePresentation('edit')).toMatchObject({
+        mode: 'edit',
+        label: 'Edit',
+        iconClass: 'iconoir-edit-pencil',
+        nextMode: 'source',
+      });
+      expect(getDocumentModePresentation('source')).toMatchObject({
+        mode: 'source',
+        label: 'Source',
+        iconClass: 'iconoir-code',
+        nextMode: 'read',
+      });
+      expect(getDocumentModePresentation('unknown').mode).toBe('read');
     });
 
     it('keeps persisted font choices inside their available preset range', () => {
-      expect(normalizeCycleIndex(2, 3)).toBe(2);
-      expect(normalizeCycleIndex(3, 3)).toBe(0);
-      expect(normalizeCycleIndex(-1, 3)).toBe(0);
-      expect(normalizeCycleIndex('1', 3)).toBe(1);
-      expect(normalizeCycleIndex(1, 0)).toBe(0);
-    });
-
-    it('normalizes and deduplicates native file-open requests', () => {
-      expect(normalizeOpenFileRequest({
-        id: 7,
-        paths: ['C:\\docs\\one.md', 'C:\\docs\\one.md', 'C:\\docs\\two.markdown', 42],
-      })).toEqual({
-        id: 7,
-        paths: ['C:\\docs\\one.md', 'C:\\docs\\two.markdown'],
-      });
-      expect(normalizeOpenFileRequest({ id: 0, paths: ['README.md'] })).toBeNull();
-      expect(normalizeOpenFileRequest({ id: 9, paths: [] })).toBeNull();
+      expect(normalizeFontIndex(2, 3)).toBe(2);
+      expect(normalizeFontIndex(3, 3)).toBe(0);
+      expect(normalizeFontIndex(-1, 3)).toBe(0);
+      expect(normalizeFontIndex('1', 3)).toBe(1);
+      expect(normalizeFontIndex(1, 0)).toBe(0);
     });
 
     it('calculates bounded progress and remaining time', () => {
@@ -362,6 +457,36 @@ describe('Frontend Logic Tests', () => {
         trackHeight: 360,
         contentHeight: 90,
       })).toEqual({ top: 22.5, height: 45 });
+    });
+
+    it('maps minimap pointer Y against scaled content height, not empty rail', () => {
+      // Short content: mid-rail click that is past content ends at document end.
+      expect(getMinimapScrollTopFromPointer({
+        clientY: 200,
+        trackTop: 0,
+        contentHeight: 90,
+        maxScroll: 800,
+      })).toBe(800);
+      // 25% into content → 25% of scroll range.
+      expect(getMinimapScrollTopFromPointer({
+        clientY: 22.5,
+        trackTop: 0,
+        contentHeight: 90,
+        maxScroll: 800,
+      })).toBe(200);
+      // Full-height content: half track is half scroll.
+      expect(getMinimapScrollTopFromPointer({
+        clientY: 200,
+        trackTop: 0,
+        contentHeight: 400,
+        maxScroll: 800,
+      })).toBe(400);
+      expect(getMinimapScrollTopFromPointer({
+        clientY: 10,
+        trackTop: 0,
+        contentHeight: 0,
+        maxScroll: 100,
+      })).toBe(100);
     });
   });
 

@@ -1,14 +1,6 @@
-export const MAX_IMAGE_RESOURCE_BYTES = 64 * 1024 * 1024;
+import { imageMimeForFormat } from './format-detect.js';
 
-const IMAGE_MIME_TYPES = Object.freeze({
-  avif: 'image/avif',
-  bmp: 'image/bmp',
-  gif: 'image/gif',
-  jpeg: 'image/jpeg',
-  jpg: 'image/jpeg',
-  png: 'image/png',
-  webp: 'image/webp',
-});
+export const MAX_IMAGE_RESOURCE_BYTES = 64 * 1024 * 1024;
 
 export class ImageResourceBudgetError extends Error {
   constructor(limitBytes, usedBytes, requestedBytes) {
@@ -35,7 +27,8 @@ export function getImageMimeType(source) {
 
   const normalizedSource = decodedSource.replace(/\\/g, '/');
   const extension = normalizedSource.slice(normalizedSource.lastIndexOf('.') + 1).toLowerCase();
-  return IMAGE_MIME_TYPES[extension] || null;
+  const format = extension === 'jpg' ? 'jpeg' : extension;
+  return imageMimeForFormat(format);
 }
 
 export function toUint8Array(value) {

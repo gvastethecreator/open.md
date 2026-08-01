@@ -1,98 +1,98 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "deps",
-            "type": "shell",
-            "command": "bun",
-            "args": [
-                "install"
-            ],
-            "group": "none"
-        },
-        {
-            "label": "web dev",
-            "type": "shell",
-            "command": "bun",
-            "args": [
-                "run",
-                "dev"
-            ],
-            "isBackground": true,
-            "problemMatcher": []
-        },
-        {
-            "label": "app dev",
-            "type": "shell",
-            "command": "bun",
-            "args": [
-                "run",
-                "tauri",
-                "dev"
-            ],
-            "isBackground": true,
-            "problemMatcher": []
-        },
-        {
-            "label": "front tests",
-            "type": "shell",
-            "command": "bun",
-            "args": [
-                "run",
-                "test:frontend"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "rust tests",
-            "type": "shell",
-            "command": "bun",
-            "args": [
-                "run",
-                "test:rust"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "check:frontend",
-            "type": "shell",
-            "command": "bun",
-            "args": [
-                "run",
-                "check:frontend"
-            ],
-            "group": "test"
-        },
-        {
-            "label": "verify",
-            "type": "shell",
-            "command": "bun",
-            "args": [
-                "run",
-                "verify"
-            ],
-            "group": {
-                "kind": "test",
-                "isDefault": true
-            }
-        },
-        {
-            "label": "build",
-            "type": "shell",
-            "command": "bun",
-            "args": [
-                "run",
-                "tauri",
-                "build"
-            ],
-            "dependsOn": [
-                "verify"
-            ],
-            "dependsOrder": "sequence",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            }
-        }
-    ]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "📦 deps",
+      "type": "shell",
+      "command": "bun",
+      "args": [
+        "install"
+      ],
+      "group": "none"
+    },
+    {
+      "label": "⚡ web",
+      "type": "shell",
+      "command": "bun",
+      "args": [
+        "run",
+        "dev"
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "🚀 dev",
+      "type": "shell",
+      "command": "bun",
+      "args": [
+        "run",
+        "tauri",
+        "dev"
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "🧪 test",
+      "type": "shell",
+      "command": "bun",
+      "args": [
+        "run",
+        "test:frontend"
+      ],
+      "group": "test"
+    },
+    {
+      "label": "🦀 test",
+      "type": "shell",
+      "command": "bun",
+      "args": [
+        "run",
+        "test:rust"
+      ],
+      "group": "test"
+    },
+    {
+      "label": "🔍 check",
+      "type": "shell",
+      "command": "bun",
+      "args": [
+        "run",
+        "check:frontend"
+      ],
+      "group": "test"
+    },
+    {
+      "label": "✅ verify",
+      "type": "shell",
+      "command": "bun",
+      "args": [
+        "run",
+        "verify"
+      ],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "🏗️ build",
+      "type": "shell",
+      "command": "bun",
+      "args": [
+        "run",
+        "tauri",
+        "build"
+      ],
+      "dependsOn": [
+        "✅ verify"
+      ],
+      "dependsOrder": "sequence",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
 }

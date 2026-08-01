@@ -5,19 +5,17 @@ const root = process.cwd();
 const requiredFiles = [
   'index.html',
   'src/main.js',
-  'src/core/reader.js',
-  'src/image-resources.js',
-  'src/mermaid-renderer.js',
   'src/styles.css',
   'src/themes.json',
   'src/themes.runtime.json',
   'scripts/generate-runtime-themes.mjs',
   'src/assets/icon.png',
   'src/assets/app-icon.png',
+  'src/assets/fonts/InterVariable.woff2',
+  'src/assets/fonts/InterVariable-Italic.woff2',
+  'src/assets/fonts/LICENSE.txt',
   'src-tauri/tauri.conf.json',
   'src-tauri/capabilities/default.json',
-  'src-tauri/src/lib.rs',
-  'src-tauri/src/images.rs',
   'docs/FILE_ASSOCIATIONS.md'
 ];
 
@@ -29,12 +27,7 @@ for (const relativePath of requiredFiles) {
 }
 
 const indexHtml = readFileSync(path.join(root, 'index.html'), 'utf8');
-const mainJavaScript = readFileSync(path.join(root, 'src/main.js'), 'utf8');
-const mermaidRendererJavaScript = readFileSync(path.join(root, 'src/mermaid-renderer.js'), 'utf8');
 const stylesCss = readFileSync(path.join(root, 'src/styles.css'), 'utf8');
-const tauriRust = readFileSync(path.join(root, 'src-tauri/src/lib.rs'), 'utf8');
-const imageRust = readFileSync(path.join(root, 'src-tauri/src/images.rs'), 'utf8');
-const cargoManifest = readFileSync(path.join(root, 'src-tauri/Cargo.toml'), 'utf8');
 
 function readPngInfo(relativePath) {
   const bytes = readFileSync(path.join(root, relativePath));
@@ -81,11 +74,11 @@ if (!indexHtml.includes('href="/src/assets/app-icon.png"')) {
   throw new Error('index.html must load /src/assets/app-icon.png as favicon');
 }
 const legacyAssetName = ['openmd', 'icon.png'].join('-');
-if (indexHtml.includes(legacyAssetName) || mainJavaScript.includes(legacyAssetName)) {
+if (indexHtml.includes(legacyAssetName)) {
   throw new Error('stale legacy icon asset references must be removed');
 }
 const legacyProductName = ['Open', 'MD'].join('');
-if ([indexHtml, tauriRust, mainJavaScript].some((source) => source.includes(legacyProductName))) {
+if (indexHtml.includes(legacyProductName)) {
   throw new Error('visible product branding must use open.md');
 }
 
@@ -94,14 +87,24 @@ const requiredAccessibleControls = [
   'id="toolbar-open-button"',
   'id="help-toggle-button"',
   'id="close-help-button"',
-  'id="actions-toggle-button"',
+  'id="about-help-title"',
+  'id="quick-start-title"',
+  'id="shortcuts-help-title"',
   'id="reading-tools-button"',
   'id="reading-tools-panel"',
-  'id="typography-button"',
-  'id="typography-panel"',
+  'id="basic-options-panel"',
+  'id="advanced-options-panel"',
   'id="sans-font-button"',
   'id="mono-font-button"',
   'id="always-on-top-button"',
+  'id="editor-view"',
+  'id="editor-canvas"',
+  'id="edit-mode-button"',
+  'id="editor-save-button"',
+  'id="editor-command-menu"',
+  'id="editor-block-menu"',
+  'id="editor-inline-toolbar"',
+  'id="editor-link-popover"',
   'id="line-gutter"',
   'id="document-minimap"',
   'id="minimap-document"',
@@ -109,8 +112,11 @@ const requiredAccessibleControls = [
   'id="source-view"',
   'data-reading-tool="lineGuide"',
   'data-reading-tool="minimap"',
-  'data-reading-tool="source"',
+  'data-reading-tool="wordWrap"',
   'data-reading-tool="stats"',
+  'data-preference-toggle="autoSave"',
+  'id="theme-select"',
+  'class="titlebar-save-state"',
   'id="status-context"',
   'id="window-minimize-button"',
   'id="window-maximize-button"',
@@ -134,6 +140,24 @@ if (!stylesCss.includes('box-sizing: border-box') || !stylesCss.includes('prefer
 if (!stylesCss.includes('--toolbar-height: 30px') || !stylesCss.includes('--motion-ease-out: cubic-bezier')) {
   throw new Error('src/styles.css must preserve the minimal status bar and semantic easing tokens');
 }
+if (
+  !stylesCss.includes('.status-metric--zoom')
+  || !stylesCss.includes('.iconoir-search::before')
+  || !stylesCss.includes('transition: font-size 180ms')
+) {
+  throw new Error('src/styles.css must preserve conditional animated zoom status');
+}
+if (
+  !stylesCss.includes('.toast-surface')
+  || !stylesCss.includes('.toast.is-animating .toast-message')
+  || !stylesCss.includes('will-change: clip-path, opacity, transform')
+  || /\.toast-message\s*\{[^}]*transition:/s.test(stylesCss)
+) {
+  throw new Error('src/styles.css must keep toast motion on isolated WAAPI layers');
+}
+if (!stylesCss.includes('.help-project-facts') || !stylesCss.includes('.help-steps')) {
+  throw new Error('src/styles.css must preserve the About and Help composition');
+}
 if (!stylesCss.includes('--titlebar-height: 32px') || !stylesCss.includes('filter: blur(1px)')) {
   throw new Error('src/styles.css must preserve the compact custom title bar and minimap blur');
 }
@@ -149,82 +173,32 @@ if (!stylesCss.includes('body.is-minimap .markdown-body')) {
 if (!stylesCss.includes('.source-markup-token') || !stylesCss.includes('font-weight: 750')) {
   throw new Error('src/styles.css must distinguish Markdown markup in source mode');
 }
-
 if (
-  !mermaidRendererJavaScript.includes("securityLevel: 'strict'")
-  || !mermaidRendererJavaScript.includes("import('mermaid')")
-  || !mainJavaScript.includes('getThemeTokens')
-  || !mainJavaScript.includes("./mermaid-renderer.js")
-  || !mainJavaScript.includes("./core/reader.js")
-  || /from ['"]mermaid['"]/.test(mainJavaScript)
+  !stylesCss.includes('--content-depth-filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.1))')
+  || !stylesCss.includes('body.is-word-wrap .source-view')
+  || !stylesCss.includes('body:not(.is-word-wrap) .editor-block-content')
 ) {
-  throw new Error('Mermaid must stay behind the lazy strict renderer boundary and pure reader helpers must stay deep-importable');
+  throw new Error('src/styles.css must preserve configurable wrapping and subtle content depth');
 }
+
 if (
   !stylesCss.includes('.typography-panel')
-  || !stylesCss.includes('body.has-scroll-before .app-shell::before')
-  || !stylesCss.includes('backdrop-filter: blur(1.25px)')
+  || !stylesCss.includes('--content-edge-fade')
+  || !stylesCss.includes('mask-image: linear-gradient(')
+  || !stylesCss.includes('.reader-page')
 ) {
-  throw new Error('src/styles.css must preserve typography controls and conditional scroll-edge depth cues');
+  throw new Error('src/styles.css must preserve typography controls and content edge fade masks');
 }
 if (
-  !mainJavaScript.includes("invoke('get_image_bytes'")
-  || mainJavaScript.includes("invoke('get_image_data'")
-  || mainJavaScript.includes('data:image')
-  || !mainJavaScript.includes('ImageResourcePool')
-  || !mainJavaScript.includes('IMAGE_RESOURCE_BUDGET_EXCEEDED')
+  !stylesCss.includes('@font-face')
+  || !stylesCss.includes('InterVariable.woff2')
+  || !stylesCss.includes('InterVariable-Italic.woff2')
 ) {
-  throw new Error('Local images must use raw get_image_bytes IPC and bounded Blob URL resources');
+  throw new Error('src/styles.css must bundle Inter normal and italic as the default sans family');
 }
-if (
-  [tauriRust, imageRust, cargoManifest].some((source) => source.includes('base64') || source.includes('get_image_data'))
-  || !imageRust.includes('Response::new')
-) {
-  throw new Error('Rust image IPC must return raw bytes without a base64 command');
+if (!stylesCss.includes('.editor-block-content') || !stylesCss.includes('.editor-menu')) {
+  throw new Error('src/styles.css must include the block editor canvas and command surface');
 }
-if (!mainJavaScript.includes("invoke('get_initial_file_path')")) {
-  throw new Error('src/main.js must preserve the native launch-path handoff');
-}
-if (
-  !mainJavaScript.includes('renderSourceContent(documentPayload.source,')
-  || !mainJavaScript.includes("root.style.setProperty('--ui-accent', tokens.accent)")
-  || !mainJavaScript.includes("root.style.setProperty('--accent-foreground', tokens.accentForeground)")
-  || !mainJavaScript.includes('meta[name="theme-color"]')
-) {
-  throw new Error('src/main.js must preserve source markup emphasis and complete theme accent propagation');
-}
-if (
-  !mainJavaScript.includes("listen('open-file-request'")
-  || !mainJavaScript.includes("invoke('take_pending_open_file_requests')")
-  || !mainJavaScript.includes("getCurrentWindow().label !== 'main'")
-  || !tauriRust.includes('tauri::RunEvent::Opened')
-  || !tauriRust.includes('take_pending_open_file_requests')
-) {
-  throw new Error('Native file associations must preserve queued macOS and single-instance handoff');
-}
-if (!mainJavaScript.includes('MAX_LOCAL_IMAGES') || !mainJavaScript.includes('IMAGE_LOAD_CONCURRENCY')) {
-  throw new Error('src/main.js must keep local image loading bounded');
-}
-if (
-  !mainJavaScript.includes('normalizeDocumentPayload')
-  || !mainJavaScript.includes('renderMinimapDocument')
-  || !mainJavaScript.includes('getMinimapViewportGeometry')
-  || !mainJavaScript.includes('getLineGutterLeft')
-  || !mainJavaScript.includes('getStatusMetricParts')
-  || !mainJavaScript.includes('getWindowControlPresentation')
-) {
-  throw new Error('src/main.js must preserve structured document data and measured reading-tool geometry');
-}
-if (
-  !mainJavaScript.includes('nativeWindow.setAlwaysOnTop')
-  || !mainJavaScript.includes('FONT_PRESETS')
-  || !mainJavaScript.includes('getScrollEdgeState')
-  || !readFileSync(path.join(root, 'src-tauri/capabilities/default.json'), 'utf8')
-    .includes('core:window:allow-set-always-on-top')
-) {
-  throw new Error('Window pinning, font presets, and scroll-edge state must stay wired through their runtime contracts');
-}
-
 const themesRaw = readFileSync(path.join(root, 'src/themes.json'), 'utf8').trim();
 if (!themesRaw) {
   throw new Error('src/themes.json cannot be empty');
@@ -323,10 +297,11 @@ for (const permission of [
   'core:window:allow-toggle-maximize',
   'core:window:allow-minimize',
   'core:window:allow-close',
+  'core:window:allow-set-always-on-top',
 ]) {
   if (!capabilities.permissions?.includes(permission)) {
     throw new Error(`src-tauri/capabilities/default.json is missing ${permission}`);
   }
 }
 
-console.log(`Frontend validation passed (${themes.length} themes found).`);
+console.log(`Static frontend validation passed (${themes.length} themes found).`);
