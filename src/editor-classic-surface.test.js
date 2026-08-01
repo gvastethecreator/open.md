@@ -150,6 +150,32 @@ describe('Editor Classic Surface', () => {
     expect(caretOffsetInSource(long)).toBe(5);
   });
 
+  it('clears sticky preferred column after click/input so the next vertical uses the live caret', () => {
+    const { surface, canvas } = mountSurface('abcdef\nxy\nabcdefgh');
+    placeCaretIn(canvas.querySelector('[data-editor-mode="source"]'), 5);
+    expect(surface.handleKeydown(new KeyboardEvent('keydown', {
+      key: 'ArrowDown', bubbles: true, cancelable: true,
+    }))).toBe(true);
+    expect(surface.preferredColumn()).toBe(5);
+
+    // Pointer placement on the active short line ends sticky sequence.
+    const shortRow = canvas.querySelector('[data-classic-line="1"]');
+    surface.handleClick({
+      target: shortRow.querySelector('[data-classic-content]'),
+      preventDefault: () => {},
+    });
+    placeCaretIn(canvas.querySelector('[data-editor-mode="source"]'), 0);
+    surface.handleSelectionChange();
+    expect(surface.preferredColumn()).toBe(0);
+
+    expect(surface.handleKeydown(new KeyboardEvent('keydown', {
+      key: 'ArrowDown', bubbles: true, cancelable: true,
+    }))).toBe(true);
+    expect(surface.activeLine()).toBe(2);
+    // New vertical sequence captures from col 0, not the old sticky 5.
+    expect(caretOffsetInSource(canvas.querySelector('[data-editor-mode="source"]'))).toBe(0);
+  });
+
   it('crosses hard lines at edges with ArrowLeft/Right and updates preferred column', () => {
     const { surface, canvas } = mountSurface('ab\ncd\nef');
     surface.activateLine(1, { caret: 0, clearSelection: true });

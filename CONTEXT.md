@@ -84,6 +84,19 @@ flowchart LR
 - Invariant: a failed native pin operation cannot leave the model or persisted
   value claiming that the window is pinned.
 
+### App runtime settings (native)
+
+- Owns process-level policy that must be known before the webview loads:
+  multi-instance vs single-instance boot (`settings.json` under the app config
+  directory).
+- `src-tauri/src/app_settings.rs` is the owner; `lib.rs` applies the choice by
+  registering `tauri-plugin-single-instance` only when multi-instance is off.
+- File-association **actions** live in `src-tauri/src/file_associations.rs`
+  (OS UI / user-scoped defaults). They are not reader preferences and do not
+  claim silent default-app ownership.
+- Frontend Advanced → System projects these via runtime adapters; disk truth
+  wins over HTML defaults after hydrate.
+
 ### UI lifecycle coordinators
 
 - `src/main.js` remains the composition root. It declares acquisitions, event

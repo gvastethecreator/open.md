@@ -232,6 +232,54 @@ export function createApplicationRuntimeAdapters({
     }
   };
 
+  const getProcessInstanceMode = async () => {
+    if (!native) {
+      return {
+        allowMultipleInstances: true,
+        processAllowsMultipleInstances: true,
+        restartRequired: false,
+        available: false,
+      };
+    }
+    const mode = await invokeNative('get_process_instance_mode');
+    return {
+      allowMultipleInstances: mode?.allowMultipleInstances !== false,
+      processAllowsMultipleInstances: mode?.processAllowsMultipleInstances !== false,
+      restartRequired: Boolean(mode?.restartRequired),
+      available: true,
+    };
+  };
+
+  const setAllowMultipleInstances = async (value) => {
+    if (!native) {
+      const error = nativeAccessError();
+      error.code = 'NATIVE_ACCESS_UNAVAILABLE';
+      throw error;
+    }
+    return invokeNative('set_allow_multiple_instances', { value: Boolean(value) });
+  };
+
+  const getFileAssociationStatus = async () => {
+    if (!native) {
+      return {
+        status: 'unavailable',
+        platform: 'browser',
+        detail: 'File associations require the desktop app.',
+        extensions: ['md', 'markdown', 'txt'],
+        available: false,
+      };
+    }
+    const status = await invokeNative('get_file_association_status');
+    return { ...status, available: true };
+  };
+
+  const requestFileAssociation = async () => {
+    if (!native) {
+      throw nativeAccessError();
+    }
+    return invokeNative('request_file_association');
+  };
+
   return Object.freeze({
     documents: Object.freeze({ open, save, readImage, readImageFile, downloadImage }),
     diagrams: Object.freeze({
@@ -255,6 +303,12 @@ export function createApplicationRuntimeAdapters({
       openFileDialog,
       getCurrentWebview,
       listPendingOpenFileRequests,
+    }),
+    system: Object.freeze({
+      getProcessInstanceMode,
+      setAllowMultipleInstances,
+      getFileAssociationStatus,
+      requestFileAssociation,
     }),
     storage: storage || createOptionalWebPreferenceStore(window) || createMemoryPreferenceStore(),
   });

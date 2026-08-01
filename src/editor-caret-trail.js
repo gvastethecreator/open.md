@@ -105,6 +105,7 @@ export function createEditorCaretTrail({
 
   let engine = null; // Trail engine | null | false (unsupported)
   let rafId = null;
+  let deferredFrameTimer = null;
   let running = false;
   let visible = false;
   let disposed = false;
@@ -112,11 +113,19 @@ export function createEditorCaretTrail({
   let idleTimer = null;
 
   const reduceMotion = () => Boolean(adapters.shouldReduceMotion?.());
+  const documentHidden = () => Boolean(window.document?.hidden);
 
   const clearIdleTimer = () => {
     if (idleTimer != null) {
       window.clearTimeout?.(idleTimer);
       idleTimer = null;
+    }
+  };
+
+  const clearDeferredFrame = () => {
+    if (deferredFrameTimer != null) {
+      window.clearTimeout?.(deferredFrameTimer);
+      deferredFrameTimer = null;
     }
   };
 
@@ -159,7 +168,15 @@ export function createEditorCaretTrail({
 
   const loop = (token) => {
     rafId = null;
-    if (token !== loopToken || disposed || !running || reduceMotion() || !engine || engine === false) {
+    if (
+      token !== loopToken
+      || disposed
+      || !running
+      || reduceMotion()
+      || documentHidden()
+      || !engine
+      || engine === false
+    ) {
       running = false;
       if (canvas) canvas.hidden = true;
       return;
@@ -171,11 +188,12 @@ export function createEditorCaretTrail({
     let deliveredAsync = false;
     const id = window.requestAnimationFrame?.(() => {
       if (!deliveredAsync) {
-        rafId = -1;
-        window.setTimeout?.(() => {
-          rafId = null;
+        rafId = null;
+        clearDeferredFrame();
+        deferredFrameTimer = window.setTimeout?.(() => {
+          deferredFrameTimer = null;
           loop(next);
-        }, 0);
+        }, 0) ?? null;
         return;
       }
       loop(next);
@@ -185,7 +203,7 @@ export function createEditorCaretTrail({
   };
 
   const start = () => {
-    if (disposed || running || reduceMotion()) return;
+    if (disposed || running || reduceMotion() || documentHidden()) return;
     const eng = ensureEngine();
     if (!eng) return;
     running = true;
@@ -194,7 +212,9 @@ export function createEditorCaretTrail({
     eng.updateSize(window.innerWidth || 1, window.innerHeight || 1);
     loopToken += 1;
     const token = loopToken;
-    if (rafId == null) rafId = window.requestAnimationFrame?.(() => loop(token)) ?? null;
+    if (rafId == null && deferredFrameTimer == null) {
+      rafId = window.requestAnimationFrame?.(() => loop(token)) ?? null;
+    }
   };
 
   const stop = () => {
@@ -202,6 +222,7 @@ export function createEditorCaretTrail({
     visible = false;
     loopToken += 1;
     clearIdleTimer();
+    clearDeferredFrame();
     canvas.hidden = true;
     if (engine && engine !== false) engine.reset?.();
     if (rafId != null) window.cancelAnimationFrame?.(rafId);
@@ -209,7 +230,7 @@ export function createEditorCaretTrail({
   };
 
   const moveTo = (left, top, height = 18, width = 2) => {
-    if (disposed || reduceMotion()) {
+    if (disposed || reduceMotion() || documentHidden()) {
       stop();
       return;
     }
@@ -237,7 +258,12 @@ export function createEditorCaretTrail({
     engine.updateSize(window.innerWidth || 1, window.innerHeight || 1);
   };
 
+  const onVisibility = () => {
+    if (documentHidden()) stop();
+  };
+
   window.addEventListener?.('resize', onResize, { passive: true });
+  window.document?.addEventListener?.('visibilitychange', onVisibility);
 
   return Object.freeze({
     moveTo,
@@ -249,6 +275,7 @@ export function createEditorCaretTrail({
       disposed = true;
       stop();
       window.removeEventListener?.('resize', onResize);
+      window.document?.removeEventListener?.('visibilitychange', onVisibility);
       engine = null;
     },
   });

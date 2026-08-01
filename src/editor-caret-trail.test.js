@@ -117,7 +117,7 @@ describe('editor caret trail', () => {
         innerWidth: 100,
         innerHeight: 100,
         requestAnimationFrame: (cb) => {
-          // Sync re-entry is broken via frameDepth + setTimeout(0).
+          // Sync re-entry yields to setTimeout(0).
           cb();
           return 1;
         },
@@ -126,11 +126,14 @@ describe('editor caret trail', () => {
           timeouts.push(fn);
           return timeouts.length;
         },
-        clearTimeout: () => {},
+        clearTimeout: (id) => {
+          const index = Number(id) - 1;
+          if (index >= 0) timeouts[index] = null;
+        },
         getComputedStyle: () => ({ getPropertyValue: () => '' }),
         addEventListener: () => {},
         removeEventListener: () => {},
-        document,
+        document: { hidden: false, addEventListener: () => {}, removeEventListener: () => {} },
       },
       canvas,
       adapters: { shouldReduceMotion: () => false },
@@ -138,9 +141,55 @@ describe('editor caret trail', () => {
     trail.moveTo(1, 2, 10, 2);
     expect(trail.isVisible()).toBe(true);
     trail.dispose();
-    // Drain any deferred frame without throwing.
-    while (timeouts.length) timeouts.shift()();
+    // Deferred frames must be cleared — draining must not resurrect the trail.
+    timeouts.filter(Boolean).forEach((fn) => fn());
     trail.moveTo(5, 6, 10, 2);
     expect(trail.isVisible()).toBe(false);
+  });
+
+  it('stops and ignores moveTo while the document is hidden', () => {
+    const { canvas } = makeCanvas();
+    const doc = {
+      hidden: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    };
+    const pendingTimeouts = [];
+    const trail = createEditorCaretTrail({
+      window: {
+        innerWidth: 200,
+        innerHeight: 200,
+        requestAnimationFrame: (cb) => {
+          pendingTimeouts.push(cb);
+          return pendingTimeouts.length;
+        },
+        cancelAnimationFrame: () => {},
+        // Do not run idle stop synchronously — only queue.
+        setTimeout: (fn) => {
+          pendingTimeouts.push(fn);
+          return pendingTimeouts.length;
+        },
+        clearTimeout: () => {},
+        getComputedStyle: () => ({ getPropertyValue: () => '#fff' }),
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        document: doc,
+      },
+      canvas,
+      adapters: { shouldReduceMotion: () => false },
+    });
+
+    trail.moveTo(8, 9, 16, 2);
+    expect(trail.isVisible()).toBe(true);
+
+    doc.hidden = true;
+    const onVis = doc.addEventListener.mock.calls.find((c) => c[0] === 'visibilitychange')?.[1];
+    expect(typeof onVis).toBe('function');
+    onVis();
+    expect(trail.isVisible()).toBe(false);
+
+    trail.moveTo(20, 30, 16, 2);
+    expect(trail.isVisible()).toBe(false);
+    trail.dispose();
   });
 });

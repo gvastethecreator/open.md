@@ -1,13 +1,17 @@
 use std::env;
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use tauri::AppHandle;
 
+mod app_settings;
 mod document_access;
+mod file_associations;
 mod images;
 mod open_requests;
 
 static WINDOW_COUNTER: AtomicUsize = AtomicUsize::new(1);
+/// Boot-time mode: true when this process skipped the single-instance plugin.
+static PROCESS_ALLOWS_MULTIPLE_INSTANCES: AtomicBool = AtomicBool::new(true);
 
 #[tauri::command]
 fn get_file_content(path: String) -> Result<document_access::DocumentPayload, String> {
@@ -58,6 +62,34 @@ fn open_new_window(app: AppHandle, path: String) -> Result<(), String> {
     build_document_window(&app, &path)
 }
 
+#[tauri::command]
+fn get_process_instance_mode() -> serde_json::Value {
+    let disk = app_settings::load();
+    let process_allows = PROCESS_ALLOWS_MULTIPLE_INSTANCES.load(Ordering::SeqCst);
+    serde_json::json!({
+        "allowMultipleInstances": disk.allow_multiple_instances,
+        "processAllowsMultipleInstances": process_allows,
+        "restartRequired": disk.allow_multiple_instances != process_allows,
+    })
+}
+
+#[tauri::command]
+fn set_allow_multiple_instances(
+    value: bool,
+) -> Result<app_settings::SetAllowMultipleInstancesResult, String> {
+    app_settings::set_allow_multiple_instances(value)
+}
+
+#[tauri::command]
+fn get_file_association_status() -> file_associations::FileAssociationStatus {
+    file_associations::get_status()
+}
+
+#[tauri::command]
+fn request_file_association() -> Result<file_associations::FileAssociationActionResult, String> {
+    file_associations::request_association()
+}
+
 fn initial_file_paths(args: &[String]) -> Vec<String> {
     args.iter()
         .skip(1)
@@ -68,17 +100,27 @@ fn initial_file_paths(args: &[String]) -> Vec<String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let app = tauri::Builder::default()
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+    let boot_settings = app_settings::load();
+    PROCESS_ALLOWS_MULTIPLE_INSTANCES
+        .store(boot_settings.allow_multiple_instances, Ordering::SeqCst);
+
+    // Single-instance must register first when enabled (plugin contract).
+    let mut builder = tauri::Builder::default();
+    if !boot_settings.allow_multiple_instances {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             let paths = args
                 .into_iter()
                 .skip(1)
                 .filter(|argument| !argument.is_empty() && !argument.starts_with("--"))
                 .collect();
             open_requests::deliver(app, paths);
-        }))
+        }));
+    }
+    let builder = builder
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init());
+
+    let app = builder
         .manage(open_requests::OpenRequestQueue::default())
         .invoke_handler(tauri::generate_handler![
             get_file_content,
@@ -89,7 +131,11 @@ pub fn run() {
             images::get_standalone_image_bytes,
             open_new_window,
             open_requests::list_pending_open_file_requests,
-            open_requests::acknowledge_open_file_request
+            open_requests::acknowledge_open_file_request,
+            get_process_instance_mode,
+            set_allow_multiple_instances,
+            get_file_association_status,
+            request_file_association
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application");
