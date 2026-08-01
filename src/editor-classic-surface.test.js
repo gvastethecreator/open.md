@@ -386,6 +386,71 @@ describe('Editor Classic Surface', () => {
     expect(band.style.width).toBe('100%');
     window.requestAnimationFrame = realRaf;
   });
+
+  it('reveals the active line with scrollIntoView on keyboard navigation, not on mount', () => {
+    const scrollIntoView = vi.fn();
+    const original = HTMLElement.prototype.scrollIntoView;
+    Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+    });
+
+    try {
+      const { surface, canvas } = mountSurface('a\nb\nc\nd');
+      expect(scrollIntoView).not.toHaveBeenCalled();
+
+      placeCaretIn(canvas.querySelector('[data-editor-mode="source"]'), 0);
+      const down = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
+      expect(surface.handleKeydown(down)).toBe(true);
+      expect(surface.activeLine()).toBe(1);
+      expect(scrollIntoView).toHaveBeenCalled();
+      const options = scrollIntoView.mock.calls.at(-1)[0];
+      expect(options).toMatchObject({ block: 'nearest', inline: 'nearest' });
+    } finally {
+      if (original) {
+        Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+          configurable: true,
+          value: original,
+        });
+      } else {
+        delete HTMLElement.prototype.scrollIntoView;
+      }
+    }
+  });
+
+  it('pages by the reader-page viewport height, not the full canvas height', () => {
+    document.body.innerHTML = '<section class="reader-page" id="page"><div id="canvas"></div></section>';
+    const page = document.getElementById('page');
+    const canvas = document.getElementById('canvas');
+    Object.defineProperty(page, 'clientHeight', { configurable: true, value: 100 });
+    Object.defineProperty(canvas, 'clientHeight', { configurable: true, value: 2000 });
+
+    const lines = Array.from({ length: 40 }, (_v, i) => `line${i}`).join('\n');
+    let source = lines;
+    const surface = createEditorClassicSurface({
+      window,
+      canvas,
+      adapters: {
+        isMarkdown: () => true,
+        getSource: () => source,
+        applySource: (next) => { source = next; return true; },
+        setCursor: vi.fn(),
+      },
+    });
+    surface.mount();
+    canvas.querySelectorAll('[data-classic-line]').forEach((row) => {
+      row.getBoundingClientRect = () => ({
+        top: 0, left: 0, width: 400, height: 20, right: 400, bottom: 20,
+      });
+    });
+
+    placeCaretIn(canvas.querySelector('[data-editor-mode="source"]'), 0);
+    const pageDown = new KeyboardEvent('keydown', { key: 'PageDown', bubbles: true, cancelable: true });
+    expect(surface.handleKeydown(pageDown)).toBe(true);
+    // step = floor(100 / 20) = 5 — not floor(2000 / 28) which would jump near the end
+    expect(surface.activeLine()).toBe(5);
+    expect(surface.activeLine()).toBeLessThan(30);
+  });
 });
 
 function placeCaretIn(element, offset) {
