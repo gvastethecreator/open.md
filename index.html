@@ -5,12 +5,126 @@
     <link rel="icon" type="image/png" href="/src/assets/app-icon.png" />
     <link rel="stylesheet" href="/src/styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f7f9fa" />
+    <meta name="theme-color" content="#f6f8fa" />
     <title>open.md</title>
+    <style id="app-loading-critical">
+      html, body { background: var(--bg-color, #f6f8fa); }
+      body.is-app-loading:not(.is-app-revealing) > :not(#app-loading-screen) { visibility: hidden; }
+      body.is-app-loading > :not(#app-loading-screen) { pointer-events: none; }
+      #app-loading-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: grid;
+        place-items: center;
+        background: var(--app-loading-background, #f6f8fa);
+        color: var(--app-loading-foreground, #1f2328);
+        opacity: 1;
+        transition: opacity 100ms ease-out;
+        pointer-events: none;
+      }
+      #app-loading-screen[hidden] { display: none; }
+      #app-loading-screen.is-exiting { opacity: 0; }
+      #app-loading-screen .app-loading-spinner {
+        color: var(--app-loading-accent, #0969da);
+        font: 400 38px/1 "Cascadia Code", Consolas, monospace;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #app-loading-screen { transition: none; }
+      }
+    </style>
     <script type="module" src="/src/main.js"></script>
   </head>
 
-  <body class="is-word-wrap">
+  <body class="is-word-wrap is-app-loading">
+    <div
+      id="app-loading-screen"
+      class="app-loading-screen"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      aria-label="Loading open.md"
+      data-loading-frames="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+      data-loading-fps="14"
+    >
+      <span class="app-loading-spinner" data-loading-spinner aria-hidden="true">⠋</span>
+    </div>
+    <script>
+      (() => {
+        const screen = document.getElementById('app-loading-screen');
+        const spinner = screen?.querySelector('[data-loading-spinner]');
+        if (!screen || !spinner) return;
+
+        const frames = [...(screen.dataset.loadingFrames || '')];
+        const fps = Number(screen.dataset.loadingFps) || 14;
+        const previewKey = 'openmd-theme-preview-v1';
+        const safeColor = (value, fallback) => (
+          typeof value === 'string' && /^#[\da-f]{3,8}$/i.test(value.trim())
+            ? value.trim()
+            : fallback
+        );
+        const setPreview = (value) => {
+          const preview = {
+            background: safeColor(value?.background, '#f6f8fa'),
+            text: safeColor(value?.text, '#1f2328'),
+            accent: safeColor(value?.accent, '#0969da'),
+          };
+          screen.style.setProperty('--app-loading-background', preview.background);
+          screen.style.setProperty('--app-loading-foreground', preview.text);
+          screen.style.setProperty('--app-loading-accent', preview.accent);
+          document.documentElement?.style.setProperty('--bg-color', preview.background);
+          document.documentElement?.style.setProperty('--text-color', preview.text);
+          document.documentElement?.style.setProperty('--accent-color', preview.accent);
+          document.documentElement?.style.setProperty('--ui-accent', preview.accent);
+          document.querySelector('meta[name="theme-color"]')?.setAttribute('content', preview.background);
+        };
+        try {
+          const saved = window.localStorage?.getItem(previewKey);
+          if (saved) setPreview(JSON.parse(saved));
+        } catch {
+          setPreview(null);
+        }
+
+        let frameIndex = 0;
+        let timer = null;
+        const tick = () => {
+          spinner.textContent = frames[frameIndex % frames.length] || '⠋';
+          frameIndex = (frameIndex + 1) % Math.max(frames.length, 1);
+        };
+        const stop = () => {
+          if (timer === null) return;
+          window.clearInterval(timer);
+          timer = null;
+        };
+        const setReducedMotion = (nextReduced) => {
+          if (nextReduced) {
+            stop();
+            frameIndex = 0;
+            tick();
+            return;
+          }
+          if (timer === null) {
+            tick();
+            timer = window.setInterval(tick, 1000 / fps);
+          }
+        };
+        screen.__openMdLoadingBootstrap = Object.freeze({ stop, setReducedMotion });
+        let systemReduced = false;
+        try {
+          systemReduced = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+        } catch {
+          systemReduced = false;
+        }
+        let appReduced = false;
+        try {
+          const advanced = JSON.parse(window.localStorage?.getItem('openmd-advanced-preferences-v1') || '{}');
+          appReduced = Boolean(advanced?.reduceMotion);
+        } catch {
+          appReduced = false;
+        }
+        setReducedMotion(systemReduced || appReduced);
+      })();
+    </script>
     <header id="app-titlebar" class="app-titlebar">
       <div id="titlebar-drag-region" class="titlebar-drag-region" data-tauri-drag-region>
         <img class="titlebar-icon" src="/src/assets/app-icon.png" width="256" height="256" alt="" aria-hidden="true" data-tauri-drag-region />
@@ -67,9 +181,26 @@
                   <i class="ti ti-palette" aria-hidden="true"></i>
                   <span class="reading-tool-value-row">
                     <strong>Theme</strong>
-                    <select id="theme-select" class="theme-select" aria-label="Choose theme"></select>
+                    <select id="theme-select" class="theme-select" aria-label="Choose theme">
+                      <button type="button"><selectedcontent></selectedcontent></button>
+                    </select>
                   </span>
                 </label>
+
+                <button
+                  class="reading-tool-toggle"
+                  type="button"
+                  role="switch"
+                  aria-checked="false"
+                  data-reading-tool="coloredHeadings"
+                  data-tooltip="Use the selected theme palette for document headings"
+                  data-tooltip-side="left"
+                  data-tooltip-delay="420"
+                >
+                  <i class="ti ti-heading" aria-hidden="true"></i>
+                  <span><strong>Heading colors</strong></span>
+                  <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+                </button>
 
                 <button
                   id="sans-font-button"
@@ -520,7 +651,7 @@
                 <h2 id="quick-start-title">Quick start</h2>
                 <ol class="help-steps">
                   <li><span>01</span><div><strong>Open a file</strong><small>Press <kbd>Ctrl</kbd> + <kbd>O</kbd> or drop Markdown and text into the window.</small></div></li>
-                  <li><span>02</span><div><strong>Choose a mode</strong><small>Use the status icon to move through Read, Edit and Source.</small></div></li>
+                  <li><span>02</span><div><strong>Choose a mode</strong><small>Use the separate Rendered/Source and Read only/Edit controls.</small></div></li>
                   <li><span>03</span><div><strong>Adjust the view</strong><small>Use the gear for lines, minimap and wrap; use the palette for theme and type.</small></div></li>
                   <li><span>04</span><div><strong>Keep changes</strong><small>Auto-save is on. Press <kbd>Ctrl</kbd> + <kbd>S</kbd> to save at once.</small></div></li>
                 </ol>
@@ -585,17 +716,32 @@
           </button>
 
           <button
+            id="source-mode-button"
+            class="mode-toggle-button toolbar-button icon-button"
+            type="button"
+            aria-label="Rendered view. Switch to Source view"
+            aria-pressed="false"
+            title="Rendered"
+            data-mode="rendered"
+            disabled
+          >
+            <i class="iconoir-page" aria-hidden="true"></i>
+            <span id="source-mode-label" class="sr-only">Rendered view</span>
+          </button>
+
+          <button
             id="edit-mode-button"
             class="mode-toggle-button toolbar-button icon-button"
             type="button"
-            aria-label="Read mode. Switch to Edit mode"
-            title="Read"
+            aria-label="Read only mode. Switch to Edit mode"
+            aria-pressed="false"
+            title="Read only"
             data-tooltip-shortcut="Ctrl+Shift+E"
-            data-mode="read"
+            data-mode="read-only"
             disabled
           >
             <i class="iconoir-book" aria-hidden="true"></i>
-            <span id="edit-mode-label" class="sr-only">Read mode</span>
+            <span id="edit-mode-label" class="sr-only">Read only mode</span>
           </button>
 
           <button id="help-toggle-button" class="toolbar-button icon-button" type="button" aria-controls="help-stage" aria-expanded="false" aria-label="Open About and Help" title="About + Help (F1)">

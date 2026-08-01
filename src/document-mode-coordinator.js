@@ -1,22 +1,28 @@
-const DOCUMENT_MODE_PRESENTATIONS = Object.freeze({
-  read: Object.freeze({ label: 'Read', iconClass: 'iconoir-book', nextMode: 'edit' }),
-  edit: Object.freeze({ label: 'Edit', iconClass: 'iconoir-edit-pencil', nextMode: 'source' }),
-  source: Object.freeze({ label: 'Source', iconClass: 'iconoir-code', nextMode: 'read' }),
-});
-
 export function getDocumentModePresentation(mode) {
-  const normalizedMode = Object.hasOwn(DOCUMENT_MODE_PRESENTATIONS, mode) ? mode : 'read';
-  const current = DOCUMENT_MODE_PRESENTATIONS[normalizedMode];
-  const next = DOCUMENT_MODE_PRESENTATIONS[current.nextMode];
+  const normalizedMode = MODES.has(mode) ? mode : 'read';
+  const sourceActive = normalizedMode === 'source';
+  const editActive = normalizedMode === 'edit';
+  const sourceLabel = sourceActive ? 'Source' : 'Rendered';
+  const sourceNextLabel = sourceActive ? 'Rendered' : 'Source';
+  const editLabel = editActive ? 'Edit' : 'Read only';
+  const editNextLabel = editActive ? 'Read only' : 'Edit';
 
   return {
     mode: normalizedMode,
-    label: current.label,
-    iconClass: current.iconClass,
-    nextMode: current.nextMode,
-    nextLabel: next.label,
-    ariaLabel: `${current.label} mode. Switch to ${next.label} mode`,
-    title: `${current.label} mode · Next: ${next.label}`,
+    source: {
+      active: sourceActive,
+      state: sourceActive ? 'source' : 'rendered',
+      label: sourceLabel,
+      iconClass: sourceActive ? 'iconoir-code' : 'iconoir-page',
+      ariaLabel: `${sourceLabel} view. Switch to ${sourceNextLabel} view`,
+    },
+    edit: {
+      active: editActive,
+      state: editActive ? 'edit' : 'read-only',
+      label: editLabel,
+      iconClass: editActive ? 'iconoir-edit-pencil' : 'iconoir-book',
+      ariaLabel: `${editLabel} mode. Switch to ${editNextLabel} mode`,
+    },
   };
 }
 
@@ -58,21 +64,21 @@ export function createDocumentModeCoordinator({
     [elements.readSurface, elements.sourceSurface, elements.editSurface]
       .forEach((surface) => surface?.classList.remove('is-mode-morph-entering'));
     elements.minimap?.classList.remove('is-mode-chrome-morphing');
-    elements.control?.querySelector('i')?.classList.remove('is-mode-changing');
+    elements.sourceControl?.querySelector('i')?.classList.remove('is-mode-changing');
+    elements.editControl?.querySelector('i')?.classList.remove('is-mode-changing');
   };
 
-  const refreshTooltip = () => {
-    const control = elements.control;
+  const isAvailable = (mode) => Boolean(adapters.isAvailable?.(mode));
+
+  const refreshTooltip = (control, presentation, available, shortcut = '') => {
     if (!control || disposed) return;
-    // Mid-cycle adapters can pass through intermediate modes (e.g. Edit→Read→Source).
-    // Freezing the open tooltip until the cycle settles avoids thrash/re-open fades.
+    // A Source/Edit change can pass through Read. Keep tooltips stable until it settles.
     if (cycling) return;
-    const presentation = getDocumentModePresentation(current());
-    const available = Boolean(adapters.isAvailable?.());
-    // Short label only; aria-label keeps the longer description.
-    const nextTooltip = available ? presentation.label : 'Open a file';
-    const nextShortcut = available ? 'Ctrl+Shift+E' : '';
-    // Only write when copy changes so MutationObserver does not re-enter for no-ops.
+    const hasDocument = Boolean(adapters.hasDocument?.());
+    const nextTooltip = available
+      ? presentation.label
+      : hasDocument ? 'Unavailable for this document' : 'Open a file';
+    const nextShortcut = available ? shortcut : '';
     if (control.dataset.tooltip !== nextTooltip) control.dataset.tooltip = nextTooltip;
     if (nextShortcut) {
       if (control.dataset.tooltipShortcut !== nextShortcut) {
@@ -201,52 +207,74 @@ export function createDocumentModeCoordinator({
     }
   };
 
-  const refresh = ({ forceAnimation = false, updateTooltip = true } = {}) => {
-    const control = elements.control;
-    if (!control || disposed) return;
-    const presentation = getDocumentModePresentation(current());
-    const previousMode = control.dataset.mode;
-    const available = Boolean(adapters.isAvailable?.());
-
+  const refreshControl = ({
+    control,
+    label,
+    presentation,
+    available,
+    shortcut,
+    suffix,
+    updateTooltip,
+  }) => {
+    if (!control) return;
+    const previousState = control.dataset.mode;
     control.disabled = !available;
-    control.dataset.mode = presentation.mode;
+    control.dataset.mode = presentation.state;
+    control.setAttribute('aria-pressed', String(presentation.active));
     control.setAttribute('aria-label', available
       ? presentation.ariaLabel
-      : 'Open a file to change document mode');
-    // updateTooltip is honored only when not mid-cycle (see refreshTooltip).
-    if (updateTooltip) refreshTooltip();
+      : adapters.hasDocument?.()
+        ? `${presentation.label} is unavailable for this document`
+        : 'Open a file to change document mode');
 
     const icon = control.querySelector('i');
     if (icon) {
-      // Keep the same <i> node; only class changes. Replacing the node would
-      // fire pointerout/over and re-open the tooltip with a full shell fade.
       icon.className = presentation.iconClass;
-      if (!cycling && (forceAnimation || (previousMode && previousMode !== presentation.mode))) {
+      if (!cycling && previousState && previousState !== presentation.state) {
         replayOneShot(icon, 'is-mode-changing');
       }
     }
-    if (elements.label) elements.label.textContent = `${presentation.label} mode`;
+    if (label) label.textContent = `${presentation.label} ${suffix}`;
+    if (updateTooltip) refreshTooltip(control, presentation, available, shortcut);
   };
 
-  const announceMode = (mode) => {
-    const presentation = getDocumentModePresentation(mode);
-    hooks.onToast?.(`${presentation.label} mode`);
+  const refresh = ({ updateTooltip = true } = {}) => {
+    if (disposed) return;
+    const presentation = getDocumentModePresentation(current());
+    refreshControl({
+      control: elements.sourceControl,
+      label: elements.sourceLabel,
+      presentation: presentation.source,
+      available: isAvailable('source'),
+      shortcut: '',
+      suffix: 'view',
+      updateTooltip,
+    });
+    refreshControl({
+      control: elements.editControl,
+      label: elements.editLabel,
+      presentation: presentation.edit,
+      available: isAvailable('edit'),
+      shortcut: 'Ctrl+Shift+E',
+      suffix: 'mode',
+      updateTooltip,
+    });
   };
 
-  const performChange = (update) => {
-    if (disposed || !adapters.isAvailable?.()) return Promise.resolve(false);
+  const performChange = (requiredMode, update, announce) => {
+    if (disposed || !isAvailable(requiredMode)) return Promise.resolve(false);
     if (activeTransition) cancelTransition();
     const generation = ++changeGeneration;
     const documentIdentity = adapters.getDocumentIdentity?.();
     const execute = async () => {
-      if (disposed || !adapters.isAvailable?.()) return false;
+      if (disposed || !isAvailable(requiredMode)) return false;
       if (
         typeof adapters.getDocumentIdentity === 'function'
         && !Object.is(adapters.getDocumentIdentity(), documentIdentity)
       ) return false;
       const isCurrentDocument = () => (
         !disposed
-        && adapters.isAvailable?.()
+        && isAvailable('read')
         && (
           typeof adapters.getDocumentIdentity !== 'function'
           || Object.is(adapters.getDocumentIdentity(), documentIdentity)
@@ -280,10 +308,10 @@ export function createDocumentModeCoordinator({
         if (generation === changeGeneration && !disposed) {
           const nextMode = current();
           const modeChanged = nextMode !== initialMode;
-          // End cycle before refreshTooltip so the settled mode is written once.
+          // End the change before refreshTooltip so the settled mode is written once.
           cycling = false;
-          refresh({ forceAnimation: modeChanged, updateTooltip: true });
-          if (succeeded && modeChanged) announceMode(nextMode);
+          refresh({ updateTooltip: true });
+          if (succeeded && modeChanged) announce?.(nextMode);
         }
       }
     };
@@ -292,23 +320,18 @@ export function createDocumentModeCoordinator({
     return result;
   };
 
-  const cycle = () => performChange(async (initialMode, { documentIdentity, isCurrentDocument }) => {
+  const toggleSource = () => performChange('source', async (initialMode, { isCurrentDocument }) => {
     if (initialMode === 'edit') {
       if (!await adapters.exitEdit?.()) return false;
       if (!isCurrentDocument()) return false;
-      await adapters.setSource?.(true);
-      return isCurrentDocument();
     }
-    if (initialMode === 'source') {
-      await adapters.setSource?.(false);
-      return isCurrentDocument();
-    }
-    if (!isCurrentDocument()) return false;
-    const entered = await adapters.enterEdit?.(documentIdentity);
-    return Boolean(entered) && isCurrentDocument();
+    await adapters.setSource?.(initialMode !== 'source');
+    return isCurrentDocument();
+  }, (nextMode) => {
+    hooks.onToast?.(`${getDocumentModePresentation(nextMode).source.label} view`);
   });
 
-  const toggleEdit = () => performChange(async (initialMode, { documentIdentity, isCurrentDocument }) => {
+  const toggleEdit = () => performChange('edit', async (initialMode, { documentIdentity, isCurrentDocument }) => {
     if (initialMode === 'edit') {
       const exited = await adapters.exitEdit?.();
       return Boolean(exited) && isCurrentDocument();
@@ -319,6 +342,8 @@ export function createDocumentModeCoordinator({
     }
     const entered = await adapters.enterEdit?.(documentIdentity);
     return Boolean(entered) && isCurrentDocument();
+  }, (nextMode) => {
+    hooks.onToast?.(`${getDocumentModePresentation(nextMode).edit.label} mode`);
   });
 
   const dispose = () => {
@@ -332,7 +357,7 @@ export function createDocumentModeCoordinator({
   return Object.freeze({
     current,
     refresh,
-    cycle,
+    toggleSource,
     toggleEdit,
     cancelTransition,
     dispose,

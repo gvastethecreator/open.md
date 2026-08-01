@@ -153,6 +153,7 @@ describe('reader preferences', () => {
         source: true,
         stats: true,
         wordWrap: false,
+        coloredHeadings: false,
         blockEditor: false,
       }),
       [KEYS.fonts]: JSON.stringify({ sans: 1, mono: 2 }),

@@ -66,11 +66,12 @@ function applyThemeTokens(document, theme, preparedDiagrams) {
     '--syntax-meta': tokens.syntaxMeta,
     '--syntax-addition': tokens.syntaxAddition,
     '--syntax-deletion': tokens.syntaxDeletion,
-    '--heading-1': tokens.text,
-    '--heading-2': tokens.text,
-    '--heading-3': tokens.text,
-    '--heading-4': tokens.text,
-    '--heading-5': tokens.text,
+    '--heading-1': tokens.heading1,
+    '--heading-2': tokens.heading2,
+    '--heading-3': tokens.heading3,
+    '--heading-4': tokens.heading4,
+    '--heading-5': tokens.heading5,
+    '--heading-6': tokens.heading6,
     '--quote-color': tokens.quote,
     '--panel-bg': tokens.surface,
     '--toolbar-bg': tokens.surface,
@@ -127,7 +128,8 @@ export function createThemeCoordinator({
 
   const populate = () => {
     if (!elements.select) return;
-    elements.select.replaceChildren();
+    const selectButton = elements.select.querySelector(':scope > button');
+    elements.select.replaceChildren(...(selectButton ? [selectButton] : []));
     const curated = new Set(curatedNames.map((name) => name.toLowerCase()));
     const recommended = document.createElement('optgroup');
     recommended.label = 'Recommended';

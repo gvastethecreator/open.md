@@ -29,6 +29,7 @@ export const DEFAULT_READING_TOOLS = Object.freeze({
   source: false,
   stats: false,
   wordWrap: true,
+  coloredHeadings: false,
   // Classic (false) is continuous multiline live preview; true enables block tools.
   blockEditor: false,
 });

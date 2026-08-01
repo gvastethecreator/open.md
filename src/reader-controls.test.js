@@ -21,6 +21,7 @@ function fixture({ preferenceGate = null, deferFrames = false, system = null } =
     <button data-reading-tool="source"></button>
     <button data-reading-tool="stats"></button>
     <button data-reading-tool="wordWrap"></button>
+    <button data-reading-tool="coloredHeadings"></button>
     <button data-advanced-pref="edgeFade" role="switch" aria-checked="true"></button>
     <button id="multi" role="switch" aria-checked="true"></button>
     <button id="assoc" type="button"></button>
@@ -265,6 +266,20 @@ describe('Reader Controls', () => {
     expect(view.hooks.captureScrollPosition).toHaveBeenCalledOnce();
     expect(view.hooks.restoreScrollPosition).toHaveBeenCalledWith(140);
     expect(view.hooks.onToast).toHaveBeenCalledWith('Source view on');
+  });
+
+  it('keeps heading colors off by default and persists the theme-palette option', async () => {
+    const view = fixture();
+    view.controller.start();
+    expect(view.document.body.classList.contains('is-colored-headings')).toBe(false);
+
+    await view.controller.setReadingTool('coloredHeadings', true);
+
+    expect(view.updates).toContainEqual({ readingTools: { coloredHeadings: true } });
+    expect(view.document.body.classList.contains('is-colored-headings')).toBe(true);
+    const toggle = view.document.querySelector('[data-reading-tool="coloredHeadings"]');
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    expect(view.hooks.onToast).toHaveBeenCalledWith('Heading colors on');
   });
 
   it.each(['replacement', 'dispose'])('drops stale Source effects after document %s', async (reason) => {

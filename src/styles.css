@@ -27,8 +27,8 @@
   --window-control-width: 42px;
   --window-controls-width: 126px;
   --content-scale: 1;
-  --bg-color: #f7f9fa;
-  --text-color: #18212b;
+  --bg-color: #f6f8fa;
+  --text-color: #1f2328;
   --border-color: #d7dde2;
   --ui-border-width: 2px;
   --ui-border-color: color-mix(in srgb, var(--text-color) 1%, transparent);
@@ -38,8 +38,8 @@
   --focus-ring-width: 2px;
   --focus-ring-color: color-mix(in srgb, var(--ui-accent) 18%, transparent);
   --link-color: #087f86;
-  --accent-color: #168c91;
-  --ui-accent: #168c91;
+  --accent-color: #0969da;
+  --ui-accent: #0969da;
   --accent-foreground: #ffffff;
   --ui-muted: color-mix(in srgb, var(--text-color) 62%, var(--bg-color));
   --chrome-icon-color: var(--ui-muted);
@@ -60,6 +60,7 @@
   --heading-3: #18212b;
   --heading-4: #18212b;
   --heading-5: #18212b;
+  --heading-6: #53616d;
   --quote-color: #53616d;
   --panel-bg: #f0f3f5;
   --toolbar-bg: #f3f6f7;
@@ -232,6 +233,7 @@
 .ti-arrow-left::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/arrow-left.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/arrow-left.svg"); }
 .ti-sun::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/sun.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/sun.svg"); }
 .ti-moon::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/moon.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/moon.svg"); }
+.ti-heading::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/heading.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/heading.svg"); }
 
 *,
 *::before,
@@ -257,6 +259,38 @@ body {
   transition:
     color var(--motion-base) var(--motion-ease-standard),
     background-color var(--motion-base) var(--motion-ease-standard);
+}
+
+body.is-app-loading:not(.is-app-revealing) > :not(#app-loading-screen) { visibility: hidden; }
+
+body.is-app-loading > :not(#app-loading-screen) { pointer-events: none; }
+
+.app-loading-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: var(--app-loading-background, var(--bg-color));
+  color: var(--app-loading-foreground, var(--text-color));
+  opacity: 1;
+  transition: opacity 100ms var(--motion-ease-out);
+  pointer-events: none;
+}
+
+.app-loading-screen[hidden] { display: none; }
+
+.app-loading-screen.is-exiting { opacity: 0; }
+
+.app-loading-screen.is-error { pointer-events: auto; }
+
+.app-loading-spinner {
+  color: var(--app-loading-accent, var(--ui-accent));
+  font: 400 38px/1 var(--font-mono);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-loading-screen { transition: none; }
 }
 
 button,
@@ -852,7 +886,6 @@ body.is-mode-morphing .editor-link-popover:not([hidden]) {
   align-items: center;
   gap: 12px;
   text-align: center;
-  animation: quiet-enter var(--motion-slow) var(--motion-ease-out) both;
 }
 
 .empty-logo-shell {
@@ -1088,24 +1121,12 @@ kbd {
   text-align: center;
 }
 
-@keyframes quiet-enter {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 .markdown-body {
   width: min(100%, var(--document-frame-width));
   min-width: 0;
   margin: 0 auto;
   padding: clamp(38px, 6vw, 64px) var(--document-inline-space) 96px;
-  /* No permanent quiet-enter: restoring it after mode morph restarts the
-     animation and makes the whole document surface pop. */
+  /* Keep the base surface still; mode transitions own their entry motion. */
   transition:
     padding-left var(--navigation-motion) var(--motion-ease-out),
     padding-right var(--navigation-motion) var(--motion-ease-out);
@@ -1805,7 +1826,7 @@ html.is-theme-wiping .editor-caret-echo {
   opacity: 1;
 }
 
-/* Suppress baseline quiet-enter so it does not re-fire under morph classes. */
+/* Mode morphs opt into their own one-shot surface animation below. */
 body.is-mode-morphing #document-stage > :is(.markdown-body, .source-view, .editor-view) {
   animation: none;
 }
@@ -2157,7 +2178,7 @@ body.is-line-guide .editor-end-hint {
 .editor-block--heading3 .editor-block-content { font-size: 1.16rem; font-weight: 650; }
 .editor-block--heading4 .editor-block-content { font-size: 1rem; font-weight: 650; }
 .editor-block--heading5 .editor-block-content { font-size: 0.9rem; font-weight: 650; }
-.editor-block--heading6 .editor-block-content { color: var(--quote-color); font-size: 0.84rem; font-weight: 650; }
+.editor-block--heading6 .editor-block-content { color: var(--text-color); font-size: 0.84rem; font-weight: 650; }
 
 .editor-block--bullet,
 .editor-block--numbered,
@@ -3089,7 +3110,7 @@ h1 {
   margin-top: 0;
   padding-bottom: 0.34em;
   border-bottom: var(--document-line-width) solid var(--document-line-color);
-  color: var(--heading-1);
+  color: var(--text-color);
   font-size: var(--pretext-font-size, clamp(2rem, 5vw, 2.5rem));
   font-weight: 700;
   letter-spacing: -0.045em;
@@ -3098,15 +3119,22 @@ h1 {
 h2 {
   padding-bottom: 0.24em;
   border-bottom: var(--document-line-width) solid var(--document-line-color);
-  color: var(--heading-2);
+  color: var(--text-color);
   font-size: var(--pretext-font-size, 1.42em);
   letter-spacing: -0.022em;
 }
 
-h3 { color: var(--heading-3); font-size: 1.18em; }
-h4 { color: var(--heading-4); font-size: 1em; }
-h5 { color: var(--heading-5); font-size: 0.9em; }
-h6 { color: var(--quote-color); font-size: 0.84em; }
+h3 { color: var(--text-color); font-size: 1.18em; }
+h4 { color: var(--text-color); font-size: 1em; }
+h5 { color: var(--text-color); font-size: 0.9em; }
+h6 { color: var(--text-color); font-size: 0.84em; }
+
+body.is-colored-headings :is(.markdown-body h1, .editor-block--heading1 .editor-block-content, .classic-line-content--heading1) { color: var(--heading-1); }
+body.is-colored-headings :is(.markdown-body h2, .editor-block--heading2 .editor-block-content, .classic-line-content--heading2) { color: var(--heading-2); }
+body.is-colored-headings :is(.markdown-body h3, .editor-block--heading3 .editor-block-content, .classic-line-content--heading3) { color: var(--heading-3); }
+body.is-colored-headings :is(.markdown-body h4, .editor-block--heading4 .editor-block-content, .classic-line-content--heading4) { color: var(--heading-4); }
+body.is-colored-headings :is(.markdown-body h5, .editor-block--heading5 .editor-block-content, .classic-line-content--heading5) { color: var(--heading-5); }
+body.is-colored-headings :is(.markdown-body h6, .editor-block--heading6 .editor-block-content, .classic-line-content--heading6) { color: var(--heading-6); }
 
 p,
 blockquote,
@@ -4103,8 +4131,7 @@ body.is-dragging .drop-indicator__box {
 
 .mode-toggle-button:hover:not(:disabled),
 .mode-toggle-button:focus-visible,
-.mode-toggle-button[data-mode="edit"],
-.mode-toggle-button[data-mode="source"] {
+.mode-toggle-button[aria-pressed="true"] {
   color: var(--ui-accent);
   background: color-mix(in srgb, var(--ui-accent) 9%, transparent);
 }
@@ -4525,15 +4552,46 @@ label.appearance-theme-field.reading-tool-toggle .theme-select {
     gap: 6px;
     width: 100%;
     min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .theme-select > button {
+    flex: 1 1 auto;
+    width: 0;
+    min-width: 0;
+    padding: 0;
+    display: flex;
+    overflow: hidden;
+    border: 0;
+    color: inherit;
+    background: transparent;
+    font: inherit;
+    text-align: inherit;
+  }
+
+  .theme-select selectedcontent {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .theme-select selectedcontent :is(.theme-color-pill, .theme-tone-icon) {
+    display: none;
   }
 
   .theme-select::picker-icon {
+    flex: 0 0 auto;
     color: var(--ui-muted);
     opacity: 0.85;
-    margin-left: 2px;
+    margin-inline-start: auto;
   }
 
   .theme-select::picker(select) {
+    width: min(260px, calc(100vw - 16px));
+    max-width: calc(100vw - 16px);
     margin-top: 4px;
     padding: 4px;
     border: var(--ui-border-width) solid var(--ui-border-color);
@@ -4586,10 +4644,13 @@ label.appearance-theme-field.reading-tool-toggle .theme-select {
 
 .theme-select .theme-option-label,
 .theme-select option .theme-option-label {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
   margin-right: auto;
+  overflow: hidden;
   text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .theme-select .theme-tone-icon,

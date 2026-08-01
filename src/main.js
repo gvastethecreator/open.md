@@ -1,4 +1,3 @@
-import allThemes from './themes.runtime.json';
 import { getDisplayName } from './document-path.js';
 import {
   allowsDocumentMode,
@@ -32,6 +31,9 @@ import { createReaderZoomController } from './reader-zoom-controller.js';
 import { createEmptyStateMotion } from './empty-state-motion.js';
 import { createEditorStateCoordinator } from './editor-state-coordinator.js';
 
+const appLoadingScreenModule = import('./app-loading-screen.js');
+const themesModule = import('./themes.runtime.json');
+
 let windowChrome = null;
 let readerZoom = null;
 let readerShell = null;
@@ -59,6 +61,8 @@ let documentViewState = null;
 let documentIngress = null;
 let readerKeyboard = null;
 let applicationLifecycle = null;
+let appLoadingScreen = null;
+let pendingInitialTheme = Promise.resolve();
 
 const ui = {
   windowFileTitle: null,
@@ -166,6 +170,8 @@ function cacheElements() {
   ui.autoSaveToggle = document.getElementById('auto-save-toggle');
   ui.editorView = document.getElementById('editor-view');
   ui.editorCanvas = document.getElementById('editor-canvas');
+  ui.sourceModeButton = document.getElementById('source-mode-button');
+  ui.sourceModeLabel = document.getElementById('source-mode-label');
   ui.editModeButton = document.getElementById('edit-mode-button');
   ui.editModeLabel = document.getElementById('edit-mode-label');
   ui.editorSaveButton = document.getElementById('editor-save-button');
@@ -328,6 +334,7 @@ function toggleHelp() {
 }
 
 async function initThemes(own) {
+  const { default: allThemes } = await themesModule;
   try {
     const prefs = readerShell.preferences.current();
     const savedThemeName = prefs.themeName;
@@ -355,7 +362,10 @@ async function initThemes(own) {
         onPersistResult: reportPreferenceResult,
         notify: showToast,
         beforeTransition: () => documentModeCoordinator?.cancelTransition(),
-        onCommit: () => readingNavigation?.markDirty(),
+        onCommit: () => {
+          appLoadingScreen?.setTheme(themeCoordinator?.diagramTokens?.());
+          readingNavigation?.markDirty();
+        },
         onError: (message, error) => console.error(`${message}:`, error),
       },
     }));
@@ -409,7 +419,11 @@ function mountDocumentViewState(own) {
       syncViewport: syncViewportState,
       applyReadingTools,
       onDocumentReady: ({ path }) => {
-        void pathThemePreferences?.applyForPath(path);
+        pendingInitialTheme = Promise.resolve(pathThemePreferences?.applyForPath(path))
+          .catch((error) => {
+            console.error('Could not restore the remembered theme:', error);
+            return { status: 'error' };
+          });
       },
       setStatus: setStatusText,
       updateTitle: updateWindowTitle,
@@ -655,8 +669,10 @@ function mountDocumentModeCoordinator(own) {
     window,
     document,
     elements: {
-      control: ui.editModeButton,
-      label: ui.editModeLabel,
+      sourceControl: ui.sourceModeButton,
+      sourceLabel: ui.sourceModeLabel,
+      editControl: ui.editModeButton,
+      editLabel: ui.editModeLabel,
       readSurface: ui.content,
       sourceSurface: ui.sourceView,
       editSurface: ui.editorView,
@@ -665,7 +681,12 @@ function mountDocumentModeCoordinator(own) {
     },
     adapters: {
       getMode: () => isEditing() ? 'edit' : isSourceViewActive() ? 'source' : 'read',
-      isAvailable: () => Boolean(editorSession && hasLoadedDocument() && documentAllowsMode('edit')),
+      hasDocument: () => Boolean(editorSession && hasLoadedDocument()),
+      isAvailable: (mode) => Boolean(
+        editorSession
+        && hasLoadedDocument()
+        && (mode === 'read' || documentAllowsMode(mode))
+      ),
       getDocumentIdentity: getCurrentDocument,
       enterEdit: () => editorSession?.enter(),
       exitEdit: () => editorSession?.exit(),
@@ -889,7 +910,8 @@ function applicationEvents() {
     { target: ui.helpToggleButton, type: 'click', listener: toggleHelp },
     { target: ui.closeHelpButton, type: 'click', listener: () => setHelpVisible(false) },
     { target: ui.content, type: 'change', listener: (event) => documentContentActions?.handleReadTaskToggle(event) },
-    { target: ui.editModeButton, type: 'click', listener: () => documentModeCoordinator?.cycle() },
+    { target: ui.sourceModeButton, type: 'click', listener: () => documentModeCoordinator?.toggleSource() },
+    { target: ui.editModeButton, type: 'click', listener: () => documentModeCoordinator?.toggleEdit() },
     { target: ui.editorSaveButton, type: 'click', listener: () => documentSaveCoordinator?.saveEditor() },
     { target: document.getElementById('theme-select'), type: 'change', listener: handleThemeSelection },
   ];
@@ -897,6 +919,7 @@ function applicationEvents() {
 
 async function startApplication(own) {
   const preferenceResult = await readerShell.preferences.load();
+  appLoadingScreen?.setReducedMotion(readerShell.preferences.current().advanced?.reduceMotion);
   if (preferenceResult.status === 'fallback') {
     console.warn('One or more saved preferences could not be restored:', preferenceResult.warnings);
   }
@@ -921,6 +944,8 @@ async function startApplication(own) {
  * without relying on DOMContentLoaded auto-start.
  */
 export async function startOpenMdApplication() {
+  const { createAppLoadingScreen } = await appLoadingScreenModule;
+  let loadingLifecycleReady = false;
   applicationLifecycle = createApplicationLifecycleController({
     window,
     isDirty: () => Boolean(editorSession?.isDirty()),
@@ -930,6 +955,12 @@ export async function startOpenMdApplication() {
   });
   await applicationLifecycle.start(async ({ own, listen }) => {
     cacheElements();
+    appLoadingScreen = createAppLoadingScreen({ window, document });
+    own({
+      dispose: () => {
+        if (loadingLifecycleReady) appLoadingScreen?.dispose();
+      },
+    });
     statusPresenter = own(createStatusPresenter({
       window,
       document,
@@ -967,6 +998,7 @@ export async function startOpenMdApplication() {
       listen(binding.target, binding.type, binding.listener, binding.options);
     }
     await startApplication(own);
+    await pendingInitialTheme;
     const emptyLogoShell = document.getElementById('empty-logo-shell');
     if (emptyLogoShell) {
       const emptyStateMotion = own(createEmptyStateMotion({
@@ -977,6 +1009,8 @@ export async function startOpenMdApplication() {
       }));
       emptyStateMotion.start();
     }
+    loadingLifecycleReady = true;
+    appLoadingScreen?.complete();
   });
   return Object.freeze({
     dispose: () => applicationLifecycle?.dispose(),
@@ -987,11 +1021,15 @@ export async function startOpenMdApplication() {
 }
 
 if (typeof window !== 'undefined' && !window.__VITEST__) {
+  const reportStartupFailure = (error) => {
+    appLoadingScreen?.fail('Could not load open.md');
+    console.error('open.md initialization failed:', error);
+  };
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      startOpenMdApplication().catch((error) => console.error('open.md initialization failed:', error));
+      startOpenMdApplication().catch(reportStartupFailure);
     });
   } else {
-    startOpenMdApplication().catch((error) => console.error('open.md initialization failed:', error));
+    startOpenMdApplication().catch(reportStartupFailure);
   }
 }
