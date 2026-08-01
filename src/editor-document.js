@@ -43,7 +43,7 @@ export function createEditorBlock(type = 'paragraph', text = '', options = {}) {
   };
 }
 
-function parseMarkdownLine(line) {
+export function parseMarkdownLine(line) {
   let match = line.match(/^(#{1,6})\s+(.*)$/);
   if (match) return createEditorBlock(`heading${match[1].length}`, match[2]);
 
@@ -153,6 +153,57 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+/**
+ * Structural kind of one hard source line for Classic typography
+ * (active source keeps raw Markdown but uses the same visual scale).
+ */
+export function classicLineKind(line, { markdown = true } = {}) {
+  const raw = String(line ?? '');
+  if (!markdown) return 'paragraph';
+  if (/^\s{0,3}(```|~~~)/.test(raw)) return 'fence';
+  if (/^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/.test(raw)) return 'divider';
+  const block = parseMarkdownLine(raw);
+  return block.type || 'paragraph';
+}
+
+/**
+ * Render one hard source line for Classic live preview (inactive lines).
+ * Structural markers are shown as chrome; body text uses inline Markdown.
+ */
+export function classicLinePreviewHtml(line, { markdown = true } = {}) {
+  const raw = String(line ?? '');
+  if (!markdown) {
+    return raw ? escapeHtml(raw) : '<br>';
+  }
+  if (/^\s{0,3}(```|~~~)/.test(raw)) {
+    return `<code class="classic-line-fence">${escapeHtml(raw)}</code>`;
+  }
+  if (/^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/.test(raw)) {
+    return '<hr class="classic-line-hr" aria-hidden="true">';
+  }
+  const block = parseMarkdownLine(raw);
+  // Keep preview chrome lightweight (no nested font-size) so source/preview
+  // rows of the same kind share the row's metrics and do not jump on flip.
+  const body = inlineMarkdownToHtml(block.text || '');
+  if (block.type.startsWith('heading')) {
+    return body || '<br>';
+  }
+  if (block.type === 'bullet') {
+    return `<span class="classic-line-bullet" aria-hidden="true">•</span> ${body || ''}`;
+  }
+  if (block.type === 'numbered') {
+    return `<span class="classic-line-number" aria-hidden="true">${block.number}.</span> ${body || ''}`;
+  }
+  if (block.type === 'todo') {
+    const mark = block.checked ? '☑' : '☐';
+    return `<span class="classic-line-todo${block.checked ? ' is-checked' : ''}"><span class="classic-line-check" aria-hidden="true">${mark}</span> ${body || ''}</span>`;
+  }
+  if (block.type === 'quote') {
+    return body || '<br>';
+  }
+  return body || '<br>';
 }
 
 export function inlineMarkdownToHtml(value) {
@@ -479,6 +530,14 @@ export function createEditorDocumentModel({
     return publish({ structure: true });
   };
 
+  /** Replace document from full source text and record history (Classic surface). */
+  const applySource = (nextSource = '') => commit(() => {
+    const normalized = String(nextSource ?? '').replace(/\r\n?/g, '\n');
+    if (serializeCurrent() === normalized) return false;
+    blocks = parseEditorDocument(normalized, { markdown });
+    return true;
+  });
+
   const subscribe = (subscriber) => {
     if (typeof subscriber !== 'function' || disposed) return () => {};
     subscribers.add(subscriber);
@@ -497,6 +556,7 @@ export function createEditorDocumentModel({
     block,
     subscribe,
     load,
+    applySource,
     updateBlock,
     changeType,
     addAfter,

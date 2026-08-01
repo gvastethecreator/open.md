@@ -5,10 +5,10 @@ import path from 'node:path';
 const root = process.cwd();
 const distDirectory = path.join(root, 'dist');
 const indexPath = path.join(distDirectory, 'index.html');
-// Format experience layer plus ARC-26..35 composition owners (format authority,
-// zoom controller, expanded runtime adapters) stay in the initial graph while
-// highlight/mermaid/image viewer and rich format readers remain deferred.
-const maxInitialJavaScriptBytes = 325_000;
+// Format experience layer, ARC composition owners, and Classic/Block dual
+// live-preview presentation stay in the initial graph while highlight/mermaid/
+// image viewer and rich format readers remain deferred.
+const maxInitialJavaScriptBytes = 340_000;
 
 function listFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {

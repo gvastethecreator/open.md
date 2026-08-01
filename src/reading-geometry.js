@@ -91,3 +91,20 @@ export function getMinimapViewportGeometry({
     height,
   };
 }
+
+/**
+ * Map a minimap pointer Y into document scrollTop using the scaled content height,
+ * not the full rail. Clicks below the mini-document clamp to the document end.
+ */
+export function getMinimapScrollTopFromPointer({
+  clientY,
+  trackTop,
+  contentHeight,
+  maxScroll,
+}) {
+  const usableHeight = Math.max(1, Number(contentHeight) || 0);
+  const offsetY = (Number(clientY) || 0) - (Number(trackTop) || 0);
+  const ratio = Math.min(1, Math.max(0, offsetY / usableHeight));
+  const safeMaxScroll = Math.max(0, Number(maxScroll) || 0);
+  return ratio * safeMaxScroll;
+}

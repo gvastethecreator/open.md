@@ -221,6 +221,7 @@
 .ti-typography::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/typography.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/typography.svg"); }
 .ti-file-text::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/file-text.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/file-text.svg"); }
 .ti-pencil::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/pencil.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/pencil.svg"); }
+.ti-blocks::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/blocks.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/blocks.svg"); }
 .ti-adjustments::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/adjustments.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/adjustments.svg"); }
 .ti-file-search::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/file-search.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/file-search.svg"); }
 .ti-blur::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/blur.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/blur.svg"); }
@@ -2095,6 +2096,179 @@ body.is-line-guide .editor-end-hint {
 
 .editor-block-toolbar[hidden] {
   display: none;
+}
+
+/* Classic continuous source-line surface (not block islands). */
+.editor-view.is-classic-presentation .editor-canvas,
+.editor-canvas.is-classic-surface {
+  outline: none;
+  caret-color: var(--text-color);
+}
+
+/*
+ * Typography lives on the ROW so source and preview of the same kind share
+ * identical metrics. Flipping active line (or mid-selection) must not change
+ * height — that was the jumpy multi-select drag.
+ */
+.classic-line {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 1.55em;
+  margin: 0;
+  padding: 0.12em 0.2em;
+  border-radius: var(--radius-xs);
+  line-height: 1.45;
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--text-color);
+  /* Isolate layout so neighbor reflows do not thrash selection geometry. */
+  contain: layout style;
+}
+
+.classic-line.is-active-line {
+  background: var(--editor-active-line-bg);
+  box-shadow: inset 2px 0 0 var(--editor-active-line-border);
+}
+
+.classic-line.is-selection-source:not(.is-active-line),
+.classic-line.is-in-selection:not(.is-active-line) {
+  background: color-mix(in srgb, var(--editor-active-line-bg) 28%, transparent);
+}
+
+.classic-line--heading1 {
+  min-height: 2.35em;
+  padding-block: 0.2em;
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.28;
+}
+
+.classic-line--heading2 {
+  min-height: 2.05em;
+  padding-block: 0.16em;
+  font-size: 1.4rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+.classic-line--heading3 {
+  min-height: 1.85em;
+  padding-block: 0.14em;
+  font-size: 1.18rem;
+  font-weight: 650;
+  line-height: 1.32;
+}
+
+.classic-line--heading4 {
+  min-height: 1.7em;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.classic-line--heading5 {
+  min-height: 1.6em;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.classic-line--heading6 {
+  min-height: 1.55em;
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: var(--quote-color, var(--ui-muted));
+}
+
+.classic-line--quote {
+  padding-left: 0.85em;
+  border-left: 3px solid color-mix(in srgb, var(--ui-accent) 45%, transparent);
+  color: var(--quote-color, var(--ui-muted));
+  font-style: italic;
+}
+
+.classic-line--code,
+.classic-line--fence {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  line-height: 1.4;
+}
+
+.classic-line--divider {
+  color: var(--ui-muted);
+  letter-spacing: 0.08em;
+}
+
+.classic-line-content {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 1.2em;
+  margin: 0;
+  padding: 0;
+  /* Inherit row metrics — never re-size inside content. */
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  color: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+  outline: none;
+}
+
+.classic-line-preview {
+  cursor: text;
+}
+
+.classic-line-bullet,
+.classic-line-number,
+.classic-line-check {
+  color: var(--ui-muted);
+  user-select: none;
+}
+
+.classic-line-todo.is-checked {
+  color: var(--ui-muted);
+  text-decoration: line-through;
+}
+
+.classic-line-fence {
+  font: inherit;
+}
+
+.classic-line-hr {
+  display: block;
+  width: 100%;
+  height: 0;
+  margin: 0.55em 0;
+  border: 0;
+  border-top: 1px solid var(--ui-border-color);
+}
+
+body:not(.is-block-editor) .editor-block-toolbar:not([hidden]) {
+  display: none;
+}
+
+/* Non-editable chrome inside Classic continuous contenteditable host. */
+.editor-list-marker,
+.editor-source-prefix {
+  content: normal;
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: none;
+}
+
+.editor-source-prefix {
+  color: var(--ui-muted);
+  font-weight: 500;
+  opacity: 0.72;
+}
+
+.editor-todo-checkbox {
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .editor-block-toolbar > button {

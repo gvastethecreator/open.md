@@ -95,10 +95,11 @@ handoff and default-app policy.
   reload from a replacement document.
 - `src/editor-document.js` owns canonical block state and history.
   `src/editor-session.js` projects an Obsidian-style live preview (active line
-  as source Markdown, other lines as rendered preview), owns the floating block
-  toolbar, and composes the overlay, selection, and block-interaction
-  controllers. Cursor snapshots reuse the frozen document projection instead of
-  rebuilding the document.
+  as source Markdown, other lines as rendered preview). Classic (default) uses a
+  continuous multiline host; Block editor (View options) enables the floating
+  block toolbar, slash menu, and drag reorder. It composes the overlay,
+  selection, and block-interaction controllers. Cursor snapshots reuse the
+  frozen document projection instead of rebuilding the document.
 - `src/core/reader.js` retains pure reader calculations that can be tested
   without Tauri or the browser composition root.
 - `src/mermaid-renderer.js` loads Mermaid only when a document contains a

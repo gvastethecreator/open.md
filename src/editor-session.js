@@ -6,6 +6,7 @@ import {
   inlineMarkdownToHtml,
   serializeEditorDocument,
 } from './editor-document.js';
+import { createEditorClassicSurface } from './editor-classic-surface.js';
 import { createEditorOverlayController } from './editor-overlay-controller.js';
 import { createEditorSelectionController } from './editor-selection-controller.js';
 import { createEditorBlockInteractionController } from './editor-block-interaction-controller.js';
@@ -126,11 +127,17 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   let overlayController = null;
   let selectionController = null;
   let blockInteractionController = null;
+  let classicSurface = null;
   let disposed = false;
   let blockLineCounts = new Map();
+  /** Block ids temporarily showing source while a multi-line selection spans them (Block multi-select). */
+  let selectionSourceIds = new Set();
   const drafts = new Map();
 
   const isMarkdown = () => activeDocument?.markdown !== false;
+  /** Classic (default) = continuous line live-preview; Block = block islands + tools. */
+  const isBlockEditor = () => Boolean(adapters.isBlockEditor?.());
+  const isClassic = () => mode === 'edit' && !isBlockEditor();
   const source = () => documentSnapshot.source;
   const dirty = () => mode === 'edit' && source() !== savedSource;
   const snapshot = () => Object.freeze({
@@ -141,6 +148,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     error: saveError,
     stats: documentSnapshot.stats,
     cursor: documentSnapshot.cursor,
+    presentation: isBlockEditor() ? 'block' : 'classic',
   });
   const notify = () => hooks.onStateChange?.(snapshot());
 
@@ -155,7 +163,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
   const updateBlockToolbar = () => {
     if (!blockToolbar) return;
-    if (mode !== 'edit' || !activeBlockId) {
+    // Classic keeps block chrome out of the way; only Block presentation shows it.
+    if (mode !== 'edit' || !activeBlockId || !isBlockEditor()) {
       blockToolbar.hidden = true;
       return;
     }
@@ -184,15 +193,174 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     if (typeLabel) typeLabel.textContent = editorBlockLabel(block.type);
   };
 
+  const placeCaretInContent = (content, position = 'end') => {
+    if (!content) return;
+    const selection = window.getSelection();
+    if (!selection) return;
+    const range = document.createRange();
+    if (content.firstChild?.nodeType === 3) {
+      const text = content.firstChild;
+      const offset = position === 'start' ? 0 : (text.textContent?.length || 0);
+      range.setStart(text, Math.min(offset, text.textContent?.length || 0));
+      range.collapse(true);
+    } else {
+      range.selectNodeContents(content);
+      range.collapse(position === 'start');
+    }
+    selection.removeAllRanges();
+    selection.addRange(range);
+  };
+
+  /** Rebuild one wrapper body as source or preview (Classic live-preview). */
+  const projectWrapperMode = (wrapper, block, { source, active }) => {
+    if (!wrapper || !block) return;
+    wrapper.classList.toggle('is-active-line', Boolean(active));
+    wrapper.classList.toggle('is-selection-source', Boolean(source && !active));
+    wrapper.style.setProperty('--block-indent', String(block.indent || 0));
+
+    const body = document.createElement('div');
+    body.className = 'editor-block-body';
+
+    if (block.type === 'divider') {
+      const divider = document.createElement('div');
+      divider.className = 'editor-divider';
+      divider.setAttribute('role', 'separator');
+      divider.tabIndex = isBlockEditor() ? 0 : -1;
+      divider.dataset.editorContent = '';
+      divider.dataset.editorMode = source ? 'source' : 'preview';
+      divider.setAttribute('aria-label', 'Divider block');
+      body.append(divider);
+      wrapper.replaceChildren(body);
+      return;
+    }
+
+    if (source) {
+      if (block.type === 'todo') appendListChrome(body, block);
+      else appendSourcePrefix(body, block);
+    } else {
+      appendListChrome(body, block);
+    }
+
+    const content = document.createElement(block.type === 'code' ? 'pre' : 'div');
+    content.className = active
+      ? 'editor-block-content is-active-line'
+      : source
+        ? 'editor-block-content is-selection-source'
+        : 'editor-block-content editor-block-preview';
+    content.dataset.editorContent = '';
+    content.dataset.editorMode = source ? 'source' : 'preview';
+    content.setAttribute('aria-label', `${editorBlockLabel(block.type)} block`);
+    content.dataset.placeholder = block.type.startsWith('heading')
+      ? 'Heading'
+      : block.type === 'code'
+        ? 'Write code…'
+        : isBlockEditor()
+          ? "Type '/' for commands"
+          : 'Write…';
+
+    if (source) {
+      if (isBlockEditor()) {
+        content.contentEditable = 'true';
+        content.tabIndex = 0;
+        content.setAttribute('role', 'textbox');
+        content.setAttribute('aria-multiline', String(block.type === 'code'));
+      } else {
+        content.removeAttribute('contenteditable');
+        content.tabIndex = -1;
+        content.setAttribute('aria-multiline', 'true');
+      }
+      content.spellcheck = block.type !== 'code';
+      content.textContent = block.text;
+    } else {
+      content.contentEditable = 'false';
+      content.tabIndex = -1;
+      content.dataset.editorPreview = '';
+      if (block.type === 'code' || !isMarkdown()) content.textContent = block.text;
+      else content.innerHTML = inlineMarkdownToHtml(block.text);
+    }
+
+    body.append(content);
+    wrapper.replaceChildren(body);
+  };
+
+  /**
+   * Classic live preview: only the active line (and multi-select expansion) is
+   * source Markdown; every other line is rendered preview. Updates in place so
+   * the continuous host is not torn down on each caret move.
+   */
+  const reconcileClassicProjection = ({ caretPosition = null } = {}) => {
+    if (isBlockEditor() || mode !== 'edit') return;
+    documentSnapshot.blocks.forEach((block) => {
+      const wrapper = findWrapper(block.id);
+      if (!wrapper) return;
+      const source = block.id === activeBlockId || selectionSourceIds.has(block.id);
+      const active = block.id === activeBlockId;
+      const content = blockContent(wrapper);
+      const modeNow = content?.dataset.editorMode;
+      const wantMode = source ? 'source' : 'preview';
+      const activeNow = wrapper.classList.contains('is-active-line');
+      if (modeNow !== wantMode || activeNow !== active) {
+        projectWrapperMode(wrapper, block, { source, active });
+      } else {
+        wrapper.classList.toggle('is-active-line', active);
+        wrapper.classList.toggle('is-selection-source', source && !active);
+        content?.classList.toggle('is-active-line', active);
+        content?.classList.toggle('is-selection-source', source && !active);
+      }
+    });
+    applyPresentationChrome();
+    if (caretPosition && activeBlockId) {
+      const content = blockContent(findWrapper(activeBlockId));
+      if (content) {
+        canvas.focus({ preventScroll: true });
+        placeCaretInContent(content, caretPosition);
+      }
+    }
+    updateBlockToolbar();
+  };
+
+  const setClassicActiveLine = (id, { position = null, clearSelectionSources = true } = {}) => {
+    if (!id || isBlockEditor() || mode !== 'edit') return;
+    if (activeBlockId && activeBlockId !== id) {
+      const previousWrapper = findWrapper(activeBlockId);
+      if (previousWrapper) updateBlockFromElement(previousWrapper);
+    }
+    const same = activeBlockId === id;
+    activeBlockId = id;
+    if (clearSelectionSources && selectionSourceIds.size) selectionSourceIds = new Set();
+    if (same && position == null && !selectionSourceIds.size) {
+      updateBlockToolbar();
+      return;
+    }
+    reconcileClassicProjection({ caretPosition: position });
+    selectionController?.capture();
+  };
+
   const focusBlock = (id, position = 'end', { preserveScroll = false } = {}) => {
+    // Classic uses source-line indices, not block ids — no-op for block focus APIs.
+    if (isClassic()) {
+      if (classicSurface?.isMounted?.()) {
+        classicSurface.render({
+          source: source(),
+          focusLine: classicSurface.activeLine?.() ?? 0,
+          caret: position === 'start' ? 0 : null,
+        });
+      }
+      return;
+    }
+
     const previousId = activeBlockId;
     if (previousId && previousId !== id) {
       const previousWrapper = findWrapper(previousId);
       if (previousWrapper) updateBlockFromElement(previousWrapper);
     }
-    const needsProjection = previousId !== id;
+
+    // Block islands: re-project when the active block changes.
     activeBlockId = id;
-    if (needsProjection) render();
+    if (previousId !== id) {
+      selectionSourceIds = new Set();
+      render();
+    }
     const content = blockContent(findWrapper(id));
     if (!content) {
       updateBlockToolbar();
@@ -200,12 +368,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     }
     if (preserveScroll) content.focus({ preventScroll: true });
     else content.focus();
-    const range = document.createRange();
-    range.selectNodeContents(content);
-    range.collapse(position === 'start');
-    const selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
+    placeCaretInContent(content, position);
     selectionController?.capture();
     updateBlockToolbar();
     if (!preserveScroll) content.scrollIntoView?.({ block: 'nearest' });
@@ -230,7 +393,9 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     render();
     notify();
     hooks.onHistoryRestore?.(action);
-    queueMicrotask(() => focusBlock(result.focusId));
+    if (!isClassic()) {
+      queueMicrotask(() => focusBlock(result.focusId));
+    }
     return true;
   };
 
@@ -344,6 +509,43 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     }
   };
 
+  /** Commit every source-mode block (active + Classic multi-select expansion). */
+  const commitAllSourceBlocks = () => {
+    canvas.querySelectorAll('[data-block-id]').forEach((wrapper) => {
+      const content = blockContent(wrapper);
+      if (!content || content.dataset.editorMode !== 'source') return;
+      updateBlockFromElement(wrapper);
+    });
+  };
+
+  const updateContextChrome = () => {
+    const markdown = isMarkdown();
+    if (contextLabel) {
+      contextLabel.textContent = markdown
+        ? (isBlockEditor() ? 'Block live preview' : 'Live preview')
+        : 'Plain-text editor';
+    }
+    if (!contextHint) return;
+    contextHint.replaceChildren();
+    if (markdown && isBlockEditor()) {
+      contextHint.append('Type ');
+      const shortcut = document.createElement('kbd');
+      shortcut.textContent = '/';
+      contextHint.append(shortcut, ' for blocks · active line shows markup');
+    } else if (markdown) {
+      contextHint.textContent = 'Active line is Markdown · other lines are preview';
+    } else {
+      contextHint.textContent = 'Each line saves as text';
+    }
+  };
+
+  const markNonEditableChrome = (element) => {
+    if (!element) return element;
+    element.contentEditable = 'false';
+    element.setAttribute('aria-hidden', element.getAttribute('aria-hidden') || 'true');
+    return element;
+  };
+
   const appendListChrome = (body, block) => {
     if (block.type === 'todo') {
       const checkbox = document.createElement('input');
@@ -352,93 +554,65 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       checkbox.className = 'editor-todo-checkbox';
       checkbox.dataset.todoCheck = '';
       checkbox.setAttribute('aria-label', block.checked ? 'Mark task incomplete' : 'Mark task complete');
+      // Keep interactive but outside the Classic continuous text host.
+      checkbox.contentEditable = 'false';
       body.append(checkbox);
     }
     if (block.type === 'numbered') {
       const number = document.createElement('span');
       number.className = 'editor-list-marker';
       number.textContent = `${block.number}.`;
-      number.setAttribute('aria-hidden', 'true');
+      markNonEditableChrome(number);
       body.append(number);
     }
     if (block.type === 'bullet') {
       const bullet = document.createElement('span');
       bullet.className = 'editor-list-marker';
       bullet.textContent = '•';
-      bullet.setAttribute('aria-hidden', 'true');
+      markNonEditableChrome(bullet);
       body.append(bullet);
     }
   };
 
+  /** Muted structural Markdown markers on source lines (Obsidian-like readability). */
+  const appendSourcePrefix = (body, block) => {
+    if (!isMarkdown()) return;
+    let prefix = '';
+    if (block.type === 'heading1') prefix = '#';
+    else if (block.type === 'heading2') prefix = '##';
+    else if (block.type === 'heading3') prefix = '###';
+    else if (block.type === 'heading4') prefix = '####';
+    else if (block.type === 'heading5') prefix = '#####';
+    else if (block.type === 'heading6') prefix = '######';
+    else if (block.type === 'quote') prefix = '>';
+    else if (block.type === 'bullet') prefix = '-';
+    else if (block.type === 'numbered') prefix = `${Math.max(1, Number(block.number) || 1)}.`;
+    else if (block.type === 'todo') prefix = `- [${block.checked ? 'x' : ' '}]`;
+    if (!prefix) return;
+    const mark = document.createElement('span');
+    mark.className = 'editor-source-prefix';
+    mark.textContent = `${prefix} `;
+    markNonEditableChrome(mark);
+    body.append(mark);
+  };
+
   const renderBlock = (block, index) => {
     const isSpacer = block.type === 'paragraph' && block.text === '';
+    // Live preview (Classic + Block): only the active line and multi-select
+    // expansion show source Markdown; every other line is rendered preview.
+    const showSource = activeBlockId === block.id || selectionSourceIds.has(block.id);
     const isActive = activeBlockId === block.id;
     const wrapper = document.createElement('div');
     wrapper.className = `editor-block editor-block--${block.type}`;
     wrapper.dataset.blockId = block.id;
     wrapper.dataset.blockType = block.type;
     if (isSpacer) wrapper.dataset.blockSpacer = '';
-    if (isActive) wrapper.classList.add('is-active-line');
-
-    const body = document.createElement('div');
-    body.className = 'editor-block-body';
-
-    if (block.type === 'divider') {
-      const divider = document.createElement('div');
-      divider.className = 'editor-divider';
-      divider.setAttribute('role', 'separator');
-      divider.tabIndex = 0;
-      divider.dataset.editorContent = '';
-      divider.dataset.editorMode = isActive ? 'source' : 'preview';
-      divider.setAttribute('aria-label', 'Divider block');
-      body.append(divider);
-      wrapper.style.setProperty('--block-indent', String(block.indent || 0));
-      wrapper.append(body);
-      return wrapper;
+    projectWrapperMode(wrapper, block, { source: showSource, active: isActive });
+    // projectWrapperMode owns body/content; index is only for a11y labels on create.
+    const content = blockContent(wrapper);
+    if (content) {
+      content.setAttribute('aria-label', `${editorBlockLabel(block.type)} block ${index + 1}`);
     }
-
-    // Preview chrome (list markers / checkbox) only when not editing source markers for lists.
-    // Active source line keeps list markers in the body text path for todos/lists via CSS markers
-    // for visual continuity; structural prefix is shown as muted marks on the active line.
-    if (!isActive || block.type === 'todo') {
-      appendListChrome(body, block);
-    } else if (block.type === 'bullet' || block.type === 'numbered') {
-      appendListChrome(body, block);
-    }
-
-    const content = document.createElement(block.type === 'code' ? 'pre' : 'div');
-    content.className = isActive ? 'editor-block-content is-active-line' : 'editor-block-content editor-block-preview';
-    content.dataset.editorContent = '';
-    content.dataset.editorMode = isActive ? 'source' : 'preview';
-    content.setAttribute('aria-label', `${editorBlockLabel(block.type)} block ${index + 1}`);
-    content.dataset.placeholder = block.type.startsWith('heading')
-      ? 'Heading'
-      : block.type === 'code'
-        ? 'Write code…'
-        : "Type '/' for commands";
-
-    if (isActive) {
-      content.contentEditable = 'true';
-      content.tabIndex = 0;
-      content.spellcheck = block.type !== 'code';
-      content.setAttribute('role', 'textbox');
-      content.setAttribute('aria-multiline', String(block.type === 'code'));
-      // Active line is source Markdown so markup stays visible and editable.
-      content.textContent = block.text;
-    } else {
-      content.contentEditable = 'false';
-      content.tabIndex = -1;
-      content.dataset.editorPreview = '';
-      if (block.type === 'code' || !isMarkdown()) {
-        content.textContent = block.text;
-      } else {
-        content.innerHTML = inlineMarkdownToHtml(block.text);
-      }
-    }
-
-    body.append(content);
-    wrapper.style.setProperty('--block-indent', String(block.indent || 0));
-    wrapper.append(body);
     return wrapper;
   };
 
@@ -462,14 +636,44 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     blockLineCounts = nextCounts;
   };
 
+  function applyPresentationChrome() {
+    const blockMode = isBlockEditor();
+    root.classList.toggle('is-block-presentation', blockMode && mode === 'edit');
+    root.classList.toggle('is-classic-presentation', !blockMode && mode === 'edit');
+    if (mode === 'edit' && !blockMode) {
+      canvas.contentEditable = 'true';
+      canvas.setAttribute('role', 'textbox');
+      canvas.setAttribute('aria-multiline', 'true');
+      canvas.setAttribute('aria-label', 'Document editor');
+      canvas.classList.add('is-classic-surface');
+    } else {
+      canvas.contentEditable = 'false';
+      canvas.removeAttribute('role');
+      canvas.removeAttribute('aria-multiline');
+      canvas.removeAttribute('aria-label');
+      canvas.classList.remove('is-classic-surface');
+    }
+  }
+
   function render({ previousLayout = null, enteringId = null } = {}) {
     if (!previousLayout) cancelBlockAnimations();
-    // Never re-read the live DOM here: model mutations (slash commands, type
-    // changes, history) already own the source of truth. DOM → model happens on
-    // input, save, focus switches and explicit commits.
+
+    // Classic: continuous source-line surface (never block islands).
+    if (isClassic()) {
+      applyPresentationChrome();
+      if (!classicSurface?.isMounted?.()) classicSurface?.mount?.();
+      else classicSurface?.render?.({ source: source(), focusLine: classicSurface.activeLine?.() ?? 0 });
+      root.classList.toggle('is-empty-document', source().length === 0);
+      updateBlockToolbar();
+      return;
+    }
+
+    // Block presentation: leave classic surface and project block islands.
+    if (classicSurface?.isMounted?.()) classicSurface.unmount();
     const fragment = document.createDocumentFragment();
     documentSnapshot.blocks.forEach((block, index) => fragment.append(renderBlock(block, index)));
     canvas.replaceChildren(fragment);
+    applyPresentationChrome();
     refreshBlockLineIndex();
     root.classList.toggle(
       'is-empty-document',
@@ -478,6 +682,87 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     animateBlockLayout(previousLayout, { enteringId });
     updateBlockToolbar();
   }
+
+  const collectBlockIdsInRange = (range) => {
+    if (!range) return [];
+    const wrappers = [...canvas.querySelectorAll('[data-block-id]')];
+    const blockFromPoint = (node) => {
+      if (!node) return null;
+      const element = node.nodeType === 1 ? node : node.parentElement;
+      return element?.closest?.('[data-block-id]') || null;
+    };
+    const startBlock = blockFromPoint(range.startContainer);
+    const endBlock = blockFromPoint(range.endContainer);
+    // Prefer document-order walk between endpoints — more reliable than
+    // Range.intersectsNode across browsers and jsdom.
+    if (startBlock && endBlock && canvas.contains(startBlock) && canvas.contains(endBlock)) {
+      const ids = [];
+      let inRange = false;
+      for (const wrapper of wrappers) {
+        if (wrapper === startBlock || wrapper === endBlock) {
+          if (!inRange) {
+            inRange = true;
+            ids.push(wrapper.dataset.blockId);
+            if (startBlock === endBlock) break;
+            continue;
+          }
+          ids.push(wrapper.dataset.blockId);
+          break;
+        }
+        if (inRange) ids.push(wrapper.dataset.blockId);
+      }
+      if (ids.length > 0) return ids;
+    }
+    const ids = [];
+    wrappers.forEach((wrapper) => {
+      try {
+        if (range.intersectsNode?.(wrapper)) ids.push(wrapper.dataset.blockId);
+      } catch {
+        // intersectsNode can throw for detached nodes; ignore.
+      }
+    });
+    return ids;
+  };
+
+  const syncClassicSelectionSources = () => {
+    if (isBlockEditor() || mode !== 'edit') {
+      if (selectionSourceIds.size) {
+        selectionSourceIds = new Set();
+      }
+      return;
+    }
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+      if (selectionSourceIds.size) {
+        selectionSourceIds = new Set();
+        reconcileClassicProjection();
+      }
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    if (!canvas.contains(range.commonAncestorContainer)) return;
+    const ids = collectBlockIdsInRange(range);
+    const next = new Set(ids.filter((id) => id && id !== activeBlockId));
+    const same = next.size === selectionSourceIds.size
+      && [...next].every((id) => selectionSourceIds.has(id));
+    // Prefer the focus/end container as the active line during multi-select.
+    const endEl = range.endContainer?.nodeType === 1
+      ? range.endContainer
+      : range.endContainer?.parentElement;
+    const focusId = endEl?.closest?.('[data-block-id]')?.dataset?.blockId || ids[ids.length - 1];
+    if (focusId && focusId !== activeBlockId) {
+      if (activeBlockId) {
+        const previousWrapper = findWrapper(activeBlockId);
+        if (previousWrapper) updateBlockFromElement(previousWrapper);
+      }
+      activeBlockId = focusId;
+      next.delete(focusId);
+    }
+    if (same && focusId === activeBlockId) return;
+    selectionSourceIds = next;
+    // Re-project newly expanded lines to source; keep multi-select readable.
+    reconcileClassicProjection();
+  };
 
   const splitBlock = (wrapper) => {
     const block = findBlock(wrapper.dataset.blockId);
@@ -522,6 +807,13 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   };
 
   const handleCanvasInput = (event) => {
+    if (isClassic()) {
+      classicSurface?.handleInput?.(event);
+      saveState = 'idle';
+      saveError = '';
+      notify();
+      return;
+    }
     const wrapper = event.target.closest?.('[data-block-id]');
     if (!wrapper) return;
     updateBlockFromElement(wrapper);
@@ -531,7 +823,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     notify();
     updateBlockToolbar();
     const block = findBlock(activeBlockId);
-    if (block?.type !== 'code' && block?.text.startsWith('/')) {
+    // Slash commands are Block-presentation tools only.
+    if (isBlockEditor() && block?.type !== 'code' && block?.text.startsWith('/')) {
       openCommandMenu(activeBlockId, block.text.slice(1));
     } else if (overlayController?.isCommandOpenFor(activeBlockId)) {
       closeCommandMenu();
@@ -539,6 +832,25 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   };
 
   const handleCanvasKeydown = (event) => {
+    if (isClassic()) {
+      if (classicSurface?.handleKeydown?.(event)) {
+        saveState = 'idle';
+        saveError = '';
+        notify();
+      }
+      // Classic keeps browser undo for the host; still allow app history shortcuts.
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        restoreHistory(event.shiftKey ? 'redo' : 'undo');
+        return;
+      }
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'y') {
+        event.preventDefault();
+        restoreHistory('redo');
+        return;
+      }
+      return;
+    }
     const wrapper = event.target.closest?.('[data-block-id]');
     if (!wrapper) return;
     const block = findBlock(wrapper.dataset.blockId);
@@ -557,28 +869,31 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       restoreHistory('redo');
       return;
     }
-    if ((event.ctrlKey || event.metaKey) && event.altKey && /^[1-3]$/.test(event.key)) {
-      event.preventDefault();
-      applyBlockType(block.id, `heading${event.key}`);
-      return;
-    }
-    if (event.altKey && event.shiftKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
-      event.preventDefault();
-      moveBlock(block.id, event.key === 'ArrowUp' ? -1 : 1);
-      return;
-    }
-    if (event.altKey && event.shiftKey && event.key.toLowerCase() === 'm') {
-      event.preventDefault();
-      const handle = blockToolbar?.querySelector('[data-block-menu]') || blockToolbar;
-      if (handle) openBlockMenu(block.id, handle, { focus: true });
-      return;
-    }
-    if (event.key === 'Tab' && ['bullet', 'numbered', 'todo'].includes(block?.type)) {
-      event.preventDefault();
-      const updated = documentModel.indent(block.id, event.shiftKey ? -1 : 1);
-      if (updated) wrapper.style.setProperty('--block-indent', String(updated.indent));
-      notify();
-      return;
+    // Block-presentation tools only (toolbar, slash, drag, and matching shortcuts).
+    if (isBlockEditor()) {
+      if ((event.ctrlKey || event.metaKey) && event.altKey && /^[1-3]$/.test(event.key)) {
+        event.preventDefault();
+        applyBlockType(block.id, `heading${event.key}`);
+        return;
+      }
+      if (event.altKey && event.shiftKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+        event.preventDefault();
+        moveBlock(block.id, event.key === 'ArrowUp' ? -1 : 1);
+        return;
+      }
+      if (event.altKey && event.shiftKey && event.key.toLowerCase() === 'm') {
+        event.preventDefault();
+        const handle = blockToolbar?.querySelector('[data-block-menu]') || blockToolbar;
+        if (handle) openBlockMenu(block.id, handle, { focus: true });
+        return;
+      }
+      if (event.key === 'Tab' && ['bullet', 'numbered', 'todo'].includes(block?.type)) {
+        event.preventDefault();
+        const updated = documentModel.indent(block.id, event.shiftKey ? -1 : 1);
+        if (updated) wrapper.style.setProperty('--block-indent', String(updated.indent));
+        notify();
+        return;
+      }
     }
     if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'k') {
       if (selectionController?.openLinkFromCurrentSelection()) {
@@ -598,12 +913,16 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       }
     }
 
-    if (overlayController?.handleCommandKey(event, { blockId: block.id, query: block.text.slice(1) })) {
+    if (
+      isBlockEditor()
+      && overlayController?.handleCommandKey(event, { blockId: block.id, query: block.text.slice(1) })
+    ) {
       return;
     }
 
     if (event.key === 'Enter' && !event.shiftKey && block?.type !== 'code') {
       event.preventDefault();
+      selectionSourceIds = new Set();
       splitBlock(wrapper);
       return;
     }
@@ -650,10 +969,15 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
   const handleCanvasClick = (event) => {
     if (event.target.closest?.('[data-todo-check]')) return;
+    if (isClassic()) {
+      classicSurface?.handleClick?.(event);
+      return;
+    }
     const wrapper = event.target.closest?.('[data-block-id]');
     if (!wrapper) return;
     const id = wrapper.dataset.blockId;
     if (activeBlockId !== id) {
+      selectionSourceIds = new Set();
       focusBlock(id, 'end');
       return;
     }
@@ -662,9 +986,11 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   };
 
   const handleCanvasFocusIn = (event) => {
+    if (isClassic()) return;
     const wrapper = event.target.closest?.('[data-block-id]');
     if (!wrapper || !canvas.contains(wrapper)) return;
     const id = wrapper.dataset.blockId;
+
     if (activeBlockId !== id) {
       const previousId = activeBlockId;
       if (previousId) {
@@ -672,8 +998,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
         if (previousWrapper) updateBlockFromElement(previousWrapper);
       }
       activeBlockId = id;
+      selectionSourceIds = new Set();
       render();
-      // Restore focus after re-projection (source content is new node).
       queueMicrotask(() => {
         const content = blockContent(findWrapper(id));
         content?.focus({ preventScroll: true });
@@ -681,6 +1007,14 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       });
     } else {
       updateBlockToolbar();
+    }
+  };
+
+  const handleSelectionChange = () => {
+    if (disposed || mode !== 'edit') return;
+    if (isClassic()) {
+      classicSurface?.handleSelectionChange?.();
+      return;
     }
   };
 
@@ -737,12 +1071,21 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     saveState = draft ? 'recovered' : 'idle';
     saveError = '';
     activeBlockId = documentSnapshot.blocks[0]?.id || null;
+    selectionSourceIds = new Set();
     render();
+    updateContextChrome();
     root.hidden = false;
     root.removeAttribute('inert');
-    if (blockToolbar) blockToolbar.hidden = false;
+    updateBlockToolbar();
     notify();
-    queueMicrotask(() => focusBlock(documentSnapshot.blocks[0].id, 'start', { preserveScroll: true }));
+    if (isClassic()) {
+      queueMicrotask(() => {
+        classicSurface?.render?.({ source: source(), focusLine: 0, caret: 0 });
+        canvas.focus({ preventScroll: true });
+      });
+    } else {
+      queueMicrotask(() => focusBlock(documentSnapshot.blocks[0].id, 'start', { preserveScroll: true }));
+    }
     return true;
   };
 
@@ -757,10 +1100,13 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     clearDragState();
     cancelBlockAnimations();
     selectionController?.clear();
+    if (classicSurface?.isMounted?.()) classicSurface.unmount();
     mode = 'read';
     saveState = 'idle';
     saveError = '';
     activeBlockId = null;
+    selectionSourceIds = new Set();
+    applyPresentationChrome();
     if (blockToolbar) blockToolbar.hidden = true;
     root.hidden = true;
     root.setAttribute('inert', '');
@@ -768,14 +1114,43 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     return true;
   };
 
+  /**
+   * Re-project when View options flips Classic ↔ Block without dropping the draft.
+   */
+  const refreshPresentation = () => {
+    if (disposed || mode !== 'edit') return;
+    if (classicSurface?.isMounted?.()) {
+      classicSurface.commitFromDom?.();
+    } else {
+      commitAllSourceBlocks();
+    }
+    selectionSourceIds = new Set();
+    closeCommandMenu();
+    closeBlockMenu();
+    clearDragState();
+    // applySource re-parses blocks with new ids — always rebind the active block.
+    activeBlockId = documentSnapshot.blocks[0]?.id || null;
+    if (classicSurface?.isMounted?.() && isBlockEditor()) classicSurface.unmount();
+    render();
+    updateContextChrome();
+    updateBlockToolbar();
+    notify();
+    if (isClassic()) {
+      queueMicrotask(() => {
+        classicSurface?.render?.({ source: source(), focusLine: 0, caret: 0 });
+        canvas.focus({ preventScroll: true });
+      });
+    } else if (activeBlockId) {
+      queueMicrotask(() => focusBlock(activeBlockId, 'end', { preserveScroll: true }));
+    }
+  };
+
   const save = async () => {
     if (disposed || mode !== 'edit' || !activeDocument || saveState === 'saving') {
       return { status: 'unavailable' };
     }
-    if (activeBlockId) {
-      const wrapper = findWrapper(activeBlockId);
-      if (wrapper) updateBlockFromElement(wrapper);
-    }
+    if (isClassic()) classicSurface?.commitFromDom?.();
+    else commitAllSourceBlocks();
     const savingDocument = activeDocument;
     const savingPath = savingDocument.path;
     const nextSource = source();
@@ -811,18 +1186,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       hooks.onDraftPreserved?.(activeDocument.path);
     }
     activeDocument = { path, source: normalizedSource, markdown: Boolean(markdown) };
-    if (contextLabel) contextLabel.textContent = markdown ? 'Live preview' : 'Plain-text editor';
-    if (contextHint) {
-      contextHint.replaceChildren();
-      if (markdown) {
-        contextHint.append('Type ');
-        const shortcut = document.createElement('kbd');
-        shortcut.textContent = '/';
-        contextHint.append(shortcut, ' for blocks · active line shows markup');
-      } else {
-        contextHint.textContent = 'Each line saves as text';
-      }
-    }
+    updateContextChrome();
     if (sameActiveEditor) {
       savedSource = normalizedSource;
       saveState = source() === normalizedSource ? 'saved' : 'idle';
@@ -849,6 +1213,24 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     if (discard) exit({ force: true });
     return discard;
   };
+
+  classicSurface = createEditorClassicSurface({
+    window,
+    canvas,
+    adapters: {
+      isMarkdown: () => isMarkdown(),
+      getSource: () => source(),
+      applySource: (next) => documentModel.applySource(next),
+      setCursor,
+    },
+    hooks: {
+      onChange: () => {
+        saveState = 'idle';
+        saveError = '';
+        notify();
+      },
+    },
+  });
 
   overlayController = createEditorOverlayController({
     window,
@@ -919,6 +1301,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   canvas.addEventListener('click', handleCanvasClick);
   canvas.addEventListener('focusin', handleCanvasFocusIn);
   canvas.addEventListener('change', handleCanvasChange);
+  document.addEventListener('selectionchange', handleSelectionChange);
   blockToolbar?.addEventListener('click', handleBlockToolbarClick);
 
   root.hidden = true;
@@ -930,6 +1313,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     clearDocument,
     enter,
     exit,
+    refreshPresentation,
     toggle() {
       return mode === 'edit' ? exit() : enter();
     },
@@ -937,6 +1321,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     canChangeDocument,
     isEditing: () => mode === 'edit',
     isDirty: dirty,
+    isBlockEditor,
     current: snapshot,
     source,
     contextFor,
@@ -951,10 +1336,12 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       canvas.removeEventListener('click', handleCanvasClick);
       canvas.removeEventListener('focusin', handleCanvasFocusIn);
       canvas.removeEventListener('change', handleCanvasChange);
+      document.removeEventListener('selectionchange', handleSelectionChange);
       blockToolbar?.removeEventListener('click', handleBlockToolbarClick);
       overlayController?.dispose();
       selectionController?.dispose();
       blockInteractionController?.dispose();
+      classicSurface?.dispose?.();
       unsubscribeDocumentModel();
       documentModel.dispose();
       clearDragState();

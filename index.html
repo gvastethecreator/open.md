@@ -178,6 +178,21 @@
                 </p>
 
                 <button
+                  class="reading-tool-toggle"
+                  type="button"
+                  role="switch"
+                  aria-checked="false"
+                  data-reading-tool="blockEditor"
+                  data-tooltip="Edit one block at a time with block tools"
+                  data-tooltip-side="left"
+                  data-tooltip-delay="420"
+                >
+                  <i class="ti ti-blocks" aria-hidden="true"></i>
+                  <span><strong>Block editor</strong></span>
+                  <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+                </button>
+
+                <button
                   id="auto-save-toggle"
                   class="reading-tool-toggle"
                   type="button"
@@ -375,7 +390,7 @@
             <section id="editor-view" class="editor-view" aria-label="Document editor" hidden inert>
               <header class="editor-context" aria-live="polite">
                 <span id="editor-context-label">Live preview</span>
-                <span id="editor-context-hint" class="editor-context-hint">Type <kbd>/</kbd> for blocks · active line shows markup</span>
+                <span id="editor-context-hint" class="editor-context-hint">Active line shows markup · other lines are preview</span>
               </header>
               <div id="editor-canvas" class="editor-canvas" aria-label="Editable document"></div>
               <p class="editor-end-hint"><kbd>Ctrl</kbd> + <kbd>S</kbd> saves · <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd> returns to reading</p>
@@ -460,7 +475,7 @@
                   <div><dt><kbd>Ctrl</kbd> + <kbd>F4</kbd></dt><dd>Close the current file</dd></div>
                   <div><dt><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd></dt><dd>Toggle Read and Edit</dd></div>
                   <div><dt><kbd>Ctrl</kbd> + <kbd>S</kbd></dt><dd>Save now</dd></div>
-                  <div><dt><kbd>/</kbd></dt><dd>Add an editor block</dd></div>
+                  <div><dt><kbd>/</kbd></dt><dd>Add a block (Block editor on)</dd></div>
                   <div><dt><kbd>T</kbd> / <kbd>Shift</kbd> + <kbd>T</kbd></dt><dd>Change theme</dd></div>
                   <div><dt><kbd>Ctrl</kbd> + click theme</dt><dd>Cycle theme (same as <kbd>T</kbd>)</dd></div>
                   <div><dt><kbd>Ctrl</kbd> + <kbd>+</kbd>/<kbd>-</kbd>/<kbd>0</kbd></dt><dd>Adjust or reset zoom</dd></div>
