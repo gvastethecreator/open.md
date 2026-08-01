@@ -7,14 +7,12 @@ function fixture() {
   const state = {
     help: false,
     readingTools: false,
-    typography: false,
     edit: false,
   };
   const hooks = {
     toggleHelp: vi.fn(() => { state.help = !state.help; }),
     closeHelp: vi.fn(() => { state.help = false; }),
     closeReadingTools: vi.fn(() => { state.readingTools = false; }),
-    closeTypography: vi.fn(() => { state.typography = false; }),
     toggleEdit: vi.fn(() => { state.edit = !state.edit; }),
     saveEditor: vi.fn(),
     openFile: vi.fn(),
@@ -29,7 +27,6 @@ function fixture() {
     adapters: {
       isHelpVisible: () => state.help,
       isReadingToolsOpen: () => state.readingTools,
-      isTypographyOpen: () => state.typography,
       isEditMode: () => state.edit,
     },
     hooks,
@@ -104,12 +101,8 @@ describe('Reader Keyboard Controller', () => {
     expect(view.hooks.cycleTheme).toHaveBeenCalledTimes(3);
   });
 
-  it('closes typography and stops listening after disposal', () => {
+  it('stops listening after disposal', () => {
     const view = fixture();
-    view.state.typography = true;
-    press('Escape');
-    expect(view.hooks.closeTypography).toHaveBeenCalledOnce();
-
     view.controller.dispose();
     press('F1');
     expect(view.hooks.toggleHelp).not.toHaveBeenCalled();

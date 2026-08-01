@@ -262,8 +262,13 @@ export function createThemeCoordinator({
     return applyIndex(index, options);
   };
 
-  const start = (savedThemeName = null) => {
-    const initialIndex = getPreferredThemeIndex(themes, savedThemeName);
+  const start = (savedThemeName = null, { random = false } = {}) => {
+    let initialIndex = -1;
+    if (random && themes.length > 0) {
+      initialIndex = Math.floor(Math.random() * themes.length);
+    } else {
+      initialIndex = getPreferredThemeIndex(themes, savedThemeName);
+    }
     populate();
     return initialIndex >= 0
       ? applyIndex(initialIndex, { silent: true, persist: false })

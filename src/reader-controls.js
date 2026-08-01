@@ -35,7 +35,6 @@ export function createReaderControls({
   const body = document.body;
   const state = snapshotValue(adapters.preferences?.current?.());
   let readingToolsOpen = false;
-  let typographyOpen = false;
   let advancedOpen = false;
   let disposed = false;
   let started = false;
@@ -100,25 +99,10 @@ export function createReaderControls({
     }
   }
 
-  function setTypographyOpen(nextOpen, { returnFocus = false } = {}) {
-    if (disposed) return;
-    typographyOpen = Boolean(nextOpen && !hooks.isHelpVisible?.());
-    if (typographyOpen) setReadingToolsOpen(false);
-    body.classList.toggle('is-typography-open', typographyOpen);
-    elements.typographyButton?.setAttribute('aria-expanded', String(typographyOpen));
-
-    if (elements.typographyButton) {
-      const label = typographyOpen ? 'Close appearance options' : 'Open appearance options';
-      elements.typographyButton.setAttribute('aria-label', label);
-      elements.typographyButton.dataset.tooltip = label;
-    }
-
-    if (elements.typographyPanel) {
-      elements.typographyPanel.setAttribute('aria-hidden', String(!typographyOpen));
-      elements.typographyPanel.toggleAttribute('inert', !typographyOpen);
-    }
-
-    if (!typographyOpen && returnFocus) deferFocus(window, elements.typographyButton);
+  function applyEdgeFade() {
+    const imageDocument = body.classList.contains('is-image-document');
+    const fadeOff = imageDocument || state.advanced.edgeFade === false;
+    body.classList.toggle('is-edge-fade-off', fadeOff);
   }
 
   function setAdvancedOpen(nextOpen, { returnFocus = false } = {}) {
@@ -145,8 +129,7 @@ export function createReaderControls({
     if (disposed) return;
     const canOpen = !hooks.isHelpVisible?.();
     readingToolsOpen = Boolean(nextOpen && canOpen);
-    if (readingToolsOpen) setTypographyOpen(false);
-    else setAdvancedOpen(false);
+    if (!readingToolsOpen) setAdvancedOpen(false);
     body.classList.toggle('is-reading-tools-open', readingToolsOpen);
     elements.readingToolsButton?.setAttribute('aria-expanded', String(readingToolsOpen));
 
@@ -167,7 +150,6 @@ export function createReaderControls({
   function closeTransient({ returnFocus = false } = {}) {
     setAdvancedOpen(false);
     setReadingToolsOpen(false, { returnFocus });
-    setTypographyOpen(false, { returnFocus });
   }
 
   function updateAdvancedControls() {
@@ -191,6 +173,7 @@ export function createReaderControls({
         ? `Current document format: ${format}`
         : 'No document open';
     }
+    applyEdgeFade();
   }
 
   async function setAdvancedPref(key, value) {
@@ -221,6 +204,7 @@ export function createReaderControls({
     body.classList.toggle('is-minimap', available && state.readingTools.minimap);
     body.classList.toggle('is-word-wrap', state.readingTools.wordWrap);
     updateReadingToolControls();
+    applyEdgeFade();
     hooks.onReadingToolsApplied?.({ ...state.readingTools, sourceActive });
   }
 
@@ -230,6 +214,7 @@ export function createReaderControls({
     updateAutoSaveControl();
     updateAlwaysOnTopControl();
     applyFontPreferences();
+    updateAdvancedControls();
   }
 
   function applySnapshot(nextSnapshot) {
@@ -241,7 +226,6 @@ export function createReaderControls({
       advanced: { ...next.advanced },
     });
     refresh();
-    updateAdvancedControls();
     hooks.onThemeName?.(state.themeName);
     hooks.onAutoSaveApplied?.(state.autoSave);
   }
@@ -333,15 +317,6 @@ export function createReaderControls({
     }
   }
 
-  function handleTypographyButtonClick(event) {
-    if (event.ctrlKey || event.metaKey) {
-      event.preventDefault();
-      hooks.cycleTheme?.(event.shiftKey ? -1 : 1);
-      return;
-    }
-    setTypographyOpen(!typographyOpen);
-  }
-
   function handleThemeFieldClick(event) {
     if (!(event.ctrlKey || event.metaKey)) return;
     // Ctrl+click on the theme row cycles like T without opening the native select.
@@ -357,7 +332,6 @@ export function createReaderControls({
     if (disposed || started) return;
     started = true;
     listen(elements.readingToolsButton, 'click', () => setReadingToolsOpen(!readingToolsOpen));
-    listen(elements.typographyButton, 'click', handleTypographyButtonClick);
     listen(elements.themeField, 'click', handleThemeFieldClick);
     listen(elements.alwaysOnTopButton, 'click', () => { void toggleAlwaysOnTop(); });
     listen(elements.autoSaveToggle, 'click', () => { void toggleAutoSave(); });
@@ -386,10 +360,8 @@ export function createReaderControls({
     });
     listen(document, 'pointerdown', (event) => {
       if (readingToolsOpen && !elements.readingToolsShell?.contains(event.target)) setReadingToolsOpen(false);
-      if (typographyOpen && !elements.typographyShell?.contains(event.target)) setTypographyOpen(false);
     });
     refresh();
-    updateAdvancedControls();
   }
 
   return Object.freeze({
@@ -398,15 +370,14 @@ export function createReaderControls({
     refresh,
     closeTransient,
     setReadingToolsOpen,
-    setTypographyOpen,
     setAdvancedOpen,
     setReadingTool,
     setAdvancedPref,
     cycleFont,
     toggleAutoSave,
     toggleAlwaysOnTop,
+    applyEdgeFade,
     isReadingToolsOpen: () => readingToolsOpen,
-    isTypographyOpen: () => typographyOpen,
     isAdvancedOpen: () => advancedOpen,
     current: () => ({
       ...state,
@@ -414,7 +385,6 @@ export function createReaderControls({
       fonts: { ...state.fonts },
       advanced: { ...state.advanced },
       readingToolsOpen,
-      typographyOpen,
       advancedOpen,
     }),
     dispose() {

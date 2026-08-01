@@ -50,12 +50,42 @@ function bridgeRect(anchor, tooltipRect, side) {
       bottom: anchor.top,
     };
   }
+  if (side === 'bottom') {
+    return {
+      left: Math.min(anchor.left, tooltipRect.left) - SAFE_ZONE_PAD,
+      right: Math.max(anchor.right, tooltipRect.right) + SAFE_ZONE_PAD,
+      top: anchor.bottom,
+      bottom: tooltipRect.top,
+    };
+  }
+  if (side === 'left') {
+    return {
+      left: tooltipRect.right,
+      right: anchor.left,
+      top: Math.min(anchor.top, tooltipRect.top) - SAFE_ZONE_PAD,
+      bottom: Math.max(anchor.bottom, tooltipRect.bottom) + SAFE_ZONE_PAD,
+    };
+  }
   return {
-    left: Math.min(anchor.left, tooltipRect.left) - SAFE_ZONE_PAD,
-    right: Math.max(anchor.right, tooltipRect.right) + SAFE_ZONE_PAD,
-    top: anchor.bottom,
-    bottom: tooltipRect.top,
+    left: anchor.right,
+    right: tooltipRect.left,
+    top: Math.min(anchor.top, tooltipRect.top) - SAFE_ZONE_PAD,
+    bottom: Math.max(anchor.bottom, tooltipRect.bottom) + SAFE_ZONE_PAD,
   };
+}
+
+function preferredTooltipSide(target) {
+  const raw = target?.dataset?.tooltipSide?.trim()?.toLowerCase();
+  if (raw === 'left' || raw === 'right' || raw === 'top' || raw === 'bottom') return raw;
+  return null;
+}
+
+function tooltipShowDelay(target, { withinGrace, immediate }) {
+  if (immediate) return 0;
+  if (withinGrace) return GRACE_HOVER_DELAY;
+  const custom = Number(target?.dataset?.tooltipDelay);
+  if (Number.isFinite(custom) && custom >= 0) return custom;
+  return FIRST_HOVER_DELAY;
 }
 
 function splitShortcutKeys(shortcut) {
@@ -198,6 +228,38 @@ export function createTooltipController({ window, document, hooks = {} }) {
     );
   };
 
+  const desiredTopForHeight = (target, height) => {
+    const anchor = target.getBoundingClientRect();
+    return clamp(
+      anchor.top + (anchor.height - height) / 2,
+      VIEWPORT_GAP,
+      Math.max(VIEWPORT_GAP, window.innerHeight - height - VIEWPORT_GAP),
+    );
+  };
+
+  const resolveSide = (target, anchor, rect) => {
+    const preferred = preferredTooltipSide(target);
+    const fitsLeft = anchor.left - rect.width - TOOLTIP_GAP >= VIEWPORT_GAP;
+    const fitsRight = anchor.right + TOOLTIP_GAP + rect.width <= window.innerWidth - VIEWPORT_GAP;
+    const fitsAbove = anchor.top - rect.height - TOOLTIP_GAP >= VIEWPORT_GAP;
+    const fitsBelow = anchor.bottom + TOOLTIP_GAP + rect.height <= window.innerHeight - VIEWPORT_GAP;
+
+    if (preferred === 'left') {
+      if (fitsLeft) return 'left';
+      if (fitsRight) return 'right';
+    }
+    if (preferred === 'right') {
+      if (fitsRight) return 'right';
+      if (fitsLeft) return 'left';
+    }
+    if (preferred === 'top' && fitsAbove) return 'top';
+    if (preferred === 'bottom' && fitsBelow) return 'bottom';
+    if (preferred === 'top' || preferred === 'bottom') {
+      return fitsAbove || !fitsBelow ? 'top' : 'bottom';
+    }
+    return fitsAbove || !fitsBelow ? 'top' : 'bottom';
+  };
+
   const position = (target, { measureSilently = false } = {}) => {
     const anchor = target.getBoundingClientRect();
     tooltip.style.removeProperty('width');
@@ -208,25 +270,51 @@ export function createTooltipController({ window, document, hooks = {} }) {
     }
     tooltip.hidden = false;
     const rect = tooltip.getBoundingClientRect();
-    const fitsAbove = anchor.top - rect.height - TOOLTIP_GAP >= VIEWPORT_GAP;
-    const fitsBelow = anchor.bottom + TOOLTIP_GAP + rect.height <= window.innerHeight - VIEWPORT_GAP;
-    const side = fitsAbove || !fitsBelow ? 'top' : 'bottom';
-    const desiredTop = side === 'top'
-      ? anchor.top - rect.height - TOOLTIP_GAP
-      : anchor.bottom + TOOLTIP_GAP;
-    const left = desiredLeftForWidth(target, rect.width);
-    const top = clamp(
-      desiredTop,
-      VIEWPORT_GAP,
-      Math.max(VIEWPORT_GAP, window.innerHeight - rect.height - VIEWPORT_GAP),
-    );
+    const side = resolveSide(target, anchor, rect);
+
+    let left;
+    let top;
+    if (side === 'left') {
+      left = clamp(
+        anchor.left - rect.width - TOOLTIP_GAP,
+        VIEWPORT_GAP,
+        Math.max(VIEWPORT_GAP, window.innerWidth - rect.width - VIEWPORT_GAP),
+      );
+      top = desiredTopForHeight(target, rect.height);
+    } else if (side === 'right') {
+      left = clamp(
+        anchor.right + TOOLTIP_GAP,
+        VIEWPORT_GAP,
+        Math.max(VIEWPORT_GAP, window.innerWidth - rect.width - VIEWPORT_GAP),
+      );
+      top = desiredTopForHeight(target, rect.height);
+    } else {
+      left = desiredLeftForWidth(target, rect.width);
+      const desiredTop = side === 'top'
+        ? anchor.top - rect.height - TOOLTIP_GAP
+        : anchor.bottom + TOOLTIP_GAP;
+      top = clamp(
+        desiredTop,
+        VIEWPORT_GAP,
+        Math.max(VIEWPORT_GAP, window.innerHeight - rect.height - VIEWPORT_GAP),
+      );
+    }
+
     tooltip.style.left = `${Math.round(left)}px`;
     tooltip.style.top = `${Math.round(top)}px`;
-    tooltip.style.setProperty('--tooltip-arrow-offset', `${Math.round(clamp(
-      anchor.left + anchor.width / 2 - left,
-      10,
-      Math.max(10, rect.width - 10),
-    ))}px`);
+    if (side === 'left' || side === 'right') {
+      tooltip.style.setProperty('--tooltip-arrow-offset', `${Math.round(clamp(
+        anchor.top + anchor.height / 2 - top,
+        10,
+        Math.max(10, rect.height - 10),
+      ))}px`);
+    } else {
+      tooltip.style.setProperty('--tooltip-arrow-offset', `${Math.round(clamp(
+        anchor.left + anchor.width / 2 - left,
+        10,
+        Math.max(10, rect.width - 10),
+      ))}px`);
+    }
     tooltip.dataset.side = side;
     if (!measureSilently) tooltip.style.visibility = '';
     return tooltip.getBoundingClientRect();
@@ -301,9 +389,16 @@ export function createTooltipController({ window, document, hooks = {} }) {
       return;
     }
 
-    const sideTravel = tooltip.dataset.side === 'top' ? 3 : -3;
+    const openSide = tooltip.dataset.side;
+    const openTravel = openSide === 'left'
+      ? { x: 3, y: 0 }
+      : openSide === 'right'
+        ? { x: -3, y: 0 }
+        : openSide === 'top'
+          ? { x: 0, y: 3 }
+          : { x: 0, y: -3 };
     shellAnimation = run(tooltip, [
-      { opacity: 0, transform: `translateY(${sideTravel}px) scale(0.98)` },
+      { opacity: 0, transform: `translate(${openTravel.x}px, ${openTravel.y}px) scale(0.98)` },
       { opacity: 1, transform: 'translate(0, 0) scale(1)' },
     ], { duration: 130, easing: EASE_OUT });
     shellAnimation?.finished?.then(() => {
@@ -427,10 +522,17 @@ export function createTooltipController({ window, document, hooks = {} }) {
       finishHide(version);
       return;
     }
-    const sideTravel = tooltip.dataset.side === 'top' ? -2 : 2;
+    const closeSide = tooltip.dataset.side;
+    const closeTravel = closeSide === 'left'
+      ? { x: -2, y: 0 }
+      : closeSide === 'right'
+        ? { x: 2, y: 0 }
+        : closeSide === 'top'
+          ? { x: 0, y: -2 }
+          : { x: 0, y: 2 };
     shellAnimation = run(tooltip, [
-      { opacity: 1, transform: 'translateY(0) scale(1)' },
-      { opacity: 0, transform: `translateY(${sideTravel}px) scale(0.985)` },
+      { opacity: 1, transform: 'translate(0, 0) scale(1)' },
+      { opacity: 0, transform: `translate(${closeTravel.x}px, ${closeTravel.y}px) scale(0.985)` },
     ], { duration: 90, easing: 'cubic-bezier(0.4, 0, 1, 1)' });
     if (!shellAnimation?.finished) {
       finishHide(version);
@@ -451,7 +553,7 @@ export function createTooltipController({ window, document, hooks = {} }) {
     cancelTimer('hide');
     pendingTarget = target;
     const withinGrace = Date.now() - lastHiddenAt <= HOVER_GRACE_WINDOW || !tooltip.hidden;
-    const delay = immediate ? 0 : withinGrace ? GRACE_HOVER_DELAY : FIRST_HOVER_DELAY;
+    const delay = tooltipShowDelay(target, { withinGrace, immediate });
     if (delay === 0) {
       show(target);
       return;

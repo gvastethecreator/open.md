@@ -12,7 +12,7 @@ function deferred() {
 function fixture({ preferenceGate = null, deferFrames = false } = {}) {
   const dom = new JSDOM(`<!doctype html><body>
     <button id="tools"></button><div id="tools-shell"><div id="tools-panel"></div></div>
-    <button id="type"></button><div id="type-shell"><label id="theme-field" class="theme-field"><select id="theme-select"></select></label><div id="type-panel"></div></div>
+    <label id="theme-field" class="theme-field appearance-theme-field"><select id="theme-select"></select></label>
     <button id="top"></button><button id="auto"></button>
     <button data-font-kind="sans"></button><span id="sans-font-name"></span>
     <button data-font-kind="mono"></button><span id="mono-font-name"></span>
@@ -21,6 +21,7 @@ function fixture({ preferenceGate = null, deferFrames = false } = {}) {
     <button data-reading-tool="source"></button>
     <button data-reading-tool="stats"></button>
     <button data-reading-tool="wordWrap"></button>
+    <button data-advanced-pref="edgeFade" role="switch" aria-checked="true"></button>
     <article id="content"></article><pre id="source"></pre><div id="reader"></div>
   </body>`);
   const frames = new Map();
@@ -37,14 +38,12 @@ function fixture({ preferenceGate = null, deferFrames = false } = {}) {
     readingToolsButton: document.querySelector('#tools'),
     readingToolsShell: document.querySelector('#tools-shell'),
     readingToolsPanel: document.querySelector('#tools-panel'),
-    typographyButton: document.querySelector('#type'),
-    typographyShell: document.querySelector('#type-shell'),
-    typographyPanel: document.querySelector('#type-panel'),
     themeField: document.querySelector('#theme-field'),
     alwaysOnTopButton: document.querySelector('#top'),
     autoSaveToggle: document.querySelector('#auto'),
     fontButtons: [...document.querySelectorAll('[data-font-kind]')],
     readingToolToggles: [...document.querySelectorAll('[data-reading-tool]')],
+    advancedToggles: [...document.querySelectorAll('[data-advanced-pref]')],
     content: document.querySelector('#content'),
     sourceView: document.querySelector('#source'),
   };
@@ -58,6 +57,14 @@ function fixture({ preferenceGate = null, deferFrames = false } = {}) {
     fonts: { sans: 0, mono: 0 },
     alwaysOnTop: false,
     autoSave: true,
+    advanced: {
+      edgeFade: true,
+      imageDefaultZoom: 'fit',
+      imageZoomAnimation: true,
+      csvRowCap: 500,
+      randomThemeAtStart: false,
+      pathRemembersTheme: false,
+    },
   };
   let applySnapshot;
   const updates = [];
@@ -81,6 +88,7 @@ function fixture({ preferenceGate = null, deferFrames = false } = {}) {
         ...patch,
         readingTools: { ...preferenceState.readingTools, ...(patch.readingTools || {}) },
         fonts: { ...preferenceState.fonts, ...(patch.fonts || {}) },
+        advanced: { ...preferenceState.advanced, ...(patch.advanced || {}) },
       };
       applySnapshot?.(preferenceState);
       return { status: 'applied', snapshot: preferenceState, warnings: [] };
@@ -145,60 +153,43 @@ describe('Reader Controls', () => {
     expect(view.document.body.classList.contains('is-source-view')).toBe(false);
   });
 
-  it('owns panel exclusivity, focus return and help gating', async () => {
+  it('owns panel open state, help gating and edge fade', async () => {
     const view = fixture();
     view.controller.start();
     view.controller.setReadingToolsOpen(true);
     expect(view.controller.isReadingToolsOpen()).toBe(true);
-    expect(view.controller.isTypographyOpen()).toBe(false);
-
-    view.controller.setTypographyOpen(true);
-    expect(view.controller.isTypographyOpen()).toBe(true);
-    expect(view.controller.isReadingToolsOpen()).toBe(false);
-
-    view.controller.setTypographyOpen(false, { returnFocus: true });
-    await Promise.resolve();
-    expect(view.document.activeElement).toBe(view.elements.typographyButton);
 
     view.setHelp(true);
     view.controller.setReadingToolsOpen(true);
     expect(view.controller.isReadingToolsOpen()).toBe(false);
+
+    expect(view.document.body.classList.contains('is-edge-fade-off')).toBe(false);
+    await view.controller.setAdvancedPref('edgeFade', false);
+    expect(view.document.body.classList.contains('is-edge-fade-off')).toBe(true);
+
+    view.document.body.classList.add('is-image-document');
+    view.controller.applyEdgeFade();
+    expect(view.document.body.classList.contains('is-edge-fade-off')).toBe(true);
   });
 
-  it('ctrl+clicks theme controls like the T shortcut without opening Appearance', () => {
+  it('ctrl+clicks theme field like the T shortcut', () => {
     const view = fixture();
     view.controller.start();
-
-    view.elements.typographyButton.dispatchEvent(new view.dom.window.MouseEvent('click', {
-      bubbles: true,
-      cancelable: true,
-      ctrlKey: true,
-    }));
-    expect(view.hooks.cycleTheme).toHaveBeenNthCalledWith(1, 1);
-    expect(view.controller.isTypographyOpen()).toBe(false);
-
-    view.elements.typographyButton.dispatchEvent(new view.dom.window.MouseEvent('click', {
-      bubbles: true,
-      cancelable: true,
-      ctrlKey: true,
-      shiftKey: true,
-    }));
-    expect(view.hooks.cycleTheme).toHaveBeenNthCalledWith(2, -1);
-    expect(view.controller.isTypographyOpen()).toBe(false);
 
     view.elements.themeField.dispatchEvent(new view.dom.window.MouseEvent('click', {
       bubbles: true,
       cancelable: true,
       ctrlKey: true,
     }));
-    expect(view.hooks.cycleTheme).toHaveBeenNthCalledWith(3, 1);
+    expect(view.hooks.cycleTheme).toHaveBeenNthCalledWith(1, 1);
 
-    view.elements.typographyButton.dispatchEvent(new view.dom.window.MouseEvent('click', {
+    view.elements.themeField.dispatchEvent(new view.dom.window.MouseEvent('click', {
       bubbles: true,
       cancelable: true,
+      ctrlKey: true,
+      shiftKey: true,
     }));
-    expect(view.controller.isTypographyOpen()).toBe(true);
-    expect(view.hooks.cycleTheme).toHaveBeenCalledTimes(3);
+    expect(view.hooks.cycleTheme).toHaveBeenNthCalledWith(2, -1);
   });
 
   it('serializes tool and font changes through the preference adapter', async () => {
