@@ -73,8 +73,10 @@ cargo audit --file src-tauri/Cargo.lock
 ## Native file associations
 
 Packaged builds register `.md`, `.markdown`, and `.txt` as viewer
-associations. See [File associations](FILE_ASSOCIATIONS.md) for the platform
-handoff and default-app policy.
+associations. Advanced options → System can open the OS default-app flow and
+toggle multi-instance process policy (native `settings.json` at boot). See
+[File associations](FILE_ASSOCIATIONS.md) for the platform handoff and
+default-app policy.
 
 ## Runtime boundaries
 

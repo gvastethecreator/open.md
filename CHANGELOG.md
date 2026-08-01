@@ -34,11 +34,21 @@ stable release is cut.
   lifecycle, task-save projection, and remaining native surfaces leave the
   composition root; `startOpenMdApplication` is the executable composition
   seam. Initial boot JS budget is 380 KiB raw (Classic motion + copy polish).
+- Default process policy is **multiple instances on**. When Advanced options →
+  System → **Allow multiple instances** is off (and the app is restarted),
+  single-instance path forwarding matches the previous always-on behavior.
 
 ### Added
 
+- Advanced options → **System**: **Allow multiple instances** (default on;
+  native `settings.json`, applies on next launch) and **Set as default for
+  Markdown…** (OS default-app UI / user-scoped MIME defaults; see
+  `docs/FILE_ASSOCIATIONS.md`). System controls hydrate from native state
+  before accepting clicks; association status feeds the action tooltip;
+  settings writes use temp+replace.
 - Empty-state logo shimmer: plays once ~2s after a new window boots, and
-  again on logo hover (respects OS / Advanced reduce-motion).
+  again on Open file hover only (alpha-masked, exit fade, no hover restart loop;
+  respects reduce-motion).
 - Format-aware chrome: status bar profiles per format (image dimensions/zoom,
   JSON key counts, CSV rows×cols, companion metrics without reading-time),
   context menus that match the open kind, image document actions (Copy image,

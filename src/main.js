@@ -156,6 +156,8 @@ function cacheElements() {
   ui.advancedToggles = [...document.querySelectorAll('[data-advanced-pref]')];
   ui.imageDefaultZoomSelect = document.getElementById('image-default-zoom');
   ui.csvRowCapInput = document.getElementById('csv-row-cap');
+  ui.allowMultipleInstancesToggle = document.getElementById('allow-multiple-instances-toggle');
+  ui.fileAssociationButton = document.getElementById('file-association-button');
 
   ui.themeField = document.querySelector('.appearance-theme-field') || document.querySelector('.theme-field');
   ui.fontButtons = [...document.querySelectorAll('[data-font-kind]')];
@@ -651,6 +653,8 @@ function mountReaderControls(own) {
       advancedToggles: ui.advancedToggles,
       imageDefaultZoomSelect: ui.imageDefaultZoomSelect,
       csvRowCapInput: ui.csvRowCapInput,
+      allowMultipleInstancesToggle: ui.allowMultipleInstancesToggle,
+      fileAssociationButton: ui.fileAssociationButton,
 
       themeField: ui.themeField,
       alwaysOnTopButton: ui.alwaysOnTopButton,
@@ -662,6 +666,7 @@ function mountReaderControls(own) {
     },
     adapters: {
       preferences: readerShell.preferences,
+      system: runtimeAdapters?.system,
       isDocumentAvailable: hasLoadedDocument,
       isEditMode: () => isEditMode,
       getDocumentIdentity: getCurrentDocument,
@@ -1040,24 +1045,35 @@ const EMPTY_LOGO_SHIMMER_DELAY_MS = 2000;
 const EMPTY_LOGO_SHIMMER_CLASS = 'is-shimmering';
 const EMPTY_LOGO_SHIMMER_NAME = 'empty-logo-shimmer';
 
-/** Empty-state logo sheen: once after boot delay, then again on hover. */
+/**
+ * Empty-state logo sheen: once after boot delay, then on Open file hover only.
+ * A pass always runs to its built-in exit fade; re-enter is ignored while busy
+ * so rapid button hover cannot restart a loop.
+ */
 function mountEmptyLogoShimmer({ window, own, listen }) {
   const shell = document.getElementById('empty-logo-shell');
   if (!shell) return;
 
+  let busy = false;
+
   const play = () => {
+    if (busy) return;
+    busy = true;
     shell.classList.remove(EMPTY_LOGO_SHIMMER_CLASS);
-    // Force a style flush so consecutive plays restart the keyframes.
+    // Force a style flush so a later idle play can restart keyframes.
     void shell.offsetWidth;
     shell.classList.add(EMPTY_LOGO_SHIMMER_CLASS);
   };
 
   listen(shell, 'animationend', (event) => {
-    if (event.animationName === EMPTY_LOGO_SHIMMER_NAME) {
-      shell.classList.remove(EMPTY_LOGO_SHIMMER_CLASS);
-    }
+    if (event.animationName !== EMPTY_LOGO_SHIMMER_NAME) return;
+    if (event.target !== shell && !shell.contains(event.target)) return;
+    shell.classList.remove(EMPTY_LOGO_SHIMMER_CLASS);
+    busy = false;
   });
-  listen(shell, 'mouseenter', play);
+
+  const openButton = document.getElementById('empty-open-button');
+  if (openButton) listen(openButton, 'mouseenter', play);
 
   const emptyStage = document.getElementById('empty-stage');
   const bootOnEmpty = Boolean(emptyStage && !emptyStage.classList.contains('hidden'));
@@ -1069,6 +1085,7 @@ function mountEmptyLogoShimmer({ window, own, listen }) {
   own(() => {
     if (timer) window.clearTimeout(timer);
     shell.classList.remove(EMPTY_LOGO_SHIMMER_CLASS);
+    busy = false;
   });
 }
 

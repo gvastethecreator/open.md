@@ -40,6 +40,15 @@ export function createReaderControls({
   let started = false;
   let sourceChangeGeneration = 0;
   let pendingSourceFrame = null;
+  /** Disk preference for multi-process launches; default on after hydrate. */
+  let allowMultipleInstances = true;
+  let processAllowsMultipleInstances = true;
+  let instanceRestartRequired = false;
+  /** False until the first successful native system refresh (avoids pre-hydrate races). */
+  let systemAvailable = false;
+  let systemHydrated = false;
+  let associationTooltip = 'Uses your system’s default-app settings for Markdown and text';
+  let systemRefreshGeneration = 0;
   const unlisteners = [];
 
   const isDocumentAvailable = () => Boolean(adapters.isDocumentAvailable?.());
@@ -173,8 +182,162 @@ export function createReaderControls({
     if (elements.csvRowCapInput) {
       elements.csvRowCapInput.value = String(state.advanced.csvRowCap);
     }
+    updateSystemControls();
     body.classList.toggle('is-app-reduce-motion', Boolean(state.advanced.reduceMotion));
     applyEdgeFade();
+  }
+
+  function multiInstanceTooltip() {
+    if (!systemAvailable) {
+      return systemHydrated
+        ? 'Available in the desktop app.'
+        : 'Loading system settings…';
+    }
+    const restartHint = instanceRestartRequired ? ' Restart open.md to apply.' : '';
+    return `When off, opening a file reuses the running app. Applies on next launch.${restartHint}`;
+  }
+
+  function updateSystemControls() {
+    const multiToggle = elements.allowMultipleInstancesToggle;
+    if (multiToggle) {
+      multiToggle.setAttribute('aria-checked', String(allowMultipleInstances));
+      multiToggle.disabled = !systemAvailable;
+      multiToggle.dataset.tooltip = multiInstanceTooltip();
+      multiToggle.setAttribute('aria-label', `Allow multiple instances: ${allowMultipleInstances ? 'on' : 'off'}`);
+    }
+    if (elements.fileAssociationButton) {
+      elements.fileAssociationButton.disabled = !systemAvailable;
+      elements.fileAssociationButton.dataset.tooltip = systemAvailable
+        ? associationTooltip
+        : (systemHydrated ? 'Available in the desktop app.' : 'Loading system settings…');
+    }
+  }
+
+  async function refreshAssociationStatus() {
+    if (disposed || typeof adapters.system?.getFileAssociationStatus !== 'function') return;
+    try {
+      const status = await adapters.system.getFileAssociationStatus();
+      if (disposed) return;
+      if (status?.available === false) {
+        associationTooltip = 'Available in the desktop app.';
+        return;
+      }
+      const detail = typeof status?.detail === 'string' && status.detail.trim()
+        ? status.detail.trim()
+        : null;
+      associationTooltip = detail
+        || 'Uses your system’s default-app settings for Markdown and text';
+    } catch {
+      if (!disposed) {
+        associationTooltip = 'Uses your system’s default-app settings for Markdown and text';
+      }
+    }
+  }
+
+  async function refreshSystemSettings() {
+    const generation = ++systemRefreshGeneration;
+    if (typeof adapters.system?.getProcessInstanceMode !== 'function') {
+      systemAvailable = false;
+      systemHydrated = true;
+      associationTooltip = 'Available in the desktop app.';
+      if (!disposed) updateSystemControls();
+      return;
+    }
+    try {
+      const mode = await adapters.system.getProcessInstanceMode();
+      if (disposed || generation !== systemRefreshGeneration) return;
+      systemAvailable = mode?.available !== false;
+      systemHydrated = true;
+      allowMultipleInstances = mode?.allowMultipleInstances !== false;
+      processAllowsMultipleInstances = mode?.processAllowsMultipleInstances !== false;
+      instanceRestartRequired = Boolean(mode?.restartRequired)
+        || allowMultipleInstances !== processAllowsMultipleInstances;
+      if (systemAvailable) await refreshAssociationStatus();
+      else associationTooltip = 'Available in the desktop app.';
+    } catch {
+      if (disposed || generation !== systemRefreshGeneration) return;
+      systemAvailable = false;
+      systemHydrated = true;
+      associationTooltip = 'Available in the desktop app.';
+    }
+    if (!disposed && generation === systemRefreshGeneration) updateSystemControls();
+  }
+
+  async function toggleAllowMultipleInstances() {
+    if (disposed) return;
+    if (!systemAvailable || typeof adapters.system?.setAllowMultipleInstances !== 'function') {
+      hooks.onToast?.(
+        systemHydrated
+          ? 'Multiple instances is available in the desktop app'
+          : 'System settings are still loading'
+      );
+      return;
+    }
+    const next = !allowMultipleInstances;
+    const toggle = elements.allowMultipleInstancesToggle;
+    if (toggle) toggle.disabled = true;
+    try {
+      await adapters.system.setAllowMultipleInstances(next);
+      if (disposed) return;
+      allowMultipleInstances = next;
+      instanceRestartRequired = allowMultipleInstances !== processAllowsMultipleInstances;
+      updateSystemControls();
+      if (instanceRestartRequired) {
+        hooks.onToast?.(
+          next
+            ? 'Multiple instances on — restart open.md to apply'
+            : 'Single instance on — restart open.md to apply'
+        );
+      } else {
+        hooks.onToast?.(next ? 'Multiple instances on' : 'Single instance on');
+      }
+    } catch (error) {
+      if (disposed) return;
+      hooks.onDiagnostic?.('Could not change multiple-instances setting', error);
+      hooks.onToast?.('Could not change multiple instances');
+      // Re-sync from disk after a failed write so the switch matches truth.
+      await refreshSystemSettings();
+    } finally {
+      if (!disposed) updateSystemControls();
+    }
+  }
+
+  async function requestFileAssociation() {
+    if (disposed) return;
+    if (!systemAvailable || typeof adapters.system?.requestFileAssociation !== 'function') {
+      hooks.onToast?.(
+        systemHydrated
+          ? 'File associations are available in the desktop app'
+          : 'System settings are still loading'
+      );
+      return;
+    }
+    const button = elements.fileAssociationButton;
+    if (button) button.disabled = true;
+    try {
+      const result = await adapters.system.requestFileAssociation();
+      if (disposed) return;
+      const detail = typeof result?.detail === 'string' && result.detail.trim()
+        ? result.detail.trim()
+        : null;
+      if (result?.outcome === 'opened_settings') {
+        hooks.onToast?.(detail || 'Opened system default-app settings');
+      } else if (result?.outcome === 'set_default') {
+        hooks.onToast?.(detail || 'Set open.md as the default for Markdown and text');
+      } else {
+        hooks.onToast?.(detail || 'File association updated');
+      }
+      await refreshAssociationStatus();
+    } catch (error) {
+      if (disposed) return;
+      hooks.onDiagnostic?.('Could not set file associations', error);
+      const message = typeof error?.message === 'string' && error.message.trim()
+        ? error.message.trim()
+        : 'Could not set file associations';
+      hooks.onToast?.(message);
+    } finally {
+      if (!disposed) updateSystemControls();
+    }
   }
 
   async function setAdvancedPref(key, value) {
@@ -408,6 +571,12 @@ export function createReaderControls({
     listen(elements.csvRowCapInput, 'change', (event) => {
       void setAdvancedPref('csvRowCap', Number(event.target.value));
     });
+    listen(elements.allowMultipleInstancesToggle, 'click', () => {
+      void toggleAllowMultipleInstances();
+    });
+    listen(elements.fileAssociationButton, 'click', () => {
+      void requestFileAssociation();
+    });
     elements.fontButtons?.forEach((button) => {
       listen(button, 'click', () => { void cycleFont(button.dataset.fontKind); });
     });
@@ -415,12 +584,14 @@ export function createReaderControls({
       if (readingToolsOpen && !elements.readingToolsShell?.contains(event.target)) setReadingToolsOpen(false);
     });
     refresh();
+    void refreshSystemSettings();
   }
 
   return Object.freeze({
     start,
     applySnapshot,
     refresh,
+    refreshSystemSettings,
     closeTransient,
     setReadingToolsOpen,
     setAdvancedOpen,
@@ -429,6 +600,8 @@ export function createReaderControls({
     cycleFont,
     toggleAutoSave,
     toggleAlwaysOnTop,
+    toggleAllowMultipleInstances,
+    requestFileAssociation,
     applyEdgeFade,
     isReadingToolsOpen: () => readingToolsOpen,
     isAdvancedOpen: () => advancedOpen,
@@ -437,6 +610,9 @@ export function createReaderControls({
       readingTools: { ...state.readingTools },
       fonts: { ...state.fonts },
       advanced: { ...state.advanced },
+      allowMultipleInstances,
+      processAllowsMultipleInstances,
+      instanceRestartRequired,
       readingToolsOpen,
       advancedOpen,
     }),
@@ -445,6 +621,7 @@ export function createReaderControls({
       closeTransient();
       disposed = true;
       sourceChangeGeneration += 1;
+      systemRefreshGeneration += 1;
       if (pendingSourceFrame?.id != null) {
         window.cancelAnimationFrame?.(pendingSourceFrame.id);
       }

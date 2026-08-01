@@ -352,6 +352,39 @@
                   <input id="csv-row-cap" type="number" min="50" max="5000" step="50" value="500">
                 </label>
               </section>
+
+              <section class="options-section" aria-labelledby="options-system-label">
+                <p id="options-system-label" class="options-section-label">
+                  <i class="ti ti-adjustments" aria-hidden="true"></i>
+                  <span>System</span>
+                </p>
+                <button
+                  id="allow-multiple-instances-toggle"
+                  class="reading-tool-toggle reading-tool-toggle--compact"
+                  type="button"
+                  role="switch"
+                  aria-checked="true"
+                  data-tooltip="When off, opening a file reuses the running app. Applies on next launch."
+                  data-tooltip-side="left"
+                  data-tooltip-delay="520"
+                >
+                  <i class="ti ti-folder" aria-hidden="true"></i>
+                  <span><strong>Allow multiple instances</strong></span>
+                  <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+                </button>
+                <button
+                  id="file-association-button"
+                  class="reading-tool-toggle reading-tool-toggle--compact reading-tool-nav"
+                  type="button"
+                  data-tooltip="Uses your system’s default-app settings for Markdown and text"
+                  data-tooltip-side="left"
+                  data-tooltip-delay="520"
+                >
+                  <i class="ti ti-file-text" aria-hidden="true"></i>
+                  <span><strong>Set as default for Markdown…</strong></span>
+                  <i class="iconoir-nav-arrow-right" aria-hidden="true"></i>
+                </button>
+              </section>
             </div>
             </div>
           </section>
@@ -396,6 +429,7 @@
             <div class="empty-content">
               <div id="empty-logo-shell" class="empty-logo-shell" aria-hidden="true">
                 <img class="empty-logo" src="/src/assets/app-icon.png" width="256" height="256" alt="" />
+                <span class="empty-logo-shimmer" aria-hidden="true"></span>
               </div>
               <button id="empty-open-button" class="primary-button" type="button">
                 <i class="iconoir-folder" aria-hidden="true"></i>

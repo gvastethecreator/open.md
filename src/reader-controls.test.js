@@ -9,7 +9,7 @@ function deferred() {
   return { promise, resolve };
 }
 
-function fixture({ preferenceGate = null, deferFrames = false } = {}) {
+function fixture({ preferenceGate = null, deferFrames = false, system = null } = {}) {
   const dom = new JSDOM(`<!doctype html><body>
     <button id="tools"></button><div id="tools-shell"><div id="tools-panel"></div></div>
     <label id="theme-field" class="theme-field appearance-theme-field"><select id="theme-select"></select></label>
@@ -22,6 +22,8 @@ function fixture({ preferenceGate = null, deferFrames = false } = {}) {
     <button data-reading-tool="stats"></button>
     <button data-reading-tool="wordWrap"></button>
     <button data-advanced-pref="edgeFade" role="switch" aria-checked="true"></button>
+    <button id="multi" role="switch" aria-checked="true"></button>
+    <button id="assoc" type="button"></button>
     <article id="content"></article><pre id="source"></pre><div id="reader"></div>
   </body>`);
   const frames = new Map();
@@ -44,6 +46,8 @@ function fixture({ preferenceGate = null, deferFrames = false } = {}) {
     fontButtons: [...document.querySelectorAll('[data-font-kind]')],
     readingToolToggles: [...document.querySelectorAll('[data-reading-tool]')],
     advancedToggles: [...document.querySelectorAll('[data-advanced-pref]')],
+    allowMultipleInstancesToggle: document.querySelector('#multi'),
+    fileAssociationButton: document.querySelector('#assoc'),
     content: document.querySelector('#content'),
     sourceView: document.querySelector('#source'),
   };
@@ -100,6 +104,7 @@ function fixture({ preferenceGate = null, deferFrames = false } = {}) {
     elements,
     adapters: {
       preferences,
+      system,
       isDocumentAvailable: () => available,
       isEditMode: () => editMode,
       getDocumentIdentity: () => documentIdentity,
@@ -288,5 +293,122 @@ describe('Reader Controls', () => {
     view.setAvailable(false);
     view.controller.refresh();
     expect(view.elements.readingToolToggles[0].disabled).toBe(before);
+  });
+
+  it('persists multiple instances through the system adapter and notes restart', async () => {
+    let allowMultipleInstances = true;
+    const system = {
+      getProcessInstanceMode: vi.fn(async () => ({
+        allowMultipleInstances,
+        processAllowsMultipleInstances: true,
+        restartRequired: allowMultipleInstances !== true,
+        available: true,
+      })),
+      setAllowMultipleInstances: vi.fn(async (value) => {
+        allowMultipleInstances = value;
+        return { allowMultipleInstances: value, applied: 'next_launch' };
+      }),
+      getFileAssociationStatus: vi.fn(async () => ({
+        status: 'registered_not_default',
+        platform: 'windows',
+        detail: 'Another app is the default for .md.',
+        available: true,
+      })),
+      requestFileAssociation: vi.fn(async () => ({
+        outcome: 'opened_settings',
+        detail: 'Opened Windows Default apps.',
+      })),
+    };
+    const view = fixture({ system });
+    view.controller.start();
+    expect(view.elements.allowMultipleInstancesToggle.disabled).toBe(true);
+    await view.controller.refreshSystemSettings();
+    expect(view.elements.allowMultipleInstancesToggle.disabled).toBe(false);
+    expect(view.elements.allowMultipleInstancesToggle.getAttribute('aria-checked')).toBe('true');
+    expect(view.elements.fileAssociationButton.dataset.tooltip).toContain('Another app is the default');
+
+    await view.controller.toggleAllowMultipleInstances();
+    expect(system.setAllowMultipleInstances).toHaveBeenCalledWith(false);
+    expect(view.elements.allowMultipleInstancesToggle.getAttribute('aria-checked')).toBe('false');
+    expect(view.hooks.onToast).toHaveBeenCalledWith(
+      'Single instance on — restart open.md to apply'
+    );
+
+    await view.controller.requestFileAssociation();
+    expect(system.requestFileAssociation).toHaveBeenCalledOnce();
+    expect(system.getFileAssociationStatus).toHaveBeenCalled();
+    expect(view.hooks.onToast).toHaveBeenCalledWith('Opened Windows Default apps.');
+  });
+
+  it('keeps system controls disabled while hydrate is in flight', async () => {
+    let resolveMode;
+    const modePromise = new Promise((resolve) => { resolveMode = resolve; });
+    const system = {
+      getProcessInstanceMode: vi.fn(() => modePromise),
+      getFileAssociationStatus: vi.fn(async () => ({
+        status: 'unknown',
+        detail: 'Status ready',
+        available: true,
+      })),
+    };
+    const view = fixture({ system });
+    view.controller.start();
+    expect(view.elements.allowMultipleInstancesToggle.disabled).toBe(true);
+    expect(view.elements.allowMultipleInstancesToggle.dataset.tooltip).toContain('Loading');
+    expect(view.elements.fileAssociationButton.disabled).toBe(true);
+
+    resolveMode({
+      allowMultipleInstances: false,
+      processAllowsMultipleInstances: false,
+      restartRequired: false,
+      available: true,
+    });
+    // Flush the start()-time hydrate plus association status.
+    await Promise.resolve();
+    await Promise.resolve();
+    await view.controller.refreshSystemSettings();
+    expect(view.elements.allowMultipleInstancesToggle.disabled).toBe(false);
+    expect(view.elements.allowMultipleInstancesToggle.getAttribute('aria-checked')).toBe('false');
+    expect(view.elements.fileAssociationButton.dataset.tooltip).toContain('Status ready');
+  });
+
+  it('disables system controls when the desktop adapter is unavailable', async () => {
+    const view = fixture();
+    view.controller.start();
+    await view.controller.refreshSystemSettings();
+    expect(view.elements.allowMultipleInstancesToggle.disabled).toBe(true);
+    expect(view.elements.fileAssociationButton.disabled).toBe(true);
+    expect(view.elements.allowMultipleInstancesToggle.dataset.tooltip).toContain('desktop app');
+
+    await view.controller.toggleAllowMultipleInstances();
+    expect(view.hooks.onToast).toHaveBeenCalledWith(
+      'Multiple instances is available in the desktop app'
+    );
+  });
+
+  it('ignores system refresh results after dispose', async () => {
+    let resolveMode;
+    const modePromise = new Promise((resolve) => { resolveMode = resolve; });
+    const system = {
+      getProcessInstanceMode: vi.fn(() => modePromise),
+      getFileAssociationStatus: vi.fn(async () => ({
+        status: 'unknown',
+        detail: 'late status',
+        available: true,
+      })),
+    };
+    const view = fixture({ system });
+    view.controller.start();
+    const pending = view.controller.refreshSystemSettings();
+    view.controller.dispose();
+    resolveMode({
+      allowMultipleInstances: false,
+      processAllowsMultipleInstances: true,
+      restartRequired: true,
+      available: true,
+    });
+    await pending;
+    expect(view.elements.allowMultipleInstancesToggle.getAttribute('aria-checked')).toBe('true');
+    expect(view.elements.allowMultipleInstancesToggle.disabled).toBe(true);
   });
 });

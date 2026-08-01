@@ -15,7 +15,9 @@ without fetching remote images or modifying the files it opens.
 ## Features
 
 - Markdown, Markdown-with-extension, and plain-text viewing.
-- Drag and drop, native file associations, and one-window-per-file launches.
+- Drag and drop, native file associations, and multi-window document opens.
+  Optional single-instance mode (Advanced → System) reuses one process for
+  Open with / second launches; multiple instances are allowed by default.
 - Syntax-highlighted code blocks and Mermaid diagrams.
 - Relative document links and bounded local images from the opened document's
   directory.

@@ -233,6 +233,7 @@ export function createEditorClassicSurface({
     activeLine = next;
     const nextCaret = caret == null ? (lines[activeLine]?.length || 0) : caret;
     preferredColumn = nextCaret;
+    stickyVerticalNav = false;
     render({
       source: readSource(),
       focusLine: activeLine,
@@ -249,6 +250,8 @@ export function createEditorClassicSurface({
     if (!row || !canvas.contains(row)) return false;
     const index = Number(row.dataset.classicLine);
     if (!Number.isFinite(index)) return false;
+    // Any pointer placement ends a sticky vertical sequence.
+    stickyVerticalNav = false;
     if (index === activeLine && row.querySelector('[data-editor-mode="source"]')) {
       return true; // let browser place caret inside active source
     }
@@ -259,6 +262,7 @@ export function createEditorClassicSurface({
 
   const handleInput = () => {
     if (disposed || !mounted) return false;
+    stickyVerticalNav = false;
     const lines = readLinesFromDom();
     commitLines(lines);
     // Keep projection: active line stays source; do not full-render unless line count changed.
@@ -301,16 +305,17 @@ export function createEditorClassicSurface({
     selectionLines = new Set();
     activeLine = next;
     render({ source: joinLines(nextLines), focusLine: next, caret: offset });
-    // render() overwrites preferredColumn from the clamped caret; restore sticky col.
-    if (retainPreferred && savedPreferred != null) {
-      preferredColumn = savedPreferred;
-    }
     // Ensure focus remains on the continuous host after replaceChildren.
     try {
       canvas.focus({ preventScroll: true });
     } catch {
       /* jsdom may not implement focus options */
       canvas.focus?.();
+    }
+    // render() overwrites preferredColumn from the clamped caret; focus may
+    // fire selectionchange. Restore sticky column after both.
+    if (retainPreferred && savedPreferred != null) {
+      preferredColumn = savedPreferred;
     }
     scheduleActiveLineBand();
   };
@@ -509,17 +514,21 @@ export function createEditorClassicSurface({
     const nextHeight = Math.max(rowRect.height, 18);
     const prevTop = Number.parseFloat(band.dataset.top || '') || nextTop;
     const prevHeight = Number.parseFloat(band.dataset.height || '') || nextHeight;
+    const motionOff = reduceMotion();
 
     // Prefer live visual geometry when retargeting mid-flight.
+    // Always cancel when reduce motion is on so mid-flight travel cannot continue.
     let fromTop = prevTop;
     let fromHeight = prevHeight;
-    if (bandAnimation) {
-      try {
-        const live = band.getBoundingClientRect();
-        fromTop = live.top - hostRect.top + (host.scrollTop || 0);
-        fromHeight = Math.max(live.height || prevHeight, 1);
-      } catch {
-        /* keep dataset values */
+    if (bandAnimation || motionOff) {
+      if (bandAnimation) {
+        try {
+          const live = band.getBoundingClientRect();
+          fromTop = live.top - hostRect.top + (host.scrollTop || 0);
+          fromHeight = Math.max(live.height || prevHeight, 1);
+        } catch {
+          /* keep dataset values */
+        }
       }
       cancelBandAnimation();
     }
@@ -536,7 +545,7 @@ export function createEditorClassicSurface({
 
     const deltaY = fromTop - nextTop;
     const heightDelta = fromHeight - nextHeight;
-    const canAnimate = !reduceMotion()
+    const canAnimate = !motionOff
       && (Math.abs(deltaY) > 0.5 || Math.abs(heightDelta) > 0.5)
       && typeof band.animate === 'function'
       && band.dataset.ready === '1';
@@ -624,6 +633,8 @@ export function createEditorClassicSurface({
     if (index === activeLine && row.querySelector('[data-editor-mode="source"]')) {
       const content = row.querySelector('[data-classic-content]');
       const colOffset = caretOffsetIn(content, selection);
+      // While a vertical sticky sequence is active, ignore selection noise from
+      // goToLine/placeCaret. Pointer/input/non-vertical keys clear sticky first.
       if (!stickyVerticalNav) preferredColumn = colOffset;
       adapters.setCursor?.({ line: activeLine + 1, column: Math.max(1, colOffset + 1) });
       return true;

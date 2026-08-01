@@ -79,6 +79,18 @@ describe('Application Runtime Adapters', () => {
     await adapters.windows.openExternalUrl('https://example.com');
     await expect(adapters.openRequests.getInitialFilePaths()).resolves.toEqual(['launch.md']);
     await expect(adapters.openRequests.listPending()).resolves.toEqual([]);
+    await expect(adapters.system.getProcessInstanceMode()).resolves.toEqual({
+      allowMultipleInstances: true,
+      processAllowsMultipleInstances: true,
+      restartRequired: false,
+      available: true,
+    });
+    await adapters.system.setAllowMultipleInstances(false);
+    await expect(adapters.system.getFileAssociationStatus()).resolves.toMatchObject({
+      available: true,
+      command: 'get_file_association_status',
+    });
+    await adapters.system.requestFileAssociation();
     expect(adapters.windows.getNativeWindow()).toBe(nativeWindow);
     expect(typeof adapters.ingress.listen).toBe('function');
     expect(typeof adapters.ingress.openFileDialog).toBe('function');
@@ -94,9 +106,35 @@ describe('Application Runtime Adapters', () => {
       ['acknowledge_open_file_request', { id: 7 }],
       ['get_initial_file_paths', undefined],
       ['list_pending_open_file_requests', undefined],
+      ['get_process_instance_mode', undefined],
+      ['set_allow_multiple_instances', { value: false }],
+      ['get_file_association_status', undefined],
+      ['request_file_association', undefined],
     ]);
     expect(nativeWindow.setAlwaysOnTop).toHaveBeenCalledWith(true);
     expect(openUrl).toHaveBeenCalledWith('https://example.com');
+  });
+
+  it('exposes browser fallbacks for system settings without invoking Tauri', async () => {
+    const view = fixture();
+    const invoke = vi.fn();
+    const adapters = createApplicationRuntimeAdapters({ window: view.window, invoke });
+
+    await expect(adapters.system.getProcessInstanceMode()).resolves.toEqual({
+      allowMultipleInstances: true,
+      processAllowsMultipleInstances: true,
+      restartRequired: false,
+      available: false,
+    });
+    await expect(adapters.system.getFileAssociationStatus()).resolves.toMatchObject({
+      status: 'unavailable',
+      available: false,
+    });
+    await expect(adapters.system.setAllowMultipleInstances(false)).rejects.toMatchObject({
+      code: 'NATIVE_ACCESS_UNAVAILABLE',
+    });
+    await expect(adapters.system.requestFileAssociation()).rejects.toThrow(NATIVE_ACCESS_ERROR);
+    expect(invoke).not.toHaveBeenCalled();
   });
 
   it('loads syntax lazily once and allows retry after a failed import', async () => {
