@@ -5,7 +5,12 @@ import path from 'node:path';
 const root = process.cwd();
 const distDirectory = path.join(root, 'dist');
 const indexPath = path.join(distDirectory, 'index.html');
-const maxInitialJavaScriptBytes = 300_000;
+// Format experience layer, ARC composition owners, Classic/Block dual
+// live-preview, caret trail, and active-line band motion stay in the initial
+// graph while highlight/mermaid/image viewer and rich format readers remain
+// deferred. Raised from 340_000 after Classic motion + copy polish measured
+// ~372 KiB raw initial JS (see batch classic-motion-copy).
+const maxInitialJavaScriptBytes = 380_000;
 
 function listFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {

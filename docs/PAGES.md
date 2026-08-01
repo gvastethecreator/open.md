@@ -1,0 +1,26 @@
+# GitHub Pages landing
+
+The public landing is a dependency-free static site in `docs/`. It uses relative asset paths so the same files work at the project URL `https://gvastethecreator.github.io/open.md/`.
+
+## Preview locally
+
+From the repository root:
+
+```bash
+python -m http.server 8787 --bind 127.0.0.1 --directory docs
+```
+
+Open `http://127.0.0.1:8787/`.
+
+## Deploy
+
+`.github/workflows/pages.yml` uploads `docs/` and deploys it to the `github-pages` environment on pushes to `main` that change the site or workflow. It can also be run manually from the Actions tab.
+
+In the repository settings, choose **GitHub Actions** as the Pages source. The workflow does not build or publish desktop installers.
+
+## Media provenance
+
+- `reader-desktop-dark.png`, `reader-help-light.png`, and `reader-narrow-dark.png` are captures from the real open.md runtime.
+- `open-md-motion-study.mp4` was generated with Grok Imagine from those three captures. It is labelled as illustrative on the page because generated motion can soften fine interface text.
+
+Keep that distinction intact when replacing media: screenshots are product evidence; generated media is presentation.
