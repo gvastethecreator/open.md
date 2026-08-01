@@ -5,6 +5,7 @@ const root = process.cwd();
 const requiredFiles = [
   'index.html',
   'src/main.js',
+  'src/app-loading-screen.js',
   'src/styles.css',
   'src/themes.json',
   'src/themes.runtime.json',
@@ -28,6 +29,7 @@ for (const relativePath of requiredFiles) {
 
 const indexHtml = readFileSync(path.join(root, 'index.html'), 'utf8');
 const stylesCss = readFileSync(path.join(root, 'src/styles.css'), 'utf8');
+const appLoadingSource = readFileSync(path.join(root, 'src/app-loading-screen.js'), 'utf8');
 
 function readPngInfo(relativePath) {
   const bytes = readFileSync(path.join(root, relativePath));
@@ -99,6 +101,7 @@ const requiredAccessibleControls = [
   'id="always-on-top-button"',
   'id="editor-view"',
   'id="editor-canvas"',
+  'id="source-mode-button"',
   'id="edit-mode-button"',
   'id="editor-save-button"',
   'id="editor-command-menu"',
@@ -114,8 +117,10 @@ const requiredAccessibleControls = [
   'data-reading-tool="minimap"',
   'data-reading-tool="wordWrap"',
   'data-reading-tool="stats"',
+  'data-reading-tool="coloredHeadings"',
   'data-preference-toggle="autoSave"',
   'id="theme-select"',
+  '<selectedcontent></selectedcontent>',
   'class="titlebar-save-state"',
   'id="status-context"',
   'id="window-minimize-button"',
@@ -128,6 +133,35 @@ for (const marker of requiredAccessibleControls) {
   if (!indexHtml.includes(marker)) {
     throw new Error(`index.html is missing required accessible UI marker: ${marker}`);
   }
+}
+
+const brailleLoadingFrames = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏';
+for (const marker of [
+  'id="app-loading-screen"',
+  'body class="is-word-wrap is-app-loading"',
+  `data-loading-frames="${brailleLoadingFrames}"`,
+  'data-loading-fps="14"',
+  '__openMdLoadingBootstrap',
+]) {
+  if (!indexHtml.includes(marker)) {
+    throw new Error(`index.html is missing the first-paint loading contract marker: ${marker}`);
+  }
+}
+if (indexHtml.includes('data-loading-label') || stylesCss.includes('.app-loading-label')) {
+  throw new Error('The first-paint loader must remain glyph-only with no visible loading label');
+}
+for (const marker of [
+  '.app-loading-screen',
+  '.app-loading-screen.is-exiting',
+  'body.is-app-loading',
+  'is-app-revealing',
+]) {
+  if (!stylesCss.includes(marker)) {
+    throw new Error(`src/styles.css is missing the loading screen style marker: ${marker}`);
+  }
+}
+if (!appLoadingSource.includes("const DEFAULT_FRAMES = Object.freeze(['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'])")) {
+  throw new Error('src/app-loading-screen.js must preserve the Braille Orbital Swarm frame sequence');
 }
 
 if (/\sstyle\s*=/.test(indexHtml)) {

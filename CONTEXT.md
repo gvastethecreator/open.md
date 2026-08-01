@@ -120,15 +120,25 @@ flowchart LR
   projection, inert/ARIA state, help focus, page state, body state, and scroll
   reset.
 - `src/reader-controls.js` owns preference-to-control projection, panel/focus
-  rules, reading-tool state, fonts, auto-save, and always-on-top actions.
+  rules, reading-tool state (including the opt-in theme-colored headings),
+  fonts, auto-save, and always-on-top actions.
 - `src/reader-zoom-controller.js` owns content zoom scale, wheel gesture
   policy, CSS scale publishing, and zoom toast feedback.
 - `src/status-presenter.js` owns identity text and document/editor metric
   composition from one raw application snapshot, including JSON/CSV source
   summaries (not only DOM metric rendering).
-- `src/reading-navigation-controller.js`, `src/document-mode-coordinator.js`,
-  `src/toast-presenter.js`, `src/editor-feedback-presenter.js`, and
-  `src/empty-state-motion.js` own their visual lifecycle and disposal.
+- `src/app-loading-screen.js` owns the first-paint loader adopted from
+  `index.html`, the cached theme preview, Braille frame lifecycle, reduced
+  motion, startup reveal/failure state, and cleanup; `src/main.js` only mounts
+  it and supplies committed theme tokens.
+- The full generated theme catalog loads as its own startup chunk in parallel
+  with the shell, then `initThemes` awaits it before the loader releases.
+- `src/document-mode-coordinator.js` owns the two explicit binary controls for
+  Rendered/Source view and Read only/Edit mode, plus safe transitions between
+  their mutually exclusive active states.
+- `src/reading-navigation-controller.js`, `src/toast-presenter.js`,
+  `src/editor-feedback-presenter.js`, and `src/empty-state-motion.js` own their
+  visual lifecycle and disposal.
 - `src/editor-state-coordinator.js` owns canonical editing state and the ordered
   fan-out from one editor snapshot to feedback, transient UI, mode, save,
   navigation, typography, reading-tool, and status adapters. Reentrant
@@ -136,7 +146,8 @@ flowchart LR
 - Each module owns its timers, listeners, transition/RAF state and disposal;
   the composition root does not coordinate their private revisions or queues.
 - A Read/Edit/Source transition is scoped to the document identity captured at
-  its start and restores that document's exact reader scroll position.
+  its start and restores that document's exact reader scroll position; Source
+  and Edit availability are projected independently from format capabilities.
 - Invariant: replacement or disposal invalidates stale visual and save work
   before it can commit back into the current document.
 - Invariant: theme selection, public state and persistence advance only after
@@ -254,6 +265,8 @@ flowchart LR
   `src/editor-feedback-presenter.test.js`
 - Editor application state: `src/editor-state-coordinator.test.js`
 - Empty-state visual lifecycle: `src/empty-state-motion.test.js`
+- First-paint loading lifecycle: `src/app-loading-screen.test.js` plus the
+  static loader markers in `scripts/validate-frontend.mjs`
 - Preferences: `src/reader-preferences.test.js`
 - Window/theme/mode/save/navigation lifecycle: focused controller tests under
   `src/*-coordinator.test.js` and `src/reading-navigation-controller.test.js`

@@ -21,6 +21,11 @@ function fixture({ reduced = false, viewTransitions = false } = {}) {
   dom.window.matchMedia = () => ({ matches: reduced });
   dom.window.requestAnimationFrame = (callback) => dom.window.setTimeout(() => callback(16), 0);
   dom.window.cancelAnimationFrame = (id) => dom.window.clearTimeout(id);
+  const select = dom.window.document.querySelector('#theme-select');
+  const selectButton = dom.window.document.createElement('button');
+  selectButton.type = 'button';
+  selectButton.appendChild(dom.window.document.createElement('selectedcontent'));
+  select.appendChild(selectButton);
   const transitions = [];
   if (viewTransitions) {
     dom.window.document.startViewTransition = vi.fn((commit) => {
@@ -38,7 +43,7 @@ function fixture({ reduced = false, viewTransitions = false } = {}) {
     dom,
     transitions,
     elements: {
-      select: dom.window.document.querySelector('#theme-select'),
+      select,
       name: dom.window.document.querySelector('#theme-name'),
     },
   };
@@ -69,6 +74,7 @@ describe('Theme Coordinator', () => {
     });
 
     await coordinator.start('Light');
+    expect(elements.select.querySelector(':scope > button selectedcontent')).not.toBeNull();
     const options = [...elements.select.querySelectorAll('option')];
     expect(options).toHaveLength(2);
     // Coordinator sorts themes by name, so option values index the sorted list.

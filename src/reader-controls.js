@@ -349,7 +349,14 @@ export function createReaderControls({
 
   function updateReadingToolControls() {
     const available = isDocumentAvailable();
-    const hasActiveTool = available && ['lineGuide', 'minimap', 'stats', 'wordWrap', 'blockEditor']
+    const hasActiveTool = available && [
+      'lineGuide',
+      'minimap',
+      'stats',
+      'wordWrap',
+      'coloredHeadings',
+      'blockEditor',
+    ]
       .some((tool) => state.readingTools[tool] !== DEFAULT_READING_TOOLS[tool]);
 
     elements.readingToolsButton?.classList.toggle('is-active', hasActiveTool);
@@ -367,6 +374,7 @@ export function createReaderControls({
     body.classList.toggle('is-line-guide', available && state.readingTools.lineGuide);
     body.classList.toggle('is-minimap', available && state.readingTools.minimap);
     body.classList.toggle('is-word-wrap', state.readingTools.wordWrap);
+    body.classList.toggle('is-colored-headings', available && state.readingTools.coloredHeadings);
     body.classList.toggle('is-block-editor', available && Boolean(state.readingTools.blockEditor));
     updateReadingToolControls();
     applyEdgeFade();
@@ -459,6 +467,7 @@ export function createReaderControls({
       source: 'Source view',
       stats: 'Reading stats',
       wordWrap: 'Word wrap',
+      coloredHeadings: 'Heading colors',
       blockEditor: 'Block editor',
     };
     hooks.onToast?.(`${labels[tool]} ${next ? 'on' : 'off'}`);

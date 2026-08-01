@@ -215,6 +215,7 @@ export function getThemeTokens(theme = {}) {
     codeBackground,
     codeTextMinimum,
   );
+  const headingMinimum = 4.5;
 
   return {
     background,
@@ -238,6 +239,12 @@ export function getThemeTokens(theme = {}) {
     syntaxMeta: chooseAdaptiveColor([theme.color_06, theme.color_02, accent, text], codeBackground, syntaxMinimum),
     syntaxAddition: chooseAdaptiveColor([theme.color_03, theme.color_07, text], codeBackground, syntaxMinimum),
     syntaxDeletion: chooseAdaptiveColor([theme.color_02, danger, text], codeBackground, syntaxMinimum),
+    heading1: chooseAdaptiveColor([theme.color_05, theme.color_06, accent, text], background, headingMinimum),
+    heading2: chooseAdaptiveColor([theme.color_06, theme.color_05, accent, text], background, headingMinimum),
+    heading3: chooseAdaptiveColor([theme.color_03, theme.color_07, accent, text], background, headingMinimum),
+    heading4: chooseAdaptiveColor([theme.color_07, theme.color_03, quote, text], background, headingMinimum),
+    heading5: chooseAdaptiveColor([theme.color_02, theme.color_06, danger, text], background, headingMinimum),
+    heading6: chooseAdaptiveColor([theme.color_08, theme.color_07, quote, text], background, headingMinimum),
   };
 }
 

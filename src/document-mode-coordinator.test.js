@@ -11,7 +11,8 @@ function deferred() {
 
 function fixture({ reduced = false, viewTransitions = false } = {}) {
   const dom = new JSDOM(`<!doctype html><html><body class="is-line-guide is-minimap">
-    <button id="mode"><i></i></button><span id="label"></span>
+    <button id="source-mode"><i></i></button><span id="source-label"></span>
+    <button id="edit-mode"><i></i></button><span id="edit-label"></span>
     <main id="read"></main><pre id="source"></pre><section id="edit"></section>
     <aside id="lines"></aside><aside id="minimap"></aside>
   </body></html>`);
@@ -36,8 +37,10 @@ function fixture({ reduced = false, viewTransitions = false } = {}) {
     dom,
     transitions,
     elements: {
-      control: dom.window.document.querySelector('#mode'),
-      label: dom.window.document.querySelector('#label'),
+      sourceControl: dom.window.document.querySelector('#source-mode'),
+      sourceLabel: dom.window.document.querySelector('#source-label'),
+      editControl: dom.window.document.querySelector('#edit-mode'),
+      editLabel: dom.window.document.querySelector('#edit-label'),
       readSurface: dom.window.document.querySelector('#read'),
       sourceSurface: dom.window.document.querySelector('#source'),
       editSurface: dom.window.document.querySelector('#edit'),
@@ -61,6 +64,7 @@ function createHarness(options = {}) {
     elements: view.elements,
     adapters: {
       getMode: () => mode,
+      hasDocument: () => available,
       isAvailable: () => available,
       enterEdit: async () => {
         calls.push('enter');
@@ -98,59 +102,90 @@ function createHarness(options = {}) {
 }
 
 describe('Document Mode Coordinator', () => {
-  it('owns Read -> Edit -> Source -> Read order and refreshes the control', async () => {
+  it('owns separate Rendered/Source and Read only/Edit controls', async () => {
     const harness = createHarness({ reduced: true });
     harness.coordinator.refresh();
-    expect(harness.elements.control.dataset.mode).toBe('read');
+    expect(harness.elements.sourceControl.dataset.mode).toBe('rendered');
+    expect(harness.elements.sourceControl.getAttribute('aria-pressed')).toBe('false');
+    expect(harness.elements.editControl.dataset.mode).toBe('read-only');
+    expect(harness.elements.editControl.getAttribute('aria-pressed')).toBe('false');
 
-    await harness.coordinator.cycle();
+    await harness.coordinator.toggleEdit();
     expect(harness.mode()).toBe('edit');
-    expect(harness.elements.label.textContent).toBe('Edit mode');
-    await harness.coordinator.cycle();
+    expect(harness.elements.editLabel.textContent).toBe('Edit mode');
+    expect(harness.elements.editControl.getAttribute('aria-pressed')).toBe('true');
+    await harness.coordinator.toggleSource();
     expect(harness.mode()).toBe('source');
-    await harness.coordinator.cycle();
+    expect(harness.elements.sourceControl.getAttribute('aria-pressed')).toBe('true');
+    expect(harness.elements.editControl.getAttribute('aria-pressed')).toBe('false');
+    await harness.coordinator.toggleSource();
     expect(harness.mode()).toBe('read');
     expect(harness.calls).toEqual([
       'close-ui', 'cancel-theme', 'enter',
       'close-ui', 'cancel-theme', 'exit', 'source:true',
       'close-ui', 'cancel-theme', 'source:false',
     ]);
-    expect(harness.toasts).toEqual(['Edit mode', 'Source mode', 'Read mode']);
+    expect(harness.toasts).toEqual(['Edit mode', 'Source view', 'Rendered view']);
   });
 
   it('does not toast when a mode change is blocked', async () => {
     const harness = createHarness({ reduced: true });
     harness.setAvailable(false);
-    await expect(harness.coordinator.cycle()).resolves.toBe(false);
+    await expect(harness.coordinator.toggleEdit()).resolves.toBe(false);
     expect(harness.toasts).toEqual([]);
 
     harness.setAvailable(true);
     harness.setMode('edit');
     harness.setAllowExit(false);
-    await expect(harness.coordinator.cycle()).resolves.toBe(false);
+    await expect(harness.coordinator.toggleSource()).resolves.toBe(false);
     expect(harness.mode()).toBe('edit');
     expect(harness.toasts).toEqual([]);
   });
 
-  it('freezes mode tooltip copy through intermediate cycle states', async () => {
+  it('projects Source and Edit availability independently', () => {
+    const view = fixture({ reduced: true });
+    const coordinator = createDocumentModeCoordinator({
+      window: view.dom.window,
+      document: view.dom.window.document,
+      elements: view.elements,
+      adapters: {
+        getMode: () => 'read',
+        hasDocument: () => true,
+        isAvailable: (mode) => mode === 'read' || mode === 'source',
+      },
+    });
+
+    coordinator.refresh();
+
+    expect(view.elements.sourceControl.disabled).toBe(false);
+    expect(view.elements.sourceControl.dataset.tooltip).toBe('Rendered');
+    expect(view.elements.editControl.disabled).toBe(true);
+    expect(view.elements.editControl.dataset.tooltip).toBe('Unavailable for this document');
+  });
+
+  it('freezes both tooltips through intermediate mode states', async () => {
     const enterGate = deferred();
     const harness = createHarness({ reduced: true, enterGate: enterGate.promise });
+    harness.setMode('source');
     harness.coordinator.refresh();
-    expect(harness.elements.control.dataset.tooltip).toBe('Read');
+    expect(harness.elements.sourceControl.dataset.tooltip).toBe('Source');
+    expect(harness.elements.editControl.dataset.tooltip).toBe('Read only');
 
-    const change = harness.coordinator.cycle();
-    // Let performChange mark cycling=true before intermediate refreshes land.
+    const change = harness.coordinator.toggleEdit();
+    // Let performChange mark the change active before intermediate refreshes land.
     await Promise.resolve();
     await Promise.resolve();
-    // Simulate editor/state refreshes that observe intermediate modes mid-cycle.
-    harness.setMode('edit');
+    // Simulate editor/state refreshes that observe the intermediate Read state.
     harness.coordinator.refresh();
-    expect(harness.elements.control.dataset.tooltip).toBe('Read');
+    expect(harness.mode()).toBe('read');
+    expect(harness.elements.sourceControl.dataset.tooltip).toBe('Source');
+    expect(harness.elements.editControl.dataset.tooltip).toBe('Read only');
 
     enterGate.resolve();
     await change;
     expect(harness.mode()).toBe('edit');
-    expect(harness.elements.control.dataset.tooltip).toBe('Edit');
+    expect(harness.elements.sourceControl.dataset.tooltip).toBe('Rendered');
+    expect(harness.elements.editControl.dataset.tooltip).toBe('Edit');
   });
 
   it('preserves the reader scroll position across Read, Edit and Source', async () => {
@@ -185,16 +220,16 @@ describe('Document Mode Coordinator', () => {
       },
     });
 
-    await coordinator.cycle();
+    await coordinator.toggleEdit();
     expect(mode).toBe('edit');
     expect(scrollPosition).toBe(320);
 
     scrollPosition = 480;
-    await coordinator.cycle();
+    await coordinator.toggleSource();
     expect(mode).toBe('source');
     expect(scrollPosition).toBe(480);
 
-    await coordinator.cycle();
+    await coordinator.toggleSource();
     expect(mode).toBe('read');
     expect(scrollPosition).toBe(480);
   });
@@ -204,10 +239,10 @@ describe('Document Mode Coordinator', () => {
     harness.setMode('edit');
     harness.setAllowExit(false);
 
-    await expect(harness.coordinator.cycle()).resolves.toBe(false);
+    await expect(harness.coordinator.toggleSource()).resolves.toBe(false);
     expect(harness.mode()).toBe('edit');
     expect(harness.calls).not.toContain('source:true');
-    expect(harness.elements.control.dataset.mode).toBe('edit');
+    expect(harness.elements.editControl.dataset.mode).toBe('edit');
   });
 
   it('toggles Source to Edit and Edit to Read without visiting Source on exit', async () => {
@@ -283,7 +318,7 @@ describe('Document Mode Coordinator', () => {
       },
     });
 
-    const first = coordinator.cycle();
+    const first = coordinator.toggleSource();
     const queued = coordinator.toggleEdit();
     await Promise.resolve();
     await Promise.resolve();
@@ -297,7 +332,7 @@ describe('Document Mode Coordinator', () => {
 
   it('uses View Transition, skips unchanged transitions and cancels interruption', async () => {
     const harness = createHarness({ viewTransitions: true });
-    await harness.coordinator.cycle();
+    await harness.coordinator.toggleEdit();
     expect(harness.dom.window.document.startViewTransition).toHaveBeenCalledOnce();
     expect(harness.mode()).toBe('edit');
     expect(harness.dom.window.document.body.classList.contains('is-mode-morphing')).toBe(false);
@@ -314,10 +349,10 @@ describe('Document Mode Coordinator', () => {
       harness.transitions.push(transition);
       return transition;
     });
-    const first = harness.coordinator.cycle();
+    const first = harness.coordinator.toggleSource();
     await Promise.resolve();
     const interrupted = harness.transitions.at(-1);
-    const second = harness.coordinator.cycle();
+    const second = harness.coordinator.toggleSource();
     expect(interrupted.skipTransition).toHaveBeenCalledOnce();
     active.resolve();
     await Promise.all([first, second]);
@@ -326,7 +361,7 @@ describe('Document Mode Coordinator', () => {
 
   it('animates fallback chrome, honors reduced motion and disposes every marker', async () => {
     const animated = createHarness();
-    await animated.coordinator.cycle();
+    await animated.coordinator.toggleEdit();
     await new Promise((resolve) => animated.dom.window.setTimeout(resolve, 2));
     expect(animated.elements.editSurface.classList.contains('is-mode-morph-entering')).toBe(true);
     expect(animated.elements.lineGutter.classList.contains('is-mode-chrome-morphing')).toBe(false);
@@ -337,12 +372,13 @@ describe('Document Mode Coordinator', () => {
     expect(animated.dom.window.document.body.classList.contains('is-mode-morphing')).toBe(false);
 
     const reduced = createHarness({ reduced: true });
-    await reduced.coordinator.cycle();
+    await reduced.coordinator.toggleEdit();
     expect(reduced.dom.window.document.querySelector('.is-mode-morph-entering')).toBeNull();
     expect(reduced.calls).toContain('cancel-theme');
     reduced.setAvailable(false);
     reduced.coordinator.refresh();
-    expect(reduced.elements.control.disabled).toBe(true);
+    expect(reduced.elements.sourceControl.disabled).toBe(true);
+    expect(reduced.elements.editControl.disabled).toBe(true);
   });
 
   it('prepares and finishes navigation morph hooks around a mode change', async () => {
@@ -381,7 +417,7 @@ describe('Document Mode Coordinator', () => {
         syncNavigationChrome,
       },
     });
-    await coordinator.cycle();
+    await coordinator.toggleEdit();
     expect(prepareNavigationMorph).toHaveBeenCalledOnce();
     expect(restoreScrollPosition).toHaveBeenCalledWith(42, { sync: true });
     expect(finishNavigationMorph).toHaveBeenCalled();
@@ -411,14 +447,14 @@ describe('Document Mode Coordinator', () => {
       },
       hooks: { animateNavigationMorph: animateFallback },
     });
-    await fallbackCoordinator.cycle();
+    await fallbackCoordinator.toggleEdit();
     expect(animateFallback).toHaveBeenCalledOnce();
   });
 
   it.each([false, true])('does not restore stale morph markers after async cancellation (view transition: %s)', async (viewTransitions) => {
     const gate = deferred();
     const harness = createHarness({ viewTransitions, enterGate: gate.promise });
-    const change = harness.coordinator.cycle();
+    const change = harness.coordinator.toggleEdit();
     await Promise.resolve();
     await Promise.resolve();
 

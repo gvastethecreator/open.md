@@ -82,6 +82,12 @@ describe('Frontend Logic Tests', () => {
           ['syntax meta/code background', getContrastRatio(tokens.syntaxMeta, tokens.codeBackground), syntaxMinimum],
           ['syntax addition/code background', getContrastRatio(tokens.syntaxAddition, tokens.codeBackground), syntaxMinimum],
           ['syntax deletion/code background', getContrastRatio(tokens.syntaxDeletion, tokens.codeBackground), syntaxMinimum],
+          ['heading 1/background', getContrastRatio(tokens.heading1, tokens.background), 4.5],
+          ['heading 2/background', getContrastRatio(tokens.heading2, tokens.background), 4.5],
+          ['heading 3/background', getContrastRatio(tokens.heading3, tokens.background), 4.5],
+          ['heading 4/background', getContrastRatio(tokens.heading4, tokens.background), 4.5],
+          ['heading 5/background', getContrastRatio(tokens.heading5, tokens.background), 4.5],
+          ['heading 6/background', getContrastRatio(tokens.heading6, tokens.background), 4.5],
         ];
 
         for (const [label, ratio, minimum] of checks) {
@@ -122,6 +128,22 @@ describe('Frontend Logic Tests', () => {
         ]);
 
         expect(syntaxColors.size, themeName).toBeGreaterThanOrEqual(4);
+      }
+    });
+
+    it('derives distinct heading colors from representative theme palettes', () => {
+      for (const themeName of ['Github Light', 'Github Dark', 'Ayu Light', 'Ayu Dark']) {
+        const theme = allThemes.find(({ name }) => name === themeName);
+        const tokens = getThemeTokens(theme);
+        const headingColors = new Set([
+          tokens.heading1,
+          tokens.heading2,
+          tokens.heading3,
+          tokens.heading4,
+          tokens.heading5,
+          tokens.heading6,
+        ]);
+        expect(headingColors.size, themeName).toBeGreaterThanOrEqual(3);
       }
     });
   });
@@ -327,6 +349,7 @@ describe('Frontend Logic Tests', () => {
         source: false,
         stats: false,
         wordWrap: false,
+        coloredHeadings: false,
         blockEditor: false,
       });
       expect(normalizeReadingTools({})).toEqual({
@@ -335,6 +358,7 @@ describe('Frontend Logic Tests', () => {
         source: false,
         stats: false,
         wordWrap: true,
+        coloredHeadings: false,
         blockEditor: false,
       });
       expect(normalizeReadingTools({ blockEditor: true }).blockEditor).toBe(true);
@@ -354,25 +378,31 @@ describe('Frontend Logic Tests', () => {
       expect(setMarkdownTaskChecked(source, 99, true)).toBeNull();
     });
 
-    it('cycles the document mode presentation through read, edit, and source', () => {
+    it('projects document modes onto separate view and editing controls', () => {
       expect(getDocumentModePresentation('read')).toMatchObject({
         mode: 'read',
-        label: 'Read',
-        iconClass: 'iconoir-book',
-        nextMode: 'edit',
-        ariaLabel: 'Read mode. Switch to Edit mode',
+        source: {
+          active: false,
+          state: 'rendered',
+          label: 'Rendered',
+          iconClass: 'iconoir-page',
+        },
+        edit: {
+          active: false,
+          state: 'read-only',
+          label: 'Read only',
+          iconClass: 'iconoir-book',
+        },
       });
       expect(getDocumentModePresentation('edit')).toMatchObject({
         mode: 'edit',
-        label: 'Edit',
-        iconClass: 'iconoir-edit-pencil',
-        nextMode: 'source',
+        source: { active: false, state: 'rendered' },
+        edit: { active: true, state: 'edit', iconClass: 'iconoir-edit-pencil' },
       });
       expect(getDocumentModePresentation('source')).toMatchObject({
         mode: 'source',
-        label: 'Source',
-        iconClass: 'iconoir-code',
-        nextMode: 'read',
+        source: { active: true, state: 'source', iconClass: 'iconoir-code' },
+        edit: { active: false, state: 'read-only' },
       });
       expect(getDocumentModePresentation('unknown').mode).toBe('read');
     });
