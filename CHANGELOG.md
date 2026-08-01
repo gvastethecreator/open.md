@@ -10,9 +10,21 @@ stable release is cut.
 ### Changed
 
 - Edit mode defaults to **Classic** continuous source-line live preview
-  (`editor-classic-surface.js`): only the active hard line is raw Markdown,
-  other lines are rendered, no block islands. **Block editor** remains optional
-  under View options → Editing (slash, floating toolbar, drag, block actions).
+  (`editor-classic-surface.js`): only the active hard line is raw Markdown
+  (with type-scaled typography), other lines are rendered, no block islands.
+  **Block editor** remains optional under View options → Editing.
+- Classic keyboard navigation crosses hard lines with a sticky preferred
+  column (retained across shorter lines), edge ArrowLeft/Right, Home/End,
+  PageUp/Down, Enter split, and Backspace merge at column 0.
+- Classic active-line highlight is full-bleed (0–100% editor width) and
+  animates top+height between lines (FLIP; interrupted on retarget); snaps
+  under reduced motion.
+- Caret trail is optional Neovide/qwreey-inspired motion from caret geometry
+  (idle stop, no runaway rAF under sync mocks).
+- Advanced options include **Reduce motion** (OR with OS preference); kills
+  trail and band travel.
+- Read mode code blocks: top-right copy control with check success feedback
+  (`is-copied`), error retry, and aria/tooltip restore after timeout.
 - Minimap pointer mapping uses scaled document height so short documents end
   where the mini-document ends instead of stretching across empty rail space.
 - Architecture batch ARC-26..35: format-detect is the frontend path/support
@@ -21,10 +33,23 @@ stable release is cut.
   labels consolidate behind format owners; status metrics composition, zoom
   lifecycle, task-save projection, and remaining native surfaces leave the
   composition root; `startOpenMdApplication` is the executable composition
-  seam. Initial boot JS budget is 340 KiB raw.
+  seam. Initial boot JS budget is 380 KiB raw (Classic motion + copy polish).
 
 ### Added
 
+- Empty-state logo shimmer: plays once ~2s after a new window boots, and
+  again on logo hover (respects OS / Advanced reduce-motion).
+- Format-aware chrome: status bar profiles per format (image dimensions/zoom,
+  JSON key counts, CSV rows×cols, companion metrics without reading-time),
+  context menus that match the open kind, image document actions (Copy image,
+  Download image…, Fit, Actual size), and a minimal JSON property editor for
+  valid object/array documents (plain fallback when invalid or oversized).
+  Save/exit flushes in-progress property cells; string values stay literal;
+  image export writes bytes without multi-MiB Array.from copies. Edit-mode
+  presentation refresh no longer wipes the JSON property surface. Pending
+  property cells flush into drafts on document switch; invalid cells stop
+  autosave with an error state; image copy prefers PNG for clipboard;
+  companion edit menus stay scoped to the editor surface.
 - Format experience layer: extension + magic-byte resolution on open, explicit
   payload `format`/`kind`, rich Read for JSON/CSV/INI-family companions, full-
   document Source highlighting, plain monospace Edit for non-Markdown, image

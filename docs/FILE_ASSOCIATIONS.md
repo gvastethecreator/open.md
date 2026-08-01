@@ -19,7 +19,11 @@ path re-guess alone.
 
 Companions get richer Read when possible (JSON tree, CSV table, structured
 INI/YAML-family views), full-document Source highlighting where languages are
-available, and plain monospace Edit. Images are view-only (no Edit/Source).
+available, and format-aware Edit (JSON property rows when valid; plain
+monospace otherwise). Images are view-only (no Edit/Source) with context
+actions to copy or download the image and fit/actual-size zoom. The status bar
+adapts metrics to the open format (for example dimensions for images, key
+counts for JSON).
 
 ## Runtime behavior
 

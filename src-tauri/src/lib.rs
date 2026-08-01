@@ -23,6 +23,11 @@ fn save_file_content(
 }
 
 #[tauri::command]
+fn save_file_bytes(path: String, contents: Vec<u8>) -> Result<(), String> {
+    document_access::save_bytes(Path::new(&path), &contents)
+}
+
+#[tauri::command]
 fn get_initial_file_paths(window: tauri::Window) -> Vec<String> {
     if window.label() != "main" {
         return Vec::new();
@@ -78,6 +83,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_file_content,
             save_file_content,
+            save_file_bytes,
             get_initial_file_paths,
             images::get_image_bytes,
             images::get_standalone_image_bytes,

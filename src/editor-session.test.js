@@ -262,6 +262,105 @@ describe('editor session', () => {
     expect(session.current()).toMatchObject({ dirty: false, saveState: 'saved' });
   });
 
+  it('enters JSON property editor for valid object sources and flushes pending cells on save', async () => {
+    const save = vi.fn(async (_path, source) => ({ source }));
+    const { session } = mount(save, {}, { blockEditor: false });
+    session.setDocument({
+      path: 'config.json',
+      source: '{\n  "name": "open.md",\n  "count": 1\n}\n',
+      markdown: false,
+      presentation: 'json-props',
+    });
+    expect(session.enter()).toBe(true);
+    expect(session.current().presentation).toBe('json-props');
+    expect(document.querySelector('.json-props')).toBeTruthy();
+    expect(document.querySelectorAll('[data-json-property]')).toHaveLength(2);
+
+    // Prefer-block refresh must not wipe the JSON property surface.
+    session.refreshPresentation();
+    expect(document.querySelector('.json-props')).toBeTruthy();
+    expect(document.querySelectorAll('[data-json-property]')).toHaveLength(2);
+
+    const value = document.querySelector('[data-json-path="count"] [data-json-value]');
+    value.focus();
+    value.textContent = '9';
+    // No blur yet — save must flush the pending cell.
+    await expect(session.save()).resolves.toMatchObject({ status: 'saved' });
+    expect(save).toHaveBeenCalledWith(
+      'config.json',
+      expect.stringContaining('"count": 9'),
+    );
+    expect(session.isDirty()).toBe(false);
+    session.dispose();
+  });
+
+  it('falls back to plain edit when JSON is invalid', () => {
+    const { session } = mount(vi.fn(async () => ({ source: '' })), {
+      onUnavailable: vi.fn(),
+    }, { blockEditor: false });
+    session.setDocument({
+      path: 'broken.json',
+      source: '{ not json',
+      markdown: false,
+      presentation: 'json-props',
+    });
+    expect(session.enter()).toBe(true);
+    expect(session.current().presentation).toBe('classic');
+    expect(document.querySelector('.json-props')).toBeNull();
+    session.dispose();
+  });
+
+  it('flushes pending JSON cells into drafts when switching documents', () => {
+    const { session } = mount(vi.fn(async () => ({ source: '' })), {}, { blockEditor: false });
+    session.setDocument({
+      path: 'a.json',
+      source: '{\n  "count": 1\n}\n',
+      markdown: false,
+      presentation: 'json-props',
+    });
+    expect(session.enter()).toBe(true);
+    const value = document.querySelector('[data-json-path="count"] [data-json-value]');
+    value.textContent = '7';
+    expect(session.isDirty()).toBe(true);
+
+    session.setDocument({
+      path: 'b.json',
+      source: '{\n  "other": true\n}\n',
+      markdown: false,
+      presentation: 'json-props',
+    });
+    // Returning to a.json should recover the flushed pending edit, not drop it.
+    session.setDocument({
+      path: 'a.json',
+      source: '{\n  "count": 1\n}\n',
+      markdown: false,
+      presentation: 'json-props',
+    });
+    // enter() already ran for path switch while editing; draft should win.
+    expect(session.source()).toContain('"count": 7');
+    session.dispose();
+  });
+
+  it('marks save error when JSON flush rejects invalid cells so autosave backs off', async () => {
+    const onUnavailable = vi.fn();
+    const save = vi.fn(async (_path, source) => ({ source }));
+    const { session } = mount(save, { onUnavailable }, { blockEditor: false });
+    session.setDocument({
+      path: 'num.json',
+      source: '{\n  "count": 1\n}\n',
+      markdown: false,
+      presentation: 'json-props',
+    });
+    session.enter();
+    const value = document.querySelector('[data-json-path="count"] [data-json-value]');
+    value.textContent = 'not-a-number';
+    await expect(session.save()).resolves.toMatchObject({ status: 'unavailable' });
+    expect(session.current().saveState).toBe('error');
+    expect(onUnavailable).toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+    session.dispose();
+  });
+
   it('does not replace edits typed while a save and reader reload are settling', async () => {
     const pending = deferred();
     const { session } = mount(() => pending.promise);

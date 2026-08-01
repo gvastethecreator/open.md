@@ -173,6 +173,7 @@ export function createReaderControls({
     if (elements.csvRowCapInput) {
       elements.csvRowCapInput.value = String(state.advanced.csvRowCap);
     }
+    body.classList.toggle('is-app-reduce-motion', Boolean(state.advanced.reduceMotion));
     applyEdgeFade();
   }
 

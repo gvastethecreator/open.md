@@ -230,8 +230,26 @@ export function createImageDocumentViewer({
     fit: () => {
       if (!disposed && ready) fitToWindow({ animate: true });
     },
+    actualSize: () => {
+      if (!disposed && ready) centerAtScale(1, { animate: true });
+    },
+    setScale: (nextScale, options = {}) => {
+      if (disposed || !ready) return;
+      const { width, height } = viewportSize();
+      zoomAt(width / 2 + root.getBoundingClientRect().left, height / 2 + root.getBoundingClientRect().top, nextScale, {
+        animate: Boolean(options.animate),
+      });
+    },
     getScale: () => scale,
     getFitScale: () => fitScale,
+    getState: () => Object.freeze({
+      ready,
+      naturalWidth,
+      naturalHeight,
+      scale,
+      fitScale,
+      imageUrl,
+    }),
     prefersReducedMotion: () => reducedMotion,
     motionEnabled: () => motionEnabled,
     dispose() {

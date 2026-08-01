@@ -3,6 +3,7 @@ import { getDisplayName } from './document-path.js';
 import {
   allowsDocumentMode,
   getFormatLabel,
+  getStatusProfile,
   resolveFormatId,
 } from './format-registry.js';
 import { resolvePathTheme, upsertPathTheme } from './path-theme-memory.js';
@@ -48,6 +49,7 @@ let tooltipController = null;
 let scrollbarVisibility = null;
 let statusPresenter = null;
 let readerControls = null;
+let imageViewState = null;
 let readerViewport = null;
 let editorFeedback = null;
 let documentContentActions = null;
@@ -245,12 +247,53 @@ function documentAllowsMode(mode) {
   return allowsDocumentMode(currentFormatId(), mode, { kind: documentSnapshot.kind, path });
 }
 
+function summarizeJsonSource(source) {
+  try {
+    const value = JSON.parse(String(source ?? ''));
+    if (Array.isArray(value)) {
+      return { rootType: 'array', itemCount: value.length, keyCount: null, invalid: false };
+    }
+    if (value && typeof value === 'object') {
+      return { rootType: 'object', keyCount: Object.keys(value).length, itemCount: null, invalid: false };
+    }
+    return { rootType: typeof value, keyCount: 0, itemCount: null, invalid: false };
+  } catch {
+    return { rootType: null, keyCount: null, itemCount: null, invalid: true };
+  }
+}
+
+function summarizeCsvSource(source) {
+  const text = String(source ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  if (!text) return { rowCount: 0, columnCount: 0 };
+  const lines = text.split('\n');
+  while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+  if (lines.length === 0) return { rowCount: 0, columnCount: 0 };
+  // Lightweight column estimate: respect quoted commas poorly is OK for status glance.
+  let maxCols = 0;
+  for (const line of lines.slice(0, 50)) {
+    let cols = 1;
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i += 1) {
+      const ch = line[i];
+      if (ch === '"') inQuotes = !inQuotes;
+      else if (ch === ',' && !inQuotes) cols += 1;
+    }
+    maxCols = Math.max(maxCols, cols);
+  }
+  return { rowCount: lines.length, columnCount: maxCols };
+}
+
 function updateStatus(filePath = null) {
   if (!statusPresenter) return;
 
   const path = filePath ?? getCurrentFilePath();
   const documentSnapshot = getCurrentDocument();
   const zoomPercent = readerZoom?.percent?.() ?? 100;
+  const formatId = currentFormatId();
+  const statusProfile = getStatusProfile(formatId, {
+    kind: documentSnapshot?.kind,
+    path,
+  });
 
   if (isHelpVisible()) {
     statusPresenter.project({ helpVisible: true });
@@ -258,12 +301,30 @@ function updateStatus(filePath = null) {
   }
 
   if (!path) {
+    imageViewState = null;
     statusPresenter.project({});
     return;
   }
 
   if (isEditMode && editorSession) {
     const editorState = editorSession.current();
+    if (editorState.presentation === 'json-props') {
+      const liveSource = editorSession.source?.() ?? documentSnapshot?.source ?? '';
+      const summary = summarizeJsonSource(liveSource);
+      statusPresenter.project({
+        path,
+        editMode: true,
+        statusProfile: 'json',
+        documentMetrics: {
+          statusProfile: 'json',
+          lineCount: liveSource.split('\n').length,
+          characterCount: [...liveSource].length,
+          zoomPercent,
+          ...summary,
+        },
+      });
+      return;
+    }
     statusPresenter.project({
       path,
       editMode: true,
@@ -276,28 +337,70 @@ function updateStatus(filePath = null) {
     return;
   }
 
-  const formatLabel = getFormatLabel(currentFormatId(), {
+  const formatLabel = getFormatLabel(formatId, {
     kind: documentSnapshot?.kind,
     path,
   });
   const sourceActive = Boolean(documentSnapshot && readerControls?.current().readingTools.source);
   const hasDocument = Boolean(documentSnapshot);
+  let documentMetrics = null;
+  if (hasDocument) {
+    if (statusProfile === 'image') {
+      documentMetrics = {
+        statusProfile: 'image',
+        naturalWidth: imageViewState?.naturalWidth || 0,
+        naturalHeight: imageViewState?.naturalHeight || 0,
+        scale: imageViewState?.scale ?? 1,
+        fitScale: imageViewState?.fitScale ?? 1,
+      };
+    } else if (statusProfile === 'json') {
+      const summary = summarizeJsonSource(documentSnapshot.source);
+      documentMetrics = {
+        statusProfile: 'json',
+        lineCount: documentSnapshot.lineCount,
+        characterCount: documentSnapshot.characterCount,
+        zoomPercent,
+        ...summary,
+      };
+    } else if (statusProfile === 'csv') {
+      const csvShape = summarizeCsvSource(documentSnapshot.source);
+      documentMetrics = {
+        statusProfile: 'csv',
+        lineCount: documentSnapshot.lineCount,
+        characterCount: documentSnapshot.characterCount,
+        zoomPercent,
+        rowCount: documentSnapshot.rowCount ?? csvShape.rowCount,
+        columnCount: documentSnapshot.columnCount ?? csvShape.columnCount,
+      };
+    } else if (statusProfile === 'markdown') {
+      documentMetrics = {
+        statusProfile: 'markdown',
+        lineCount: documentSnapshot.lineCount,
+        characterCount: documentSnapshot.characterCount,
+        zoomPercent,
+        currentLine: readingNavigation?.snapshot().currentLine || 1,
+        showCurrentLine: readerControls?.current().readingTools.lineGuide,
+        readingProgress: readingNavigation?.snapshot().readingProgress || 0,
+        readingTimeMinutes: documentSnapshot.readingTimeMinutes,
+        showReadingStats: readerControls?.current().readingTools.stats,
+      };
+    } else {
+      documentMetrics = {
+        statusProfile: 'text',
+        lineCount: documentSnapshot.lineCount,
+        characterCount: documentSnapshot.characterCount,
+        zoomPercent,
+        currentLine: readingNavigation?.snapshot().currentLine || 1,
+        showCurrentLine: readerControls?.current().readingTools.lineGuide,
+      };
+    }
+  }
   statusPresenter.project({
     path,
     formatLabel,
+    statusProfile,
     sourceActive,
-    documentMetrics: hasDocument
-      ? {
-          lineCount: documentSnapshot.lineCount,
-          characterCount: documentSnapshot.characterCount,
-          zoomPercent,
-          currentLine: readingNavigation?.snapshot().currentLine || 1,
-          showCurrentLine: readerControls?.current().readingTools.lineGuide,
-          readingProgress: readingNavigation?.snapshot().readingProgress || 0,
-          readingTimeMinutes: documentSnapshot.readingTimeMinutes,
-          showReadingStats: readerControls?.current().readingTools.stats,
-        }
-      : null,
+    documentMetrics,
   });
 }
 
@@ -488,6 +591,10 @@ function mountApplicationReaderShell(own) {
       onDocumentCommitted: commitDocumentViewState,
       onStateChange: handleDocumentSessionState,
       onSettled: () => readingNavigation?.handleScroll(),
+      onImageStateChange: (next) => {
+        imageViewState = next;
+        updateStatusMetrics();
+      },
       onWarning: showToast,
       onToast: showToast,
       onPreferencesChange: handlePreferenceSnapshot,
@@ -643,6 +750,9 @@ function mountApplicationEditor(own) {
     adapters: {
       save: (path, source) => runtimeAdapters.documents.save(path, source),
       isBlockEditor: () => Boolean(readerControls?.current().readingTools.blockEditor),
+      getAdvancedPreferences: () => readerControls?.current()?.advanced
+        || readerShell?.preferences?.current()?.advanced
+        || null,
     },
     hooks: {
       onStateChange: handleEditorState,
@@ -765,6 +875,7 @@ function mountDocumentContentActions(own) {
       content: ui.content,
       sourceView: ui.sourceView,
       sourceContent: ui.sourceContent,
+      editorView: ui.editorView,
     },
     adapters: {
       isDocumentAvailable: hasLoadedDocument,
@@ -772,7 +883,11 @@ function mountDocumentContentActions(own) {
       isEditMode: () => isEditMode,
       isSourceActive: isSourceViewActive,
       getDocument: getCurrentDocument,
+      getDocumentPath: getCurrentFilePath,
       getEditorSession: () => editorSession,
+      getImageViewer: () => readerShell?.getImageViewer?.(),
+      getImageMedia: () => readerShell?.getImageMedia?.(),
+      downloadImage: (payload) => runtimeAdapters?.documents?.downloadImage?.(payload),
       toggleReadTask: (payload) => documentSaveCoordinator?.toggleReadTask(payload),
     },
     hooks: { onToast: showToast },
@@ -921,6 +1036,42 @@ function applicationEvents() {
   ];
 }
 
+const EMPTY_LOGO_SHIMMER_DELAY_MS = 2000;
+const EMPTY_LOGO_SHIMMER_CLASS = 'is-shimmering';
+const EMPTY_LOGO_SHIMMER_NAME = 'empty-logo-shimmer';
+
+/** Empty-state logo sheen: once after boot delay, then again on hover. */
+function mountEmptyLogoShimmer({ window, own, listen }) {
+  const shell = document.getElementById('empty-logo-shell');
+  if (!shell) return;
+
+  const play = () => {
+    shell.classList.remove(EMPTY_LOGO_SHIMMER_CLASS);
+    // Force a style flush so consecutive plays restart the keyframes.
+    void shell.offsetWidth;
+    shell.classList.add(EMPTY_LOGO_SHIMMER_CLASS);
+  };
+
+  listen(shell, 'animationend', (event) => {
+    if (event.animationName === EMPTY_LOGO_SHIMMER_NAME) {
+      shell.classList.remove(EMPTY_LOGO_SHIMMER_CLASS);
+    }
+  });
+  listen(shell, 'mouseenter', play);
+
+  const emptyStage = document.getElementById('empty-stage');
+  const bootOnEmpty = Boolean(emptyStage && !emptyStage.classList.contains('hidden'));
+  let timer = 0;
+  if (bootOnEmpty) {
+    timer = window.setTimeout(play, EMPTY_LOGO_SHIMMER_DELAY_MS);
+  }
+
+  own(() => {
+    if (timer) window.clearTimeout(timer);
+    shell.classList.remove(EMPTY_LOGO_SHIMMER_CLASS);
+  });
+}
+
 async function startApplication(own) {
   const preferenceResult = await readerShell.preferences.load();
   if (preferenceResult.status === 'fallback') {
@@ -992,6 +1143,7 @@ export async function startOpenMdApplication() {
       listen(binding.target, binding.type, binding.listener, binding.options);
     }
     await startApplication(own);
+    mountEmptyLogoShimmer({ window, own, listen });
   });
   return Object.freeze({
     dispose: () => applicationLifecycle?.dispose(),

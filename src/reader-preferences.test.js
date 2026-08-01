@@ -50,6 +50,7 @@ describe('reader preferences', () => {
         csvRowCap: 500,
         randomThemeAtStart: false,
         pathRemembersTheme: false,
+        reduceMotion: false,
       },
       pathThemes: { version: 1, entries: {} },
     });
@@ -67,6 +68,7 @@ describe('reader preferences', () => {
         edgeFade: false,
         randomThemeAtStart: true,
         pathRemembersTheme: true,
+        reduceMotion: true,
       },
     });
     const snapshot = preferences.current().advanced;
@@ -75,8 +77,22 @@ describe('reader preferences', () => {
     expect(snapshot.edgeFade).toBe(false);
     expect(snapshot.randomThemeAtStart).toBe(true);
     expect(snapshot.pathRemembersTheme).toBe(true);
+    expect(snapshot.reduceMotion).toBe(true);
     expect(snapshot.magicSniff).toBeUndefined();
     expect(store.dump()['openmd-advanced-preferences-v1']).toContain('100%');
+  });
+
+  it('shouldReduceMotion is true for OS preference or app toggle', async () => {
+    const { shouldReduceMotion } = await import('./reader-preferences.js');
+    expect(shouldReduceMotion({
+      matchMedia: () => ({ matches: false }),
+    }, { reduceMotion: false })).toBe(false);
+    expect(shouldReduceMotion({
+      matchMedia: () => ({ matches: true }),
+    }, { reduceMotion: false })).toBe(true);
+    expect(shouldReduceMotion({
+      matchMedia: () => ({ matches: false }),
+    }, { reduceMotion: true })).toBe(true);
   });
 
   it('persists path theme memory map', async () => {

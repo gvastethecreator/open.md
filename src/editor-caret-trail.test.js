@@ -1,0 +1,146 @@
+// @vitest-environment jsdom
+
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createEditorCaretTrail } from './editor-caret-trail.js';
+
+function makeCanvas() {
+  const canvas = document.createElement('canvas');
+  const calls = { clear: 0, fill: 0 };
+  const ctx = {
+    clearRect: () => { calls.clear += 1; },
+    beginPath: () => {},
+    moveTo: () => {},
+    lineTo: () => {},
+    closePath: () => {},
+    fill: () => { calls.fill += 1; },
+  };
+  canvas.getContext = () => ctx;
+  canvas.hidden = true;
+  document.body.appendChild(canvas);
+  return { canvas, calls };
+}
+
+describe('editor caret trail', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+    vi.useRealTimers();
+  });
+
+  it('starts on moveTo and stops under reduce motion without leaving a runaway loop', () => {
+    const { canvas } = makeCanvas();
+    let reduce = false;
+    const rafQueue = [];
+    const win = {
+      ...window,
+      innerWidth: 800,
+      innerHeight: 600,
+      requestAnimationFrame: (cb) => {
+        rafQueue.push(cb);
+        return rafQueue.length;
+      },
+      cancelAnimationFrame: (id) => {
+        /* no-op for token cancel */
+        void id;
+      },
+      setTimeout: window.setTimeout.bind(window),
+      clearTimeout: window.clearTimeout.bind(window),
+      getComputedStyle: () => ({ getPropertyValue: () => '#7c6af7' }),
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      matchMedia: () => ({ matches: false }),
+    };
+    const trail = createEditorCaretTrail({
+      window: win,
+      canvas,
+      adapters: { shouldReduceMotion: () => reduce },
+    });
+
+    trail.moveTo(10, 20, 18, 2);
+    expect(trail.isVisible()).toBe(true);
+    expect(canvas.hidden).toBe(false);
+    // Drain a few frames — token must not re-enter infinitely when rAF is sync-queued.
+    let steps = 0;
+    while (rafQueue.length && steps < 5) {
+      const cb = rafQueue.shift();
+      cb();
+      steps += 1;
+    }
+    expect(steps).toBeGreaterThan(0);
+    expect(steps).toBeLessThanOrEqual(5);
+
+    reduce = true;
+    trail.moveTo(30, 40, 18, 2);
+    expect(trail.isVisible()).toBe(false);
+    expect(canvas.hidden).toBe(true);
+
+    trail.dispose();
+  });
+
+  it('hides and stops the loop after idle timeout', () => {
+    vi.useFakeTimers();
+    const { canvas } = makeCanvas();
+    const rafQueue = [];
+    const win = {
+      innerWidth: 800,
+      innerHeight: 600,
+      requestAnimationFrame: (cb) => {
+        rafQueue.push(cb);
+        return rafQueue.length;
+      },
+      cancelAnimationFrame: () => {},
+      setTimeout: (...args) => window.setTimeout(...args),
+      clearTimeout: (...args) => window.clearTimeout(...args),
+      getComputedStyle: () => ({ getPropertyValue: () => '#abc' }),
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      document,
+    };
+    const trail = createEditorCaretTrail({
+      window: win,
+      canvas,
+      adapters: { shouldReduceMotion: () => false },
+    });
+
+    trail.moveTo(12, 24, 16, 2);
+    expect(trail.isVisible()).toBe(true);
+    vi.advanceTimersByTime(250);
+    expect(trail.isVisible()).toBe(false);
+    expect(canvas.hidden).toBe(true);
+    trail.dispose();
+  });
+
+  it('dispose stops further motion even if rAF is synchronous', () => {
+    const { canvas } = makeCanvas();
+    const timeouts = [];
+    const trail = createEditorCaretTrail({
+      window: {
+        innerWidth: 100,
+        innerHeight: 100,
+        requestAnimationFrame: (cb) => {
+          // Sync re-entry is broken via frameDepth + setTimeout(0).
+          cb();
+          return 1;
+        },
+        cancelAnimationFrame: () => {},
+        setTimeout: (fn) => {
+          timeouts.push(fn);
+          return timeouts.length;
+        },
+        clearTimeout: () => {},
+        getComputedStyle: () => ({ getPropertyValue: () => '' }),
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        document,
+      },
+      canvas,
+      adapters: { shouldReduceMotion: () => false },
+    });
+    trail.moveTo(1, 2, 10, 2);
+    expect(trail.isVisible()).toBe(true);
+    trail.dispose();
+    // Drain any deferred frame without throwing.
+    while (timeouts.length) timeouts.shift()();
+    trail.moveTo(5, 6, 10, 2);
+    expect(trail.isVisible()).toBe(false);
+  });
+});

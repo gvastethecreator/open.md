@@ -58,6 +58,8 @@ export function mountReaderShell({ window, adapters, hooks = {} }) {
       return { status: 'closed', path: current?.path || null };
     },
     currentDocument: () => documentSession.current(),
+    getImageViewer: () => documentSession.getImageViewer?.(),
+    getImageMedia: () => documentSession.getImageMedia?.(),
     dispose() {
       if (disposed) return;
       disposed = true;

@@ -129,6 +129,7 @@ describe('Status Presenter', () => {
       path: 'C:/docs/guide.md',
       formatLabel: 'Markdown',
       documentMetrics: {
+        statusProfile: 'markdown',
         lineCount: 4,
         characterCount: 20,
         zoomPercent: 100,
@@ -139,6 +140,21 @@ describe('Status Presenter', () => {
     expect(view.elements.primary.textContent).toBe('guide.md');
     expect(view.elements.context.textContent).toBe('Markdown');
     expect(view.elements.metrics.querySelector('[data-status-kind="lines"]')).toBeTruthy();
+
+    presenter.project({
+      path: 'C:/photos/shot.png',
+      formatLabel: 'Image',
+      documentMetrics: {
+        statusProfile: 'image',
+        naturalWidth: 800,
+        naturalHeight: 600,
+        scale: 0.5,
+        fitScale: 0.5,
+      },
+    });
+    expect(view.elements.context.textContent).toBe('Image');
+    expect(view.elements.metrics.querySelector('[data-status-kind="dimensions"]')?.textContent).toContain('800');
+    expect(view.elements.metrics.querySelector('[data-status-kind="zoom"]')?.textContent).toMatch(/Fit|50%/);
 
     presenter.project({
       path: 'C:/docs/guide.md',
@@ -165,6 +181,22 @@ describe('Status Presenter', () => {
     });
     expect(view.elements.context.textContent).toBe('Editing');
     expect(view.elements.metrics.querySelector('[data-status-kind="column"]')?.textContent).toBe('Col 2');
+
+    presenter.project({
+      path: 'C:/docs/config.json',
+      editMode: true,
+      statusProfile: 'json',
+      documentMetrics: {
+        statusProfile: 'json',
+        lineCount: 4,
+        characterCount: 20,
+        zoomPercent: 100,
+        keyCount: 3,
+        rootType: 'object',
+      },
+    });
+    expect(view.elements.context.textContent).toBe('Editing');
+    expect(view.elements.metrics.querySelector('[data-status-kind="json-keys"]')?.textContent).toContain('3');
   });
 
   it('uses an instant path for reduced motion and clears the surface', () => {

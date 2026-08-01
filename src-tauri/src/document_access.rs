@@ -76,6 +76,64 @@ pub(crate) fn open_document(file_path: &Path) -> Result<DocumentPayload, String>
     ))
 }
 
+/// Write arbitrary bytes to a user-chosen path (image download / export).
+/// Size-capped to the local image budget. Does not open or re-read the document.
+pub(crate) fn save_bytes(file_path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let content_size = bytes.len() as u64;
+    if content_size > MAX_LOCAL_IMAGE_SIZE_BYTES {
+        return Err(format!(
+            "The file is too large to save ({}). Current limit: {}.",
+            file_size_label(content_size),
+            file_size_label(MAX_LOCAL_IMAGE_SIZE_BYTES)
+        ));
+    }
+
+    let parent = file_path
+        .parent()
+        .filter(|path| path.as_os_str().len() > 0)
+        .map(PathBuf::from)
+        .or_else(|| std::env::current_dir().ok())
+        .ok_or_else(|| "The destination folder is unavailable.".to_string())?;
+
+    if !parent.exists() {
+        return Err("The destination folder is unavailable.".to_string());
+    }
+
+    let file_name = file_path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "The destination name is invalid.".to_string())?;
+    let nonce = SAVE_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let temporary_path = parent.join(format!(
+        ".{file_name}.openmd-export-{}-{nonce}.tmp",
+        std::process::id()
+    ));
+    let destination = parent.join(file_name);
+
+    let result: Result<(), String> = (|| {
+        let mut temporary = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary_path)
+            .map_err(user_friendly_write_error)?;
+        temporary
+            .write_all(bytes)
+            .and_then(|_| temporary.sync_all())
+            .map_err(user_friendly_write_error)?;
+        if destination.exists() {
+            replace_document_file(&temporary_path, &destination, nonce)?;
+        } else {
+            fs::rename(&temporary_path, &destination).map_err(user_friendly_write_error)?;
+        }
+        Ok(())
+    })();
+
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary_path);
+    }
+    result
+}
+
 pub(crate) fn save_document(file_path: &Path, content: &str) -> Result<DocumentPayload, String> {
     recover_interrupted_save(file_path)?;
     let canonical_path = fs::canonicalize(file_path).map_err(user_friendly_write_error)?;
@@ -778,7 +836,7 @@ mod tests {
     use super::{
         build_document_payload, detect_image_format_from_magic, file_size_label, image_mime_type,
         is_supported_document, open_document, read_document_image, render_markdown,
-        safe_relative_image_path, save_document, MAX_LOCAL_IMAGE_SIZE_BYTES,
+        safe_relative_image_path, save_bytes, save_document, MAX_LOCAL_IMAGE_SIZE_BYTES,
         MAX_RENDERABLE_FILE_SIZE_BYTES,
     };
     use std::fs::{self, File};
@@ -978,6 +1036,27 @@ mod tests {
             .contains("too large"));
         assert_eq!(fs::read_to_string(&unsupported).unwrap(), "keep");
         assert_eq!(fs::read_to_string(&supported).unwrap(), "keep");
+    }
+
+    #[test]
+    fn saves_export_bytes_and_rejects_oversized_payloads() {
+        let fixture = FixtureDirectory::new("save-bytes");
+        let destination = fixture.path().join("export.png");
+        let payload = [0x89_u8, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
+        save_bytes(&destination, &payload).expect("export should write");
+        assert_eq!(fs::read(&destination).expect("export should exist"), payload);
+
+        // Overwrite path uses the same atomic replace helper as document saves.
+        let next = [1_u8, 2, 3, 4];
+        save_bytes(&destination, &next).expect("overwrite should write");
+        assert_eq!(fs::read(&destination).expect("export should update"), next);
+
+        let oversized = vec![0_u8; MAX_LOCAL_IMAGE_SIZE_BYTES as usize + 1];
+        assert!(save_bytes(&destination, &oversized)
+            .unwrap_err()
+            .contains("too large"));
+        assert_eq!(fs::read(&destination).expect("failed export keeps prior bytes"), next);
     }
 
     #[cfg(target_os = "windows")]

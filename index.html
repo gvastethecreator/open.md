@@ -315,6 +315,27 @@
                 </button>
               </section>
 
+              <section class="options-section" aria-labelledby="options-motion-label">
+                <p id="options-motion-label" class="options-section-label">
+                  <i class="ti ti-player-pause" aria-hidden="true"></i>
+                  <span>Motion</span>
+                </p>
+                <button
+                  class="reading-tool-toggle reading-tool-toggle--compact"
+                  type="button"
+                  role="switch"
+                  aria-checked="false"
+                  data-advanced-pref="reduceMotion"
+                  data-tooltip="Disable non-essential animation in the app"
+                  data-tooltip-side="left"
+                  data-tooltip-delay="520"
+                >
+                  <i class="ti ti-player-pause" aria-hidden="true"></i>
+                  <span><strong>Reduce motion</strong></span>
+                  <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+                </button>
+              </section>
+
               <section class="options-section" aria-labelledby="options-performance-label">
                 <p id="options-performance-label" class="options-section-label">
                   <i class="ti ti-adjustments" aria-hidden="true"></i>
@@ -373,7 +394,9 @@
         <section id="reader-page" class="reader-page t-page" data-page-id="1">
           <section id="empty-stage" class="empty-stage" aria-labelledby="empty-title">
             <div class="empty-content">
-              <img class="empty-logo" src="/src/assets/app-icon.png" width="256" height="256" alt="" aria-hidden="true" />
+              <div id="empty-logo-shell" class="empty-logo-shell" aria-hidden="true">
+                <img class="empty-logo" src="/src/assets/app-icon.png" width="256" height="256" alt="" />
+              </div>
               <button id="empty-open-button" class="primary-button" type="button">
                 <i class="iconoir-folder" aria-hidden="true"></i>
                 <span>open file</span>
@@ -392,6 +415,7 @@
                 <span id="editor-context-label">Live preview</span>
                 <span id="editor-context-hint" class="editor-context-hint">Active line shows markup · other lines are preview</span>
               </header>
+              <div id="editor-active-line-band" class="editor-active-line-band" aria-hidden="true" hidden></div>
               <div id="editor-canvas" class="editor-canvas" aria-label="Editable document"></div>
               <p class="editor-end-hint"><kbd>Ctrl</kbd> + <kbd>S</kbd> saves · <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd> returns to reading</p>
               <div id="editor-block-toolbar" class="editor-block-toolbar" role="toolbar" aria-label="Block actions" hidden>
@@ -565,6 +589,7 @@
     </div>
 
     <span id="editor-caret-echo" class="editor-caret-echo" aria-hidden="true" hidden></span>
+    <canvas id="editor-caret-trail" class="editor-caret-trail" aria-hidden="true" hidden></canvas>
 
     <form id="editor-link-popover" class="editor-link-popover" hidden>
       <label for="editor-link-input">Link</label>

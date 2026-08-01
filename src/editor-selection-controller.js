@@ -91,6 +91,8 @@ export function createEditorSelectionController({
     cancelCaretMotion();
     if (caretEcho) caretEcho.hidden = true;
     root.classList.remove('has-custom-caret');
+    // Leave-edit / clear / scroll-off must drop the trail immediately, not after idle.
+    adapters.getCaretTrail?.()?.hide?.();
   };
 
   const isCaretVisibleInScrollContainer = (rect) => {
@@ -136,12 +138,23 @@ export function createEditorSelectionController({
       return;
     }
     cancelCaretMotion();
-    caretEcho.style.left = `${Math.round(rect.left * 2) / 2}px`;
-    caretEcho.style.top = `${Math.round(rect.top * 2) / 2}px`;
-    caretEcho.style.height = `${Math.max(12, Math.min(32, rect.height))}px`;
+    const left = Math.round(rect.left * 2) / 2;
+    const top = Math.round(rect.top * 2) / 2;
+    const height = Math.max(12, Math.min(32, rect.height));
+    caretEcho.style.left = `${left}px`;
+    caretEcho.style.top = `${top}px`;
+    caretEcho.style.height = `${height}px`;
     caretEcho.hidden = false;
     root.classList.add('has-custom-caret');
-    if (!animate || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    const reduced = typeof adapters.shouldReduceMotion === 'function'
+      ? Boolean(adapters.shouldReduceMotion())
+      : Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
+    if (!reduced) {
+      adapters.getCaretTrail?.()?.moveTo?.(left, top, height, 2);
+    } else {
+      adapters.getCaretTrail?.()?.hide?.();
+    }
+    if (!animate || reduced) return;
     const version = ++caretVersion;
     caretFrameId = window.requestAnimationFrame?.(() => {
       caretFrameId = null;

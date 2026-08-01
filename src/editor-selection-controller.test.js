@@ -41,6 +41,13 @@ function fixture({ reduced = false } = {}) {
   const updateBlockFromElement = vi.fn();
   const onDocumentChange = vi.fn();
   const focusBlock = vi.fn();
+  const trailHide = vi.fn();
+  const trailMoveTo = vi.fn();
+  const caretTrail = {
+    hide: trailHide,
+    moveTo: trailMoveTo,
+    isVisible: () => false,
+  };
   const controller = createEditorSelectionController({
     window: dom.window,
     document,
@@ -51,6 +58,7 @@ function fixture({ reduced = false } = {}) {
       getActiveBlockId: () => 'one',
       setCursor,
       updateBlockFromElement,
+      getCaretTrail: () => caretTrail,
     },
     hooks: { onDocumentChange, focusBlock },
   });
@@ -66,6 +74,9 @@ function fixture({ reduced = false } = {}) {
     focusBlock,
     readerPage,
     content: document.querySelector('[data-editor-content]'),
+    trailHide,
+    trailMoveTo,
+    caretTrail,
   };
 }
 
@@ -180,5 +191,22 @@ describe('Editor Selection Controller', () => {
     const callCount = view.setCursor.mock.calls.length;
     view.document.dispatchEvent(new view.dom.window.Event('selectionchange'));
     expect(view.setCursor).toHaveBeenCalledTimes(callCount);
+  });
+
+  it('hides the caret trail immediately on clear (leave-edit path)', async () => {
+    const view = fixture();
+    selectText(view, view.content.firstChild, 2, 2, {
+      left: 100, top: 80, width: 0, height: 20, right: 100, bottom: 100,
+    });
+    await new Promise((resolve) => view.dom.window.setTimeout(resolve, 20));
+    expect(view.elements.caretEcho.hidden).toBe(false);
+    expect(view.trailMoveTo).toHaveBeenCalled();
+    view.trailHide.mockClear();
+
+    // editor-session exit calls selectionController.clear() — trail must not linger until idle.
+    view.controller.clear();
+    expect(view.elements.caretEcho.hidden).toBe(true);
+    expect(view.trailHide).toHaveBeenCalled();
+    expect(view.setCursor).toHaveBeenLastCalledWith(null);
   });
 });

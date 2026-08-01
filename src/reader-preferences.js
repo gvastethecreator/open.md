@@ -40,6 +40,8 @@ export const DEFAULT_ADVANCED_PREFERENCES = Object.freeze({
   csvRowCap: 500,
   randomThemeAtStart: false,
   pathRemembersTheme: false,
+  // App-level force; always OR'd with prefers-reduced-motion.
+  reduceMotion: false,
 });
 
 export const DEFAULT_PATH_THEMES = freezePathThemes({ version: 1, entries: {} });
@@ -59,7 +61,18 @@ export function normalizeAdvancedPreferences(value) {
     csvRowCap,
     randomThemeAtStart: Boolean(value?.randomThemeAtStart),
     pathRemembersTheme: Boolean(value?.pathRemembersTheme),
+    reduceMotion: Boolean(value?.reduceMotion),
   });
+}
+
+/** True when the OS requests reduced motion or the app preference forces it. */
+export function shouldReduceMotion(windowLike, advanced = null) {
+  if (advanced?.reduceMotion) return true;
+  try {
+    return Boolean(windowLike?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
+  } catch {
+    return false;
+  }
 }
 
 function freezeSnapshot(value) {

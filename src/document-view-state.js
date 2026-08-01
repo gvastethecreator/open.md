@@ -52,6 +52,7 @@ export function createDocumentViewStateController({
       path,
       source: document.source,
       markdown: editorKind === 'blocks' || isMarkdownFormat(format, { kind: document?.kind }),
+      presentation: editorKind === 'json-props' ? 'json-props' : 'default',
     });
   };
 
