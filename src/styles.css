@@ -90,6 +90,12 @@
   /* Viewport fade: text dissolves before it meets titlebar / status bar. */
   --content-edge-fade: 18px;
   --scroll-edge-size: 36px;
+  /* Reader scrollport chrome: thin gutter kept outside edge fade masks. */
+  --scrollbar-size: 7px;
+  --scrollbar-thumb: transparent;
+  --scrollbar-thumb-visible: color-mix(in srgb, var(--border-color) 72%, transparent);
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--ui-accent) 55%, var(--border-color));
+  --scrollbar-fade-duration: 200ms;
   /*
    * Stacking bands (live DOM + matching VT group z-index):
    *   content 1–3 → edge scrims 5 → minimap 20 → chrome 30–40 → floating UI 80+
@@ -223,6 +229,8 @@
 .ti-photo::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/photo.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/photo.svg"); }
 .ti-zoom-in::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/zoom-in.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/zoom-in.svg"); }
 .ti-arrow-left::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/arrow-left.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/arrow-left.svg"); }
+.ti-sun::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/sun.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/sun.svg"); }
+.ti-moon::before { -webkit-mask-image: url("../node_modules/@tabler/icons/icons/outline/moon.svg"); mask-image: url("../node_modules/@tabler/icons/icons/outline/moon.svg"); }
 
 *,
 *::before,
@@ -278,8 +286,8 @@ tt {
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
 }
 
 ::-webkit-scrollbar-track {
@@ -287,15 +295,19 @@ tt {
 }
 
 ::-webkit-scrollbar-thumb {
-  border: 3px solid transparent;
-  border-radius: var(--radius-xs);
-  background: color-mix(in srgb, var(--border-color) 78%, transparent);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-color) 72%, transparent);
   background-clip: padding-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--ui-accent) 58%, var(--border-color));
+  background: color-mix(in srgb, var(--ui-accent) 55%, var(--border-color));
   background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 ::selection {
@@ -346,7 +358,8 @@ html.is-theme-changing *::after {
  */
 .scroll-edge {
   position: fixed;
-  right: 0;
+  /* Keep the vertical scrollbar gutter free of the top/bottom scrims. */
+  right: var(--scrollbar-size);
   left: 0;
   z-index: var(--z-scroll-edge);
   height: var(--scroll-edge-size);
@@ -365,10 +378,11 @@ html.is-theme-changing *::after {
     transparent 100%
   );
   
-  filter: blur(10px);
+  filter: blur(1px);
 }
 
 .scroll-edge--bottom {
+  /* Align to the status bar — never reserve a permanent “phantom” scrollbar band. */
   bottom: var(--toolbar-height);
   background: linear-gradient(
     to top,
@@ -377,7 +391,7 @@ html.is-theme-changing *::after {
     color-mix(in srgb, var(--bg-color) 22%, transparent) 68%,
     transparent 100%
   );
-  filter: blur(10px);
+  filter: blur(1px);
 }
 
 /* Always on while reading: edges stay soft even when not scrolled (chrome collision). */
@@ -713,15 +727,27 @@ body.is-mode-morphing .editor-link-popover:not([hidden]) {
 .reader-page,
 .help-stage {
   min-width: 0;
+  /*
+   * Vertical scroll only on the page. Horizontal overflow is clipped here so
+   * we never reserve a bottom scrollbar band or push the edge gradient up.
+   * Nested surfaces (code, mermaid, tables) keep their own overflow-x: auto.
+   */
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* Stable vertical gutter only — never both-edges / horizontal reservation. */
   scrollbar-gutter: stable;
-  /*
-   * Transparent gradient mask on the text viewport: content soft-erases as it
-   * approaches the titlebar and status bar. This is the edge fade for reading,
-   * not a painted overlay on top of the document.
-   */
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+/*
+ * Edge fade on content only. The page scrollport (and its vertical scrollbar)
+ * stays outside the mask so the bar is never dissolved by the gradient.
+ */
+.reader-page > .document-stage,
+.reader-page > .empty-stage,
+.help-stage > .help-content {
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0,
@@ -740,6 +766,68 @@ body.is-mode-morphing .editor-link-popover:not([hidden]) {
   mask-size: 100% 100%;
   -webkit-mask-repeat: no-repeat;
   mask-repeat: no-repeat;
+}
+
+/* Auto-hide reader/help vertical scrollbar: reverseable thumb fade. */
+.reader-page,
+.help-stage {
+  --scrollbar-thumb: transparent;
+}
+
+.reader-page.is-scrollbar-visible,
+.help-stage.is-scrollbar-visible {
+  --scrollbar-thumb: var(--scrollbar-thumb-visible);
+}
+
+.reader-page::-webkit-scrollbar,
+.help-stage::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  /* No horizontal page scrollbar — height 0 avoids a bottom track. */
+  height: 0;
+}
+
+.reader-page::-webkit-scrollbar-track,
+.help-stage::-webkit-scrollbar-track,
+.reader-page::-webkit-scrollbar-corner,
+.help-stage::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.reader-page::-webkit-scrollbar-thumb,
+.help-stage::-webkit-scrollbar-thumb {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background-color: var(--scrollbar-thumb);
+  background-clip: padding-box;
+  transition: background-color var(--scrollbar-fade-duration) var(--motion-ease-standard);
+}
+
+.reader-page.is-scrollbar-visible::-webkit-scrollbar-thumb:hover,
+.help-stage.is-scrollbar-visible::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-page::-webkit-scrollbar-thumb,
+  .help-stage::-webkit-scrollbar-thumb {
+    transition: none;
+  }
+}
+
+/* Nested horizontal scroll (code / diagrams): thin bar below the block, not the page. */
+.markdown-body pre,
+.markdown-body .mermaid,
+.editor-block--code .editor-block-content,
+.source-view {
+  scrollbar-width: thin;
+}
+
+.markdown-body pre::-webkit-scrollbar,
+.markdown-body .mermaid::-webkit-scrollbar,
+.editor-block--code .editor-block-content::-webkit-scrollbar,
+.source-view::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
 }
 
 .document-stage {
@@ -950,9 +1038,11 @@ kbd {
 }
 
 /* Implicit standalone image documents: full-stage pan/zoom surface. */
-body.is-image-document .reader-page,
-body.is-edge-fade-off .reader-page,
-body.is-edge-fade-off .help-stage {
+body.is-image-document .reader-page > .document-stage,
+body.is-image-document .reader-page > .empty-stage,
+body.is-edge-fade-off .reader-page > .document-stage,
+body.is-edge-fade-off .reader-page > .empty-stage,
+body.is-edge-fade-off .help-stage > .help-content {
   -webkit-mask-image: none;
   mask-image: none;
 }
@@ -2215,7 +2305,7 @@ body.is-mode-morphing .editor-block-toolbar:not([hidden]) {
 .app-tooltip[hidden] { display: none; }
 
 .app-tooltip.is-label-morphing {
-  will-change: width, left;
+  will-change: width, left, top;
 }
 
 .app-tooltip-message {
@@ -3743,16 +3833,77 @@ body.is-reading-tools-open .typography-panel {
   font-weight: 400;
 }
 
+/* Horizontal slide deck: basic | advanced (enter from right, exit to right). */
+.options-deck {
+  display: flex;
+  width: 200%;
+  transform: translateX(0);
+  transition: transform 260ms var(--motion-ease-out);
+  will-change: transform;
+}
+
+.reading-tools-panel.is-advanced-view .options-deck,
+.options-deck.is-advanced-view {
+  transform: translateX(-50%);
+}
+
+.options-deck > .options-pane,
+.options-deck > #basic-options-panel,
+.options-deck > #advanced-options-panel {
+  flex: 0 0 50%;
+  width: 50%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+#basic-options-panel,
+.advanced-options-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+}
+
+.advanced-options-panel > .reading-tool-nav {
+  border: var(--ui-border-width) solid color-mix(in srgb, var(--ui-border-color) 72%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--panel-bg) 42%, var(--bg-color));
+}
+
+/* Lone advanced toggles without a category shell (e.g. Edge fade). */
+.advanced-options-panel > .options-standalone-toggle {
+  border: var(--ui-border-width) solid color-mix(in srgb, var(--ui-border-color) 72%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--panel-bg) 58%, var(--bg-color));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-color) 4%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .options-deck {
+    transition: none;
+  }
+}
+
+.options-section {
+  overflow: hidden;
+  border: var(--ui-border-width) solid color-mix(in srgb, var(--ui-border-color) 72%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--panel-bg) 58%, var(--bg-color));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-color) 4%, transparent);
+}
+
 .options-section-label,
 .appearance-section-label {
   margin: 0;
-  padding: 8px 12px 5px;
+  padding: 5px 10px;
   display: flex;
   align-items: center;
   gap: 6px;
-  border-top: var(--ui-border-width) solid var(--ui-border-color);
-  color: color-mix(in srgb, var(--ui-muted) 78%, transparent);
-  font-size: 0.58rem;
+  border: 0;
+  border-bottom: var(--ui-border-width) solid color-mix(in srgb, var(--ui-border-color) 70%, transparent);
+  color: color-mix(in srgb, var(--ui-muted) 82%, transparent);
+  background: color-mix(in srgb, var(--text-color) 4.5%, transparent);
+  font-size: 0.56rem;
   font-weight: 700;
   letter-spacing: 0.1em;
   line-height: 1;
@@ -3768,19 +3919,28 @@ body.is-reading-tools-open .typography-panel {
   min-width: 0;
 }
 
-#basic-options-panel > .options-section-label:first-child {
+.options-section > .reading-tool-toggle,
+.options-section > .appearance-theme-field,
+.options-section > .options-field--compact {
   border-top: 0;
-  padding-top: 4px;
+  border-bottom: var(--ui-border-width) solid color-mix(in srgb, var(--ui-border-color) 55%, transparent);
+}
+
+.options-section > .reading-tool-toggle:last-child,
+.options-section > .appearance-theme-field:last-child,
+.options-section > .options-field--compact:last-child,
+.options-section > .options-hint:last-child {
+  border-bottom: 0;
 }
 
 .reading-tool-toggle {
   width: 100%;
-  min-height: 52px;
-  padding: 8px 12px;
+  min-height: 36px;
+  padding: 5px 10px;
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) 16px;
+  grid-template-columns: 16px minmax(0, 1fr) 14px;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   border: 0;
   border-top: var(--ui-border-width) solid var(--ui-border-color);
   border-radius: 0;
@@ -3805,28 +3965,64 @@ body.is-reading-tools-open .typography-panel {
 }
 
 .reading-tool-toggle > i:first-child {
-  font-size: 16px;
+  font-size: 14px;
+  /* Leading icons sit a step lighter than the option label. */
+  color: color-mix(in srgb, currentColor 52%, transparent);
+  transition: color var(--motion-fast) var(--motion-ease-standard);
 }
 
 .reading-tool-toggle > span {
   min-width: 0;
   display: grid;
-  gap: 1px;
+  gap: 0;
+  line-height: 1.2;
+}
+
+.reading-tool-toggle > span.reading-tool-value-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
 }
 
 .reading-tool-toggle strong {
-  font-size: 0.73rem;
+  font-size: 0.7rem;
   font-weight: 650;
+  color: currentColor;
 }
 
 .reading-tool-toggle small {
-  color: var(--ui-muted);
-  font-size: 0.64rem;
+  color: color-mix(in srgb, var(--ui-muted) 92%, transparent);
+  font-size: 0.58rem;
+  line-height: 1.25;
+}
+
+.reading-tool-value-row strong {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.reading-tool-value-row small,
+.reading-tool-value-row .theme-select {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.reading-tool-value-row small {
+  overflow: hidden;
+  color: color-mix(in srgb, var(--ui-muted) 88%, transparent);
+  font-size: 0.62rem;
+  font-weight: 500;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .reading-tool-check {
   color: var(--ui-accent);
-  font-size: 15px;
+  font-size: 13px;
   opacity: 0;
   transform: scale(0.78);
   transition:
@@ -3840,46 +4036,46 @@ body.is-reading-tools-open .typography-panel {
 }
 
 .reading-tool-toggle--compact {
-  min-height: 34px;
-  padding: 5px 12px;
+  min-height: 30px;
+  padding: 4px 10px;
   gap: 8px;
 }
 
 .reading-tool-toggle--compact strong {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
 }
 
 .reading-tool-toggle--compact > i:first-child {
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .advanced-options-panel .options-status {
   margin: 0;
-  padding: 4px 12px 2px;
+  padding: 5px 10px 1px;
   color: var(--ui-muted);
-  font-size: 0.62rem;
-  line-height: 1.35;
+  font-size: 0.6rem;
+  line-height: 1.3;
 }
 
 .advanced-options-panel .options-hint {
-  margin: 0 0 2px;
-  padding: 0 12px 6px;
+  margin: 0;
+  padding: 0 10px 6px;
   color: color-mix(in srgb, var(--ui-muted) 88%, transparent);
-  font-size: 0.58rem;
-  line-height: 1.35;
+  font-size: 0.56rem;
+  line-height: 1.3;
 }
 
 .options-field--compact {
-  min-height: 34px;
+  min-height: 30px;
   margin: 0;
-  padding: 4px 12px;
+  padding: 3px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   border-top: var(--ui-border-width) solid var(--ui-border-color);
   color: var(--text-color);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 650;
 }
 
@@ -3891,37 +4087,175 @@ body.is-reading-tools-open .typography-panel {
 }
 
 label.appearance-theme-field.reading-tool-toggle {
-  min-height: 0;
-  padding: 8px 12px;
+  min-height: 36px;
+  padding: 5px 10px;
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
-  grid-template-rows: auto auto;
+  grid-template-columns: 16px minmax(0, 1fr);
   align-items: center;
-  gap: 2px 10px;
-  cursor: default;
+  gap: 8px;
+  cursor: pointer;
 }
 
 label.appearance-theme-field.reading-tool-toggle > i {
-  grid-row: 1 / span 2;
-  align-self: center;
-  font-size: 16px;
+  font-size: 14px;
 }
 
-label.appearance-theme-field.reading-tool-toggle > span {
+label.appearance-theme-field.reading-tool-toggle > .reading-tool-value-row {
   grid-column: 2;
   min-width: 0;
 }
 
 label.appearance-theme-field.reading-tool-toggle .theme-select {
-  grid-column: 2;
-  width: 100%;
+  flex: 1 1 auto;
+  width: auto;
   min-width: 0;
+  max-width: min(11.5rem, 62%);
+  height: 24px;
+  margin: 0;
   border: 1px solid var(--ui-border-color);
   border-radius: var(--radius-sm);
   background: var(--bg-color);
   color: var(--text-color);
-  padding: 0.25rem 0.35rem;
+  padding: 0.1rem 0.3rem;
   font: inherit;
+  font-size: 0.66rem;
+  text-align: right;
+  cursor: pointer;
+}
+
+/* Customizable select (Chromium/WebView2): rich option content with color pills. */
+@supports (appearance: base-select) {
+  .theme-select,
+  .theme-select::picker(select) {
+    appearance: base-select;
+  }
+
+  .theme-select {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .theme-select::picker-icon {
+    color: var(--ui-muted);
+    opacity: 0.85;
+    margin-left: 2px;
+  }
+
+  .theme-select::picker(select) {
+    margin-top: 4px;
+    padding: 4px;
+    border: var(--ui-border-width) solid var(--ui-border-color);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--panel-bg) 94%, var(--bg-color));
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--shadow-color) 72%, transparent);
+    color: var(--text-color);
+  }
+
+  .theme-select optgroup {
+    padding: 4px 0 2px;
+    color: var(--ui-muted);
+    font-size: 0.62rem;
+    font-weight: 650;
+    letter-spacing: 0.02em;
+  }
+
+  .theme-select option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-height: 26px;
+    padding: 3px 8px;
+    border-radius: var(--radius-xs);
+    color: var(--text-color);
+    font-size: 0.66rem;
+    cursor: pointer;
+  }
+
+  .theme-select option:hover,
+  .theme-select option:focus-visible {
+    background: color-mix(in srgb, var(--ui-accent) 10%, transparent);
+  }
+
+  .theme-select option:checked {
+    background: color-mix(in srgb, var(--ui-accent) 14%, transparent);
+  }
+
+  .theme-select option::checkmark {
+    display: none;
+  }
+}
+
+/* pill | name ........ sun/moon — closed select and open options */
+.theme-select .theme-color-pill,
+.theme-select option .theme-color-pill {
+  flex: 0 0 auto;
+}
+
+.theme-select .theme-option-label,
+.theme-select option .theme-option-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-right: auto;
+  text-align: left;
+}
+
+.theme-select .theme-tone-icon,
+.theme-select option .theme-tone-icon {
+  flex: 0 0 auto;
+  margin-left: 8px;
+}
+
+.theme-color-pill {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 12px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-color) 60%, transparent);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--shadow-color) 28%, transparent);
+  vertical-align: middle;
+}
+
+.theme-color-pill__segment {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+}
+
+.theme-option-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.theme-tone-icon {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--ui-muted);
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.78;
+}
+
+.theme-tone-icon::before {
+  width: 12px;
+  height: 12px;
+}
+
+.theme-tone-icon--light,
+.theme-tone-icon--dark {
+  color: var(--ui-muted);
 }
 
 .typography-panel {
@@ -4028,59 +4362,30 @@ label.appearance-theme-field.reading-tool-toggle .theme-select {
 }
 
 .appearance-theme-field {
-  min-height: 60px;
-  padding: 8px 12px;
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr);
-  align-items: center;
-  gap: 2px 10px;
-  border-top: var(--ui-border-width) solid var(--ui-border-color);
+  min-height: 0;
   color: var(--ui-muted);
-}
-
-.appearance-theme-field > i {
-  grid-row: 1;
-  font-size: 16px;
-}
-
-.appearance-theme-field > span {
-  min-width: 0;
-  display: grid;
-  grid-row: 1;
-  gap: 1px;
 }
 
 .appearance-theme-field strong {
   color: var(--text-color);
-  font-size: 0.73rem;
+  font-size: 0.7rem;
   font-weight: 650;
 }
 
-.appearance-theme-field small {
-  overflow: hidden;
-  color: var(--ui-muted);
-  font-size: 0.64rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .theme-select {
-  width: 100%;
-  height: 28px;
-  margin-top: 4px;
-  padding: 0 26px 0 8px;
-  grid-column: 1 / -1;
+  height: 24px;
+  padding: 0 22px 0 6px;
   border: var(--ui-border-width) solid var(--ui-border-color);
   border-radius: var(--radius-xs);
   color: var(--text-color);
   background: color-mix(in srgb, var(--panel-bg) 72%, var(--bg-color));
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   cursor: pointer;
 }
 
 .theme-select:hover,
 .theme-select:focus-visible {
-  border-color: color-mix(in srgb, var(--ui-accent) 1%, transparent);
+  border-color: color-mix(in srgb, var(--ui-accent) 28%, var(--ui-border-color));
 }
 
 .toast {

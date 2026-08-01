@@ -6,6 +6,41 @@ import {
 
 const DEFAULT_CURATED_NAMES = ['Paper', 'Github Light', 'Github Dark', 'Ayu Light', 'Ayu Dark'];
 
+/** Three signature colors for a theme preview pill: background, text, accent. */
+export function getThemePreviewColors(theme = {}) {
+  const background = String(theme.background || '#ffffff').trim() || '#ffffff';
+  const foreground = String(theme.foreground || '#111111').trim() || '#111111';
+  const accent = String(
+    theme.color_05 || theme.color_06 || theme.color_02 || theme.color_03 || foreground
+  ).trim() || foreground;
+  return { background, foreground, accent };
+}
+
+function createThemeOptionContent(document, theme) {
+  const colors = getThemePreviewColors(theme);
+  const dark = isColorDark(theme.background || colors.background);
+  const pill = document.createElement('span');
+  pill.className = 'theme-color-pill';
+  pill.setAttribute('aria-hidden', 'true');
+  for (const color of [colors.background, colors.foreground, colors.accent]) {
+    const segment = document.createElement('span');
+    segment.className = 'theme-color-pill__segment';
+    segment.dataset.color = color;
+    segment.style.backgroundColor = color;
+    pill.appendChild(segment);
+  }
+  const label = document.createElement('span');
+  label.className = 'theme-option-label';
+  label.textContent = theme.name;
+  const tone = document.createElement('i');
+  tone.className = dark
+    ? 'ti ti-moon theme-tone-icon theme-tone-icon--dark'
+    : 'ti ti-sun theme-tone-icon theme-tone-icon--light';
+  tone.setAttribute('aria-hidden', 'true');
+  tone.dataset.tone = dark ? 'dark' : 'light';
+  return { pill, label, tone, dark };
+}
+
 function applyThemeTokens(document, theme, preparedDiagrams) {
   const root = document.documentElement;
   const tokens = getThemeTokens(theme);
@@ -99,10 +134,13 @@ export function createThemeCoordinator({
     const catalog = document.createElement('optgroup');
     catalog.label = 'All themes';
     const append = (group, index) => {
+      const theme = themes[index];
       const option = document.createElement('option');
       option.value = String(index);
-      option.textContent = themes[index].name;
       option.selected = index === currentIndex;
+      const { pill, label, tone, dark } = createThemeOptionContent(document, theme);
+      option.dataset.tone = dark ? 'dark' : 'light';
+      option.append(pill, label, tone);
       group.appendChild(option);
     };
     curatedNames.forEach((name) => {

@@ -260,6 +260,60 @@ export function createTooltipController({ window, document, hooks = {} }) {
     return fitsAbove || !fitsBelow ? 'top' : 'bottom';
   };
 
+  /** Side-aware fixed coordinates for a measured tooltip size. */
+  const coordsFor = (target, width, height, side) => {
+    const anchor = target.getBoundingClientRect();
+    if (side === 'left') {
+      return {
+        left: clamp(
+          anchor.left - width - TOOLTIP_GAP,
+          VIEWPORT_GAP,
+          Math.max(VIEWPORT_GAP, window.innerWidth - width - VIEWPORT_GAP),
+        ),
+        top: desiredTopForHeight(target, height),
+      };
+    }
+    if (side === 'right') {
+      return {
+        left: clamp(
+          anchor.right + TOOLTIP_GAP,
+          VIEWPORT_GAP,
+          Math.max(VIEWPORT_GAP, window.innerWidth - width - VIEWPORT_GAP),
+        ),
+        top: desiredTopForHeight(target, height),
+      };
+    }
+    const left = desiredLeftForWidth(target, width);
+    const desiredTop = side === 'top'
+      ? anchor.top - height - TOOLTIP_GAP
+      : anchor.bottom + TOOLTIP_GAP;
+    return {
+      left,
+      top: clamp(
+        desiredTop,
+        VIEWPORT_GAP,
+        Math.max(VIEWPORT_GAP, window.innerHeight - height - VIEWPORT_GAP),
+      ),
+    };
+  };
+
+  const applyArrowOffset = (target, left, top, width, height, side) => {
+    const anchor = target.getBoundingClientRect();
+    if (side === 'left' || side === 'right') {
+      tooltip.style.setProperty('--tooltip-arrow-offset', `${Math.round(clamp(
+        anchor.top + anchor.height / 2 - top,
+        10,
+        Math.max(10, height - 10),
+      ))}px`);
+      return;
+    }
+    tooltip.style.setProperty('--tooltip-arrow-offset', `${Math.round(clamp(
+      anchor.left + anchor.width / 2 - left,
+      10,
+      Math.max(10, width - 10),
+    ))}px`);
+  };
+
   const position = (target, { measureSilently = false } = {}) => {
     const anchor = target.getBoundingClientRect();
     tooltip.style.removeProperty('width');
@@ -271,50 +325,11 @@ export function createTooltipController({ window, document, hooks = {} }) {
     tooltip.hidden = false;
     const rect = tooltip.getBoundingClientRect();
     const side = resolveSide(target, anchor, rect);
-
-    let left;
-    let top;
-    if (side === 'left') {
-      left = clamp(
-        anchor.left - rect.width - TOOLTIP_GAP,
-        VIEWPORT_GAP,
-        Math.max(VIEWPORT_GAP, window.innerWidth - rect.width - VIEWPORT_GAP),
-      );
-      top = desiredTopForHeight(target, rect.height);
-    } else if (side === 'right') {
-      left = clamp(
-        anchor.right + TOOLTIP_GAP,
-        VIEWPORT_GAP,
-        Math.max(VIEWPORT_GAP, window.innerWidth - rect.width - VIEWPORT_GAP),
-      );
-      top = desiredTopForHeight(target, rect.height);
-    } else {
-      left = desiredLeftForWidth(target, rect.width);
-      const desiredTop = side === 'top'
-        ? anchor.top - rect.height - TOOLTIP_GAP
-        : anchor.bottom + TOOLTIP_GAP;
-      top = clamp(
-        desiredTop,
-        VIEWPORT_GAP,
-        Math.max(VIEWPORT_GAP, window.innerHeight - rect.height - VIEWPORT_GAP),
-      );
-    }
+    const { left, top } = coordsFor(target, rect.width, rect.height, side);
 
     tooltip.style.left = `${Math.round(left)}px`;
     tooltip.style.top = `${Math.round(top)}px`;
-    if (side === 'left' || side === 'right') {
-      tooltip.style.setProperty('--tooltip-arrow-offset', `${Math.round(clamp(
-        anchor.top + anchor.height / 2 - top,
-        10,
-        Math.max(10, rect.height - 10),
-      ))}px`);
-    } else {
-      tooltip.style.setProperty('--tooltip-arrow-offset', `${Math.round(clamp(
-        anchor.left + anchor.width / 2 - left,
-        10,
-        Math.max(10, rect.width - 10),
-      ))}px`);
-    }
+    applyArrowOffset(target, left, top, rect.width, rect.height, side);
     tooltip.dataset.side = side;
     if (!measureSilently) tooltip.style.visibility = '';
     return tooltip.getBoundingClientRect();
@@ -412,11 +427,12 @@ export function createTooltipController({ window, document, hooks = {} }) {
 
   /**
    * Open shell content change:
-   * - shell: width + left only (always opacity 1)
+   * - shell: width + left/top for the active side (always opacity 1)
    * - text: previous fades out, current fades in (only layers)
    */
   const refreshActiveLabel = () => {
     if (disposed || !activeTarget?.isConnected || tooltip.hidden) return;
+    if (tooltip.dataset.state === 'closing') return;
     if (!activeTarget.dataset.tooltip?.trim()) {
       hide({ immediate: true });
       return;
@@ -437,6 +453,8 @@ export function createTooltipController({ window, document, hooks = {} }) {
     const startRect = tooltip.getBoundingClientRect();
     const startWidth = startRect.width;
     const startLeft = startRect.left;
+    const startTop = startRect.top;
+    const side = tooltip.dataset.side || 'top';
 
     // Capture outgoing pixels from the live message layer only.
     previous.replaceChildren(...[...message.childNodes].map((node) => node.cloneNode(true)));
@@ -445,12 +463,15 @@ export function createTooltipController({ window, document, hooks = {} }) {
     message.style.opacity = '0';
     renderedSignature = signature;
 
-    // Natural width of new content (shell stays painted).
+    // Natural size of new content (shell stays painted).
     tooltip.style.width = 'auto';
-    const endWidth = tooltip.getBoundingClientRect().width;
-    const endLeft = desiredLeftForWidth(activeTarget, endWidth);
+    const measured = tooltip.getBoundingClientRect();
+    const endWidth = measured.width;
+    const endHeight = measured.height;
+    const endCoords = coordsFor(activeTarget, endWidth, endHeight, side);
     tooltip.style.width = `${Math.round(startWidth)}px`;
     tooltip.style.left = `${Math.round(startLeft)}px`;
+    tooltip.style.top = `${Math.round(startTop)}px`;
     tooltip.dataset.state = 'open';
     tooltip.classList.add('is-label-morphing');
 
@@ -460,10 +481,10 @@ export function createTooltipController({ window, document, hooks = {} }) {
       settleContent();
       tooltip.style.removeProperty('opacity');
       tooltip.style.removeProperty('transform');
-      if (activeTarget?.isConnected && !tooltip.hidden) {
+      if (activeTarget?.isConnected && !tooltip.hidden && tooltip.dataset.state !== 'closing') {
         position(activeTarget, { measureSilently: true });
       }
-      tooltip.dataset.state = 'open';
+      if (tooltip.dataset.state !== 'closing') tooltip.dataset.state = 'open';
     };
 
     if (prefersReducedMotion(window) || typeof message.animate !== 'function') {
@@ -471,10 +492,20 @@ export function createTooltipController({ window, document, hooks = {} }) {
       return;
     }
 
-    // Geometry only on the shell — opacity locked at 1 in both keyframes.
+    // Geometry only on the shell — opacity locked at 1; honor left/right sides.
     shellAnimation = run(tooltip, [
-      { width: `${Math.round(startWidth)}px`, left: `${Math.round(startLeft)}px`, opacity: 1 },
-      { width: `${Math.round(endWidth)}px`, left: `${Math.round(endLeft)}px`, opacity: 1 },
+      {
+        width: `${Math.round(startWidth)}px`,
+        left: `${Math.round(startLeft)}px`,
+        top: `${Math.round(startTop)}px`,
+        opacity: 1,
+      },
+      {
+        width: `${Math.round(endWidth)}px`,
+        left: `${Math.round(endCoords.left)}px`,
+        top: `${Math.round(endCoords.top)}px`,
+        opacity: 1,
+      },
     ], { duration: WIDTH_MORPH_MS, easing: EASE_OUT });
 
     const outgoing = run(previous, [
@@ -494,7 +525,7 @@ export function createTooltipController({ window, document, hooks = {} }) {
     ).then(finish, finish);
   };
 
-  const finishHide = (version) => {
+  const finishHide = (version, { recoverHover = false } = {}) => {
     if (version !== motionVersion || disposed) return;
     if (activeTarget) updateDescription(activeTarget, false);
     activeTarget = null;
@@ -507,6 +538,13 @@ export function createTooltipController({ window, document, hooks = {} }) {
     tooltip.dataset.state = 'closed';
     lastHiddenAt = Date.now();
     clearShellInlineMotion();
+
+    // Soft-hide only: if the pointer is still over a host, recover with full delay.
+    if (!recoverHover) return;
+    if (!Number.isFinite(lastPointer.x) || !Number.isFinite(lastPointer.y)) return;
+    const under = document.elementFromPoint?.(lastPointer.x, lastPointer.y);
+    const still = tooltipTarget(under);
+    if (still) scheduleShow(still);
   };
 
   const hide = ({ immediate = false } = {}) => {
@@ -518,8 +556,9 @@ export function createTooltipController({ window, document, hooks = {} }) {
     contentVersion += 1;
     cancelContentAnimations();
     tooltip.dataset.state = 'closing';
+    const recoverHover = !immediate;
     if (immediate || prefersReducedMotion(window) || typeof tooltip.animate !== 'function') {
-      finishHide(version);
+      finishHide(version, { recoverHover });
       return;
     }
     const closeSide = tooltip.dataset.side;
@@ -535,24 +574,49 @@ export function createTooltipController({ window, document, hooks = {} }) {
       { opacity: 0, transform: `translate(${closeTravel.x}px, ${closeTravel.y}px) scale(0.985)` },
     ], { duration: 90, easing: 'cubic-bezier(0.4, 0, 1, 1)' });
     if (!shellAnimation?.finished) {
-      finishHide(version);
+      finishHide(version, { recoverHover });
       return;
     }
     shellAnimation.finished.then(
-      () => finishHide(version),
+      () => finishHide(version, { recoverHover }),
       () => {},
     );
   };
 
+  /** Abort an in-flight close so a still-hovered host can keep the shell. */
+  const abortClosing = () => {
+    if (tooltip.dataset.state !== 'closing') return false;
+    motionVersion += 1;
+    cancelShellAnimation();
+    pinShellVisible();
+    tooltip.style.removeProperty('opacity');
+    tooltip.style.removeProperty('transform');
+    tooltip.dataset.state = 'open';
+    return true;
+  };
+
   const scheduleShow = (target, { immediate = false } = {}) => {
-    if (!target || target === activeTarget) {
-      if (target === activeTarget) cancelTimer('hide');
+    if (!target) return;
+
+    // Same host, fully open: cancel pending hide only.
+    if (target === activeTarget && !tooltip.hidden && tooltip.dataset.state !== 'closing') {
+      cancelTimer('hide');
       return;
     }
+
+    // Same host while closing: cancel the close and keep the shell.
+    if (target === activeTarget && abortClosing()) {
+      cancelTimer('hide');
+      cancelTimer('show');
+      pendingTarget = null;
+      return;
+    }
+
     cancelTimer('show');
     cancelTimer('hide');
     pendingTarget = target;
-    const withinGrace = Date.now() - lastHiddenAt <= HOVER_GRACE_WINDOW || !tooltip.hidden;
+    // Fast retarget only while a shell is already open; after hide always full delay.
+    const withinGrace = Boolean(!tooltip.hidden && activeTarget && activeTarget !== target);
     const delay = tooltipShowDelay(target, { withinGrace, immediate });
     if (delay === 0) {
       show(target);
@@ -593,15 +657,17 @@ export function createTooltipController({ window, document, hooks = {} }) {
   };
 
   let mutationFrame = null;
+  let inputModality = 'keyboard';
   const flushMutations = () => {
     mutationFrame = null;
-    if (!activeTarget?.isConnected) return;
+    if (!activeTarget?.isConnected || tooltip.hidden || tooltip.dataset.state === 'closing') return;
     if (activeTarget.dataset.tooltip?.trim()) refreshActiveLabel();
     else hide({ immediate: true });
   };
 
   const onMutations = (records) => {
     let shouldRefresh = false;
+    let shouldReposition = false;
     records.forEach((record) => {
       if (record.type === 'childList') record.addedNodes.forEach(migrateTree);
       if (record.type === 'attributes' && record.attributeName === 'title') migrateTitle(record.target);
@@ -612,12 +678,30 @@ export function createTooltipController({ window, document, hooks = {} }) {
       ) {
         shouldRefresh = true;
       }
+      // Toggle state/layout changes while open — keep side placement stable.
+      if (
+        record.type === 'attributes'
+        && record.target === activeTarget
+        && (record.attributeName === 'aria-checked' || record.attributeName === 'class')
+      ) {
+        shouldReposition = true;
+      }
     });
     // Coalesce bursts (mode cycle + status/editor feedback) into one label morph.
-    if (!shouldRefresh || !activeTarget) return;
-    if (mutationFrame !== null) return;
-    mutationFrame = window.requestAnimationFrame?.(flushMutations) ?? null;
-    if (mutationFrame === null) flushMutations();
+    if (shouldRefresh && activeTarget) {
+      if (mutationFrame !== null) return;
+      mutationFrame = window.requestAnimationFrame?.(flushMutations) ?? null;
+      if (mutationFrame === null) flushMutations();
+      return;
+    }
+    if (
+      shouldReposition
+      && activeTarget
+      && !tooltip.hidden
+      && tooltip.dataset.state !== 'closing'
+    ) {
+      position(activeTarget, { measureSilently: true });
+    }
   };
 
   const trackPointer = (event) => {
@@ -628,6 +712,7 @@ export function createTooltipController({ window, document, hooks = {} }) {
 
   const onPointerOver = (event) => {
     trackPointer(event);
+    inputModality = 'pointer';
     const target = tooltipTarget(event.target);
     if (!target || target.contains(event.relatedTarget)) return;
     scheduleShow(target);
@@ -643,33 +728,60 @@ export function createTooltipController({ window, document, hooks = {} }) {
     }
     if (activeTarget === target && isInsideSafeZone(target, event.clientX, event.clientY)) {
       cancelTimer('hide');
+      abortClosing();
       return;
     }
     scheduleHide();
   };
   const onPointerMove = (event) => {
     trackPointer(event);
-    if (!activeTarget || tooltip.hidden || hideTimerId === null) return;
-    if (isInsideSafeZone(activeTarget, event.clientX, event.clientY)) cancelTimer('hide');
+    if (!activeTarget || tooltip.hidden) return;
+    if (hideTimerId !== null && isInsideSafeZone(activeTarget, event.clientX, event.clientY)) {
+      cancelTimer('hide');
+    }
+    if (tooltip.dataset.state === 'closing' && isInsideSafeZone(activeTarget, event.clientX, event.clientY)) {
+      abortClosing();
+    }
   };
-  const onFocusIn = (event) => scheduleShow(tooltipTarget(event.target), { immediate: true });
+  const onFocusIn = (event) => {
+    // Keyboard focus: show promptly. Pointer focus: keep hover delay (avoid click flash).
+    scheduleShow(tooltipTarget(event.target), { immediate: inputModality === 'keyboard' });
+  };
   const onFocusOut = (event) => {
     if (activeTarget?.contains(event.relatedTarget)) return;
+    // Pointer still over the host (button click focus shuffle): do not kill the tip.
+    if (activeTarget && isInsideSafeZone(activeTarget)) {
+      cancelTimer('hide');
+      abortClosing();
+      return;
+    }
     scheduleHide(0);
   };
   const onKeyDown = (event) => {
+    if (event.key === 'Tab' || event.key.startsWith('Arrow') || event.key === 'Escape') {
+      inputModality = 'keyboard';
+    }
     if (event.key === 'Escape' && (!tooltip.hidden || pendingTarget)) hide({ immediate: true });
+  };
+  const onPointerDownCapture = (event) => {
+    inputModality = 'pointer';
+    trackPointer(event);
   };
   const onDismiss = (event) => {
     const eventTarget = event?.target;
+    const host = eventTarget ? tooltipTarget(eventTarget) : null;
     if (
       eventTarget
       && (
         activeTarget?.contains?.(eventTarget)
         || pendingTarget?.contains?.(eventTarget)
-        || tooltipTarget(eventTarget) === activeTarget
+        || (activeTarget && host === activeTarget)
+        || (pendingTarget && host === pendingTarget)
       )
     ) {
+      // Clicking the host should not dismiss — options often update under the pointer.
+      cancelTimer('hide');
+      abortClosing();
       return;
     }
     if (event?.type === 'scroll') {
@@ -689,7 +801,7 @@ export function createTooltipController({ window, document, hooks = {} }) {
       subtree: true,
       childList: true,
       attributes: true,
-      attributeFilter: ['title', 'data-tooltip', 'data-tooltip-shortcut'],
+      attributeFilter: ['title', 'data-tooltip', 'data-tooltip-shortcut', 'aria-checked', 'class'],
     });
     document.addEventListener('pointerover', onPointerOver);
     document.addEventListener('pointerout', onPointerOut);
@@ -697,6 +809,7 @@ export function createTooltipController({ window, document, hooks = {} }) {
     document.addEventListener('focusin', onFocusIn);
     document.addEventListener('focusout', onFocusOut);
     document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('pointerdown', onPointerDownCapture, true);
     document.addEventListener('pointerdown', onDismiss, true);
     document.addEventListener('contextmenu', onDismiss, true);
     document.addEventListener('scroll', onDismiss, true);
@@ -716,6 +829,7 @@ export function createTooltipController({ window, document, hooks = {} }) {
     document.removeEventListener('focusin', onFocusIn);
     document.removeEventListener('focusout', onFocusOut);
     document.removeEventListener('keydown', onKeyDown);
+    document.removeEventListener('pointerdown', onPointerDownCapture, true);
     document.removeEventListener('pointerdown', onDismiss, true);
     document.removeEventListener('contextmenu', onDismiss, true);
     document.removeEventListener('scroll', onDismiss, true);
