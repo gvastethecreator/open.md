@@ -56,7 +56,8 @@ pub fn config_dir() -> Option<PathBuf> {
         if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME") {
             return Some(PathBuf::from(xdg).join(APP_CONFIG_DIR));
         }
-        std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config").join(APP_CONFIG_DIR))
+        std::env::var_os("HOME")
+            .map(|home| PathBuf::from(home).join(".config").join(APP_CONFIG_DIR))
     }
 
     #[cfg(not(any(target_os = "windows", target_os = "macos", unix)))]
@@ -91,7 +92,8 @@ pub fn parse_settings(raw: &str) -> AppSettings {
 }
 
 pub fn save(settings: &AppSettings) -> Result<(), String> {
-    let path = settings_path().ok_or_else(|| "Could not resolve app config directory".to_string())?;
+    let path =
+        settings_path().ok_or_else(|| "Could not resolve app config directory".to_string())?;
     save_to_path(&path, settings)
 }
 
@@ -118,7 +120,9 @@ fn replace_file(from: &Path, to: &Path) -> Result<(), String> {
     fs::rename(from, to).map_err(|error| error.to_string())
 }
 
-pub fn set_allow_multiple_instances(value: bool) -> Result<SetAllowMultipleInstancesResult, String> {
+pub fn set_allow_multiple_instances(
+    value: bool,
+) -> Result<SetAllowMultipleInstancesResult, String> {
     let mut settings = load();
     settings.allow_multiple_instances = value;
     save(&settings)?;
@@ -146,7 +150,9 @@ mod tests {
         assert!(AppSettings::default().allow_multiple_instances);
         assert!(parse_settings("{}").allow_multiple_instances);
         assert!(parse_settings("not-json").allow_multiple_instances);
-        assert!(load_from_path(Path::new("/no/such/openmd-settings.json")).allow_multiple_instances);
+        assert!(
+            load_from_path(Path::new("/no/such/openmd-settings.json")).allow_multiple_instances
+        );
     }
 
     #[test]

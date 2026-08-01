@@ -13,6 +13,8 @@ describe('application composition seam', () => {
     vi.unstubAllGlobals();
   });
 
+  // Full-suite boot imports main + mounts the real shell; under parallel
+  // jsdom workers this can exceed the default 5s without hanging.
   it('exports startOpenMdApplication and boots without Tauri imports in main', async () => {
     const mainSource = readFileSync(join(root, 'src/main.js'), 'utf8');
     const ingressSource = readFileSync(join(root, 'src/document-ingress-controller.js'), 'utf8');
@@ -53,5 +55,5 @@ describe('application composition seam', () => {
     expect(app.currentPath()).toBeNull();
     expect(app.zoom()).toBe(1);
     await app.dispose();
-  });
+  }, 20_000);
 });
