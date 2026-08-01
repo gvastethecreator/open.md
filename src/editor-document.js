@@ -1,3 +1,5 @@
+import { getMarkdownSourceTokenRanges } from './markdown-source.js';
+
 const BLOCK_TYPES = new Set([
   'paragraph',
   'heading1',
@@ -204,6 +206,21 @@ export function classicLinePreviewHtml(line, { markdown = true } = {}) {
     return body || '<br>';
   }
   return body || '<br>';
+}
+
+export function classicLineSourceHtml(line, { highlight = false } = {}) {
+  const raw = String(line ?? '');
+  if (!highlight) return raw ? escapeHtml(raw) : '<br>';
+
+  let cursor = 0;
+  let html = '';
+  for (const range of getMarkdownSourceTokenRanges(raw)) {
+    if (range.start > cursor) html += escapeHtml(raw.slice(cursor, range.start));
+    html += `<strong class="source-markup-token">${escapeHtml(raw.slice(range.start, range.end))}</strong>`;
+    cursor = range.end;
+  }
+  if (cursor < raw.length) html += escapeHtml(raw.slice(cursor));
+  return html || '<br>';
 }
 
 export function inlineMarkdownToHtml(value) {

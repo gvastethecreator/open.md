@@ -8,7 +8,11 @@
  * - One contenteditable host on the canvas so selection can span lines.
  */
 
-import { classicLineKind, classicLinePreviewHtml } from './editor-document.js';
+import {
+  classicLineKind,
+  classicLinePreviewHtml,
+  classicLineSourceHtml,
+} from './editor-document.js';
 
 function normalizeSource(value) {
   const text = String(value ?? '').replace(/\r\n?/g, '\n');
@@ -32,6 +36,14 @@ function caretOffsetIn(element, selection) {
   before.selectNodeContents(element);
   before.setEnd(range.startContainer, range.startOffset);
   return before.toString().length;
+}
+
+function boundaryOffsetIn(element, container, offset) {
+  if (!element || !container || !element.contains(container)) return 0;
+  const range = element.ownerDocument.createRange();
+  range.selectNodeContents(element);
+  range.setEnd(container, offset);
+  return range.toString().length;
 }
 
 function placeCaret(element, offset, selection) {
@@ -90,10 +102,12 @@ export function createEditorClassicSurface({
   let disposed = false;
   let mounted = false;
   let suppressSelection = 0;
+  let suppressNextInsertParagraph = false;
   let bandRaf = null;
   let bandAnimation = null;
 
   const isMarkdown = () => adapters.isMarkdown?.() !== false;
+  const highlightSource = () => Boolean(adapters.highlightSource?.());
   const readSource = () => normalizeSource(adapters.getSource?.() || '');
   const reduceMotion = () => Boolean(adapters.shouldReduceMotion?.());
 
@@ -137,7 +151,7 @@ export function createEditorClassicSurface({
     return rows.map((row) => {
       const content = row.querySelector('[data-classic-content]');
       if (content?.dataset.editorMode === 'source') {
-        return String(content.innerText ?? content.textContent ?? '')
+        return String(content.textContent ?? '')
           .replace(/\r\n?/g, '\n')
           .replace(/\u00a0/g, ' ')
           .replace(/\u200b/g, '')
@@ -173,7 +187,11 @@ export function createEditorClassicSurface({
     if (source) {
       // Raw Markdown stays editable; typography follows the line kind (h1, list…).
       content.removeAttribute('contenteditable');
-      content.textContent = line;
+      if (highlightSource()) content.innerHTML = classicLineSourceHtml(line, { highlight: true });
+      else content.textContent = line;
+    } else if (highlightSource()) {
+      content.contentEditable = 'false';
+      content.innerHTML = classicLineSourceHtml(line, { highlight: true });
     } else {
       content.contentEditable = 'false';
       content.innerHTML = classicLinePreviewHtml(line, { markdown });
@@ -204,7 +222,7 @@ export function createEditorClassicSurface({
       canvas.contentEditable = 'true';
       canvas.setAttribute('role', 'textbox');
       canvas.setAttribute('aria-multiline', 'true');
-      canvas.setAttribute('aria-label', 'Document editor');
+      canvas.setAttribute('aria-label', adapters.getAriaLabel?.() || 'Document editor');
       canvas.classList.add('is-classic-surface');
       if (caret != null) {
         const row = canvas.querySelector(`[data-classic-line="${activeLine}"] [data-classic-content]`);
@@ -263,6 +281,11 @@ export function createEditorClassicSurface({
   const handleInput = () => {
     if (disposed || !mounted) return false;
     stickyVerticalNav = false;
+    const activeContent = canvas.querySelector(
+      `[data-classic-line="${activeLine}"] [data-classic-content]`,
+    );
+    const selection = window.getSelection();
+    const caret = caretOffsetIn(activeContent, selection);
     const lines = readLinesFromDom();
     commitLines(lines);
     // Keep projection: active line stays source; do not full-render unless line count changed.
@@ -279,7 +302,12 @@ export function createEditorClassicSurface({
         row.dataset.sourceText = lines[index] ?? '';
       });
       const content = canvas.querySelector(`[data-classic-line="${activeLine}"] [data-classic-content]`);
-      const selection = window.getSelection();
+      if (content && highlightSource()) {
+        withSelectionSuppressed(() => {
+          content.innerHTML = classicLineSourceHtml(lines[activeLine] ?? '', { highlight: true });
+          placeCaret(content, caret, selection);
+        });
+      }
       const col = caretOffsetIn(content, selection) + 1;
       adapters.setCursor?.({ line: activeLine + 1, column: Math.max(1, col) });
       hooks.onChange?.();
@@ -370,6 +398,64 @@ export function createEditorClassicSurface({
     return content?.dataset.editorMode === 'source' ? content : null;
   };
 
+  const insertLineBreak = (event, { fromKeydown = false } = {}) => {
+    if (disposed || !mounted) return false;
+    if (!fromKeydown && suppressNextInsertParagraph) {
+      event.preventDefault();
+      suppressNextInsertParagraph = false;
+      return true;
+    }
+    const content = ensureActiveSourceContent();
+    if (!content) return false;
+    event.preventDefault();
+    if (fromKeydown) {
+      suppressNextInsertParagraph = true;
+      queueMicrotask(() => { suppressNextInsertParagraph = false; });
+    }
+
+    const lines = readLinesFromDom();
+    const selection = window.getSelection();
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    const rowFor = (node) => {
+      const element = node?.nodeType === 1 ? node : node?.parentElement;
+      return element?.closest?.('[data-classic-line]') || null;
+    };
+    const startRow = rowFor(range?.startContainer) || content.closest('[data-classic-line]');
+    const endRow = rowFor(range?.endContainer) || startRow;
+    let startLine = Number(startRow?.dataset.classicLine);
+    let endLine = Number(endRow?.dataset.classicLine);
+    if (!Number.isFinite(startLine)) startLine = activeLine;
+    if (!Number.isFinite(endLine)) endLine = startLine;
+    if (endLine < startLine) [startLine, endLine] = [endLine, startLine];
+
+    const startContent = startRow?.querySelector('[data-classic-content]') || content;
+    const endContent = endRow?.querySelector('[data-classic-content]') || startContent;
+    const startOffset = range
+      ? boundaryOffsetIn(startContent, range.startContainer, range.startOffset)
+      : caretOffsetIn(startContent, selection);
+    const endOffset = range
+      ? boundaryOffsetIn(endContent, range.endContainer, range.endOffset)
+      : startOffset;
+    const before = (lines[startLine] ?? '').slice(0, startOffset);
+    const after = (lines[endLine] ?? '').slice(endOffset);
+    lines.splice(startLine, endLine - startLine + 1, before, after);
+
+    commitLines(lines);
+    preferredColumn = 0;
+    stickyVerticalNav = false;
+    activeLine = startLine + 1;
+    selectionLines = new Set();
+    render({ source: joinLines(lines), focusLine: activeLine, caret: 0 });
+    canvas.focus?.({ preventScroll: true });
+    ensureActiveLineVisible();
+    return true;
+  };
+
+  const handleBeforeInput = (event) => {
+    if (!['insertParagraph', 'insertLineBreak'].includes(event?.inputType)) return false;
+    return insertLineBreak(event);
+  };
+
   const handleKeydown = (event) => {
     if (disposed || !mounted) return false;
     const selection = window.getSelection();
@@ -398,22 +484,7 @@ export function createEditorClassicSurface({
       preferredColumn = offset;
     }
 
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      const lines = readLinesFromDom();
-      const current = lines[activeLine] ?? '';
-      lines[activeLine] = current.slice(0, offset);
-      lines.splice(activeLine + 1, 0, current.slice(offset));
-      commitLines(lines);
-      preferredColumn = 0;
-      stickyVerticalNav = false;
-      activeLine += 1;
-      selectionLines = new Set();
-      render({ source: joinLines(lines), focusLine: activeLine, caret: 0 });
-      canvas.focus?.({ preventScroll: true });
-      ensureActiveLineVisible();
-      return true;
-    }
+    if (event.key === 'Enter') return insertLineBreak(event, { fromKeydown: true });
 
     if (event.key === 'Backspace' && selection?.isCollapsed && offset === 0 && activeLine > 0) {
       event.preventDefault();
@@ -721,6 +792,7 @@ export function createEditorClassicSurface({
     activateLine,
     handleClick,
     handleInput,
+    handleBeforeInput,
     handleKeydown,
     handleSelectionChange,
     syncActiveLineBand: scheduleActiveLineBand,

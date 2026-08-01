@@ -1,7 +1,7 @@
 export function getDocumentModePresentation(mode) {
   const normalizedMode = MODES.has(mode) ? mode : 'read';
-  const sourceActive = normalizedMode === 'source';
-  const editActive = normalizedMode === 'edit';
+  const sourceActive = normalizedMode === 'source' || normalizedMode === 'source-edit';
+  const editActive = normalizedMode === 'edit' || normalizedMode === 'source-edit';
   const sourceLabel = sourceActive ? 'Source' : 'Rendered';
   const sourceNextLabel = sourceActive ? 'Rendered' : 'Source';
   const editLabel = editActive ? 'Edit' : 'Read only';
@@ -26,7 +26,7 @@ export function getDocumentModePresentation(mode) {
   };
 }
 
-const MODES = new Set(['read', 'edit', 'source']);
+const MODES = new Set(['read', 'edit', 'source', 'source-edit']);
 
 export function createDocumentModeCoordinator({
   window,
@@ -54,7 +54,7 @@ export function createDocumentModeCoordinator({
   };
 
   const surfaceFor = (mode = current()) => {
-    if (mode === 'edit') return elements.editSurface;
+    if (mode === 'edit' || mode === 'source-edit') return elements.editSurface;
     if (mode === 'source') return elements.sourceSurface;
     return elements.readSurface;
   };
@@ -321,24 +321,17 @@ export function createDocumentModeCoordinator({
   };
 
   const toggleSource = () => performChange('source', async (initialMode, { isCurrentDocument }) => {
-    if (initialMode === 'edit') {
-      if (!await adapters.exitEdit?.()) return false;
-      if (!isCurrentDocument()) return false;
-    }
-    await adapters.setSource?.(initialMode !== 'source');
+    const sourceActive = initialMode === 'source' || initialMode === 'source-edit';
+    await adapters.setSource?.(!sourceActive);
     return isCurrentDocument();
   }, (nextMode) => {
     hooks.onToast?.(`${getDocumentModePresentation(nextMode).source.label} view`);
   });
 
   const toggleEdit = () => performChange('edit', async (initialMode, { documentIdentity, isCurrentDocument }) => {
-    if (initialMode === 'edit') {
+    if (initialMode === 'edit' || initialMode === 'source-edit') {
       const exited = await adapters.exitEdit?.();
       return Boolean(exited) && isCurrentDocument();
-    }
-    if (initialMode === 'source') {
-      await adapters.setSource?.(false);
-      if (!isCurrentDocument()) return false;
     }
     const entered = await adapters.enterEdit?.(documentIdentity);
     return Boolean(entered) && isCurrentDocument();

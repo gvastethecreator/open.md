@@ -369,7 +369,9 @@ export function createReaderControls({
 
   function applyReadingTools() {
     const available = isDocumentAvailable();
-    const sourceActive = available && state.readingTools.source && !isEditMode();
+    const sourceSelected = available && state.readingTools.source;
+    const sourceActive = sourceSelected && !isEditMode();
+    body.classList.toggle('is-source-mode', sourceSelected);
     body.classList.toggle('is-source-view', sourceActive);
     body.classList.toggle('is-line-guide', available && state.readingTools.lineGuide);
     body.classList.toggle('is-minimap', available && state.readingTools.minimap);

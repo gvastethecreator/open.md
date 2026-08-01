@@ -4,6 +4,7 @@ import {
   editableHtmlToMarkdown,
   editorBlockLabel,
   inlineMarkdownToHtml,
+  parseMarkdownLine,
   serializeEditorDocument,
 } from './editor-document.js';
 import { createEditorClassicSurface } from './editor-classic-surface.js';
@@ -134,18 +135,26 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   let classicSurface = null;
   let caretTrail = null;
   let jsonPropertyEditor = null;
+  let editPresentation = 'rendered';
   let disposed = false;
   let blockLineCounts = new Map();
   /** Block ids temporarily showing source while a multi-line selection spans them (Block multi-select). */
   let selectionSourceIds = new Set();
   const drafts = new Map();
 
-  const isMarkdown = () => activeDocument?.markdown !== false;
-  const wantsJsonProps = () => activeDocument?.presentation === 'json-props';
-  /** Classic (default) = continuous line live-preview; Block = block islands + tools. */
-  const isBlockEditor = () => Boolean(adapters.isBlockEditor?.()) && !wantsJsonProps();
+  const isSourceSelected = () => editPresentation === 'source';
+  const isSourcePresentation = () => mode === 'edit' && isSourceSelected();
+  const isMarkdown = () => activeDocument?.markdown !== false && !isSourceSelected();
+  const wantsJsonProps = () => !isSourceSelected() && activeDocument?.presentation === 'json-props';
+  /** Block tools are optional chrome over the shared rich Rendered projection. */
+  const isBlockEditor = () => (
+    Boolean(adapters.isBlockEditor?.())
+    && !isSourcePresentation()
+    && !wantsJsonProps()
+  );
   const isJsonProps = () => mode === 'edit' && wantsJsonProps() && Boolean(jsonPropertyEditor);
-  const isClassic = () => mode === 'edit' && !isBlockEditor() && !isJsonProps();
+  const isBlockPresentation = () => mode === 'edit' && isMarkdown() && !isJsonProps();
+  const isClassic = () => mode === 'edit' && !isBlockPresentation() && !isJsonProps();
   const flushJsonProps = () => {
     if (!isJsonProps()) return { ok: true, skipped: true };
     return jsonPropertyEditor.flushPending?.() || { ok: true, skipped: true };
@@ -168,7 +177,9 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     error: saveError,
     stats: documentSnapshot.stats,
     cursor: documentSnapshot.cursor,
-    presentation: isJsonProps() ? 'json-props' : isBlockEditor() ? 'block' : 'classic',
+    presentation: isSourcePresentation()
+      ? 'source'
+      : isJsonProps() ? 'json-props' : isBlockPresentation() ? 'block' : 'classic',
   });
   const notify = () => hooks.onStateChange?.(snapshot());
 
@@ -189,7 +200,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
   const updateBlockToolbar = () => {
     if (!blockToolbar) return;
-    // Classic keeps block chrome out of the way; only Block presentation shows it.
+    // The preference controls block chrome, not the Rendered document projection.
     if (mode !== 'edit' || !activeBlockId || !isBlockEditor()) {
       blockToolbar.hidden = true;
       return;
@@ -285,7 +296,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
           : 'Write…';
 
     if (source) {
-      if (isBlockEditor()) {
+      if (isBlockPresentation()) {
         content.contentEditable = 'true';
         content.tabIndex = 0;
         content.setAttribute('role', 'textbox');
@@ -315,7 +326,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
    * the continuous host is not torn down on each caret move.
    */
   const reconcileClassicProjection = ({ caretPosition = null } = {}) => {
-    if (isBlockEditor() || mode !== 'edit') return;
+    if (isBlockPresentation() || mode !== 'edit') return;
     documentSnapshot.blocks.forEach((block) => {
       const wrapper = findWrapper(block.id);
       if (!wrapper) return;
@@ -346,7 +357,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   };
 
   const setClassicActiveLine = (id, { position = null, clearSelectionSources = true } = {}) => {
-    if (!id || isBlockEditor() || mode !== 'edit') return;
+    if (!id || isBlockPresentation() || mode !== 'edit') return;
     if (activeBlockId && activeBlockId !== id) {
       const previousWrapper = findWrapper(activeBlockId);
       if (previousWrapper) updateBlockFromElement(previousWrapper);
@@ -425,13 +436,13 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     return true;
   };
 
-  const applyBlockType = (id, type) => {
+  const applyBlockType = (id, type, { focus = 'end' } = {}) => {
     if (!documentModel.changeType(id, type)) return;
     activeBlockId = id;
     render();
     notify();
     closeCommandMenu();
-    focusBlock(id, 'end');
+    focusBlock(id, focus);
   };
 
   const addBlock = (afterId, type = 'paragraph', text = '') => {
@@ -519,23 +530,53 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     return false;
   };
 
+  const liveMarkdownPatch = (block, text) => {
+    if (!isBlockPresentation() || block?.type !== 'paragraph') return null;
+    const fence = text.match(/^\s{0,3}(```|~~~)\s*([^\s`]*)\s*$/);
+    if (fence) {
+      return {
+        type: 'code',
+        text: '',
+        language: fence[2] || '',
+        fence: fence[1],
+      };
+    }
+    const parsed = parseMarkdownLine(text);
+    if (parsed.type === 'paragraph') return null;
+    return {
+      type: parsed.type,
+      text: parsed.text,
+      checked: parsed.checked,
+      indent: parsed.indent,
+      number: parsed.number,
+      language: parsed.language,
+      fence: parsed.fence,
+    };
+  };
+
   const updateBlockFromElement = (wrapper) => {
     const block = findBlock(wrapper?.dataset.blockId);
-    if (!block) return;
+    if (!block) return null;
     const previousLineCount = blockLineCounts.get(block.id);
     const content = blockContent(wrapper);
     const checkbox = wrapper.querySelector('[data-todo-check]');
-    if (!content && !checkbox) return;
+    if (!content && !checkbox) return null;
+    const text = content ? readEditableText(content) : block.text;
+    const structuralPatch = content ? liveMarkdownPatch(block, text) : null;
     const updated = documentModel.updateBlock(block.id, {
-      ...(content ? { text: readEditableText(content) } : {}),
+      ...(content ? (structuralPatch || { text }) : {}),
       ...(checkbox ? { checked: checkbox.checked } : {}),
     });
     if (updated && previousLineCount !== undefined && previousLineCount !== sourceLineCount(updated)) {
       refreshBlockLineIndex();
     }
+    return {
+      block: updated,
+      reclassified: Boolean(updated && structuralPatch),
+    };
   };
 
-  /** Commit every source-mode block (active + Classic multi-select expansion). */
+  /** Commit every source-mode block (active + multi-select expansion). */
   const commitAllSourceBlocks = () => {
     canvas.querySelectorAll('[data-block-id]').forEach((wrapper) => {
       const content = blockContent(wrapper);
@@ -547,7 +588,9 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   const updateContextChrome = () => {
     const markdown = isMarkdown();
     if (contextLabel) {
-      contextLabel.textContent = wantsJsonProps()
+      contextLabel.textContent = isSourcePresentation()
+        ? 'Source editor'
+        : wantsJsonProps()
         ? 'JSON properties'
         : markdown
           ? (isBlockEditor() ? 'Block live preview' : 'Live preview')
@@ -555,7 +598,9 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     }
     if (!contextHint) return;
     contextHint.replaceChildren();
-    if (wantsJsonProps()) {
+    if (isSourcePresentation()) {
+      contextHint.textContent = 'Edit raw source directly';
+    } else if (wantsJsonProps()) {
       contextHint.textContent = 'Edit top-level keys · nested values as JSON';
     } else if (markdown && isBlockEditor()) {
       contextHint.append('Type ');
@@ -628,7 +673,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
   const renderBlock = (block, index) => {
     const isSpacer = block.type === 'paragraph' && block.text === '';
-    // Live preview (Classic + Block): only the active line and multi-select
+    // Rendered live preview: only the active line and multi-select
     // expansion show source Markdown; every other line is rendered preview.
     const showSource = activeBlockId === block.id || selectionSourceIds.has(block.id);
     const isActive = activeBlockId === block.id;
@@ -667,8 +712,9 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   };
 
   function applyPresentationChrome() {
-    const blockMode = isBlockEditor();
+    const blockMode = isBlockPresentation();
     const jsonMode = isJsonProps();
+    root.classList.toggle('is-source-presentation', isSourcePresentation());
     root.classList.toggle('is-block-presentation', blockMode && mode === 'edit');
     root.classList.toggle('is-classic-presentation', !blockMode && !jsonMode && mode === 'edit');
     root.classList.toggle('is-json-props-presentation', jsonMode);
@@ -682,7 +728,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       canvas.contentEditable = 'true';
       canvas.setAttribute('role', 'textbox');
       canvas.setAttribute('aria-multiline', 'true');
-      canvas.setAttribute('aria-label', 'Document editor');
+      canvas.setAttribute('aria-label', isSourcePresentation() ? 'Source editor' : 'Document editor');
       canvas.classList.add('is-classic-surface');
     } else {
       canvas.contentEditable = 'false';
@@ -704,7 +750,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       return;
     }
 
-    // Classic: continuous source-line surface (never block islands).
+    // Source Edit and non-Markdown content use the continuous raw-source surface.
     if (isClassic()) {
       applyPresentationChrome();
       if (!classicSurface?.isMounted?.()) classicSurface?.mount?.();
@@ -771,7 +817,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   };
 
   const syncClassicSelectionSources = () => {
-    if (isBlockEditor() || mode !== 'edit') {
+    if (isBlockPresentation() || mode !== 'edit') {
       if (selectionSourceIds.size) {
         selectionSourceIds = new Set();
       }
@@ -862,10 +908,18 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     }
     const wrapper = event.target.closest?.('[data-block-id]');
     if (!wrapper) return;
-    updateBlockFromElement(wrapper);
+    const update = updateBlockFromElement(wrapper);
     activeBlockId = wrapper.dataset.blockId;
     saveState = 'idle';
     saveError = '';
+    if (update?.reclassified) {
+      selectionSourceIds = new Set();
+      closeCommandMenu();
+      render();
+      notify();
+      focusBlock(activeBlockId, 'end');
+      return;
+    }
     notify();
     updateBlockToolbar();
     const block = findBlock(activeBlockId);
@@ -875,6 +929,13 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     } else if (overlayController?.isCommandOpenFor(activeBlockId)) {
       closeCommandMenu();
     }
+  };
+
+  const handleCanvasBeforeInput = (event) => {
+    if (!isClassic() || !classicSurface?.handleBeforeInput?.(event)) return;
+    saveState = 'idle';
+    saveError = '';
+    notify();
   };
 
   const handleCanvasKeydown = (event) => {
@@ -914,6 +975,22 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'y') {
       event.preventDefault();
       restoreHistory('redo');
+      return;
+    }
+    const headingMatch = block?.type?.match(/^heading([1-6])$/);
+    if (
+      event.key === '#'
+      && !event.ctrlKey
+      && !event.metaKey
+      && !event.altKey
+      && selection?.isCollapsed
+      && content
+      && caretOffset(content, selection) === 0
+      && headingMatch
+      && Number(headingMatch[1]) < 6
+    ) {
+      event.preventDefault();
+      applyBlockType(block.id, `heading${Number(headingMatch[1]) + 1}`, { focus: 'start' });
       return;
     }
     // Block-presentation tools only (toolbar, slash, drag, and matching shortcuts).
@@ -1003,7 +1080,11 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       if (content && caretOffset(content, selection) === 0) {
         if (block.type !== 'paragraph' && block.type !== 'code') {
           event.preventDefault();
-          applyBlockType(block.id, 'paragraph');
+          const heading = block.type.match(/^heading([1-6])$/);
+          const nextType = heading && Number(heading[1]) > 1
+            ? `heading${Number(heading[1]) - 1}`
+            : 'paragraph';
+          applyBlockType(block.id, nextType, { focus: 'start' });
         } else if (block.text === '' && documentSnapshot.blocks.length > 1) {
           event.preventDefault();
           removeBlock(block.id);
@@ -1101,6 +1182,34 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
   const clearDragState = () => blockInteractionController?.clearDragState();
 
+  const mountJsonProperties = (initialSource) => {
+    const parsed = parseJsonPropertyModel(initialSource);
+    if (!parsed.ok) return parsed;
+    activeDocument = { ...activeDocument, presentation: 'json-props' };
+    jsonPropertyEditor = createJsonPropertyEditor({
+      window,
+      root: canvas,
+      onChange: ({ source: nextSource }) => {
+        documentModel.applySource(nextSource);
+        saveState = 'idle';
+        saveError = '';
+        notify();
+      },
+      onDiagnostic: hooks.onDiagnostic,
+    });
+    jsonPropertyEditor.load(initialSource);
+    applyPresentationChrome();
+    updateContextChrome();
+    root.hidden = false;
+    root.removeAttribute('inert');
+    if (blockToolbar) blockToolbar.hidden = true;
+    notify();
+    queueMicrotask(() => {
+      canvas.querySelector('[data-json-value]')?.focus?.({ preventScroll: true });
+    });
+    return { ok: true };
+  };
+
   const enter = () => {
     if (disposed || !activeDocument) return false;
     const draft = drafts.get(activeDocument.path);
@@ -1114,6 +1223,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     }
 
     disposeJsonPropertyEditor();
+    editPresentation = adapters.isSourceMode?.() ? 'source' : 'rendered';
 
     let useJsonProps = wantsJsonProps();
     if (useJsonProps) {
@@ -1130,7 +1240,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     }
 
     documentModel.load(initialSource, {
-      markdown: Boolean(activeDocument.markdown) && !useJsonProps,
+      markdown: Boolean(activeDocument.markdown) && !useJsonProps && !isSourceSelected(),
     });
     savedSource = activeDocument.source;
     mode = 'edit';
@@ -1140,28 +1250,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     selectionSourceIds = new Set();
 
     if (useJsonProps) {
-      activeDocument = { ...activeDocument, presentation: 'json-props' };
-      jsonPropertyEditor = createJsonPropertyEditor({
-        window,
-        root: canvas,
-        onChange: ({ source: nextSource }) => {
-          documentModel.applySource(nextSource);
-          saveState = 'idle';
-          saveError = '';
-          notify();
-        },
-        onDiagnostic: hooks.onDiagnostic,
-      });
-      jsonPropertyEditor.load(initialSource);
-      applyPresentationChrome();
-      updateContextChrome();
-      root.hidden = false;
-      root.removeAttribute('inert');
-      if (blockToolbar) blockToolbar.hidden = true;
-      notify();
-      queueMicrotask(() => {
-        canvas.querySelector('[data-json-value]')?.focus?.({ preventScroll: true });
-      });
+      mountJsonProperties(initialSource);
       return true;
     }
 
@@ -1215,13 +1304,13 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     return true;
   };
 
-  /**
-   * Re-project when View options flips Classic ↔ Block without dropping the draft.
-   */
+  /** Re-project when Source/Rendered changes, or block tools are toggled. */
   const refreshPresentation = () => {
     if (disposed || mode !== 'edit') return;
+    const nextEditPresentation = adapters.isSourceMode?.() ? 'source' : 'rendered';
+    const presentationChanged = nextEditPresentation !== editPresentation;
     // JSON props ignore Classic/Block preference flips; keep the property surface.
-    if (isJsonProps()) {
+    if (isJsonProps() && !presentationChanged) {
       flushJsonProps();
       jsonPropertyEditor?.load?.(source());
       applyPresentationChrome();
@@ -1230,18 +1319,42 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       notify();
       return;
     }
-    if (classicSurface?.isMounted?.()) {
+    if (!presentationChanged) {
+      if (classicSurface?.isMounted?.()) classicSurface.commitFromDom?.();
+      else commitAllSourceBlocks();
+      updateContextChrome();
+      updateBlockToolbar();
+      notify();
+      return;
+    }
+    if (isJsonProps()) {
+      flushJsonProps();
+    } else if (classicSurface?.isMounted?.()) {
       classicSurface.commitFromDom?.();
     } else {
       commitAllSourceBlocks();
     }
+    const committedSource = source();
+    editPresentation = nextEditPresentation;
+    disposeJsonPropertyEditor();
+    documentModel.load(committedSource, {
+      markdown: Boolean(activeDocument?.markdown) && !isSourceSelected(),
+    });
     selectionSourceIds = new Set();
     closeCommandMenu();
     closeBlockMenu();
     clearDragState();
     // applySource re-parses blocks with new ids — always rebind the active block.
     activeBlockId = documentSnapshot.blocks[0]?.id || null;
-    if (classicSurface?.isMounted?.() && isBlockEditor()) classicSurface.unmount();
+    if (!isSourceSelected() && activeDocument?.presentation === 'json-props') {
+      const result = mountJsonProperties(source());
+      if (result.ok) return;
+      activeDocument = { ...activeDocument, presentation: 'default', markdown: false };
+      hooks.onUnavailable?.(result.reason === 'invalid'
+        ? 'Invalid JSON — editing as plain text'
+        : 'Large JSON — editing as plain text');
+    }
+    if (classicSurface?.isMounted?.() && isBlockPresentation()) classicSurface.unmount();
     render();
     updateContextChrome();
     updateBlockToolbar();
@@ -1381,10 +1494,12 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     canvas,
     adapters: {
       isMarkdown: () => isMarkdown(),
+      highlightSource: () => isSourcePresentation() && activeDocument?.markdown !== false,
       getSource: () => source(),
       applySource: (next) => documentModel.applySource(next),
       setCursor,
       shouldReduceMotion: resolveReduceMotion,
+      getAriaLabel: () => isSourcePresentation() ? 'Source editor' : 'Document editor',
       getActiveLineBand: () => activeLineBand,
       getBandHost: () => root,
     },
@@ -1464,6 +1579,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   blockInteractionController.start();
 
   canvas.addEventListener('input', handleCanvasInput);
+  canvas.addEventListener('beforeinput', handleCanvasBeforeInput);
   canvas.addEventListener('keydown', handleCanvasKeydown);
   canvas.addEventListener('click', handleCanvasClick);
   canvas.addEventListener('focusin', handleCanvasFocusIn);
@@ -1503,6 +1619,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       if (disposed) return;
       disposed = true;
       canvas.removeEventListener('input', handleCanvasInput);
+      canvas.removeEventListener('beforeinput', handleCanvasBeforeInput);
       canvas.removeEventListener('keydown', handleCanvasKeydown);
       canvas.removeEventListener('click', handleCanvasClick);
       canvas.removeEventListener('focusin', handleCanvasFocusIn);

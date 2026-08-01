@@ -1553,8 +1553,10 @@ body:not(.is-word-wrap) .editor-block-content {
   width: min(100%, var(--document-frame-width));
   min-height: 100%;
   margin: 0 auto;
-  padding: clamp(28px, 5vw, 52px) var(--document-inline-space) 128px;
-  transition: padding-right var(--navigation-motion) var(--motion-ease-out);
+  padding: clamp(38px, 6vw, 64px) var(--document-inline-space) 96px;
+  transition:
+    padding-left var(--navigation-motion) var(--motion-ease-out),
+    padding-right var(--navigation-motion) var(--motion-ease-out);
 }
 
 /*
@@ -1889,12 +1891,12 @@ body.is-mode-morphing #document-stage > :is(.markdown-body, .source-view, .edito
 }
 
 body.is-line-guide .editor-canvas {
-  padding-left: var(--line-guide-reserve);
+  padding-left: 0;
 }
 
 body.is-line-guide .editor-context,
 body.is-line-guide .editor-end-hint {
-  padding-left: var(--line-guide-reserve);
+  padding-left: 0;
 }
 
 .editor-block {
@@ -1991,8 +1993,9 @@ body.is-line-guide .editor-end-hint {
 }
 
 .editor-block-body {
+  position: relative;
   min-width: 0;
-  min-height: 30px;
+  min-height: 0;
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -2001,14 +2004,14 @@ body.is-line-guide .editor-end-hint {
 .editor-block-content {
   width: auto;
   min-width: 0;
-  min-height: 30px;
+  min-height: 1.65em;
   flex: 1 1 auto;
-  padding: 3px 8px;
+  padding: 0;
   border-radius: var(--radius-xs);
   outline: none;
   color: var(--text-color);
   font: inherit;
-  line-height: 1.55;
+  line-height: 1.65;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
   caret-color: var(--ui-accent);
@@ -2148,45 +2151,70 @@ body.is-line-guide .editor-end-hint {
 .editor-block-content:focus:empty::before,
 .editor-view.is-empty-document .editor-block-content:empty::before { opacity: 1; }
 
-.editor-block--paragraph { margin-block: 3px; }
+.editor-block--paragraph { margin: 0 0 1em; }
+
+.editor-block[data-block-spacer] {
+  display: none;
+}
 
 .editor-block--heading1,
 .editor-block--heading2,
 .editor-block--heading3,
 .editor-block--heading4,
 .editor-block--heading5,
-.editor-block--heading6 { margin-top: 20px; }
+.editor-block--heading6 {
+  margin: 1.55em 0 0.58em;
+}
+
+.editor-block--heading1 { margin-top: 0; }
+.editor-block--heading1 { font-size: var(--pretext-font-size, clamp(2rem, 5vw, 2.5rem)); }
+.editor-block--heading2 { font-size: var(--pretext-font-size, 1.42em); }
+.editor-block--heading3 { font-size: 1.18em; }
+.editor-block--heading4 { font-size: 1em; }
+.editor-block--heading5 { font-size: 0.9em; }
+.editor-block--heading6 { font-size: 0.84em; }
 
 .editor-block--heading1 .editor-block-content {
-  padding-bottom: 9px;
+  min-height: 0;
+  padding-bottom: 0.34em;
   border-bottom: var(--document-line-width) solid var(--document-line-color);
-  font-size: var(--pretext-font-size, clamp(1.82rem, 4.2vw, 2.28rem));
-  font-weight: 720;
-  letter-spacing: -0.043em;
-  line-height: 1.16;
+  font-size: inherit;
+  font-weight: 700;
+  letter-spacing: -0.045em;
+  line-height: 1.22;
+  text-wrap: balance;
 }
 
 .editor-block--heading2 .editor-block-content {
-  padding-bottom: 6px;
+  min-height: 0;
+  padding-bottom: 0.24em;
   border-bottom: var(--document-line-width) solid var(--document-line-color);
-  font-size: var(--pretext-font-size, 1.38rem);
-  font-weight: 680;
-  letter-spacing: -0.024em;
+  font-size: inherit;
+  font-weight: 650;
+  letter-spacing: -0.022em;
   line-height: 1.22;
+  text-wrap: balance;
 }
 
-.editor-block--heading3 .editor-block-content { font-size: 1.16rem; font-weight: 650; }
-.editor-block--heading4 .editor-block-content { font-size: 1rem; font-weight: 650; }
-.editor-block--heading5 .editor-block-content { font-size: 0.9rem; font-weight: 650; }
-.editor-block--heading6 .editor-block-content { color: var(--text-color); font-size: 0.84rem; font-weight: 650; }
+.editor-block--heading3 .editor-block-content { font-size: inherit; font-weight: 650; line-height: 1.22; }
+.editor-block--heading4 .editor-block-content { font-size: inherit; font-weight: 650; }
+.editor-block--heading5 .editor-block-content { font-size: inherit; font-weight: 650; }
+.editor-block--heading6 .editor-block-content { color: var(--text-color); font-size: inherit; font-weight: 650; }
 
 .editor-block--bullet,
 .editor-block--numbered,
-.editor-block--todo { margin-block: 1px; }
+.editor-block--todo { margin: 0; }
+
+:is(.editor-block--bullet, .editor-block--todo):not(
+  :has(+ :is(.editor-block--bullet, .editor-block--todo))
+),
+.editor-block--numbered:not(:has(+ .editor-block--numbered)) {
+  margin-bottom: 1em;
+}
 
 .editor-list-marker {
   width: 18px;
-  padding-top: 5px;
+  padding-top: 0;
   flex: 0 0 18px;
   color: var(--ui-muted);
   text-align: right;
@@ -2226,35 +2254,37 @@ body.is-line-guide .editor-end-hint {
   to { text-decoration-color: currentColor; }
 }
 
-.editor-block--quote { margin-block: 10px; }
+.editor-block--quote { margin: 0 0 1em; }
 .editor-block--quote .editor-block-body {
+  padding: 0.1em 0 0.1em 1em;
   color: var(--quote-color);
   border-left: var(--quote-line-width) solid var(--document-line-color);
 }
-.editor-block--quote .editor-block-content { padding-left: 14px; color: var(--quote-color); font-style: italic; }
+.editor-block--quote .editor-block-content { color: var(--quote-color); font-style: italic; }
 
-.editor-block--code { margin-block: 10px; }
+.editor-block--code { margin: 0 0 0.84em; }
 
 .editor-block--code .editor-block-content {
-  min-height: 70px;
-  padding: 14px 16px;
+  min-height: 0;
+  margin: 0;
+  padding: 17px 52px 17px 17px;
   overflow-x: auto;
   border: var(--document-line-width) solid var(--document-line-color);
   border-radius: var(--radius-sm);
   color: var(--code-block-text);
   background: var(--code-block-bg);
   font-family: var(--font-mono);
-  font-size: 0.82rem;
-  line-height: 1.6;
+  font-size: 0.84em;
+  line-height: 1.55;
   tab-size: 2;
   scrollbar-color: color-mix(in srgb, var(--code-block-text) 32%, transparent) transparent;
 }
 
-.editor-block--divider { margin-block: 13px; }
+.editor-block--divider { margin: 1.7em 0; }
 
 .editor-divider {
   width: 100%;
-  height: 30px;
+  height: var(--document-line-width);
   display: flex;
   align-items: center;
   outline: none;
@@ -2325,6 +2355,17 @@ body.is-line-guide .editor-end-hint {
   caret-color: var(--text-color);
 }
 
+.editor-view.is-source-presentation .classic-line {
+  min-height: 1.6em;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+.editor-view .editor-context {
+  display: none;
+}
+
 /*
  * Typography lives on the ROW so source and preview of the same kind share
  * identical metrics. Flipping active line (or mid-selection) must not change
@@ -2337,7 +2378,7 @@ body.is-line-guide .editor-end-hint {
   width: 100%;
   min-height: 1.55em;
   margin: 0;
-  padding: 0.12em 0.2em;
+  padding: 0.12em 0;
   border-radius: var(--radius-xs);
   line-height: 1.45;
   font-size: 1rem;
@@ -2481,9 +2522,27 @@ body:not(.is-block-editor) .editor-block-toolbar:not([hidden]) {
 }
 
 .editor-source-prefix {
+  width: 18px;
+  flex: 0 0 18px;
   color: var(--ui-muted);
   font-weight: 500;
   opacity: 0.72;
+  text-align: right;
+}
+
+:is(
+  .editor-block--heading1,
+  .editor-block--heading2,
+  .editor-block--heading3,
+  .editor-block--heading4,
+  .editor-block--heading5,
+  .editor-block--heading6,
+  .editor-block--quote
+) .editor-source-prefix {
+  position: absolute;
+  left: 0;
+  width: auto;
+  transform: translateX(calc(-100% - 0.4em));
 }
 
 .editor-todo-checkbox {
@@ -4879,8 +4938,6 @@ label.appearance-theme-field.reading-tool-toggle .theme-select {
     padding: 30px 20px 82px;
   }
 
-  .editor-view { padding-inline: 8px 16px; }
-
   body.is-minimap .markdown-body,
   body.is-minimap .source-view,
   body.is-minimap .editor-view {
@@ -4889,7 +4946,8 @@ label.appearance-theme-field.reading-tool-toggle .theme-select {
   .editor-context-hint { display: none; }
 
   body.is-line-guide .markdown-body,
-  body.is-line-guide .source-view {
+  body.is-line-guide .source-view,
+  body.is-line-guide .editor-view {
     padding-left: 68px;
   }
 
@@ -5067,7 +5125,8 @@ label.appearance-theme-field.reading-tool-toggle .theme-select {
   }
 
   body.is-line-guide .markdown-body,
-  body.is-line-guide .source-view {
+  body.is-line-guide .source-view,
+  body.is-line-guide .editor-view {
     padding-left: 58px;
   }
 

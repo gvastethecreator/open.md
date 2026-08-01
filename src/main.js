@@ -249,6 +249,10 @@ function isEditing() {
   return editorStateCoordinator?.isEditing() ?? false;
 }
 
+function isSourceModeSelected() {
+  return Boolean(hasLoadedDocument() && readerControls?.current().readingTools.source);
+}
+
 function currentFormatId() {
   return resolveFormatId(getCurrentFilePath(), getCurrentDocument());
 }
@@ -291,7 +295,7 @@ function hasLoadedDocument() {
 }
 
 function isSourceViewActive() {
-  return hasLoadedDocument() && readerControls?.current().readingTools.source && !isEditing();
+  return isSourceModeSelected() && !isEditing();
 }
 
 function reportPreferenceResult(result) {
@@ -552,7 +556,7 @@ function mountReaderControls(own) {
         documentModeCoordinator?.refresh();
         readingNavigation?.refreshTools();
         responsiveTypography?.schedule();
-        // Classic ↔ Block presentation can flip from View options while editing.
+        // Source/Rendered projection and optional block tools can change while editing.
         if (isEditing()) editorSession?.refreshPresentation?.();
         updateStatus(getCurrentFilePath());
       },
@@ -605,6 +609,7 @@ function mountApplicationEditor(own) {
     adapters: {
       save: (path, source) => runtimeAdapters.documents.save(path, source),
       isBlockEditor: () => Boolean(readerControls?.current().readingTools.blockEditor),
+      isSourceMode: isSourceModeSelected,
       getAdvancedPreferences: () => readerControls?.current()?.advanced
         || readerShell?.preferences?.current()?.advanced
         || null,
@@ -615,7 +620,11 @@ function mountApplicationEditor(own) {
         updateStatusMetrics();
         if (readerControls?.current().readingTools.lineGuide) readingNavigation?.queueUpdate();
       },
-      onSaved: async () => {
+      onSaved: async ({ path, result }) => {
+        if (result && typeof result.source === 'string') {
+          documentViewState?.applySavedDocument({ path, document: result });
+          return;
+        }
         await readerShell?.reload();
       },
       onHistoryRestore: (action) => showToast(action === 'redo' ? 'Redone' : 'Undone'),
@@ -680,7 +689,9 @@ function mountDocumentModeCoordinator(own) {
       minimap: ui.documentMinimap,
     },
     adapters: {
-      getMode: () => isEditing() ? 'edit' : isSourceViewActive() ? 'source' : 'read',
+      getMode: () => isEditing()
+        ? (isSourceModeSelected() ? 'source-edit' : 'edit')
+        : (isSourceViewActive() ? 'source' : 'read'),
       hasDocument: () => Boolean(editorSession && hasLoadedDocument()),
       isAvailable: (mode) => Boolean(
         editorSession
