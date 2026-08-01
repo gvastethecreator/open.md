@@ -175,10 +175,22 @@ describe('Reading Navigation Controller', () => {
   it('maps minimap pointer and keyboard input to the reader scroll owner', () => {
     const view = fixture();
     view.controller.start();
-    const pointer = new view.dom.window.MouseEvent('pointerdown', { bubbles: true, button: 0, clientY: 200 });
+    // Build the scaled mini-document so pointer maps against content height.
+    // Fixture view 400×800 into track 80×400 → scale min(0.2, 0.5) = 0.2 → contentHeight 160.
+    view.controller.refreshTools();
+    view.controller.refresh({ force: true });
+
+    // Half of content (y=80) → half of maxScroll (800).
+    const pointer = new view.dom.window.MouseEvent('pointerdown', { bubbles: true, button: 0, clientY: 80 });
     Object.defineProperty(pointer, 'pointerId', { value: 7 });
     view.elements.minimap.dispatchEvent(pointer);
     expect(view.elements.readerPage.scrollTo).toHaveBeenLastCalledWith({ top: 400, behavior: 'auto' });
+
+    // Click below the mini-document clamps to the document end.
+    const below = new view.dom.window.MouseEvent('pointerdown', { bubbles: true, button: 0, clientY: 300 });
+    Object.defineProperty(below, 'pointerId', { value: 8 });
+    view.elements.minimap.dispatchEvent(below);
+    expect(view.elements.readerPage.scrollTo).toHaveBeenLastCalledWith({ top: 800, behavior: 'auto' });
 
     const key = new view.dom.window.KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'End' });
     view.elements.minimap.dispatchEvent(key);

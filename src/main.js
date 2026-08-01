@@ -571,6 +571,8 @@ function mountReaderControls(own) {
         documentModeCoordinator?.refresh();
         readingNavigation?.refreshTools();
         responsiveTypography?.schedule();
+        // Classic ↔ Block presentation can flip from View options while editing.
+        if (editorSession?.isEditing?.()) editorSession.refreshPresentation?.();
         updateStatus(getCurrentFilePath());
       },
       onFontsApplied: () => {
@@ -640,6 +642,7 @@ function mountApplicationEditor(own) {
     },
     adapters: {
       save: (path, source) => runtimeAdapters.documents.save(path, source),
+      isBlockEditor: () => Boolean(readerControls?.current().readingTools.blockEditor),
     },
     hooks: {
       onStateChange: handleEditorState,

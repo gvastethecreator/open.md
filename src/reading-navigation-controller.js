@@ -3,6 +3,7 @@ import {
   getCurrentLineFromAnchors,
   getLineGutterLeft,
   getMinimapViewportGeometry,
+  getMinimapScrollTopFromPointer,
   getReadingProgress,
   getScrollEdgeState,
   getVisibleSourceLineRange,
@@ -534,9 +535,23 @@ export function createReadingNavigationController({
   const scrollFromMinimapPointer = (event) => {
     if (!elements.minimap || !elements.readerPage) return;
     const rect = elements.minimap.getBoundingClientRect();
-    const ratio = Math.min(Math.max((event.clientY - rect.top) / Math.max(1, rect.height), 0), 1);
     const maxScroll = Math.max(0, elements.readerPage.scrollHeight - elements.readerPage.clientHeight);
-    elements.readerPage.scrollTo({ top: ratio * maxScroll, behavior: 'auto' });
+    // Prefer scaled document height so short docs end where the mini-doc ends,
+    // not at the bottom of the empty rail. If height is still unknown, rebuild once.
+    if (minimapContentHeight <= 0 && adapters.isMinimapEnabled?.()) {
+      minimapDirty = true;
+      renderMinimapDocument();
+    }
+    const contentHeight = minimapContentHeight > 0
+      ? minimapContentHeight
+      : Math.max(1, rect.height);
+    const top = getMinimapScrollTopFromPointer({
+      clientY: event.clientY,
+      trackTop: rect.top,
+      contentHeight,
+      maxScroll,
+    });
+    elements.readerPage.scrollTo({ top, behavior: 'auto' });
   };
   const onMinimapPointerDown = (event) => {
     if (event.button !== 0) return;

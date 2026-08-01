@@ -26,6 +26,7 @@ export {
 export {
   getCurrentLineFromAnchors,
   getLineGutterLeft,
+  getMinimapScrollTopFromPointer,
   getMinimapViewportGeometry,
   getReadingProgress,
   getScrollEdgeState,

@@ -2,9 +2,16 @@
 
 `open.md` can edit an open Markdown or plain-text companion file without changing its format. Images are view-only and do not enter Edit or Source.
 
-Markdown uses the block live-preview editor. Non-Markdown companions (JSON, CSV,
-YAML, logs, and similar) use a plain monospace buffer so saves preserve text
-without Markdown block rewriting.
+Markdown uses a live-preview editor with two presentations:
+
+- **Classic** (default): continuous **source-line** live preview (Obsidian-style).
+  Only the active hard line is raw Markdown; every other line is rendered. The
+  host is one contenteditable surface — not Notion-style block islands.
+- **Block editor** (View options → Editing): optional per-block islands with
+  slash commands, floating toolbar, and drag reorder.
+
+Non-Markdown companions (JSON, CSV, YAML, logs, and similar) use a plain
+monospace buffer so saves preserve text without Markdown block rewriting.
 
 ## Enter edit mode
 
@@ -27,17 +34,26 @@ Edit and Source.
 
 ## Live preview
 
-- The **active line** (the block with the caret) shows **source Markdown** so
-  markup such as `**bold**` stays visible while you type.
-- Other lines render as a **preview** (formatted text without delimiters).
-- The active line is highlighted with a distinct background so you always know
-  where you are editing.
-- Click any preview line to make it active; the previous line returns to
-  preview.
-- Side gutters and per-block control columns are not used, so the text column
-  stays aligned with Read and Source.
+### Classic (default)
 
-## Work with blocks
+- Operates on **file source lines** (`\n`), not block widgets.
+- **Active line** = full source Markdown for that line (e.g. `# Title`, `**bold**`),
+  with typography matching the element type (a `#` line scales like an h1, code
+  is monospaced, quotes are muted/italic, etc.).
+- **Other lines** = rendered preview of that source line.
+- Click a preview line to make it the sole active source line.
+- Multi-line selection does not re-project lines mid-drag (avoids height jumps);
+  only the active caret line stays in source Markdown.
+- No block toolbar, slash menu, or drag handles.
+
+### Block editor (optional)
+
+- Per-block islands with slash commands, floating toolbar, and drag reorder.
+
+## Block editor (optional)
+
+Turn on **Block editor** under View options → Editing when you want Notion-style
+block tools. While it is on:
 
 Type `/` in an empty block to choose:
 
@@ -49,7 +65,7 @@ Type `/` in an empty block to choose:
 - a divider.
 
 Block actions live on a **floating toolbar at the bottom** of the window while
-Edit is active:
+Block editor and Edit are both active:
 
 - add a block;
 - drag handle (drag to reorder, or click for move / duplicate / delete);
@@ -59,16 +75,19 @@ Edit is active:
 There are no buttons in the left margin, so typing never shifts the text
 horizontally.
 
+## Formatting and structure
+
 Select text to show the **inline format toolbar** near the selection for bold,
 italic, strikethrough, code and links. <kbd>Ctrl</kbd> + <kbd>Alt</kbd> +
 <kbd>1</kbd> through <kbd>3</kbd> changes the current block to a heading.
 
-Press <kbd>Tab</kbd> or <kbd>Shift</kbd> + <kbd>Tab</kbd> to change list
-indentation. <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>↑</kbd> or <kbd>↓</kbd>
-moves the current block without leaving the keyboard. Use <kbd>Alt</kbd> +
-<kbd>Shift</kbd> + <kbd>M</kbd> to open its move, duplicate and delete actions.
-For selected text, <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>X</kbd> toggles
-strikethrough and <kbd>Ctrl</kbd> + <kbd>E</kbd> toggles inline code.
+In Block editor, press <kbd>Tab</kbd> or <kbd>Shift</kbd> + <kbd>Tab</kbd> to
+change list indentation. <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>↑</kbd> or
+<kbd>↓</kbd> moves the current block without leaving the keyboard. Use
+<kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>M</kbd> to open its move, duplicate
+and delete actions. For selected text, <kbd>Ctrl</kbd> + <kbd>Shift</kbd> +
+<kbd>X</kbd> toggles strikethrough and <kbd>Ctrl</kbd> + <kbd>E</kbd> toggles
+inline code.
 
 ## Save and recover
 

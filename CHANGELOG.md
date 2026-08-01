@@ -9,13 +9,19 @@ stable release is cut.
 
 ### Changed
 
+- Edit mode defaults to **Classic** continuous source-line live preview
+  (`editor-classic-surface.js`): only the active hard line is raw Markdown,
+  other lines are rendered, no block islands. **Block editor** remains optional
+  under View options → Editing (slash, floating toolbar, drag, block actions).
+- Minimap pointer mapping uses scaled document height so short documents end
+  where the mini-document ends instead of stretching across empty rail space.
 - Architecture batch ARC-26..35: format-detect is the frontend path/support
   authority; mode availability uses format-registry capabilities; document
   session and view-state share `resolveFormatId`; image MIME maps and status
   labels consolidate behind format owners; status metrics composition, zoom
   lifecycle, task-save projection, and remaining native surfaces leave the
   composition root; `startOpenMdApplication` is the executable composition
-  seam. Initial boot JS budget is 325 KiB raw.
+  seam. Initial boot JS budget is 340 KiB raw.
 
 ### Added
 
@@ -47,6 +53,14 @@ stable release is cut.
   long, scrollable content.
 
 ### Fixed
+
+- Minimap click/drag navigates to the correct document offset when the scaled
+  preview is shorter than the rail.
+- Classic edit keeps list markers and structural prefixes outside the editable
+  text host so continuous selection cannot corrupt chrome.
+- Flipping Classic ↔ Block from View options updates context chrome and keeps
+  unsaved drafts.
+
 
 - Unsupported-file feedback now mentions Markdown, text, and image companions
   instead of implying images are unsupported.

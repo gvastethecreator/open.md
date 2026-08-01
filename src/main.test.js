@@ -15,6 +15,7 @@ import {
   getMarkdownSourceTokenRanges,
   getImageSourcePolicy,
   getLinkAction,
+  getMinimapScrollTopFromPointer,
   getMinimapViewportGeometry,
   getReadingProgress,
   getScrollEdgeState,
@@ -326,6 +327,7 @@ describe('Frontend Logic Tests', () => {
         source: false,
         stats: false,
         wordWrap: false,
+        blockEditor: false,
       });
       expect(normalizeReadingTools({})).toEqual({
         lineGuide: false,
@@ -333,7 +335,9 @@ describe('Frontend Logic Tests', () => {
         source: false,
         stats: false,
         wordWrap: true,
+        blockEditor: false,
       });
+      expect(normalizeReadingTools({ blockEditor: true }).blockEditor).toBe(true);
     });
 
     it('updates only the task marker at the rendered source line', () => {
@@ -453,6 +457,36 @@ describe('Frontend Logic Tests', () => {
         trackHeight: 360,
         contentHeight: 90,
       })).toEqual({ top: 22.5, height: 45 });
+    });
+
+    it('maps minimap pointer Y against scaled content height, not empty rail', () => {
+      // Short content: mid-rail click that is past content ends at document end.
+      expect(getMinimapScrollTopFromPointer({
+        clientY: 200,
+        trackTop: 0,
+        contentHeight: 90,
+        maxScroll: 800,
+      })).toBe(800);
+      // 25% into content → 25% of scroll range.
+      expect(getMinimapScrollTopFromPointer({
+        clientY: 22.5,
+        trackTop: 0,
+        contentHeight: 90,
+        maxScroll: 800,
+      })).toBe(200);
+      // Full-height content: half track is half scroll.
+      expect(getMinimapScrollTopFromPointer({
+        clientY: 200,
+        trackTop: 0,
+        contentHeight: 400,
+        maxScroll: 800,
+      })).toBe(400);
+      expect(getMinimapScrollTopFromPointer({
+        clientY: 10,
+        trackTop: 0,
+        contentHeight: 0,
+        maxScroll: 100,
+      })).toBe(100);
     });
   });
 

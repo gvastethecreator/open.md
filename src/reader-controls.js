@@ -185,7 +185,7 @@ export function createReaderControls({
 
   function updateReadingToolControls() {
     const available = isDocumentAvailable();
-    const hasActiveTool = available && ['lineGuide', 'minimap', 'stats', 'wordWrap']
+    const hasActiveTool = available && ['lineGuide', 'minimap', 'stats', 'wordWrap', 'blockEditor']
       .some((tool) => state.readingTools[tool] !== DEFAULT_READING_TOOLS[tool]);
 
     elements.readingToolsButton?.classList.toggle('is-active', hasActiveTool);
@@ -203,6 +203,7 @@ export function createReaderControls({
     body.classList.toggle('is-line-guide', available && state.readingTools.lineGuide);
     body.classList.toggle('is-minimap', available && state.readingTools.minimap);
     body.classList.toggle('is-word-wrap', state.readingTools.wordWrap);
+    body.classList.toggle('is-block-editor', available && Boolean(state.readingTools.blockEditor));
     updateReadingToolControls();
     applyEdgeFade();
     hooks.onReadingToolsApplied?.({ ...state.readingTools, sourceActive });
@@ -263,6 +264,16 @@ export function createReaderControls({
 
     const result = await adapters.preferences.update({ readingTools: { [tool]: next } });
     if (disposed || (tool === 'source' && !isCurrentSourceChange())) return false;
+    // Apply the returned snapshot immediately so presentation adapters
+    // (isBlockEditor) never read a stale readingTools map.
+    if (result?.snapshot) {
+      Object.assign(state, snapshotValue(result.snapshot), {
+        readingTools: { ...snapshotValue(result.snapshot).readingTools },
+        fonts: { ...snapshotValue(result.snapshot).fonts },
+        advanced: { ...snapshotValue(result.snapshot).advanced },
+      });
+      applyReadingTools();
+    }
     hooks.onPreferenceResult?.(result);
     if (tool === 'source') {
       if (pendingSourceFrame?.id != null) {
@@ -284,6 +295,7 @@ export function createReaderControls({
       source: 'Source view',
       stats: 'Reading stats',
       wordWrap: 'Word wrap',
+      blockEditor: 'Block editor',
     };
     hooks.onToast?.(`${labels[tool]} ${next ? 'on' : 'off'}`);
   }

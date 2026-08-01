@@ -17,6 +17,7 @@ function fixture() {
   </body>`);
   const { document } = dom.window;
   const toasts = [];
+  let blockEditor = true;
   const editorSession = {
     contextFor: vi.fn(() => ({
       hasSelection: true,
@@ -30,6 +31,7 @@ function fixture() {
     applyInlineCommand: vi.fn(),
     openLinkFromSelection: vi.fn(),
     performBlockAction: vi.fn(),
+    isBlockEditor: () => blockEditor,
   };
   let mode = 'read';
   let sourceActive = false;
@@ -62,6 +64,7 @@ function fixture() {
     toggleReadTask,
     setMode: (next) => { mode = next; },
     setSourceActive: (next) => { sourceActive = next; },
+    setBlockEditor: (next) => { blockEditor = next; },
   };
 }
 
@@ -97,7 +100,7 @@ describe('Document Content Actions', () => {
     expect(view.toggleReadTask).toHaveBeenCalledWith(expect.objectContaining({ sourceLine: 7, checked: false }));
   });
 
-  it('keeps Edit block and inline actions', () => {
+  it('keeps Edit block and inline actions when Block editor is on', () => {
     const view = fixture();
     view.setMode('edit');
     const context = view.controller.resolveContext({ target: view.document.querySelector('[data-editor-content]') });
@@ -109,6 +112,18 @@ describe('Document Content Actions', () => {
     expect(view.editorSession.applyInlineCommand).toHaveBeenCalledWith('bold');
     expect(view.editorSession.performBlockAction).toHaveBeenCalledWith('block-1', 'move-down');
     expect(view.editorSession.performBlockAction).toHaveBeenCalledWith('block-1', 'delete');
+  });
+
+  it('hides block move/delete actions in Classic presentation', () => {
+    const view = fixture();
+    view.setMode('edit');
+    view.setBlockEditor(false);
+    const context = view.controller.resolveContext({ target: view.document.querySelector('[data-editor-content]') });
+    expect(context.label).toBe('Edit actions');
+    expect(action(context, 'bold')).toBeTruthy();
+    expect(action(context, 'move-down')).toBeUndefined();
+    expect(action(context, 'delete')).toBeUndefined();
+    expect(action(context, 'paste')).toBeTruthy();
   });
 
   it('restores focus after a failed clipboard fallback and reports the error', async () => {
