@@ -43,11 +43,14 @@ describe('reader preferences', () => {
       alwaysOnTop: true,
       autoSave: false,
       advanced: {
-        magicSniff: true,
+        edgeFade: true,
         imageDefaultZoom: 'fit',
         imageZoomAnimation: true,
         csvRowCap: 500,
+        randomThemeAtStart: false,
+        pathRemembersTheme: false,
       },
+      pathThemes: { version: 1, entries: {} },
     });
     expect(setAlwaysOnTop).toHaveBeenCalledWith(true);
   });
@@ -60,16 +63,35 @@ describe('reader preferences', () => {
       advanced: {
         imageDefaultZoom: '100%',
         csvRowCap: 99999,
-        magicSniff: false,
-        textMinimapDefault: true,
+        edgeFade: false,
+        randomThemeAtStart: true,
+        pathRemembersTheme: true,
       },
     });
     const snapshot = preferences.current().advanced;
     expect(snapshot.imageDefaultZoom).toBe('100%');
     expect(snapshot.csvRowCap).toBe(5000);
-    expect(snapshot.magicSniff).toBe(false);
-    expect(snapshot.textMinimapDefault).toBe(true);
+    expect(snapshot.edgeFade).toBe(false);
+    expect(snapshot.randomThemeAtStart).toBe(true);
+    expect(snapshot.pathRemembersTheme).toBe(true);
+    expect(snapshot.magicSniff).toBeUndefined();
     expect(store.dump()['openmd-advanced-preferences-v1']).toContain('100%');
+  });
+
+  it('persists path theme memory map', async () => {
+    const store = createMemoryPreferenceStore();
+    const preferences = createReaderPreferences({ store });
+    await preferences.load();
+    await preferences.update({
+      pathThemes: {
+        version: 1,
+        entries: { 'x:/docs/project': 'Ayu Dark' },
+      },
+    });
+    expect(preferences.current().pathThemes.entries).toEqual({
+      'x:/docs/project': 'Ayu Dark',
+    });
+    expect(store.dump()['openmd-path-themes-v1']).toContain('Ayu Dark');
   });
 
   it('falls back safely when persisted JSON or storage access is corrupt', async () => {

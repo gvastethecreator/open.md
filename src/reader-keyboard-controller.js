@@ -47,12 +47,6 @@ export function createReaderKeyboardController({
       return;
     }
 
-    if (event.key === 'Escape' && adapters.isTypographyOpen?.()) {
-      event.preventDefault();
-      hooks.closeTypography?.();
-      return;
-    }
-
     if (event.ctrlKey && event.key.toLowerCase() === 'o') {
       event.preventDefault();
       hooks.openFile?.();

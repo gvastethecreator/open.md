@@ -1,5 +1,13 @@
 # Third-party notices
 
+## Tabler Icons
+
+UI category and advanced-option icons use outline SVGs from
+[`@tabler/icons`](https://github.com/tabler/tabler-icons), version `3.46.0`.
+Tabler Icons are copyright 2020-2025 Paweł Kuna and contributors and are
+distributed under the MIT License. License text is available in the installed
+package at `node_modules/@tabler/icons/LICENSE`.
+
 ## Pretext
 
 Responsive heading fitting uses

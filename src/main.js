@@ -4,8 +4,8 @@ import {
   allowsDocumentMode,
   getFormatLabel,
   resolveFormatId,
-  softReadingToolPatchForFormat,
 } from './format-registry.js';
+import { resolvePathTheme, upsertPathTheme } from './path-theme-memory.js';
 import { createDocumentSaveCoordinator } from './document-save-coordinator.js';
 import { createEditorSession } from './editor-session.js';
 import { mountReaderShell } from './reader-shell.js';
@@ -88,9 +88,7 @@ const ui = {
   readingToolsShell: null,
   readingToolsPanel: null,
   readingToolToggles: [],
-  typographyShell: null,
-  typographyButton: null,
-  typographyPanel: null,
+
   themeField: null,
   fontButtons: [],
   alwaysOnTopButton: null,
@@ -154,9 +152,6 @@ function cacheElements() {
   ui.imageDefaultZoomSelect = document.getElementById('image-default-zoom');
   ui.csvRowCapInput = document.getElementById('csv-row-cap');
   ui.formatDetectionStatus = document.getElementById('format-detection-status');
-  ui.typographyShell = document.getElementById('typography-shell');
-  ui.typographyButton = document.getElementById('typography-button');
-  ui.typographyPanel = document.getElementById('typography-panel');
   ui.themeField = document.querySelector('.appearance-theme-field') || document.querySelector('.theme-field');
   ui.fontButtons = [...document.querySelectorAll('[data-font-kind]')];
   ui.alwaysOnTopButton = document.getElementById('always-on-top-button');
@@ -325,9 +320,6 @@ function handlePreferenceSnapshot(snapshot) {
   readerControls?.applySnapshot(snapshot);
 }
 
-function setTypographyOpen(nextOpen, { returnFocus = false } = {}) {
-  readerControls?.setTypographyOpen(nextOpen, { returnFocus });
-}
 
 function setReadingToolsOpen(nextOpen, { returnFocus = false } = {}) {
   readerControls?.setReadingToolsOpen(nextOpen, { returnFocus });
@@ -357,9 +349,32 @@ function toggleHelp() {
   readerViewport?.toggleHelp();
 }
 
+function applyPathRememberedTheme(path) {
+  const prefs = readerShell?.preferences?.current?.();
+  if (!prefs?.advanced?.pathRemembersTheme || !path || !themeCoordinator) return;
+  const remembered = resolvePathTheme(path, prefs.pathThemes?.entries);
+  if (!remembered || themeCoordinator.current()?.name === remembered) return;
+  void themeCoordinator.applyName(remembered, { silent: true, persist: false });
+}
+
+function persistThemePreference(themeName) {
+  const prefs = readerShell?.preferences?.current?.();
+  const path = getCurrentFilePath();
+  if (prefs?.advanced?.pathRemembersTheme && path && themeName) {
+    const entries = upsertPathTheme(prefs.pathThemes?.entries, path, themeName);
+    return readerShell.preferences.update({
+      themeName,
+      pathThemes: { version: 1, entries },
+    });
+  }
+  return readerShell.preferences.update({ themeName });
+}
+
 async function initThemes(own) {
   try {
-    const savedThemeName = readerShell.preferences.current().themeName;
+    const prefs = readerShell.preferences.current();
+    const savedThemeName = prefs.themeName;
+    const randomAtStart = Boolean(prefs.advanced?.randomThemeAtStart);
     themeCoordinator = own(createThemeCoordinator({
       window,
       document,
@@ -374,7 +389,7 @@ async function initThemes(own) {
           diagramTheme,
           diagramTokens,
         }),
-        persist: (themeName) => readerShell.preferences.update({ themeName }),
+        persist: (themeName) => persistThemePreference(themeName),
         onPersistResult: reportPreferenceResult,
         notify: showToast,
         beforeTransition: () => documentModeCoordinator?.cancelTransition(),
@@ -382,7 +397,7 @@ async function initThemes(own) {
         onError: (message, error) => console.error(`${message}:`, error),
       },
     }));
-    await themeCoordinator.start(savedThemeName);
+    await themeCoordinator.start(savedThemeName, { random: randomAtStart });
   } catch (error) {
     themeCoordinator = null;
     console.error('Failed to initialize themes:', error);
@@ -431,16 +446,8 @@ function mountDocumentViewState(own) {
       closeReadingTools: () => setReadingToolsOpen(false),
       syncViewport: syncViewportState,
       applyReadingTools,
-      applyFormatPreferences: (format) => {
-        const advanced = readerShell?.preferences?.current?.()?.advanced;
-        if (!advanced || !readerControls) return;
-        const patch = softReadingToolPatchForFormat(
-          format,
-          readerControls.current().readingTools,
-          advanced,
-        );
-        if (!patch) return;
-        void readerShell.preferences.update({ readingTools: patch });
+      onDocumentReady: ({ path }) => {
+        applyPathRememberedTheme(path);
       },
       setStatus: setStatusText,
       updateTitle: updateWindowTitle,
@@ -535,9 +542,6 @@ function mountReaderControls(own) {
       imageDefaultZoomSelect: ui.imageDefaultZoomSelect,
       csvRowCapInput: ui.csvRowCapInput,
       formatDetectionStatus: ui.formatDetectionStatus,
-      typographyButton: ui.typographyButton,
-      typographyShell: ui.typographyShell,
-      typographyPanel: ui.typographyPanel,
       themeField: ui.themeField,
       alwaysOnTopButton: ui.alwaysOnTopButton,
       autoSaveToggle: ui.autoSaveToggle,
@@ -697,7 +701,6 @@ function mountDocumentModeCoordinator(own) {
       closeTransientUi: () => {
         setHelpVisible(false);
         setReadingToolsOpen(false);
-        setTypographyOpen(false);
       },
       cancelCompetingTransition: () => themeCoordinator?.cancelTransition(),
       captureScrollPosition: () => readingNavigation?.captureScrollPosition(),
@@ -829,14 +832,12 @@ function mountReaderKeyboard(own) {
     adapters: {
       isHelpVisible,
       isReadingToolsOpen: () => readerControls?.isReadingToolsOpen(),
-      isTypographyOpen: () => readerControls?.isTypographyOpen(),
       isEditMode: () => isEditMode,
     },
     hooks: {
       toggleHelp,
       closeHelp: () => setHelpVisible(false),
       closeReadingTools: () => setReadingToolsOpen(false, { returnFocus: true }),
-      closeTypography: () => setTypographyOpen(false, { returnFocus: true }),
       toggleEdit: () => {
         if (!documentAllowsMode('edit')) {
           showToast('This document opens read-only');

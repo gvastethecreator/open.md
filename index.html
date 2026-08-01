@@ -51,7 +51,33 @@
             </header>
 
             <div id="basic-options-panel">
-              <p class="options-section-label">Document</p>
+              <p class="options-section-label">
+                <i class="ti ti-palette" aria-hidden="true"></i>
+                <span>Appearance</span>
+              </p>
+
+              <label class="theme-field appearance-theme-field reading-tool-toggle" title="Choose theme">
+                <i class="ti ti-palette" aria-hidden="true"></i>
+                <span><strong>Theme</strong><small id="theme-name">Choose a color theme</small></span>
+                <select id="theme-select" class="theme-select" aria-label="Choose theme"></select>
+              </label>
+
+              <button id="sans-font-button" class="reading-tool-toggle" type="button" data-font-kind="sans">
+                <i class="ti ti-typography" aria-hidden="true"></i>
+                <span><strong>Sans</strong><small id="sans-font-name">Inter</small></span>
+                <i class="iconoir-nav-arrow-right" aria-hidden="true"></i>
+              </button>
+
+              <button id="mono-font-button" class="reading-tool-toggle" type="button" data-font-kind="mono">
+                <i class="iconoir-code" aria-hidden="true"></i>
+                <span><strong>Mono</strong><small id="mono-font-name">Cascadia</small></span>
+                <i class="iconoir-nav-arrow-right" aria-hidden="true"></i>
+              </button>
+
+              <p class="options-section-label">
+                <i class="ti ti-file-text" aria-hidden="true"></i>
+                <span>Document</span>
+              </p>
 
               <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-reading-tool="lineGuide">
                 <i class="iconoir-numbered-list-left" aria-hidden="true"></i>
@@ -77,7 +103,10 @@
                 <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
               </button>
 
-              <p class="options-section-label">Editing</p>
+              <p class="options-section-label">
+                <i class="ti ti-pencil" aria-hidden="true"></i>
+                <span>Editing</span>
+              </p>
 
               <button id="auto-save-toggle" class="reading-tool-toggle" type="button" role="switch" aria-checked="true" data-preference-toggle="autoSave">
                 <i class="iconoir-cloud-sync" aria-hidden="true"></i>
@@ -86,60 +115,120 @@
               </button>
 
               <button id="advanced-options-button" class="reading-tool-toggle reading-tool-nav" type="button" aria-expanded="false" aria-controls="advanced-options-panel">
-                <i class="iconoir-settings" aria-hidden="true"></i>
-                <span><strong>Advanced options</strong><small>Format detection, defaults, performance</small></span>
+                <i class="ti ti-adjustments" aria-hidden="true"></i>
+                <span><strong>Advanced options</strong><small>File handling, themes, performance</small></span>
                 <i class="iconoir-nav-arrow-right" aria-hidden="true"></i>
               </button>
             </div>
 
             <div id="advanced-options-panel" class="advanced-options-panel" hidden aria-hidden="true">
-              <button id="advanced-back-button" class="reading-tool-toggle reading-tool-nav" type="button">
-                <i class="iconoir-nav-arrow-left" aria-hidden="true"></i>
-                <span><strong>Back</strong><small>View options</small></span>
+              <button id="advanced-back-button" class="reading-tool-toggle reading-tool-nav reading-tool-toggle--compact" type="button">
+                <i class="ti ti-arrow-left" aria-hidden="true"></i>
+                <span><strong>Back</strong></span>
               </button>
 
-              <p class="options-section-label">Format detection</p>
+              <p class="options-section-label">
+                <i class="ti ti-file-search" aria-hidden="true"></i>
+                <span>Format detection</span>
+              </p>
               <p id="format-detection-status" class="options-status" role="status">No document open</p>
-              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="true" data-advanced-pref="magicSniff">
-                <i class="iconoir-scan-qr-code" aria-hidden="true"></i>
-                <span><strong>Magic-byte sniff</strong><small>Confirm image content for known companions</small></span>
+              <p class="options-hint">Magic-byte sniff is always on. Unrecognized types are rejected.</p>
+
+              <p class="options-section-label">
+                <i class="ti ti-blur" aria-hidden="true"></i>
+                <span>Reading chrome</span>
+              </p>
+              <button
+                class="reading-tool-toggle reading-tool-toggle--compact"
+                type="button"
+                role="switch"
+                aria-checked="true"
+                data-advanced-pref="edgeFade"
+                data-tooltip="Soften content at the top and bottom edges"
+                data-tooltip-side="left"
+                data-tooltip-delay="520"
+              >
+                <i class="ti ti-blur" aria-hidden="true"></i>
+                <span><strong>Edge fade</strong></span>
                 <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
               </button>
-              <p class="options-hint">Unrecognized types are always rejected. open.md never opens unknown files as text.</p>
 
-              <p class="options-section-label">Images</p>
-              <label class="options-field" for="image-default-zoom">
+              <p class="options-section-label">
+                <i class="ti ti-palette" aria-hidden="true"></i>
+                <span>Theme</span>
+              </p>
+              <button
+                class="reading-tool-toggle reading-tool-toggle--compact"
+                type="button"
+                role="switch"
+                aria-checked="false"
+                data-advanced-pref="randomThemeAtStart"
+                data-tooltip="Open with a different theme each launch"
+                data-tooltip-side="left"
+                data-tooltip-delay="520"
+              >
+                <i class="ti ti-arrows-random" aria-hidden="true"></i>
+                <span><strong>Random theme at start</strong></span>
+                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+              </button>
+              <button
+                class="reading-tool-toggle reading-tool-toggle--compact"
+                type="button"
+                role="switch"
+                aria-checked="false"
+                data-advanced-pref="pathRemembersTheme"
+                data-tooltip="Remember the theme for each folder and its files"
+                data-tooltip-side="left"
+                data-tooltip-delay="520"
+              >
+                <i class="ti ti-folder" aria-hidden="true"></i>
+                <span><strong>Path remembers theme</strong></span>
+                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
+              </button>
+
+              <p class="options-section-label">
+                <i class="ti ti-photo" aria-hidden="true"></i>
+                <span>Images</span>
+              </p>
+              <label
+                class="options-field options-field--compact"
+                for="image-default-zoom"
+                data-tooltip="Initial zoom when opening an image"
+                data-tooltip-side="left"
+                data-tooltip-delay="520"
+              >
                 <span>Default zoom</span>
                 <select id="image-default-zoom">
                   <option value="fit">Fit window</option>
                   <option value="100%">100%</option>
                 </select>
               </label>
-              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="true" data-advanced-pref="imageZoomAnimation">
-                <i class="iconoir-ease-curve-control-points" aria-hidden="true"></i>
-                <span><strong>Zoom animation</strong><small>Ease zoom unless reduced motion</small></span>
+              <button
+                class="reading-tool-toggle reading-tool-toggle--compact"
+                type="button"
+                role="switch"
+                aria-checked="true"
+                data-advanced-pref="imageZoomAnimation"
+                data-tooltip="Animate zoom changes unless reduced motion is on"
+                data-tooltip-side="left"
+                data-tooltip-delay="520"
+              >
+                <i class="ti ti-zoom-in" aria-hidden="true"></i>
+                <span><strong>Zoom animation</strong></span>
                 <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
               </button>
 
-              <p class="options-section-label">Text companions</p>
-              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="true" data-advanced-pref="textWordWrapDefault">
-                <i class="iconoir-wrap-text" aria-hidden="true"></i>
-                <span><strong>Default word wrap</strong><small>Applied when opening text formats</small></span>
-                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
-              </button>
-              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-advanced-pref="textMinimapDefault">
-                <i class="iconoir-map" aria-hidden="true"></i>
-                <span><strong>Default minimap</strong><small>On for text companions</small></span>
-                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
-              </button>
-              <button class="reading-tool-toggle" type="button" role="switch" aria-checked="false" data-advanced-pref="textLineGuideDefault">
-                <i class="iconoir-numbered-list-left" aria-hidden="true"></i>
-                <span><strong>Default line guide</strong><small>On for text companions</small></span>
-                <i class="iconoir-check reading-tool-check" aria-hidden="true"></i>
-              </button>
-
-              <p class="options-section-label">Performance</p>
-              <label class="options-field" for="csv-row-cap">
+              <p class="options-section-label">
+                <i class="ti ti-adjustments" aria-hidden="true"></i>
+                <span>Performance</span>
+              </p>
+              <label
+                class="options-field options-field--compact"
+                for="csv-row-cap"
+                data-tooltip="Max rows rendered for CSV tables"
+                data-tooltip-side="left"
+                data-tooltip-delay="520"
+              >
                 <span>CSV row cap</span>
                 <input id="csv-row-cap" type="number" min="50" max="5000" step="50" value="500">
               </label>
@@ -350,47 +439,6 @@
             <i class="iconoir-book" aria-hidden="true"></i>
             <span id="edit-mode-label" class="sr-only">Read mode</span>
           </button>
-
-          <div id="typography-shell" class="typography-shell">
-            <button
-              id="typography-button"
-              class="toolbar-button icon-button"
-              type="button"
-              aria-controls="typography-panel"
-              aria-expanded="false"
-              aria-label="Open appearance options"
-              title="Appearance"
-            >
-              <i class="iconoir-palette" aria-hidden="true"></i>
-            </button>
-
-            <section id="typography-panel" class="typography-panel" aria-label="Appearance" aria-hidden="true" inert>
-              <header class="typography-header">
-                <span>Appearance</span>
-                <span>Theme and type</span>
-              </header>
-
-              <label class="theme-field appearance-theme-field" title="Choose theme">
-                <i class="iconoir-palette" aria-hidden="true"></i>
-                <span><strong>Theme</strong><small id="theme-name">Choose a color theme</small></span>
-                <select id="theme-select" class="theme-select" aria-label="Choose theme"></select>
-              </label>
-
-              <p class="appearance-section-label">Fonts</p>
-
-              <button id="sans-font-button" class="typography-option" type="button" data-font-kind="sans">
-                <i class="iconoir-type" aria-hidden="true"></i>
-                <span><strong>Sans</strong><small id="sans-font-name">Inter</small></span>
-                <i class="iconoir-nav-arrow-right" aria-hidden="true"></i>
-              </button>
-
-              <button id="mono-font-button" class="typography-option" type="button" data-font-kind="mono">
-                <i class="iconoir-code" aria-hidden="true"></i>
-                <span><strong>Mono</strong><small id="mono-font-name">Cascadia</small></span>
-                <i class="iconoir-nav-arrow-right" aria-hidden="true"></i>
-              </button>
-            </section>
-          </div>
 
           <button id="help-toggle-button" class="toolbar-button icon-button" type="button" aria-controls="help-stage" aria-expanded="false" aria-label="Open About and Help" title="About + Help (F1)">
             <i class="iconoir-help-circle" aria-hidden="true"></i>

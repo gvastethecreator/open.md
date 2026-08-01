@@ -83,7 +83,7 @@ export function createDocumentViewStateController({
       hooks.updateTitle?.(snapshot.path);
       hooks.updateUrl?.(snapshot.path);
       hooks.applyReadingTools?.();
-      hooks.applyFormatPreferences?.(resolveFormatId(snapshot.path, snapshot.document));
+      hooks.onDocumentReady?.({ path: snapshot.path, document: snapshot.document });
       return state;
     }
 

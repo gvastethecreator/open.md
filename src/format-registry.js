@@ -184,23 +184,9 @@ export function listFormatDescriptors() {
 }
 
 /**
- * Companion text formats (json, yaml, csv, …) may receive soft reading-tool
- * defaults. Associated Markdown/TXT and images do not.
+ * Companion text formats (json, yaml, csv, …) versus associated Markdown/TXT.
  */
 export function isCompanionTextFormat(format, hint = {}) {
   const descriptor = getFormatDescriptor(format, hint);
   return descriptor.productSurface === 'companion' && descriptor.family === 'text';
-}
-
-/**
- * Soft reading-tool patch for companion text only when current tools still match
- * the global defaults that soft defaults are meant to override.
- */
-export function softReadingToolPatchForFormat(format, tools = {}, advanced = {}, hint = {}) {
-  if (!isCompanionTextFormat(format, hint)) return null;
-  const patch = {};
-  if (tools.wordWrap === true && advanced.textWordWrapDefault === false) patch.wordWrap = false;
-  if (tools.minimap === false && advanced.textMinimapDefault) patch.minimap = true;
-  if (tools.lineGuide === false && advanced.textLineGuideDefault) patch.lineGuide = true;
-  return Object.keys(patch).length > 0 ? patch : null;
 }

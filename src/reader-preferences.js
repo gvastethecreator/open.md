@@ -1,3 +1,5 @@
+import { freezePathThemes } from './path-theme-memory.js';
+
 const STORAGE_KEYS = Object.freeze({
   theme: 'openmd-theme',
   readingTools: 'openmd-reading-tools-v1',
@@ -5,6 +7,7 @@ const STORAGE_KEYS = Object.freeze({
   alwaysOnTop: 'openmd-always-on-top',
   autoSave: 'openmd-auto-save',
   advanced: 'openmd-advanced-preferences-v1',
+  pathThemes: 'openmd-path-themes-v1',
 });
 
 export const FONT_PRESETS = Object.freeze({
@@ -29,14 +32,15 @@ export const DEFAULT_READING_TOOLS = Object.freeze({
 });
 
 export const DEFAULT_ADVANCED_PREFERENCES = Object.freeze({
-  magicSniff: true,
+  edgeFade: true,
   imageDefaultZoom: 'fit', // 'fit' | '100%'
   imageZoomAnimation: true,
   csvRowCap: 500,
-  textWordWrapDefault: true,
-  textMinimapDefault: false,
-  textLineGuideDefault: false,
+  randomThemeAtStart: false,
+  pathRemembersTheme: false,
 });
+
+export const DEFAULT_PATH_THEMES = freezePathThemes({ version: 1, entries: {} });
 
 export function normalizeAdvancedPreferences(value) {
   const imageDefaultZoom = value?.imageDefaultZoom === '100%' || value?.imageDefaultZoom === '1:1'
@@ -47,13 +51,12 @@ export function normalizeAdvancedPreferences(value) {
     ? Math.min(5000, Math.max(50, csvRowCapRaw))
     : DEFAULT_ADVANCED_PREFERENCES.csvRowCap;
   return Object.freeze({
-    magicSniff: value?.magicSniff !== false,
+    edgeFade: value?.edgeFade !== false,
     imageDefaultZoom,
     imageZoomAnimation: value?.imageZoomAnimation !== false,
     csvRowCap,
-    textWordWrapDefault: value?.textWordWrapDefault !== false,
-    textMinimapDefault: Boolean(value?.textMinimapDefault),
-    textLineGuideDefault: Boolean(value?.textLineGuideDefault),
+    randomThemeAtStart: Boolean(value?.randomThemeAtStart),
+    pathRemembersTheme: Boolean(value?.pathRemembersTheme),
   });
 }
 
@@ -65,6 +68,7 @@ function freezeSnapshot(value) {
     alwaysOnTop: value.alwaysOnTop,
     autoSave: value.autoSave,
     advanced: normalizeAdvancedPreferences(value.advanced),
+    pathThemes: freezePathThemes(value.pathThemes),
   });
 }
 
@@ -75,6 +79,7 @@ export const DEFAULT_READER_PREFERENCES = freezeSnapshot({
   alwaysOnTop: false,
   autoSave: true,
   advanced: DEFAULT_ADVANCED_PREFERENCES,
+  pathThemes: DEFAULT_PATH_THEMES,
 });
 
 export function normalizeReadingTools(value) {
@@ -205,6 +210,12 @@ export function createReaderPreferences({ store, windowPin = null }) {
       (raw) => normalizeAdvancedPreferences(JSON.parse(raw)),
       warnings
     );
+    const pathThemes = read(
+      STORAGE_KEYS.pathThemes,
+      DEFAULT_PATH_THEMES,
+      (raw) => freezePathThemes(JSON.parse(raw)),
+      warnings
+    );
 
     if (alwaysOnTop && windowPin) {
       try {
@@ -216,7 +227,15 @@ export function createReaderPreferences({ store, windowPin = null }) {
       }
     }
 
-    state = freezeSnapshot({ themeName, readingTools, fonts, alwaysOnTop, autoSave, advanced });
+    state = freezeSnapshot({
+      themeName,
+      readingTools,
+      fonts,
+      alwaysOnTop,
+      autoSave,
+      advanced,
+      pathThemes,
+    });
     notify();
     return {
       status: warnings.length > 0 ? 'fallback' : 'loaded',
@@ -257,6 +276,9 @@ export function createReaderPreferences({ store, windowPin = null }) {
     const nextAdvanced = patch.advanced
       ? normalizeAdvancedPreferences({ ...state.advanced, ...patch.advanced })
       : state.advanced;
+    const nextPathThemes = patch.pathThemes
+      ? freezePathThemes(patch.pathThemes)
+      : state.pathThemes;
 
     state = freezeSnapshot({
       themeName: nextThemeName,
@@ -265,6 +287,7 @@ export function createReaderPreferences({ store, windowPin = null }) {
       alwaysOnTop: nextAlwaysOnTop,
       autoSave: nextAutoSave,
       advanced: nextAdvanced,
+      pathThemes: nextPathThemes,
     });
 
     if (Object.hasOwn(patch, 'themeName')) {
@@ -284,6 +307,9 @@ export function createReaderPreferences({ store, windowPin = null }) {
     }
     if (patch.advanced) {
       write(STORAGE_KEYS.advanced, JSON.stringify(state.advanced), warnings);
+    }
+    if (patch.pathThemes) {
+      write(STORAGE_KEYS.pathThemes, JSON.stringify(state.pathThemes), warnings);
     }
 
     notify();
