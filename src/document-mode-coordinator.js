@@ -1,4 +1,24 @@
-import { getDocumentModePresentation } from './core/reader.js';
+const DOCUMENT_MODE_PRESENTATIONS = Object.freeze({
+  read: Object.freeze({ label: 'Read', iconClass: 'iconoir-book', nextMode: 'edit' }),
+  edit: Object.freeze({ label: 'Edit', iconClass: 'iconoir-edit-pencil', nextMode: 'source' }),
+  source: Object.freeze({ label: 'Source', iconClass: 'iconoir-code', nextMode: 'read' }),
+});
+
+export function getDocumentModePresentation(mode) {
+  const normalizedMode = Object.hasOwn(DOCUMENT_MODE_PRESENTATIONS, mode) ? mode : 'read';
+  const current = DOCUMENT_MODE_PRESENTATIONS[normalizedMode];
+  const next = DOCUMENT_MODE_PRESENTATIONS[current.nextMode];
+
+  return {
+    mode: normalizedMode,
+    label: current.label,
+    iconClass: current.iconClass,
+    nextMode: current.nextMode,
+    nextLabel: next.label,
+    ariaLabel: `${current.label} mode. Switch to ${next.label} mode`,
+    title: `${current.label} mode · Next: ${next.label}`,
+  };
+}
 
 const MODES = new Set(['read', 'edit', 'source']);
 

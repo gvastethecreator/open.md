@@ -1,4 +1,4 @@
-import { getFileKind } from './core/reader.js';
+import { isMarkdownFormat, resolveFormatId } from './format-registry.js';
 import {
   getCurrentLineFromAnchors,
   getLineGutterLeft,
@@ -82,6 +82,13 @@ export function createReadingNavigationController({
           };
         });
       } else {
+        const activeDocument = adapters.getDocument?.();
+        const activePath = adapters.getFilePath?.();
+        const activeFormat = resolveFormatId(activePath, activeDocument);
+        const usesMarkdownCodeOffsets = isMarkdownFormat(activeFormat, {
+          kind: activeDocument?.kind,
+          path: activePath,
+        });
         anchors = [...(elements.editorCanvas?.querySelectorAll('[data-source-line-start]') || [])].flatMap((wrapper) => {
           const content = wrapper.querySelector('[data-editor-content]');
           if (!content) return [];
@@ -92,7 +99,7 @@ export function createReadingNavigationController({
             || Math.min(Math.max(content.getBoundingClientRect().height, 16), 32);
           const top = content.getBoundingClientRect().top - stageTop;
           const isCode = wrapper.dataset.blockType === 'code'
-            && getFileKind(adapters.getFilePath?.()) === 'Markdown';
+            && usesMarkdownCodeOffsets;
           const visibleCount = isCode
             ? Math.max(1, content.textContent.split('\n').length)
             : sourceCount;

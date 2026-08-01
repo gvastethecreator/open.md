@@ -1,4 +1,8 @@
-import { getWindowControlPresentation } from './core/reader.js';
+export function getWindowControlPresentation(isMaximized) {
+  return isMaximized
+    ? { label: 'Restore', iconClass: 'iconoir-multi-window' }
+    : { label: 'Maximize', iconClass: 'iconoir-square' };
+}
 
 export function createWindowChrome({ document, elements, nativeWindow, onError = () => {} }) {
   if (!document || !nativeWindow) throw new TypeError('Window Chrome requires document and nativeWindow');

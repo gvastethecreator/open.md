@@ -67,6 +67,7 @@ function fixture() {
   let lineGuide = true;
   let minimap = true;
   let currentDocument = { source: 'one\ntwo\nthree\nfour\nfive', lineCount: 5 };
+  let currentPath = 'notes.md';
   const onMetricsChange = vi.fn();
   const controller = createReadingNavigationController({
     window: dom.window,
@@ -74,7 +75,7 @@ function fixture() {
     elements,
     adapters: {
       getDocument: () => currentDocument,
-      getFilePath: () => 'notes.md',
+      getFilePath: () => currentPath,
       getMode: () => mode,
       isHelpVisible: () => helpVisible,
       isLineGuideEnabled: () => lineGuide,
@@ -92,6 +93,8 @@ function fixture() {
     setMode: (value) => { mode = value; },
     setHelp: (value) => { helpVisible = value; },
     setTools: (lines, mini) => { lineGuide = lines; minimap = mini; },
+    setDocument: (value) => { currentDocument = value; },
+    setPath: (value) => { currentPath = value; },
     clearDocument: () => { currentDocument = null; },
   };
 }
@@ -148,6 +151,32 @@ describe('Reading Navigation Controller', () => {
     expect(current?.style.top).toBe('48px');
     expect(view.elements.lineGutter.querySelector('[data-line="1"]')?.style.top).toBe('24px');
     expect(view.elements.lineGutter.querySelector('[data-line="3"]')?.style.top).toBe('96px');
+  });
+
+  it('uses authoritative payload format for Markdown code-line offsets', () => {
+    const view = fixture();
+    view.elements.editorCanvas.innerHTML = `
+      <div data-source-line-start="2" data-source-line-count="4" data-block-type="code">
+        <pre data-editor-content>alpha\nbeta</pre>
+      </div>
+    `;
+    const content = view.elements.editorCanvas.querySelector('[data-editor-content]');
+    content.getBoundingClientRect = () => ({ top: 48, left: 60, width: 300, height: 48 });
+    view.setPath('notes.txt');
+    view.setDocument({
+      source: '```\nalpha\nbeta\n```',
+      lineCount: 4,
+      kind: 'markdown',
+      format: 'markdown',
+    });
+    view.setMode('edit');
+    view.controller.refreshTools();
+    view.controller.refresh();
+
+    const lines = [...view.elements.lineGutter.querySelectorAll('[data-line]')]
+      .map((node) => Number(node.dataset.line));
+    expect(lines).toEqual(expect.arrayContaining([3, 4]));
+    expect(lines).not.toContain(5);
   });
 
   it('force-refreshes the minimap during mode morph so the VT new snapshot is current', () => {

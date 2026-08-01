@@ -1,8 +1,11 @@
-import { calculateNewZoom } from './core/reader.js';
-
 const DEFAULT_STEP = 0.1;
 const DEFAULT_MIN = 0.5;
 const DEFAULT_MAX = 3.0;
+
+export function calculateNewZoom(current, deltaY, step, min, max) {
+  const next = deltaY < 0 ? current + step : current - step;
+  return Math.min(Math.max(next, min), max);
+}
 
 /**
  * Owns content zoom scale, wheel gesture policy, and status coupling hooks.

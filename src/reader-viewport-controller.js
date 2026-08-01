@@ -1,4 +1,7 @@
-import { getViewportMode } from './core/reader.js';
+export function getViewportMode(hasFilePath, helpVisible) {
+  if (helpVisible) return 'help';
+  return hasFilePath ? 'content' : 'empty';
+}
 
 function deferFocus(window, target) {
   const schedule = window.queueMicrotask || ((callback) => Promise.resolve().then(callback));

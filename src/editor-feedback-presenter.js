@@ -7,19 +7,12 @@ export function createEditorFeedbackPresenter({
     throw new TypeError('Editor Feedback Presenter requires window and document');
   }
 
-  let currentEditMode = false;
   let disposed = false;
 
-  const current = () => ({ isEditMode: currentEditMode });
+  const render = ({ snapshot = {}, isEditing = false } = {}) => {
+    if (disposed) return;
 
-  const render = (snapshot = {}) => {
-    if (disposed) return current();
-
-    const nextEditMode = snapshot.mode === 'edit';
-    const modeChanged = nextEditMode !== currentEditMode;
-    currentEditMode = nextEditMode;
-
-    document.body.classList.toggle('is-edit-mode', nextEditMode);
+    document.body.classList.toggle('is-edit-mode', isEditing);
     document.body.classList.toggle('has-unsaved-changes', Boolean(snapshot.dirty));
     document.body.classList.toggle('is-editor-saving', snapshot.saveState === 'saving');
     document.body.classList.toggle('has-editor-save-error', snapshot.saveState === 'error');
@@ -61,7 +54,7 @@ export function createEditorFeedbackPresenter({
             ? 'iconoir-floppy-disk'
             : 'iconoir-check';
 
-      elements.editorSaveButton.hidden = !nextEditMode;
+      elements.editorSaveButton.hidden = !isEditing;
       elements.editorSaveButton.disabled = snapshot.saveState === 'saving' || !snapshot.dirty;
       elements.editorSaveButton.classList.toggle('is-error', snapshot.saveState === 'error');
       elements.editorSaveButton.dataset.state = saveState;
@@ -71,11 +64,9 @@ export function createEditorFeedbackPresenter({
       if (elements.editorSaveLabel) elements.editorSaveLabel.textContent = label;
     }
 
-    return { ...current(), modeChanged, snapshot };
   };
 
   return Object.freeze({
-    current,
     render,
     dispose() {
       disposed = true;
