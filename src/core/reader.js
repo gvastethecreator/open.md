@@ -13,10 +13,12 @@ import {
 import {
   getCsvStatusMetrics,
   getDocumentStatusMetrics,
+  getEstimatedMinutesRemaining,
   getFormatStatusMetrics,
   getImageStatusMetrics,
   getJsonStatusMetrics,
   getTextCompanionStatusMetrics,
+  getZoomStatusMetric,
 } from '../status-metrics.js';
 
 export {
@@ -43,11 +45,17 @@ export {
 export {
   getCsvStatusMetrics,
   getDocumentStatusMetrics,
+  getEstimatedMinutesRemaining,
   getFormatStatusMetrics,
   getImageStatusMetrics,
   getJsonStatusMetrics,
   getTextCompanionStatusMetrics,
+  getZoomStatusMetric,
 };
+export { getDocumentModePresentation } from '../document-mode-coordinator.js';
+export { getViewportMode } from '../reader-viewport-controller.js';
+export { calculateNewZoom } from '../reader-zoom-controller.js';
+export { getWindowControlPresentation } from '../window-chrome.js';
 
 const PREFERRED_THEME_NAMES = ['Github Light', 'Github Dark', 'GitHub', 'Ayu Light', 'Ayu Dark'];
 
@@ -70,54 +78,9 @@ export function getFileKind(filePath) {
   return 'Text';
 }
 
-export function getEstimatedMinutesRemaining(totalMinutes, progressPercent) {
-  const total = Math.max(0, Number(totalMinutes) || 0);
-  const progress = Math.min(Math.max(Number(progressPercent) || 0, 0), 100);
-  return Math.ceil(total * (1 - (progress / 100)));
-}
-
-export function getZoomStatusMetric(zoomPercent) {
-  const safeZoom = Math.max(1, Math.round(Number(zoomPercent) || 100));
-  return safeZoom === 100
-    ? null
-    : {
-        kind: 'zoom',
-        visible: `${safeZoom}%`,
-        accessible: `Zoom ${safeZoom} percent`,
-      };
-}
-
 /** Compatibility wrapper — prefer getDocumentStatusMetrics / getFormatStatusMetrics */
 export function getStatusMetricParts(fields = {}) {
   return getDocumentStatusMetrics(fields);
-}
-
-export function getWindowControlPresentation(isMaximized) {
-  return isMaximized
-    ? { label: 'Restore', iconClass: 'iconoir-multi-window' }
-    : { label: 'Maximize', iconClass: 'iconoir-square' };
-}
-
-const DOCUMENT_MODE_PRESENTATIONS = Object.freeze({
-  read: Object.freeze({ label: 'Read', iconClass: 'iconoir-book', nextMode: 'edit' }),
-  edit: Object.freeze({ label: 'Edit', iconClass: 'iconoir-edit-pencil', nextMode: 'source' }),
-  source: Object.freeze({ label: 'Source', iconClass: 'iconoir-code', nextMode: 'read' }),
-});
-
-export function getDocumentModePresentation(mode) {
-  const normalizedMode = Object.hasOwn(DOCUMENT_MODE_PRESENTATIONS, mode) ? mode : 'read';
-  const current = DOCUMENT_MODE_PRESENTATIONS[normalizedMode];
-  const next = DOCUMENT_MODE_PRESENTATIONS[current.nextMode];
-
-  return {
-    mode: normalizedMode,
-    label: current.label,
-    iconClass: current.iconClass,
-    nextMode: current.nextMode,
-    nextLabel: next.label,
-    ariaLabel: `${current.label} mode. Switch to ${next.label} mode`,
-    title: `${current.label} mode · Next: ${next.label}`,
-  };
 }
 
 function normalizeHexColor(value) {
@@ -278,11 +241,6 @@ export function getThemeTokens(theme = {}) {
   };
 }
 
-export function getViewportMode(hasFilePath, helpVisible) {
-  if (helpVisible) return 'help';
-  return hasFilePath ? 'content' : 'empty';
-}
-
 export function getPreferredThemeIndex(themeList, savedThemeName = null) {
   if (!Array.isArray(themeList) || themeList.length === 0) {
     return -1;
@@ -317,14 +275,4 @@ export function isColorDark(color) {
   const { r, g, b } = rgb;
   const brightness = ((r * 299) + (g * 587) + (b * 114)) / 1000;
   return brightness < 155;
-}
-
-export function calculateNewZoom(current, deltaY, step, min, max) {
-  let next = current;
-  if (deltaY < 0) {
-    next = current + step;
-  } else {
-    next = current - step;
-  }
-  return Math.min(Math.max(next, min), max);
 }

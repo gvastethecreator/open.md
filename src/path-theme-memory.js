@@ -90,3 +90,62 @@ export function upsertPathTheme(entries, filePath, themeName) {
     [dir]: theme,
   });
 }
+
+/**
+ * Coordinates per-path theme recall and persistence without exposing the
+ * preference schema to the composition root.
+ */
+export function createPathThemePreferenceCoordinator({
+  preferences,
+  getCurrentPath = () => null,
+  getCurrentThemeName = () => null,
+  applyTheme = () => undefined,
+} = {}) {
+  if (
+    typeof preferences?.current !== 'function'
+    || typeof preferences?.update !== 'function'
+  ) {
+    throw new TypeError('Path Theme Preference Coordinator requires preferences');
+  }
+
+  let disposed = false;
+
+  const applyForPath = async (path = getCurrentPath()) => {
+    if (disposed) return { status: 'disposed' };
+    const snapshot = preferences.current();
+    if (!snapshot?.advanced?.pathRemembersTheme || !path) {
+      return { status: 'ignored' };
+    }
+    const themeName = resolvePathTheme(path, snapshot.pathThemes?.entries);
+    if (!themeName) return { status: 'missing' };
+    if (getCurrentThemeName() === themeName) {
+      return { status: 'unchanged', themeName };
+    }
+    await applyTheme(themeName, { silent: true, persist: false });
+    return { status: 'applied', themeName };
+  };
+
+  const persistSelection = (themeName, path = getCurrentPath()) => {
+    if (disposed) return Promise.resolve({ status: 'disposed' });
+    const snapshot = preferences.current();
+    const normalizedTheme = typeof themeName === 'string' ? themeName.trim() : '';
+    if (!normalizedTheme) return Promise.resolve({ status: 'ignored' });
+
+    if (snapshot?.advanced?.pathRemembersTheme && path) {
+      const entries = upsertPathTheme(snapshot.pathThemes?.entries, path, normalizedTheme);
+      return preferences.update({
+        themeName: normalizedTheme,
+        pathThemes: { version: 1, entries },
+      });
+    }
+    return preferences.update({ themeName: normalizedTheme });
+  };
+
+  return Object.freeze({
+    applyForPath,
+    persistSelection,
+    dispose() {
+      disposed = true;
+    },
+  });
+}

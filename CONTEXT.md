@@ -81,6 +81,9 @@ flowchart LR
   and native always-on-top recovery.
 - Supports Web Storage in production and an in-memory store in tests or when
   storage is unavailable.
+- The Path Theme Preference coordinator owns per-path enablement, longest-prefix
+  recall, unchanged-theme suppression, and global-vs-path persistence over the
+  preferences and Theme Coordinator adapters.
 - Invariant: a failed native pin operation cannot leave the model or persisted
   value claiming that the window is pinned.
 
@@ -121,10 +124,15 @@ flowchart LR
 - `src/reader-zoom-controller.js` owns content zoom scale, wheel gesture
   policy, CSS scale publishing, and zoom toast feedback.
 - `src/status-presenter.js` owns identity text and document/editor metric
-  composition (not only DOM metric rendering).
+  composition from one raw application snapshot, including JSON/CSV source
+  summaries (not only DOM metric rendering).
 - `src/reading-navigation-controller.js`, `src/document-mode-coordinator.js`,
-  `src/toast-presenter.js`, and `src/editor-feedback-presenter.js` own their
-  visual lifecycle and disposal.
+  `src/toast-presenter.js`, `src/editor-feedback-presenter.js`, and
+  `src/empty-state-motion.js` own their visual lifecycle and disposal.
+- `src/editor-state-coordinator.js` owns canonical editing state and the ordered
+  fan-out from one editor snapshot to feedback, transient UI, mode, save,
+  navigation, typography, reading-tool, and status adapters. Reentrant
+  snapshots drain FIFO; the composition root only supplies adapters.
 - Each module owns its timers, listeners, transition/RAF state and disposal;
   the composition root does not coordinate their private revisions or queues.
 - A Read/Edit/Source transition is scoped to the document identity captured at
@@ -178,8 +186,11 @@ flowchart LR
   mutation used by session highlighting and save coordination.
 - `src/reading-geometry.js` owns scroll progress, edge state, line ranges,
   anchors, gutter placement, and minimap viewport geometry.
-- `src/core/reader.js` remains a compatibility re-export facade plus theme,
-  status-metric, and presentation helpers that still lack a deeper sole owner.
+- `src/core/reader.js` remains a compatibility re-export facade plus the theme
+  contrast/token implementation. Production mode, viewport, zoom, window,
+  status, path, payload, source, and geometry policy import their owners
+  directly; theme helpers remain together until another production owner
+  justifies moving their seam.
 
 ### Content and keyboard actions
 
@@ -195,7 +206,7 @@ flowchart LR
   seam and imports no `@tauri-apps/*` modules directly; runtime adapters own
   native open/save/image/URL/ack and ingress listen/dialog/webview surfaces.
   Document ingress likewise has no direct `@tauri-apps/*` imports.
-- `src/status-presenter.js` owns identity + metric projection from one
+- `src/status-presenter.js` owns identity + metric projection from one raw
   application snapshot (`project`).
 - `src/document-view-state.js` owns close eligibility and shell close fan-out
   through `requestClose`.
@@ -241,6 +252,8 @@ flowchart LR
   `src/reader-keyboard-controller.test.js`,
   `src/document-content-actions.test.js`, and
   `src/editor-feedback-presenter.test.js`
+- Editor application state: `src/editor-state-coordinator.test.js`
+- Empty-state visual lifecycle: `src/empty-state-motion.test.js`
 - Preferences: `src/reader-preferences.test.js`
 - Window/theme/mode/save/navigation lifecycle: focused controller tests under
   `src/*-coordinator.test.js` and `src/reading-navigation-controller.test.js`

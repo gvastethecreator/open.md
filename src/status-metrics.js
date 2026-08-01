@@ -6,7 +6,7 @@ function formatMetricNumber(value) {
   return Math.max(0, Math.floor(Number(value) || 0)).toLocaleString('en-US');
 }
 
-function getZoomStatusMetric(zoomPercent) {
+export function getZoomStatusMetric(zoomPercent) {
   const safeZoom = Math.max(1, Math.round(Number(zoomPercent) || 100));
   return safeZoom === 100
     ? null
@@ -15,6 +15,12 @@ function getZoomStatusMetric(zoomPercent) {
         visible: `${safeZoom}%`,
         accessible: `Zoom ${safeZoom} percent`,
       };
+}
+
+export function getEstimatedMinutesRemaining(totalMinutes, progressPercent) {
+  const total = Math.max(0, Number(totalMinutes) || 0);
+  const progress = Math.min(Math.max(Number(progressPercent) || 0, 0), 100);
+  return Math.ceil(total * (1 - (progress / 100)));
 }
 
 function pack(items) {
@@ -64,7 +70,7 @@ export function getDocumentStatusMetrics({
   if (showReadingStats) {
     const safeProgress = Math.min(100, Math.max(0, Math.round(Number(readingProgress) || 0)));
     const total = Math.max(0, Number(readingTimeMinutes) || 0);
-    const remainingMinutes = Math.ceil(total * (1 - (safeProgress / 100)));
+    const remainingMinutes = getEstimatedMinutesRemaining(total, safeProgress);
     items.push({
       kind: 'progress',
       visible: `${safeProgress}%`,

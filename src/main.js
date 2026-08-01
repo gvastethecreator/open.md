@@ -2,11 +2,9 @@ import allThemes from './themes.runtime.json';
 import { getDisplayName } from './document-path.js';
 import {
   allowsDocumentMode,
-  getFormatLabel,
-  getStatusProfile,
   resolveFormatId,
 } from './format-registry.js';
-import { resolvePathTheme, upsertPathTheme } from './path-theme-memory.js';
+import { createPathThemePreferenceCoordinator } from './path-theme-memory.js';
 import { createDocumentSaveCoordinator } from './document-save-coordinator.js';
 import { createEditorSession } from './editor-session.js';
 import { mountReaderShell } from './reader-shell.js';
@@ -31,19 +29,22 @@ import { createDocumentLinkController } from './document-link-controller.js';
 import { createReaderKeyboardController } from './reader-keyboard-controller.js';
 import { createApplicationLifecycleController } from './application-lifecycle.js';
 import { createReaderZoomController } from './reader-zoom-controller.js';
+import { createEmptyStateMotion } from './empty-state-motion.js';
+import { createEditorStateCoordinator } from './editor-state-coordinator.js';
 
 let windowChrome = null;
 let readerZoom = null;
 let readerShell = null;
 let runtimeAdapters = null;
 let editorSession = null;
-let isEditMode = false;
+let editorStateCoordinator = null;
 let responsiveTypography = null;
 let documentSaveCoordinator = null;
 let documentModeCoordinator = null;
 let readingNavigation = null;
 let toastPresenter = null;
 let themeCoordinator = null;
+let pathThemePreferences = null;
 let contextMenuController = null;
 let tooltipController = null;
 let scrollbarVisibility = null;
@@ -238,6 +239,10 @@ function getCurrentDocument() {
   return documentViewState?.current().document || null;
 }
 
+function isEditing() {
+  return editorStateCoordinator?.isEditing() ?? false;
+}
+
 function currentFormatId() {
   return resolveFormatId(getCurrentFilePath(), getCurrentDocument());
 }
@@ -249,160 +254,25 @@ function documentAllowsMode(mode) {
   return allowsDocumentMode(currentFormatId(), mode, { kind: documentSnapshot.kind, path });
 }
 
-function summarizeJsonSource(source) {
-  try {
-    const value = JSON.parse(String(source ?? ''));
-    if (Array.isArray(value)) {
-      return { rootType: 'array', itemCount: value.length, keyCount: null, invalid: false };
-    }
-    if (value && typeof value === 'object') {
-      return { rootType: 'object', keyCount: Object.keys(value).length, itemCount: null, invalid: false };
-    }
-    return { rootType: typeof value, keyCount: 0, itemCount: null, invalid: false };
-  } catch {
-    return { rootType: null, keyCount: null, itemCount: null, invalid: true };
-  }
-}
-
-function summarizeCsvSource(source) {
-  const text = String(source ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  if (!text) return { rowCount: 0, columnCount: 0 };
-  const lines = text.split('\n');
-  while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
-  if (lines.length === 0) return { rowCount: 0, columnCount: 0 };
-  // Lightweight column estimate: respect quoted commas poorly is OK for status glance.
-  let maxCols = 0;
-  for (const line of lines.slice(0, 50)) {
-    let cols = 1;
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i += 1) {
-      const ch = line[i];
-      if (ch === '"') inQuotes = !inQuotes;
-      else if (ch === ',' && !inQuotes) cols += 1;
-    }
-    maxCols = Math.max(maxCols, cols);
-  }
-  return { rowCount: lines.length, columnCount: maxCols };
-}
-
 function updateStatus(filePath = null) {
   if (!statusPresenter) return;
 
   const path = filePath ?? getCurrentFilePath();
   const documentSnapshot = getCurrentDocument();
-  const zoomPercent = readerZoom?.percent?.() ?? 100;
-  const formatId = currentFormatId();
-  const statusProfile = getStatusProfile(formatId, {
-    kind: documentSnapshot?.kind,
-    path,
-  });
-
-  if (isHelpVisible()) {
-    statusPresenter.project({ helpVisible: true });
-    return;
-  }
-
-  if (!path) {
-    imageViewState = null;
-    statusPresenter.project({});
-    return;
-  }
-
-  if (isEditMode && editorSession) {
-    const editorState = editorSession.current();
-    if (editorState.presentation === 'json-props') {
-      const liveSource = editorSession.source?.() ?? documentSnapshot?.source ?? '';
-      const summary = summarizeJsonSource(liveSource);
-      statusPresenter.project({
-        path,
-        editMode: true,
-        statusProfile: 'json',
-        documentMetrics: {
-          statusProfile: 'json',
-          lineCount: liveSource.split('\n').length,
-          characterCount: [...liveSource].length,
-          zoomPercent,
-          ...summary,
-        },
-      });
-      return;
-    }
-    statusPresenter.project({
-      path,
-      editMode: true,
-      editorMetrics: {
-        cursor: editorState.cursor,
-        stats: editorState.stats,
-        zoomPercent,
-      },
-    });
-    return;
-  }
-
-  const formatLabel = getFormatLabel(formatId, {
-    kind: documentSnapshot?.kind,
-    path,
-  });
-  const sourceActive = Boolean(documentSnapshot && readerControls?.current().readingTools.source);
-  const hasDocument = Boolean(documentSnapshot);
-  let documentMetrics = null;
-  if (hasDocument) {
-    if (statusProfile === 'image') {
-      documentMetrics = {
-        statusProfile: 'image',
-        naturalWidth: imageViewState?.naturalWidth || 0,
-        naturalHeight: imageViewState?.naturalHeight || 0,
-        scale: imageViewState?.scale ?? 1,
-        fitScale: imageViewState?.fitScale ?? 1,
-      };
-    } else if (statusProfile === 'json') {
-      const summary = summarizeJsonSource(documentSnapshot.source);
-      documentMetrics = {
-        statusProfile: 'json',
-        lineCount: documentSnapshot.lineCount,
-        characterCount: documentSnapshot.characterCount,
-        zoomPercent,
-        ...summary,
-      };
-    } else if (statusProfile === 'csv') {
-      const csvShape = summarizeCsvSource(documentSnapshot.source);
-      documentMetrics = {
-        statusProfile: 'csv',
-        lineCount: documentSnapshot.lineCount,
-        characterCount: documentSnapshot.characterCount,
-        zoomPercent,
-        rowCount: documentSnapshot.rowCount ?? csvShape.rowCount,
-        columnCount: documentSnapshot.columnCount ?? csvShape.columnCount,
-      };
-    } else if (statusProfile === 'markdown') {
-      documentMetrics = {
-        statusProfile: 'markdown',
-        lineCount: documentSnapshot.lineCount,
-        characterCount: documentSnapshot.characterCount,
-        zoomPercent,
-        currentLine: readingNavigation?.snapshot().currentLine || 1,
-        showCurrentLine: readerControls?.current().readingTools.lineGuide,
-        readingProgress: readingNavigation?.snapshot().readingProgress || 0,
-        readingTimeMinutes: documentSnapshot.readingTimeMinutes,
-        showReadingStats: readerControls?.current().readingTools.stats,
-      };
-    } else {
-      documentMetrics = {
-        statusProfile: 'text',
-        lineCount: documentSnapshot.lineCount,
-        characterCount: documentSnapshot.characterCount,
-        zoomPercent,
-        currentLine: readingNavigation?.snapshot().currentLine || 1,
-        showCurrentLine: readerControls?.current().readingTools.lineGuide,
-      };
-    }
-  }
+  if (!path) imageViewState = null;
+  const editMode = isEditing();
   statusPresenter.project({
+    helpVisible: isHelpVisible(),
     path,
-    formatLabel,
-    statusProfile,
-    sourceActive,
-    documentMetrics,
+    document: documentSnapshot,
+    editMode,
+    sourceActive: Boolean(documentSnapshot && readerControls?.current().readingTools.source),
+    editorSnapshot: editMode ? editorSession?.current() : null,
+    editorSource: editMode ? editorSession?.source?.() : null,
+    zoomPercent: readerZoom?.percent?.() ?? 100,
+    navigation: readingNavigation?.snapshot(),
+    readingTools: readerControls?.current().readingTools,
+    imageState: imageViewState,
   });
 }
 
@@ -415,7 +285,7 @@ function hasLoadedDocument() {
 }
 
 function isSourceViewActive() {
-  return hasLoadedDocument() && readerControls?.current().readingTools.source && !isEditMode;
+  return hasLoadedDocument() && readerControls?.current().readingTools.source && !isEditing();
 }
 
 function reportPreferenceResult(result) {
@@ -457,32 +327,17 @@ function toggleHelp() {
   readerViewport?.toggleHelp();
 }
 
-function applyPathRememberedTheme(path) {
-  const prefs = readerShell?.preferences?.current?.();
-  if (!prefs?.advanced?.pathRemembersTheme || !path || !themeCoordinator) return;
-  const remembered = resolvePathTheme(path, prefs.pathThemes?.entries);
-  if (!remembered || themeCoordinator.current()?.name === remembered) return;
-  void themeCoordinator.applyName(remembered, { silent: true, persist: false });
-}
-
-function persistThemePreference(themeName) {
-  const prefs = readerShell?.preferences?.current?.();
-  const path = getCurrentFilePath();
-  if (prefs?.advanced?.pathRemembersTheme && path && themeName) {
-    const entries = upsertPathTheme(prefs.pathThemes?.entries, path, themeName);
-    return readerShell.preferences.update({
-      themeName,
-      pathThemes: { version: 1, entries },
-    });
-  }
-  return readerShell.preferences.update({ themeName });
-}
-
 async function initThemes(own) {
   try {
     const prefs = readerShell.preferences.current();
     const savedThemeName = prefs.themeName;
     const randomAtStart = Boolean(prefs.advanced?.randomThemeAtStart);
+    pathThemePreferences = own(createPathThemePreferenceCoordinator({
+      preferences: readerShell.preferences,
+      getCurrentPath: getCurrentFilePath,
+      getCurrentThemeName: () => themeCoordinator?.current()?.name || null,
+      applyTheme: (themeName, options) => themeCoordinator?.applyName(themeName, options),
+    }));
     themeCoordinator = own(createThemeCoordinator({
       window,
       document,
@@ -496,7 +351,7 @@ async function initThemes(own) {
           diagramTheme,
           diagramTokens,
         }),
-        persist: (themeName) => persistThemePreference(themeName),
+        persist: (themeName) => pathThemePreferences.persistSelection(themeName),
         onPersistResult: reportPreferenceResult,
         notify: showToast,
         beforeTransition: () => documentModeCoordinator?.cancelTransition(),
@@ -554,7 +409,7 @@ function mountDocumentViewState(own) {
       syncViewport: syncViewportState,
       applyReadingTools,
       onDocumentReady: ({ path }) => {
-        applyPathRememberedTheme(path);
+        void pathThemePreferences?.applyForPath(path);
       },
       setStatus: setStatusText,
       updateTitle: updateWindowTitle,
@@ -668,7 +523,7 @@ function mountReaderControls(own) {
       preferences: readerShell.preferences,
       system: runtimeAdapters?.system,
       isDocumentAvailable: hasLoadedDocument,
-      isEditMode: () => isEditMode,
+      isEditMode: isEditing,
       getDocumentIdentity: getCurrentDocument,
     },
     hooks: {
@@ -684,7 +539,7 @@ function mountReaderControls(own) {
         readingNavigation?.refreshTools();
         responsiveTypography?.schedule();
         // Classic ↔ Block presentation can flip from View options while editing.
-        if (editorSession?.isEditing?.()) editorSession.refreshPresentation?.();
+        if (isEditing()) editorSession?.refreshPresentation?.();
         updateStatus(getCurrentFilePath());
       },
       onFontsApplied: () => {
@@ -706,25 +561,6 @@ function mountReaderControls(own) {
     },
   }));
   readerControls.start();
-}
-
-function handleEditorState(snapshot) {
-  const nextEditMode = snapshot.mode === 'edit';
-  const feedback = editorFeedback?.render(snapshot) || {
-    isEditMode: nextEditMode,
-    modeChanged: nextEditMode !== isEditMode,
-  };
-  const modeChanged = feedback.modeChanged;
-  if (modeChanged) contextMenuController?.close({ immediate: true });
-  isEditMode = feedback.isEditMode;
-
-  documentModeCoordinator?.refresh();
-
-  documentSaveCoordinator?.observeEditor(snapshot);
-  if (isEditMode) readingNavigation?.markDirty();
-  responsiveTypography?.schedule();
-  if (modeChanged) applyReadingTools();
-  else updateStatus(getCurrentFilePath());
 }
 
 function mountApplicationEditor(own) {
@@ -760,7 +596,7 @@ function mountApplicationEditor(own) {
         || null,
     },
     hooks: {
-      onStateChange: handleEditorState,
+      onStateChange: (snapshot) => editorStateCoordinator?.apply(snapshot),
       onCursorChange: () => {
         updateStatusMetrics();
         if (readerControls?.current().readingTools.lineGuide) readingNavigation?.queueUpdate();
@@ -774,14 +610,32 @@ function mountApplicationEditor(own) {
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
   }));
-  handleEditorState(editorSession.current());
+}
+
+function mountEditorStateCoordinator(own) {
+  editorStateCoordinator = own(createEditorStateCoordinator({
+    adapters: {
+      renderFeedback: (application) => editorFeedback?.render(application),
+      closeTransientContext: () => contextMenuController?.close({ immediate: true }),
+      refreshDocumentMode: () => documentModeCoordinator?.refresh(),
+      observeSave: ({ snapshot }) => documentSaveCoordinator?.observeEditor(snapshot),
+      markNavigationDirty: () => readingNavigation?.markDirty(),
+      scheduleTypography: () => responsiveTypography?.schedule(),
+      reapplyReadingTools: applyReadingTools,
+      refreshStatus: () => updateStatus(getCurrentFilePath()),
+    },
+    hooks: {
+      onDiagnostic: (message, error) => console.error(`${message}:`, error),
+    },
+  }));
+  editorStateCoordinator.apply(editorSession.current());
 }
 
 function mountDocumentSaveCoordinator(own) {
   documentSaveCoordinator = own(createDocumentSaveCoordinator({
     window,
     adapters: {
-      isEditing: () => Boolean(editorSession?.isEditing()),
+      isEditing,
       saveEditor: () => editorSession?.save(),
       saveDocument: (path, source) => runtimeAdapters.documents.save(path, source),
     },
@@ -810,7 +664,7 @@ function mountDocumentModeCoordinator(own) {
       minimap: ui.documentMinimap,
     },
     adapters: {
-      getMode: () => isEditMode ? 'edit' : isSourceViewActive() ? 'source' : 'read',
+      getMode: () => isEditing() ? 'edit' : isSourceViewActive() ? 'source' : 'read',
       isAvailable: () => Boolean(editorSession && hasLoadedDocument() && documentAllowsMode('edit')),
       getDocumentIdentity: getCurrentDocument,
       enterEdit: () => editorSession?.enter(),
@@ -858,7 +712,7 @@ function mountReadingNavigation(own) {
     adapters: {
       getDocument: getCurrentDocument,
       getFilePath: getCurrentFilePath,
-      getMode: () => isEditMode ? 'edit' : isSourceViewActive() ? 'source' : 'read',
+      getMode: () => isEditing() ? 'edit' : isSourceViewActive() ? 'source' : 'read',
       isHelpVisible,
       isLineGuideEnabled: () => readerControls?.current().readingTools.lineGuide,
       isMinimapEnabled: () => readerControls?.current().readingTools.minimap,
@@ -885,7 +739,7 @@ function mountDocumentContentActions(own) {
     adapters: {
       isDocumentAvailable: hasLoadedDocument,
       isHelpVisible,
-      isEditMode: () => isEditMode,
+      isEditMode: isEditing,
       isSourceActive: isSourceViewActive,
       getDocument: getCurrentDocument,
       getDocumentPath: getCurrentFilePath,
@@ -937,7 +791,7 @@ function mountScrollbarVisibility(own) {
 function mountDocumentLinkController(own) {
   documentLinkController = own(createDocumentLinkController({
     adapters: {
-      isEditMode: () => isEditMode,
+      isEditMode: isEditing,
       getDocumentPath: getCurrentFilePath,
       openExternalUrl: (href) => runtimeAdapters?.windows?.openExternalUrl?.(href),
       openDocument: (value) => readerShell?.open(value),
@@ -969,7 +823,7 @@ function mountReaderKeyboard(own) {
     adapters: {
       isHelpVisible,
       isReadingToolsOpen: () => readerControls?.isReadingToolsOpen(),
-      isEditMode: () => isEditMode,
+      isEditMode: isEditing,
     },
     hooks: {
       toggleHelp,
@@ -1041,54 +895,6 @@ function applicationEvents() {
   ];
 }
 
-const EMPTY_LOGO_SHIMMER_DELAY_MS = 2000;
-const EMPTY_LOGO_SHIMMER_CLASS = 'is-shimmering';
-const EMPTY_LOGO_SHIMMER_NAME = 'empty-logo-shimmer';
-
-/**
- * Empty-state logo sheen: once after boot delay, then on Open file hover only.
- * A pass always runs to its built-in exit fade; re-enter is ignored while busy
- * so rapid button hover cannot restart a loop.
- */
-function mountEmptyLogoShimmer({ window, own, listen }) {
-  const shell = document.getElementById('empty-logo-shell');
-  if (!shell) return;
-
-  let busy = false;
-
-  const play = () => {
-    if (busy) return;
-    busy = true;
-    shell.classList.remove(EMPTY_LOGO_SHIMMER_CLASS);
-    // Force a style flush so a later idle play can restart keyframes.
-    void shell.offsetWidth;
-    shell.classList.add(EMPTY_LOGO_SHIMMER_CLASS);
-  };
-
-  listen(shell, 'animationend', (event) => {
-    if (event.animationName !== EMPTY_LOGO_SHIMMER_NAME) return;
-    if (event.target !== shell && !shell.contains(event.target)) return;
-    shell.classList.remove(EMPTY_LOGO_SHIMMER_CLASS);
-    busy = false;
-  });
-
-  const openButton = document.getElementById('empty-open-button');
-  if (openButton) listen(openButton, 'mouseenter', play);
-
-  const emptyStage = document.getElementById('empty-stage');
-  const bootOnEmpty = Boolean(emptyStage && !emptyStage.classList.contains('hidden'));
-  let timer = 0;
-  if (bootOnEmpty) {
-    timer = window.setTimeout(play, EMPTY_LOGO_SHIMMER_DELAY_MS);
-  }
-
-  own(() => {
-    if (timer) window.clearTimeout(timer);
-    shell.classList.remove(EMPTY_LOGO_SHIMMER_CLASS);
-    busy = false;
-  });
-}
-
 async function startApplication(own) {
   const preferenceResult = await readerShell.preferences.load();
   if (preferenceResult.status === 'fallback') {
@@ -1155,12 +961,22 @@ export async function startOpenMdApplication() {
     mountDocumentIngress(own);
     mountContextMenu(own);
     mountReaderKeyboard(own);
+    mountEditorStateCoordinator(own);
     syncViewportState();
     for (const binding of applicationEvents()) {
       listen(binding.target, binding.type, binding.listener, binding.options);
     }
     await startApplication(own);
-    mountEmptyLogoShimmer({ window, own, listen });
+    const emptyLogoShell = document.getElementById('empty-logo-shell');
+    if (emptyLogoShell) {
+      const emptyStateMotion = own(createEmptyStateMotion({
+        window,
+        shell: emptyLogoShell,
+        openButton: ui.emptyOpenButton,
+        isEmpty: () => Boolean(ui.emptyStage && !ui.emptyStage.classList.contains('hidden')),
+      }));
+      emptyStateMotion.start();
+    }
   });
   return Object.freeze({
     dispose: () => applicationLifecycle?.dispose(),

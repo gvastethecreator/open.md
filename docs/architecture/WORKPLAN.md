@@ -1,7 +1,7 @@
 # Architecture workplan
 
-Date: 2026-07-29; updated 2026-07-31
-Status: ARC-01..45 implemented and locally verified
+Date: 2026-07-29; updated 2026-08-01
+Status: ARC-01..55 implemented and locally verified
 
 This ledger tracks the five accepted recommendations from the
 [architecture review](architecture-review-2026-07-29.md). Each slice used
@@ -671,3 +671,134 @@ ranges, anchors, gutter left, and minimap viewport geometry for navigation.
 
 - [x] Reading navigation imports geometry from the domain module.
 - [x] Geometry tests remain green via re-export or direct import.
+
+## Batch 2026-08-01 — Facade retirement and product-lifecycle locality
+
+This execution batch tracks exactly ten distinct improvements after ARC-01..45.
+It finishes residual production dependencies on the compatibility facade, then
+moves four product policies that accumulated in the composition root behind
+tested module interfaces. Workplan IDs continue as ARC-46..55.
+
+### ARC-46 — Document mode presentation locality
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** The Document Mode Coordinator owns mode labels, icons,
+next-mode ordering, title and ARIA presentation; compatibility callers may use
+a re-export without remaining the policy owner.
+
+- [x] Production mode coordination has no compatibility-facade dependency.
+- [x] Read, Edit, Source and invalid-mode fallback remain covered through the owner interface.
+
+### ARC-47 — Reader viewport mode locality
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** Reader Viewport owns empty/content/help precedence beside
+the visibility, inertness, focus and body projection that consume it.
+
+- [x] Production viewport projection has no compatibility-facade dependency.
+- [x] Empty, content and help behavior remains covered through the controller.
+
+### ARC-48 — Reader zoom gesture policy locality
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** Reader Zoom owns wheel direction and min/max clamping beside
+its step, state, publishing and feedback policy.
+
+- [x] Production zoom has no compatibility-facade dependency.
+- [x] Wheel direction, clamp, direct controls and disposal stay green.
+
+### ARC-49 — Native window presentation locality
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** Window Chrome owns Maximize/Restore label and icon projection
+beside native state acquisition and accessible control updates.
+
+- [x] Production window chrome has no compatibility-facade dependency.
+- [x] Native actions, state projection, failure and disposal tests pass.
+
+### ARC-50 — Status metric policy locality
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** Status Metrics is the sole owner of zoom and remaining-time
+metric policy; presenters and compatibility callers share that authority.
+
+- [x] Duplicate zoom/remaining-time implementations are removed.
+- [x] Visible and accessible status output remains covered for default/custom zoom and reading progress.
+
+### ARC-51 — Format-aware editor line mapping
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** Reading Navigation resolves Markdown code-line behavior from
+the authoritative path-plus-payload format instead of a coarse path-only kind.
+
+- [x] Payload format wins over a conflicting path hint.
+- [x] Navigation line mapping has no compatibility-facade dependency.
+
+### ARC-52 — Application status projection
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** ARC-50.
+
+**What to build:** Status Presenter accepts one application snapshot and owns
+format/profile selection, source summaries and document/editor/image metric
+composition rather than requiring the composition root to assemble them.
+
+- [x] The composition root contains no JSON/CSV/status metric branching.
+- [x] Ready, Help, Read, Source, Edit, Markdown, text, JSON, CSV and image states are covered through the presenter.
+
+### ARC-53 — Path-theme preference coordination
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** One Path Theme Preference coordinator owns enablement,
+longest-prefix recall, unchanged-theme suppression, and global-vs-path
+persistence over injected preference and theme adapters.
+
+- [x] Composition no longer knows the path-theme storage schema.
+- [x] Disabled, global, remembered, unchanged and volatile-result paths are covered.
+
+### ARC-54 — Empty-state logo motion lifecycle
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** None.
+
+**What to build:** One Empty State Motion module owns delayed boot shimmer,
+hover replay, busy/animation filtering and deterministic cleanup.
+
+- [x] The composition root contains no private shimmer timer or animation policy.
+- [x] Delay, hover, busy guard, animation end and disposal are covered.
+
+### ARC-55 — Editor state application coordination
+
+**Type:** AFK
+**Status:** Implemented
+**Blocked by:** ARC-52.
+
+**What to build:** One Editor State Coordinator owns the derived editing state
+and ordered application fan-out for feedback, transient UI, mode controls,
+saves, navigation, typography, reading tools and status.
+
+- [x] The composition root holds no mutable edit-mode flag or fan-out procedure.
+- [x] Read-to-Edit, Edit update, Edit-to-Read and post-dispose behavior are covered through the coordinator.

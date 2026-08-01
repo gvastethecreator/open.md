@@ -22,12 +22,16 @@ function fixture() {
 describe('Editor Feedback Presenter', () => {
   it('renders edit, dirty and saved feedback across the complete save state surface', () => {
     const view = fixture();
-    const first = view.presenter.render({ mode: 'read', dirty: false, saveState: 'saved' });
-    expect(first.modeChanged).toBe(false);
+    view.presenter.render({
+      snapshot: { mode: 'read', dirty: false, saveState: 'saved' },
+      isEditing: false,
+    });
     expect(view.elements.editorSaveButton.hidden).toBe(true);
 
-    const dirty = view.presenter.render({ mode: 'edit', dirty: true, saveState: 'idle' });
-    expect(dirty).toMatchObject({ isEditMode: true, modeChanged: true });
+    view.presenter.render({
+      snapshot: { mode: 'edit', dirty: true, saveState: 'idle' },
+      isEditing: true,
+    });
     expect(view.document.body.classList.contains('is-edit-mode')).toBe(true);
     expect(view.document.body.classList.contains('has-unsaved-changes')).toBe(true);
     expect(view.elements.editorSaveButton.hidden).toBe(false);
@@ -37,7 +41,10 @@ describe('Editor Feedback Presenter', () => {
     expect(view.elements.editorSaveLabel.textContent).toBe('Unsaved');
     expect(view.elements.editorSaveButton.getAttribute('aria-label')).toBe('Save document');
 
-    view.presenter.render({ mode: 'edit', dirty: false, saveState: 'recovered' });
+    view.presenter.render({
+      snapshot: { mode: 'edit', dirty: false, saveState: 'recovered' },
+      isEditing: true,
+    });
     expect(view.document.body.classList.contains('has-unsaved-changes')).toBe(false);
     expect(view.elements.editorSaveButton.disabled).toBe(true);
     expect(view.elements.editorSaveButton.dataset.state).toBe('saved');
@@ -47,14 +54,20 @@ describe('Editor Feedback Presenter', () => {
 
   it('renders saving and error feedback with state classes and retry copy', () => {
     const view = fixture();
-    view.presenter.render({ mode: 'edit', dirty: true, saveState: 'saving' });
+    view.presenter.render({
+      snapshot: { mode: 'edit', dirty: true, saveState: 'saving' },
+      isEditing: true,
+    });
     expect(view.document.body.classList.contains('is-editor-saving')).toBe(true);
     expect(view.elements.editorSaveButton.disabled).toBe(true);
     expect(view.elements.editorSaveButton.dataset.state).toBe('saving');
     expect(view.elements.editorSaveLabel.textContent).toBe('Saving…');
     expect(view.elements.editorSaveButton.querySelector('i').className).toBe('iconoir-refresh');
 
-    view.presenter.render({ mode: 'edit', dirty: true, saveState: 'error', error: 'Disk full' });
+    view.presenter.render({
+      snapshot: { mode: 'edit', dirty: true, saveState: 'error', error: 'Disk full' },
+      isEditing: true,
+    });
     expect(view.document.body.classList.contains('is-editor-saving')).toBe(false);
     expect(view.document.body.classList.contains('has-editor-save-error')).toBe(true);
     expect(view.elements.editorSaveButton.classList.contains('is-error')).toBe(true);
@@ -67,12 +80,18 @@ describe('Editor Feedback Presenter', () => {
 
   it('stops rendering after disposal', () => {
     const view = fixture();
-    view.presenter.render({ mode: 'edit', dirty: true, saveState: 'idle' });
+    view.presenter.render({
+      snapshot: { mode: 'edit', dirty: true, saveState: 'idle' },
+      isEditing: true,
+    });
     view.presenter.dispose();
     const before = view.elements.editorSaveLabel.textContent;
-    view.presenter.render({ mode: 'read', dirty: false, saveState: 'saved' });
+    view.presenter.render({
+      snapshot: { mode: 'read', dirty: false, saveState: 'saved' },
+      isEditing: false,
+    });
 
     expect(view.elements.editorSaveLabel.textContent).toBe(before);
-    expect(view.presenter.current().isEditMode).toBe(true);
+    expect(view.document.body.classList.contains('is-edit-mode')).toBe(true);
   });
 });

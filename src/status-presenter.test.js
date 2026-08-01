@@ -25,11 +25,6 @@ function fixture({ reduced = false } = {}) {
   };
 }
 
-const readerMetrics = [
-  { kind: 'lines', visible: '12 lines' },
-  { kind: 'zoom', visible: '125%' },
-];
-
 describe('Status Presenter', () => {
   it('renders identity, accessible metrics and reuses metric nodes by kind', () => {
     const view = fixture();
@@ -40,20 +35,27 @@ describe('Status Presenter', () => {
     });
 
     presenter.setIdentity({ primary: 'guide.md', context: 'Markdown' });
-    presenter.renderMetrics(readerMetrics, '12 lines. Zoom 125 percent.');
+    presenter.project({
+      path: 'guide.txt',
+      document: { kind: 'text', format: 'text', source: 'hello', lineCount: 12, characterCount: 5 },
+      zoomPercent: 125,
+      readingTools: {},
+    });
 
     const lines = view.elements.metrics.querySelector('[data-status-kind="lines"]');
     const zoom = view.elements.metrics.querySelector('[data-status-kind="zoom"]');
-    expect(view.elements.primary.textContent).toBe('guide.md');
-    expect(view.elements.context.dataset.tooltip).toBe('guide.md · Markdown');
-    expect(view.elements.metrics.getAttribute('aria-label')).toBe('12 lines. Zoom 125 percent.');
+    expect(view.elements.primary.textContent).toBe('guide.txt');
+    expect(view.elements.context.dataset.tooltip).toBe('guide.txt · Text');
+    expect(view.elements.metrics.getAttribute('aria-label')).toContain('12 lines');
     expect(view.elements.metrics.dataset.tooltip).toBeUndefined();
     expect(zoom.querySelector('.status-metric-value').textContent).toBe('125%');
 
-    presenter.renderMetrics([
-      { kind: 'zoom', visible: '150%' },
-      { kind: 'lines', visible: '13 lines' },
-    ], '13 lines. Zoom 150 percent.');
+    presenter.project({
+      path: 'guide.txt',
+      document: { kind: 'text', format: 'text', source: 'hello', lineCount: 13, characterCount: 5 },
+      zoomPercent: 150,
+      readingTools: {},
+    });
     expect(view.elements.metrics.querySelector('[data-status-kind="lines"]')).toBe(lines);
     expect(view.elements.metrics.querySelector('[data-status-kind="zoom"]')).toBe(zoom);
     expect(view.elements.metrics.querySelector('.status-metric-value').textContent).toBe('150%');
@@ -67,13 +69,18 @@ describe('Status Presenter', () => {
       elements: view.elements,
     });
 
-    presenter.renderMetrics([{ kind: 'zoom', visible: '110%' }], 'Zoom 110 percent.');
-    presenter.renderMetrics([{ kind: 'zoom', visible: '120%' }], 'Zoom 120 percent.');
+    const snapshot = {
+      path: 'guide.txt',
+      document: { kind: 'text', format: 'text', source: 'hello', lineCount: 1, characterCount: 5 },
+      readingTools: {},
+    };
+    presenter.project({ ...snapshot, zoomPercent: 110 });
+    presenter.project({ ...snapshot, zoomPercent: 120 });
     expect(view.animations).toHaveLength(1);
     presenter.dispose();
     expect(view.animations[0].cancel).toHaveBeenCalledOnce();
 
-    presenter.renderMetrics([{ kind: 'zoom', visible: '130%' }], 'Zoom 130 percent.');
+    presenter.project({ ...snapshot, zoomPercent: 130 });
     expect(view.elements.metrics.querySelector('.status-metric-value').textContent).toBe('120%');
   });
 
@@ -85,22 +92,31 @@ describe('Status Presenter', () => {
       elements: view.elements,
     });
 
-    presenter.renderDocumentMetrics({
-      lineCount: 10,
-      characterCount: 40,
+    presenter.project({
+      path: 'guide.md',
+      document: {
+        kind: 'markdown',
+        format: 'markdown',
+        source: '# Guide',
+        lineCount: 10,
+        characterCount: 40,
+        readingTimeMinutes: 5,
+      },
       zoomPercent: 100,
-      currentLine: 3,
-      showCurrentLine: true,
-      readingProgress: 20,
-      readingTimeMinutes: 5,
-      showReadingStats: false,
+      navigation: { currentLine: 3, readingProgress: 20 },
+      readingTools: { lineGuide: true, stats: false },
     });
     expect(view.elements.metrics.querySelector('[data-status-kind="lines"]')?.textContent).toContain('10');
     expect(view.elements.metrics.querySelector('[data-status-kind="current-line"]')?.textContent).toBe('Ln 3');
 
-    presenter.renderEditorMetrics({
-      cursor: { line: 2, column: 4 },
-      stats: { blocks: 3, words: 9, characters: 20 },
+    presenter.project({
+      path: 'guide.md',
+      document: { kind: 'markdown', format: 'markdown', source: '# Guide' },
+      editMode: true,
+      editorSnapshot: {
+        cursor: { line: 2, column: 4 },
+        stats: { blocks: 3, words: 9, characters: 20 },
+      },
       zoomPercent: 125,
     });
     expect(view.elements.metrics.querySelector('[data-status-kind="current-line"]')?.textContent).toBe('Ln 2');
@@ -127,15 +143,15 @@ describe('Status Presenter', () => {
 
     presenter.project({
       path: 'C:/docs/guide.md',
-      formatLabel: 'Markdown',
-      documentMetrics: {
-        statusProfile: 'markdown',
+      document: {
+        kind: 'markdown',
+        format: 'markdown',
+        source: '# Guide',
         lineCount: 4,
         characterCount: 20,
-        zoomPercent: 100,
-        showCurrentLine: false,
-        showReadingStats: false,
       },
+      zoomPercent: 100,
+      readingTools: {},
     });
     expect(view.elements.primary.textContent).toBe('guide.md');
     expect(view.elements.context.textContent).toBe('Markdown');
@@ -143,9 +159,8 @@ describe('Status Presenter', () => {
 
     presenter.project({
       path: 'C:/photos/shot.png',
-      formatLabel: 'Image',
-      documentMetrics: {
-        statusProfile: 'image',
+      document: { kind: 'image', format: 'png', source: '', lineCount: 1, characterCount: 0 },
+      imageState: {
         naturalWidth: 800,
         naturalHeight: 600,
         scale: 0.5,
@@ -157,43 +172,59 @@ describe('Status Presenter', () => {
     expect(view.elements.metrics.querySelector('[data-status-kind="zoom"]')?.textContent).toMatch(/Fit|50%/);
 
     presenter.project({
+      path: 'C:/docs/data.csv',
+      document: {
+        kind: 'text',
+        format: 'csv',
+        source: 'name,note\nAda,"a,b"',
+        lineCount: 2,
+        characterCount: 21,
+      },
+      zoomPercent: 100,
+      readingTools: {},
+    });
+    expect(view.elements.context.textContent).toBe('CSV');
+    expect(view.elements.metrics.querySelector('[data-status-kind="csv-shape"]')?.textContent).toBe('2×2');
+
+    presenter.project({
       path: 'C:/docs/guide.md',
-      formatLabel: 'Markdown',
-      sourceActive: true,
-      documentMetrics: {
+      document: {
+        kind: 'markdown',
+        format: 'markdown',
+        source: '# Guide',
         lineCount: 4,
         characterCount: 20,
-        zoomPercent: 100,
-        showCurrentLine: false,
-        showReadingStats: false,
       },
+      sourceActive: true,
+      zoomPercent: 100,
+      readingTools: {},
     });
     expect(view.elements.context.textContent).toBe('Source');
 
     presenter.project({
       path: 'C:/docs/guide.md',
+      document: { kind: 'markdown', format: 'markdown', source: '# Guide' },
       editMode: true,
-      editorMetrics: {
+      editorSnapshot: {
         cursor: { line: 1, column: 2 },
         stats: { blocks: 1, words: 2, characters: 5 },
-        zoomPercent: 100,
       },
+      zoomPercent: 100,
     });
     expect(view.elements.context.textContent).toBe('Editing');
     expect(view.elements.metrics.querySelector('[data-status-kind="column"]')?.textContent).toBe('Col 2');
 
     presenter.project({
       path: 'C:/docs/config.json',
-      editMode: true,
-      statusProfile: 'json',
-      documentMetrics: {
-        statusProfile: 'json',
-        lineCount: 4,
-        characterCount: 20,
-        zoomPercent: 100,
-        keyCount: 3,
-        rootType: 'object',
+      document: {
+        kind: 'text',
+        format: 'json',
+        source: '{"a":1,"b":2,"c":3}',
       },
+      editMode: true,
+      editorSnapshot: { presentation: 'json-props' },
+      editorSource: '{"a":1,"b":2,"c":3}',
+      zoomPercent: 100,
     });
     expect(view.elements.context.textContent).toBe('Editing');
     expect(view.elements.metrics.querySelector('[data-status-kind="json-keys"]')?.textContent).toContain('3');
@@ -207,11 +238,16 @@ describe('Status Presenter', () => {
       elements: view.elements,
     });
 
-    presenter.renderMetrics([{ kind: 'zoom', visible: '110%' }], 'Zoom 110 percent.');
-    presenter.renderMetrics([{ kind: 'zoom', visible: '120%' }], 'Zoom 120 percent.');
+    const snapshot = {
+      path: 'guide.txt',
+      document: { kind: 'text', format: 'text', source: 'hello', lineCount: 1, characterCount: 5 },
+      readingTools: {},
+    };
+    presenter.project({ ...snapshot, zoomPercent: 110 });
+    presenter.project({ ...snapshot, zoomPercent: 120 });
     expect(view.animations).toHaveLength(0);
 
-    presenter.clear();
+    presenter.project({});
     expect(view.elements.primary.textContent).toBe('open.md');
     expect(view.elements.context.textContent).toBe('Ready');
     expect(view.elements.metrics.hidden).toBe(true);
