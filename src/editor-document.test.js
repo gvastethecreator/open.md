@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  classicLineSourceHtml,
   createEditorDocumentModel,
   editableHtmlToMarkdown,
   getEditorDocumentStats,
@@ -68,6 +69,16 @@ describe('editor document model', () => {
     expect(host.querySelector('code')?.textContent).toBe('code');
     expect(host.querySelector('a')?.getAttribute('href')).toBe('https://example.com');
     expect(editableHtmlToMarkdown(host)).toBe('Use **bold**, *italics*, ~~old~~, `code` and [docs](https://example.com).');
+  });
+
+  it('highlights raw Markdown delimiters without rendering the source', () => {
+    const host = document.createElement('div');
+    host.innerHTML = classicLineSourceHtml('# <Title> with **bold**', { highlight: true });
+
+    expect([...host.querySelectorAll('.source-markup-token')].map((token) => token.textContent))
+      .toEqual(['#', '**', '**']);
+    expect(host.textContent).toBe('# <Title> with **bold**');
+    expect(host.querySelector('title')).toBeNull();
   });
 
   it('reports block, word and character stats from user content', () => {

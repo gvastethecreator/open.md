@@ -145,6 +145,7 @@ describe('Reader Controls', () => {
     });
 
     expect(view.document.body.classList.contains('is-source-view')).toBe(true);
+    expect(view.document.body.classList.contains('is-source-mode')).toBe(true);
     expect(view.document.body.classList.contains('is-line-guide')).toBe(true);
     expect(view.document.body.classList.contains('is-word-wrap')).toBe(false);
     expect(view.document.documentElement.style.getPropertyValue('--font-sans')).toContain('Candara');
@@ -152,6 +153,11 @@ describe('Reader Controls', () => {
     expect(view.elements.autoSaveToggle.getAttribute('aria-checked')).toBe('false');
     expect(view.elements.readingToolToggles[0].disabled).toBe(false);
     expect(view.hooks.onReadingToolsApplied).toHaveBeenCalled();
+
+    view.setEditMode(true);
+    view.controller.refresh();
+    expect(view.document.body.classList.contains('is-source-view')).toBe(false);
+    expect(view.document.body.classList.contains('is-source-mode')).toBe(true);
 
     view.setAvailable(false);
     view.controller.refresh();

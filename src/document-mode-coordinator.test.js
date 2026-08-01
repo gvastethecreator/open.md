@@ -69,18 +69,19 @@ function createHarness(options = {}) {
       enterEdit: async () => {
         calls.push('enter');
         if (enterGate) await enterGate;
-        mode = 'edit';
+        mode = mode === 'source' ? 'source-edit' : 'edit';
         return true;
       },
       exitEdit: () => {
         calls.push('exit');
         if (!allowExit) return false;
-        mode = 'read';
+        mode = mode === 'source-edit' ? 'source' : 'read';
         return true;
       },
       setSource: async (active) => {
         calls.push(`source:${active}`);
-        mode = active ? 'source' : 'read';
+        if (active) mode = mode === 'edit' ? 'source-edit' : 'source';
+        else mode = mode === 'source-edit' ? 'edit' : 'read';
       },
     },
     hooks: {
@@ -115,17 +116,20 @@ describe('Document Mode Coordinator', () => {
     expect(harness.elements.editLabel.textContent).toBe('Edit mode');
     expect(harness.elements.editControl.getAttribute('aria-pressed')).toBe('true');
     await harness.coordinator.toggleSource();
-    expect(harness.mode()).toBe('source');
+    expect(harness.mode()).toBe('source-edit');
     expect(harness.elements.sourceControl.getAttribute('aria-pressed')).toBe('true');
-    expect(harness.elements.editControl.getAttribute('aria-pressed')).toBe('false');
+    expect(harness.elements.editControl.getAttribute('aria-pressed')).toBe('true');
     await harness.coordinator.toggleSource();
+    expect(harness.mode()).toBe('edit');
+    await harness.coordinator.toggleEdit();
     expect(harness.mode()).toBe('read');
     expect(harness.calls).toEqual([
       'close-ui', 'cancel-theme', 'enter',
-      'close-ui', 'cancel-theme', 'exit', 'source:true',
+      'close-ui', 'cancel-theme', 'source:true',
       'close-ui', 'cancel-theme', 'source:false',
+      'close-ui', 'cancel-theme', 'exit',
     ]);
-    expect(harness.toasts).toEqual(['Edit mode', 'Source view', 'Rendered view']);
+    expect(harness.toasts).toEqual(['Edit mode', 'Source view', 'Rendered view', 'Read only mode']);
   });
 
   it('does not toast when a mode change is blocked', async () => {
@@ -137,7 +141,7 @@ describe('Document Mode Coordinator', () => {
     harness.setAvailable(true);
     harness.setMode('edit');
     harness.setAllowExit(false);
-    await expect(harness.coordinator.toggleSource()).resolves.toBe(false);
+    await expect(harness.coordinator.toggleEdit()).resolves.toBe(false);
     expect(harness.mode()).toBe('edit');
     expect(harness.toasts).toEqual([]);
   });
@@ -175,16 +179,16 @@ describe('Document Mode Coordinator', () => {
     // Let performChange mark the change active before intermediate refreshes land.
     await Promise.resolve();
     await Promise.resolve();
-    // Simulate editor/state refreshes that observe the intermediate Read state.
+    // Simulate editor/state refreshes while the Source editor is still entering.
     harness.coordinator.refresh();
-    expect(harness.mode()).toBe('read');
+    expect(harness.mode()).toBe('source');
     expect(harness.elements.sourceControl.dataset.tooltip).toBe('Source');
     expect(harness.elements.editControl.dataset.tooltip).toBe('Read only');
 
     enterGate.resolve();
     await change;
-    expect(harness.mode()).toBe('edit');
-    expect(harness.elements.sourceControl.dataset.tooltip).toBe('Rendered');
+    expect(harness.mode()).toBe('source-edit');
+    expect(harness.elements.sourceControl.dataset.tooltip).toBe('Source');
     expect(harness.elements.editControl.dataset.tooltip).toBe('Edit');
   });
 
@@ -205,12 +209,13 @@ describe('Document Mode Coordinator', () => {
           return true;
         },
         exitEdit: () => {
-          mode = 'read';
+          mode = mode === 'source-edit' ? 'source' : 'read';
           scrollPosition = 0;
           return true;
         },
         setSource: (active) => {
-          mode = active ? 'source' : 'read';
+          if (active) mode = mode === 'edit' ? 'source-edit' : 'source';
+          else mode = mode === 'source-edit' ? 'edit' : 'read';
           scrollPosition = 0;
         },
       },
@@ -226,11 +231,11 @@ describe('Document Mode Coordinator', () => {
 
     scrollPosition = 480;
     await coordinator.toggleSource();
-    expect(mode).toBe('source');
+    expect(mode).toBe('source-edit');
     expect(scrollPosition).toBe(480);
 
-    await coordinator.toggleSource();
-    expect(mode).toBe('read');
+    await coordinator.toggleEdit();
+    expect(mode).toBe('source');
     expect(scrollPosition).toBe(480);
   });
 
@@ -239,31 +244,34 @@ describe('Document Mode Coordinator', () => {
     harness.setMode('edit');
     harness.setAllowExit(false);
 
-    await expect(harness.coordinator.toggleSource()).resolves.toBe(false);
+    await expect(harness.coordinator.toggleEdit()).resolves.toBe(false);
     expect(harness.mode()).toBe('edit');
     expect(harness.calls).not.toContain('source:true');
     expect(harness.elements.editControl.dataset.mode).toBe('edit');
   });
 
-  it('toggles Source to Edit and Edit to Read without visiting Source on exit', async () => {
+  it('gives Source its own Edit state and returns to Source on exit', async () => {
     const harness = createHarness({ reduced: true });
     harness.setMode('source');
     await harness.coordinator.toggleEdit();
-    expect(harness.mode()).toBe('edit');
-    expect(harness.calls.slice(-2)).toEqual(['source:false', 'enter']);
+    expect(harness.mode()).toBe('source-edit');
+    expect(harness.calls.at(-1)).toBe('enter');
+    expect(harness.elements.sourceControl.getAttribute('aria-pressed')).toBe('true');
+    expect(harness.elements.editControl.getAttribute('aria-pressed')).toBe('true');
 
     await harness.coordinator.toggleEdit();
-    expect(harness.mode()).toBe('read');
+    expect(harness.mode()).toBe('source');
     expect(harness.calls.at(-1)).toBe('exit');
   });
 
-  it('does not enter Edit on a replacement document while leaving Source', async () => {
+  it('rejects a stale Source Edit completion after the document changes', async () => {
     const view = fixture({ reduced: true });
-    const sourceGate = deferred();
+    const enterGate = deferred();
     let mode = 'source';
     let documentIdentity = 'A.md';
-    const enterEdit = vi.fn(() => {
-      mode = 'edit';
+    const enterEdit = vi.fn(async () => {
+      await enterGate.promise;
+      mode = 'source-edit';
       return true;
     });
     const coordinator = createDocumentModeCoordinator({
@@ -274,10 +282,6 @@ describe('Document Mode Coordinator', () => {
         getMode: () => mode,
         isAvailable: () => true,
         getDocumentIdentity: () => documentIdentity,
-        setSource: async () => {
-          await sourceGate.promise;
-          mode = 'read';
-        },
         enterEdit,
       },
     });
@@ -286,11 +290,11 @@ describe('Document Mode Coordinator', () => {
     await Promise.resolve();
     await Promise.resolve();
     documentIdentity = 'B.md';
-    sourceGate.resolve();
+    enterGate.resolve();
 
     await expect(change).resolves.toBe(false);
-    expect(enterEdit).not.toHaveBeenCalled();
-    expect(mode).toBe('read');
+    expect(enterEdit).toHaveBeenCalledOnce();
+    expect(mode).toBe('source-edit');
   });
 
   it('rejects queued mode actions that were requested for a replaced document', async () => {
@@ -356,7 +360,7 @@ describe('Document Mode Coordinator', () => {
     expect(interrupted.skipTransition).toHaveBeenCalledOnce();
     active.resolve();
     await Promise.all([first, second]);
-    expect(harness.mode()).toBe('read');
+    expect(harness.mode()).toBe('edit');
   });
 
   it('animates fallback chrome, honors reduced motion and disposes every marker', async () => {

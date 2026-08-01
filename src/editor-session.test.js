@@ -24,7 +24,8 @@ function deferred() {
 
 function mount(save = vi.fn(async () => ({ source: '' })), hooks = {}, options = {}) {
   renderFixture();
-  // Existing suite covers Block presentation; Classic is explicit via blockEditor: false.
+  // Rendered Markdown always uses the rich block projection. The preference only
+  // controls block tools; Source Edit owns the continuous raw-source surface.
   const blockEditor = options.blockEditor !== false;
   const session = createEditorSession({
     window,
@@ -45,6 +46,9 @@ function mount(save = vi.fn(async () => ({ source: '' })), hooks = {}, options =
     adapters: {
       save,
       isBlockEditor: () => blockEditor,
+      isSourceMode: typeof options.isSourceMode === 'function'
+        ? options.isSourceMode
+        : () => Boolean(options.sourceMode),
     },
     hooks,
   });
@@ -252,7 +256,7 @@ describe('editor session', () => {
     const { session } = mount(save);
     session.setDocument({ path: 'sample.txt', source: 'Before', markdown: false });
     session.enter();
-    const content = document.querySelector('[data-editor-content]');
+    const content = document.querySelector('[data-editor-content], [data-classic-content]');
     content.textContent = 'Changed';
     content.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
 
@@ -291,6 +295,37 @@ describe('editor session', () => {
       expect.stringContaining('"count": 9'),
     );
     expect(session.isDirty()).toBe(false);
+    session.dispose();
+  });
+
+  it('gives JSON Source its own raw Edit mode and restores properties in Rendered Edit', async () => {
+    let sourceMode = true;
+    const { session } = mount(vi.fn(async () => ({ source: '' })), {}, {
+      blockEditor: false,
+      isSourceMode: () => sourceMode,
+    });
+    session.setDocument({
+      path: 'config.json',
+      source: '{\n  "name": "open.md",\n  "count": 1\n}\n',
+      markdown: false,
+      presentation: 'json-props',
+    });
+
+    expect(session.enter()).toBe(true);
+    expect(session.current().presentation).toBe('source');
+    expect(document.querySelector('.json-props')).toBeNull();
+    expect(document.getElementById('editor-canvas').getAttribute('aria-label')).toBe('Source editor');
+
+    sourceMode = false;
+    session.refreshPresentation();
+    expect(session.current().presentation).toBe('json-props');
+    expect(document.querySelectorAll('[data-json-property]')).toHaveLength(2);
+
+    sourceMode = true;
+    session.refreshPresentation();
+    expect(session.current().presentation).toBe('source');
+    expect(document.querySelector('.json-props')).toBeNull();
+    expect(session.source()).toContain('"count": 1');
     session.dispose();
   });
 
@@ -379,6 +414,37 @@ describe('editor session', () => {
 
     expect(session.source()).toBe('Saved version plus newer typing');
     expect(session.current()).toMatchObject({ mode: 'edit', dirty: true, saveState: 'idle' });
+  });
+
+  it('keeps the active rendered block stable when a same-path save payload is applied', async () => {
+    const savedPayload = { source: 'One\nTwo edited', html: '<p>One</p><p>Two edited</p>' };
+    const { session } = mount(vi.fn(async () => savedPayload));
+    session.setDocument({ path: 'stable.md', source: 'One\nTwo', markdown: true });
+    session.enter();
+    await Promise.resolve();
+    activateBlock(1);
+    const second = document.querySelector('.editor-block.is-active-line');
+    const content = second.querySelector('[data-editor-content]');
+    content.focus();
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(content);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    content.textContent = 'Two edited';
+    content.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+
+    await expect(session.save()).resolves.toMatchObject({ status: 'saved' });
+    expect(document.querySelector('.editor-block.is-active-line')?.dataset.blockId)
+      .toBe(second.dataset.blockId);
+    session.setDocument({ path: 'stable.md', source: savedPayload.source, markdown: true });
+
+    const active = document.querySelector('.editor-block.is-active-line');
+    expect(active?.dataset.blockId).toBe(second.dataset.blockId);
+    expect(active?.querySelector('[data-editor-content]')?.textContent).toBe('Two edited');
+    expect(session.current()).toMatchObject({ dirty: false, saveState: 'saved' });
+    session.dispose();
   });
 
   it('does not commit an in-flight save into a replacement document', async () => {
@@ -754,8 +820,123 @@ describe('editor session', () => {
     expect(document.querySelectorAll('.editor-block.is-active-line')).toHaveLength(1);
   });
 
-  it('Classic mode uses continuous source-line surface, not block islands', async () => {
+  it('reclassifies Markdown while typing in Rendered Edit and adjusts heading depth at the caret', () => {
     const { session } = mount(vi.fn(async () => ({ source: '' })), {}, { blockEditor: false });
+    session.setDocument({ path: 'live.md', source: 'Plain text', markdown: true });
+    session.enter();
+
+    let content = document.querySelector('.editor-block.is-active-line [data-editor-content]');
+    content.textContent = '# Live heading';
+    content.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+
+    expect(document.querySelector('.editor-block--heading1')).toBeTruthy();
+    expect(session.source()).toBe('# Live heading');
+
+    content = document.querySelector('.editor-block.is-active-line [data-editor-content]');
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.setStart(content.firstChild, 0);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    content.dispatchEvent(new KeyboardEvent('keydown', {
+      key: '#',
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    }));
+
+    expect(document.querySelector('.editor-block--heading2')).toBeTruthy();
+    expect(session.source()).toBe('## Live heading');
+
+    content = document.querySelector('.editor-block.is-active-line [data-editor-content]');
+    const backspaceRange = document.createRange();
+    backspaceRange.setStart(content.firstChild, 0);
+    backspaceRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(backspaceRange);
+    content.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Backspace',
+      bubbles: true,
+      cancelable: true,
+    }));
+
+    expect(document.querySelector('.editor-block--heading1')).toBeTruthy();
+    expect(session.source()).toBe('# Live heading');
+
+    content = document.querySelector('.editor-block.is-active-line [data-editor-content]');
+    const paragraphRange = document.createRange();
+    paragraphRange.setStart(content.firstChild, 0);
+    paragraphRange.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(paragraphRange);
+    content.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Backspace',
+      bubbles: true,
+      cancelable: true,
+    }));
+    content = document.querySelector('.editor-block.is-active-line [data-editor-content]');
+    content.textContent = '- List item';
+    content.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+
+    expect(document.querySelector('.editor-block--bullet')).toBeTruthy();
+    expect(session.source()).toBe('- List item');
+    session.dispose();
+  });
+
+  it('keeps the full supported Markdown projection in Rendered Edit when block tools are off', async () => {
+    const { session } = mount(vi.fn(async () => ({ source: '' })), {}, { blockEditor: false });
+    session.setDocument({
+      path: 'rendered-parity.md',
+      source: [
+        '# Title',
+        '',
+        'Text with **bold**, *italics*, ~~old~~, `code` and [docs](https://example.com).',
+        '',
+        '## Section',
+        '',
+        '- Bullet',
+        '1. Numbered',
+        '- [x] Complete',
+        '',
+        '> Quoted text',
+        '',
+        '```js',
+        'const ready = true;',
+        '```',
+        '',
+        '---',
+      ].join('\n'),
+      markdown: true,
+    });
+
+    session.enter();
+    await Promise.resolve();
+
+    expect(session.current().presentation).toBe('block');
+    expect(document.getElementById('editor-view').classList.contains('is-block-presentation')).toBe(true);
+    expect(blockToolbar().hidden).toBe(true);
+    expect(document.querySelector('.editor-block--heading1')).toBeTruthy();
+    expect(document.querySelector('.editor-block--heading2')).toBeTruthy();
+    expect(document.querySelector('.editor-block--bullet .editor-list-marker')?.textContent).toBe('•');
+    expect(document.querySelector('.editor-block--numbered .editor-list-marker')?.textContent).toBe('1.');
+    expect(document.querySelector('.editor-block--todo input[type="checkbox"]')?.checked).toBe(true);
+    expect(document.querySelector('.editor-block--quote [data-editor-mode="preview"]')?.textContent).toBe('Quoted text');
+    expect(document.querySelector('.editor-block--code pre')?.textContent).toBe('const ready = true;');
+    expect(document.querySelector('.editor-block--divider [role="separator"]')).toBeTruthy();
+    expect(document.querySelector('[data-editor-mode="preview"] strong')?.textContent).toBe('bold');
+    expect(document.querySelector('[data-editor-mode="preview"] em')?.textContent).toBe('italics');
+    expect(document.querySelector('[data-editor-mode="preview"] s')?.textContent).toBe('old');
+    expect(document.querySelector('[data-editor-mode="preview"] code')?.textContent).toBe('code');
+    expect(document.querySelector('[data-editor-mode="preview"] a')?.getAttribute('href')).toBe('https://example.com');
+    session.dispose();
+  });
+
+  it('Source Edit uses the continuous raw-source surface, not rendered block islands', async () => {
+    const { session } = mount(vi.fn(async () => ({ source: '' })), {}, {
+      blockEditor: false,
+      sourceMode: true,
+    });
     session.setDocument({
       path: 'classic.md',
       source: '# Title\n\nHello **world**\n\n- item',
@@ -764,7 +945,7 @@ describe('editor session', () => {
     session.enter();
     await Promise.resolve();
 
-    expect(session.current().presentation).toBe('classic');
+    expect(session.current().presentation).toBe('source');
     expect(blockToolbar().hidden).toBe(true);
     const canvas = document.getElementById('editor-canvas');
     expect(canvas.contentEditable).toBe('true');
@@ -777,7 +958,8 @@ describe('editor session', () => {
     expect(document.querySelectorAll('[data-editor-mode="source"]')).toHaveLength(1);
     expect(document.querySelector('.is-active-line [data-editor-mode="source"]')?.textContent)
       .toContain('# Title');
-    expect(document.querySelector('[data-editor-mode="preview"] strong')?.textContent).toBe('world');
+    expect([...document.querySelectorAll('[data-editor-mode="preview"] .source-markup-token')]
+      .filter((token) => token.textContent === '**')).toHaveLength(2);
 
     // Activate the world line via classic surface line index 2.
     const worldRow = [...document.querySelectorAll('[data-classic-line]')]
@@ -798,8 +980,103 @@ describe('editor session', () => {
     session.dispose();
   });
 
-  it('Classic multi-line selection stays stable without flipping every line to source', async () => {
-    const { session } = mount(vi.fn(async () => ({ source: '' })), {}, { blockEditor: false });
+  it('keeps Source Edit responsive and highlighted across multiline Enter input', () => {
+    const { session } = mount(vi.fn(async () => ({ source: '' })), {}, {
+      blockEditor: false,
+      sourceMode: true,
+    });
+    session.setDocument({ path: 'multiline.md', source: '**bold**', markdown: true });
+    session.enter();
+
+    const first = document.querySelector('.classic-line.is-active-line [data-classic-content]');
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(first);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    first.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Enter',
+      bubbles: true,
+      cancelable: true,
+    }));
+
+    const next = document.querySelector('.classic-line.is-active-line [data-classic-content]');
+    next.innerHTML = '<div>**next**</div>';
+    const nextRange = document.createRange();
+    nextRange.selectNodeContents(next);
+    nextRange.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(nextRange);
+    next.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+
+    expect(session.source()).toBe('**bold**\n**next**');
+    expect(document.querySelectorAll('.classic-line')).toHaveLength(2);
+    expect([...next.querySelectorAll('.source-markup-token')].map((token) => token.textContent))
+      .toEqual(['**', '**']);
+    expect(document.getElementById('editor-canvas').contentEditable).toBe('true');
+    expect(session.current().dirty).toBe(true);
+    session.dispose();
+  });
+
+  it('does not normalize incomplete Markdown merely by entering Source Edit', () => {
+    const raw = '```js\nconst pending = true;';
+    const { session } = mount(vi.fn(async () => ({ source: '' })), {}, {
+      sourceMode: true,
+    });
+    session.setDocument({ path: 'raw.md', source: raw, markdown: true });
+
+    session.enter();
+
+    expect(session.current().presentation).toBe('source');
+    expect(session.source()).toBe(raw);
+    expect(document.querySelectorAll('.classic-line')).toHaveLength(2);
+    session.dispose();
+  });
+
+  it('edits Source as raw text and preserves the draft when returning to Rendered', async () => {
+    let sourceMode = true;
+    const { session } = mount(vi.fn(async () => ({ source: '' })), {}, {
+      blockEditor: false,
+      isSourceMode: () => sourceMode,
+    });
+    session.setDocument({
+      path: 'source-edit.md',
+      source: '# Title\n\nHello **world**',
+      markdown: true,
+    });
+
+    session.enter();
+    await Promise.resolve();
+
+    expect(session.current().presentation).toBe('source');
+    expect(document.getElementById('editor-view').classList.contains('is-source-presentation')).toBe(true);
+    expect(document.getElementById('editor-canvas').getAttribute('aria-label')).toBe('Source editor');
+    expect(document.getElementById('editor-context-label').textContent).toBe('Source editor');
+    expect([...document.querySelectorAll('[data-editor-mode="preview"] .source-markup-token')]
+      .map((token) => token.textContent)).toEqual(['**', '**']);
+    expect(document.querySelector('[data-source-text*="**world**"]')).toBeTruthy();
+
+    const active = document.querySelector('.is-active-line [data-classic-content]');
+    active.textContent = '# Raw title';
+    active.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    expect(session.current().dirty).toBe(true);
+
+    sourceMode = false;
+    session.refreshPresentation();
+    await Promise.resolve();
+    expect(session.current()).toMatchObject({ dirty: true, presentation: 'block' });
+    expect(session.source()).toContain('# Raw title');
+    expect(document.querySelector('[data-editor-mode="preview"] strong:not(.source-markup-token)')?.textContent)
+      .toBe('world');
+    session.dispose();
+  });
+
+  it('Source Edit multi-line selection stays stable without reprojecting every line', async () => {
+    const { session } = mount(vi.fn(async () => ({ source: '' })), {}, {
+      blockEditor: false,
+      sourceMode: true,
+    });
     session.setDocument({
       path: 'select.md',
       source: 'Alpha **one**\n\nBeta **two**\n\nGamma',
@@ -831,7 +1108,7 @@ describe('editor session', () => {
     session.dispose();
   });
 
-  it('keeps a dirty draft when flipping Classic ↔ Block presentation', async () => {
+  it('keeps a dirty rendered draft when block tools are toggled', async () => {
     let blockEditor = false;
     renderFixture();
     const session = createEditorSession({
@@ -857,6 +1134,7 @@ describe('editor session', () => {
     });
     session.setDocument({ path: 'flip.md', source: 'Hello', markdown: true });
     session.enter();
+    expect(session.current().presentation).toBe('block');
     expect(document.getElementById('editor-context-label').textContent).toBe('Live preview');
     const content = document.querySelector('[data-classic-content][data-editor-mode="source"], [data-editor-content]');
     expect(content).toBeTruthy();
@@ -874,16 +1152,16 @@ describe('editor session', () => {
 
     blockEditor = false;
     session.refreshPresentation();
-    expect(session.current()).toMatchObject({ dirty: true, presentation: 'classic' });
+    expect(session.current()).toMatchObject({ dirty: true, presentation: 'block' });
     expect(blockToolbar().hidden).toBe(true);
     expect(session.source()).toContain('Hello dirty');
     expect(document.getElementById('editor-context-hint').textContent).toMatch(/Active line|Markdown|preview/i);
     session.dispose();
   });
 
-  it('commits classic continuous source on save', async () => {
+  it('commits continuous Source Edit text on save', async () => {
     const save = vi.fn(async (_path, source) => ({ source }));
-    const { session } = mount(save, {}, { blockEditor: false });
+    const { session } = mount(save, {}, { blockEditor: false, sourceMode: true });
     session.setDocument({
       path: 'commit.md',
       source: 'First line',

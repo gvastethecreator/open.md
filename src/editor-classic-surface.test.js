@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createEditorClassicSurface } from './editor-classic-surface.js';
 
-function mountSurface(initial = '# Title\n\nHello **world**\n\n- item') {
+function mountSurface(initial = '# Title\n\nHello **world**\n\n- item', options = {}) {
   document.body.innerHTML = '<div id="canvas"></div>';
   const canvas = document.getElementById('canvas');
   let source = initial;
@@ -20,6 +20,7 @@ function mountSurface(initial = '# Title\n\nHello **world**\n\n- item') {
       getSource: () => source,
       applySource,
       setCursor,
+      highlightSource: () => Boolean(options.highlightSource),
     },
   });
   surface.mount();
@@ -97,6 +98,55 @@ describe('Editor Classic Surface', () => {
     expect(canvas.contentEditable).toBe('true');
     expect(canvas.querySelectorAll('.classic-line')).toHaveLength(2);
     expect(canvas.querySelectorAll('[data-editor-mode="source"]')).toHaveLength(1);
+  });
+
+  it('keeps highlighted Source editable after Enter and normalizes browser line wrappers', () => {
+    const { surface, canvas, getSource } = mountSurface('# Title', { highlightSource: true });
+    const content = canvas.querySelector('[data-editor-mode="source"]');
+    expect(content.querySelector('.source-markup-token')?.textContent).toBe('#');
+    const endRange = document.createRange();
+    endRange.selectNodeContents(content);
+    endRange.collapse(false);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(endRange);
+
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    expect(surface.handleKeydown(enter)).toBe(true);
+    expect(getSource()).toBe('# Title\n');
+    expect(canvas.querySelectorAll('.classic-line')).toHaveLength(2);
+
+    const next = canvas.querySelector('.classic-line.is-active-line [data-classic-content]');
+    next.innerHTML = '<div>**next**</div>';
+    const nextRange = document.createRange();
+    nextRange.selectNodeContents(next);
+    nextRange.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(nextRange);
+    expect(surface.handleInput()).toBe(true);
+
+    expect(getSource()).toBe('# Title\n**next**');
+    expect(canvas.querySelectorAll('.classic-line')).toHaveLength(2);
+    expect([...next.querySelectorAll('.source-markup-token')].map((token) => token.textContent))
+      .toEqual(['**', '**']);
+    expect(canvas.contentEditable).toBe('true');
+    expect(window.getSelection().rangeCount).toBe(1);
+  });
+
+  it('owns insertParagraph beforeinput for keyboard and virtual-keyboard line breaks', () => {
+    const { surface, canvas, getSource } = mountSurface('Alpha');
+    const content = canvas.querySelector('[data-editor-mode="source"]');
+    placeCaretIn(content, 2);
+    const event = new InputEvent('beforeinput', {
+      inputType: 'insertParagraph',
+      bubbles: true,
+      cancelable: true,
+    });
+
+    expect(surface.handleBeforeInput(event)).toBe(true);
+    expect(event.defaultPrevented).toBe(true);
+    expect(getSource()).toBe('Al\npha');
+    expect(canvas.querySelectorAll('.classic-line')).toHaveLength(2);
   });
 
   it('moves across hard lines with ArrowUp/Down using preferred column', () => {
