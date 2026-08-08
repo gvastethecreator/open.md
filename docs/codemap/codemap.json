@@ -1,0 +1,638 @@
+{
+  "generated_at": "2026-08-08T10:06:14Z",
+  "generated_from_commit": "a4f5bdbdc27fe79e89865d86fb429725bd1ee5f4",
+  "scope": [
+    "."
+  ],
+  "nodes": [
+    {
+      "id": "external-dependencies",
+      "path": "index.html",
+      "role": "Represents external packages referenced by tracked source files.",
+      "type": "external",
+      "boundary": "External",
+      "entrypoints": [
+        "index.html:https://github.com/gvastethecreator/open.md"
+      ],
+      "tests": [],
+      "constraints": [
+        "Only dependencies with literal tracked-source references appear here."
+      ],
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "index.html",
+            "symbol": "https://github.com/gvastethecreator/open.md"
+          }
+        ]
+      }
+    },
+    {
+      "id": "index",
+      "path": "index.html",
+      "role": "Owns the tracked files for the index module.",
+      "type": "module",
+      "boundary": "Index",
+      "entrypoints": [
+        "index.html:open.md"
+      ],
+      "tests": [],
+      "constraints": [
+        "This baseline uses tracked source and explicit dependency references only."
+      ],
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "index.html",
+            "symbol": "open.md"
+          }
+        ]
+      }
+    },
+    {
+      "id": "repository",
+      "path": "README.md",
+      "role": "Owns the tracked files for the repository module.",
+      "type": "module",
+      "boundary": "Repository",
+      "entrypoints": [
+        "README.md:open.md"
+      ],
+      "tests": [],
+      "constraints": [
+        "This baseline uses tracked source and explicit dependency references only."
+      ],
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "README.md",
+            "symbol": "open.md"
+          }
+        ]
+      }
+    },
+    {
+      "id": "scripts",
+      "path": "scripts",
+      "role": "Owns the tracked files for the scripts module.",
+      "type": "service",
+      "boundary": "Scripts",
+      "entrypoints": [
+        "scripts/check-bundle.mjs:listFiles"
+      ],
+      "tests": [],
+      "constraints": [
+        "This baseline uses tracked source and explicit dependency references only."
+      ],
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "scripts/check-bundle.mjs",
+            "symbol": "listFiles"
+          }
+        ]
+      }
+    },
+    {
+      "id": "src",
+      "path": "src",
+      "role": "Owns the tracked files for the src module.",
+      "type": "module",
+      "boundary": "Src",
+      "entrypoints": [
+        "src/main.js:cacheElements"
+      ],
+      "tests": [
+        "src/app-loading-screen.test.js",
+        "src/application-composition.test.js",
+        "src/application-lifecycle.test.js",
+        "src/application-runtime-adapters.test.js",
+        "src/context-menu-controller.test.js"
+      ],
+      "constraints": [
+        "This baseline uses tracked source and explicit dependency references only."
+      ],
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/main.js",
+            "symbol": "cacheElements"
+          }
+        ]
+      }
+    },
+    {
+      "id": "src-core",
+      "path": "src/core",
+      "role": "Owns the tracked files for the src / core module.",
+      "type": "service",
+      "boundary": "Src",
+      "entrypoints": [
+        "src/core/reader.js:isSupportedFilePath"
+      ],
+      "tests": [
+        "src/main.test.js"
+      ],
+      "constraints": [
+        "This baseline uses tracked source and explicit dependency references only."
+      ],
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/core/reader.js",
+            "symbol": "isSupportedFilePath"
+          }
+        ]
+      }
+    },
+    {
+      "id": "src-tauri",
+      "path": "src-tauri",
+      "role": "Owns the tracked files for the src-tauri module.",
+      "type": "module",
+      "boundary": "Src Tauri",
+      "entrypoints": [
+        "src-tauri/Cargo.toml:package"
+      ],
+      "tests": [],
+      "constraints": [
+        "This baseline uses tracked source and explicit dependency references only."
+      ],
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/Cargo.toml",
+            "symbol": "package"
+          }
+        ]
+      }
+    },
+    {
+      "id": "src-tauri-src",
+      "path": "src-tauri/src",
+      "role": "Owns the tracked files for the src-tauri / src module.",
+      "type": "module",
+      "boundary": "Src Tauri",
+      "entrypoints": [
+        "src-tauri/src/lib.rs:get_file_content"
+      ],
+      "tests": [],
+      "constraints": [
+        "This baseline uses tracked source and explicit dependency references only."
+      ],
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/lib.rs",
+            "symbol": "get_file_content"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vite-config",
+      "path": "vite.config.js",
+      "role": "Owns the tracked files for the vite.config module.",
+      "type": "module",
+      "boundary": "Vite.Config",
+      "entrypoints": [
+        "vite.config.js:import { defineConfig } from \"vite\";"
+      ],
+      "tests": [],
+      "constraints": [
+        "This baseline uses tracked source and explicit dependency references only."
+      ],
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "vite.config.js",
+            "symbol": "import { defineConfig } from \"vite\";"
+          }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "index",
+      "to": "external-dependencies",
+      "type": "imports",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "index.html",
+            "symbol": "https://github.com/gvastethecreator/open.md"
+          }
+        ]
+      }
+    },
+    {
+      "from": "index",
+      "to": "src",
+      "type": "imports",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "index.html",
+            "symbol": "/src/styles.css"
+          },
+          {
+            "path": "index.html",
+            "symbol": "/src/main.js"
+          }
+        ]
+      }
+    },
+    {
+      "from": "repository",
+      "to": "index",
+      "type": "reads",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "CHANGELOG.md",
+            "symbol": "index.html"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "index.html"
+          }
+        ]
+      }
+    },
+    {
+      "from": "repository",
+      "to": "scripts",
+      "type": "calls",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "package.json",
+            "symbol": "./scripts/check-bundle.mjs"
+          },
+          {
+            "path": "package.json",
+            "symbol": "./scripts/validate-pages.mjs"
+          },
+          {
+            "path": "package.json",
+            "symbol": "./scripts/generate-runtime-themes.mjs"
+          },
+          {
+            "path": "package.json",
+            "symbol": "./scripts/validate-frontend.mjs"
+          }
+        ]
+      }
+    },
+    {
+      "from": "repository",
+      "to": "scripts",
+      "type": "reads",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "CONTEXT.md",
+            "symbol": "scripts/validate-frontend.mjs"
+          }
+        ]
+      }
+    },
+    {
+      "from": "repository",
+      "to": "src",
+      "type": "calls",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "package.json",
+            "symbol": "src/reader-shell.test.js"
+          }
+        ]
+      }
+    },
+    {
+      "from": "repository",
+      "to": "src",
+      "type": "reads",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "CHANGELOG.md",
+            "symbol": "src/themes.json"
+          },
+          {
+            "path": "CHANGELOG.md",
+            "symbol": "src/main.js"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src/main.js"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src/application-lifecycle.js"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src/application-runtime-adapters.js"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src/document-ingress-controller.js"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src/document-view-state.js"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src/reader-viewport-controller.js"
+          }
+        ]
+      }
+    },
+    {
+      "from": "repository",
+      "to": "src-core",
+      "type": "reads",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src/core/reader.js"
+          }
+        ]
+      }
+    },
+    {
+      "from": "repository",
+      "to": "src-tauri",
+      "type": "reads",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "CHANGELOG.md",
+            "symbol": "src-tauri/Cargo.toml"
+          }
+        ]
+      }
+    },
+    {
+      "from": "repository",
+      "to": "src-tauri-src",
+      "type": "reads",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "CHANGELOG.md",
+            "symbol": "src-tauri/src/lib.rs"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src-tauri/src/lib.rs"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src-tauri/src/app_settings.rs"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src-tauri/src/file_associations.rs"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src-tauri/src/document_access.rs"
+          }
+        ]
+      }
+    },
+    {
+      "from": "src",
+      "to": "external-dependencies",
+      "type": "imports",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/app-loading-screen.test.js",
+            "symbol": "vitest"
+          },
+          {
+            "path": "src/application-composition.test.js",
+            "symbol": "jsdom"
+          },
+          {
+            "path": "src/application-composition.test.js",
+            "symbol": "vitest"
+          },
+          {
+            "path": "src/application-lifecycle.test.js",
+            "symbol": "vitest"
+          },
+          {
+            "path": "src/application-runtime-adapters.js",
+            "symbol": "@tauri-apps/api/core"
+          },
+          {
+            "path": "src/application-runtime-adapters.js",
+            "symbol": "@tauri-apps/api/event"
+          },
+          {
+            "path": "src/application-runtime-adapters.js",
+            "symbol": "@tauri-apps/api/webview"
+          },
+          {
+            "path": "src/application-runtime-adapters.js",
+            "symbol": "@tauri-apps/api/window"
+          }
+        ]
+      }
+    },
+    {
+      "from": "src",
+      "to": "src-core",
+      "type": "imports",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/main.test.js",
+            "symbol": "./core/reader.js"
+          },
+          {
+            "path": "src/theme-coordinator.js",
+            "symbol": "./core/reader.js"
+          }
+        ]
+      }
+    },
+    {
+      "from": "src-core",
+      "to": "src",
+      "type": "imports",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/core/reader.js",
+            "symbol": "../format-detect.js"
+          },
+          {
+            "path": "src/core/reader.js",
+            "symbol": "../status-metrics.js"
+          },
+          {
+            "path": "src/core/reader.js",
+            "symbol": "../document-path.js"
+          },
+          {
+            "path": "src/core/reader.js",
+            "symbol": "../document-payload.js"
+          },
+          {
+            "path": "src/core/reader.js",
+            "symbol": "../markdown-source.js"
+          },
+          {
+            "path": "src/core/reader.js",
+            "symbol": "../reading-geometry.js"
+          },
+          {
+            "path": "src/core/reader.js",
+            "symbol": "../document-mode-coordinator.js"
+          },
+          {
+            "path": "src/core/reader.js",
+            "symbol": "../reader-viewport-controller.js"
+          }
+        ]
+      }
+    },
+    {
+      "from": "src-tauri-src",
+      "to": "external-dependencies",
+      "type": "imports",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/app_settings.rs",
+            "symbol": "serde"
+          },
+          {
+            "path": "src-tauri/src/document_access.rs",
+            "symbol": "pulldown_cmark"
+          },
+          {
+            "path": "src-tauri/src/document_access.rs",
+            "symbol": "serde"
+          },
+          {
+            "path": "src-tauri/src/document_access.rs",
+            "symbol": "syntect"
+          },
+          {
+            "path": "src-tauri/src/file_associations.rs",
+            "symbol": "serde"
+          },
+          {
+            "path": "src-tauri/src/images.rs",
+            "symbol": "tauri"
+          },
+          {
+            "path": "src-tauri/src/lib.rs",
+            "symbol": "tauri"
+          },
+          {
+            "path": "src-tauri/src/open_requests.rs",
+            "symbol": "serde"
+          }
+        ]
+      }
+    },
+    {
+      "from": "vite-config",
+      "to": "external-dependencies",
+      "type": "imports",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "vite.config.js",
+            "symbol": "vite"
+          }
+        ]
+      }
+    }
+  ],
+  "flows": [
+    {
+      "trigger": "Tracked reference CHANGELOG.md:index.html",
+      "steps": [
+        "repository",
+        "index",
+        "src",
+        "external-dependencies"
+      ],
+      "outcome": "The verified dependency path reaches external-dependencies through 3 step(s)."
+    },
+    {
+      "trigger": "Tracked reference CHANGELOG.md:index.html to src-core",
+      "steps": [
+        "repository",
+        "index",
+        "src",
+        "src-core"
+      ],
+      "outcome": "The verified dependency path reaches src-core through 3 step(s)."
+    },
+    {
+      "trigger": "Tracked reference CONTEXT.md:src/core/reader.js",
+      "steps": [
+        "repository",
+        "src-core",
+        "src",
+        "external-dependencies"
+      ],
+      "outcome": "The verified dependency path reaches external-dependencies through 3 step(s)."
+    },
+    {
+      "trigger": "Tracked reference index.html:/src/styles.css",
+      "steps": [
+        "index",
+        "src",
+        "external-dependencies"
+      ],
+      "outcome": "The verified dependency path reaches external-dependencies through 2 step(s)."
+    },
+    {
+      "trigger": "Tracked reference index.html:/src/styles.css to src-core",
+      "steps": [
+        "index",
+        "src",
+        "src-core"
+      ],
+      "outcome": "The verified dependency path reaches src-core through 2 step(s)."
+    }
+  ]
+}

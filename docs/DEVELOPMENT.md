@@ -27,48 +27,48 @@ role; in-app edit does not change that bundle policy. See
 
 ## Local setup
 
-Install Rust stable, **Bun 1.3.14** (see `packageManager` in `package.json` and
-CI), and the platform prerequisites listed by
-[Tauri](https://v2.tauri.app/start/prerequisites/). Bun is required by the
+Install Rust stable, **Node.js 24 and pnpm 11.20** (see `packageManager` in
+`package.json` and CI), plus the platform prerequisites listed by
+[Tauri](https://v2.tauri.app/start/prerequisites/). pnpm is required by the
 repository's Tauri development and build configuration.
 
 ```bash
-bun install
-bun run tauri dev
+pnpm install
+pnpm run tauri dev
 ```
 
 Useful development-only commands:
 
 | Command | Purpose |
 | --- | --- |
-| `bun run dev` | Start Vite without a native window. |
-| `bun run build` | Build the frontend and enforce its initial-load budget. |
-| `bun run check:bundle` | Recheck an existing `dist/` bundle and print raw/gzip sizes. |
-| `bun run generate:themes` | Regenerate the nine-field runtime theme projection. |
-| `bun run tauri build` | Build a local native bundle. |
+| `pnpm run dev` | Start Vite without a native window. |
+| `pnpm run build` | Build the frontend and enforce its initial-load budget. |
+| `pnpm run check:bundle` | Recheck an existing `dist/` bundle and print raw/gzip sizes. |
+| `pnpm run generate:themes` | Regenerate the nine-field runtime theme projection. |
+| `pnpm run tauri build` | Build a local native bundle. |
 
 ## Checks
 
 Run the focused checks that match the files you changed:
 
 ```bash
-bun run check:frontend
-bun run test:frontend
-bun run build
-bun run fmt:rust
-bun run check:rust
-bun run test:rust
+pnpm run check:frontend
+pnpm run test:frontend
+pnpm run build
+pnpm run fmt:rust
+pnpm run check:rust
+pnpm run test:rust
 ```
 
 `check:frontend` keeps static asset/config/theme invariants separate from
 executable reader-shell scenarios over the real `index.html` with fake
-adapters. `bun run verify` runs those checks, all frontend tests, the
+adapters. `pnpm run verify` runs those checks, all frontend tests, the
 production build and
 bundle budget, plus the Rust formatting, type-check, and unit-test gates. CI
-runs the same gates on Linux, Windows, and macOS, then runs separate Bun and
+runs the same gates on Linux, Windows, and macOS, then runs separate pnpm and
 Cargo dependency audits.
 
-The Bun audit uses the lockfile and reports known package advisories. The Rust
+The pnpm audit uses the lockfile and reports known package advisories. The Rust
 audit uses `cargo-audit` against `src-tauri/Cargo.lock`; install a pinned tool
 version locally when reproducing the CI gate:
 
@@ -138,7 +138,7 @@ trade-offs.
 The theme catalogue is a line-ending-normalized copy of the Gogh dataset at a
 fixed upstream commit. Read [Bundled themes](THEMES.md) and
 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) before changing or adding
-theme data. After changing `src/themes.json`, run `bun run generate:themes`;
+theme data. After changing `src/themes.json`, run `pnpm run generate:themes`;
 frontend validation rejects a stale or incomplete runtime projection.
 
 Theme changes prepare Mermaid output before the visual commit so diagrams do

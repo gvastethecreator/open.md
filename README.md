@@ -34,25 +34,25 @@ you choose to modify.
 
 ## Quick start
 
-Install [Rust](https://www.rust-lang.org/), [Bun](https://bun.sh/), and the
+Install [Rust](https://www.rust-lang.org/), [Node.js](https://nodejs.org/), [pnpm](https://pnpm.io/), and the
 platform dependencies required by
 [Tauri](https://v2.tauri.app/start/prerequisites/).
 
 ```bash
-bun install
-bun run tauri dev
+pnpm install
+pnpm run tauri dev
 ```
 
 To run the frontend without a native window:
 
 ```bash
-bun run dev
+pnpm run dev
 ```
 
 ## Build locally
 
 ```bash
-bun run tauri build
+pnpm run tauri build
 ```
 
 This creates a local bundle under `src-tauri/target/release/bundle/`. The

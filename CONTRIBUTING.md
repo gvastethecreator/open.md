@@ -9,7 +9,7 @@ the [Security policy](SECURITY.md) before sharing vulnerability details.
 Install:
 
 - [Rust](https://www.rust-lang.org/) stable (edition 2021)
-- [Bun](https://bun.sh/) 1.3.14 (matches `packageManager` and CI)
+- [Node.js](https://nodejs.org/) 24 and [pnpm](https://pnpm.io/) 11.20 (matches `packageManager` and CI)
 - The platform dependencies required by
   [Tauri v2](https://v2.tauri.app/start/prerequisites/)
 
@@ -18,10 +18,10 @@ Clone and install dependencies:
 ```bash
 git clone https://github.com/gvastethecreator/open.md.git
 cd open.md
-bun install
+pnpm install
 ```
 
-Start the app with `bun run tauri dev`. The full command list and repository
+Start the app with `pnpm run tauri dev`. The full command list and repository
 layout are in the [development guide](docs/DEVELOPMENT.md).
 
 ## Before opening a pull request
@@ -29,13 +29,13 @@ layout are in the [development guide](docs/DEVELOPMENT.md).
 - Keep the change focused and explain user-visible behaviour.
 - Add or update tests when behaviour changes.
 - Run the relevant checks from `docs/DEVELOPMENT.md`; CI runs the full matrix.
-- Run `bun run verify` before submitting a broad runtime or dependency change.
+- Run `pnpm run verify` before submitting a broad runtime or dependency change.
 - Update `README.md` and the `Unreleased` section of `CHANGELOG.md` for
   user-visible changes.
 - For new themes, icons, fonts, or code snippets, record exact provenance and
   license information. Theme data must follow [the bundled-theme policy](docs/THEMES.md)
   and [the third-party notices](THIRD_PARTY_NOTICES.md); regenerate the runtime
-  projection with `bun run generate:themes` after catalogue changes.
+  projection with `pnpm run generate:themes` after catalogue changes.
 - Do not include secrets, private audit output, generated bundles, or files from
   `.local/` in a commit.
 

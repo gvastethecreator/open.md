@@ -70,7 +70,7 @@ storage acquisition gaps.
 
 ## Verification contract
 
-The release-independent gate is `bun run verify`: frontend static and
+The release-independent gate is `pnpm run verify`: frontend static and
 behavior checks, all Vitest tests, production build and bundle budgets, Rust
 formatting, type-checking, and unit tests. The stabilized checkpoint passed 2/2
 public-shell checks, 72/72 frontend tests, and 11/11 Rust tests. Browser proof

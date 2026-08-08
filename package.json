@@ -2,7 +2,7 @@
   "name": "open-md",
   "private": true,
   "version": "0.1.0",
-  "packageManager": "bun@1.3.14",
+  "packageManager": "pnpm@11.20.0",
   "type": "module",
   "description": "Minimalist local Markdown/text reader and editor built with Tauri v2, Rust and Vite.",
   "license": "MIT",
@@ -28,11 +28,11 @@
     "test:frontend": "vitest run",
     "check:static": "node ./scripts/validate-frontend.mjs",
     "check:shell": "vitest run src/reader-shell.test.js",
-    "check:frontend": "bun run check:static && bun run check:shell && bun run check:pages",
+    "check:frontend": "pnpm run check:static && pnpm run check:shell && pnpm run check:pages",
     "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "fmt:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check",
-    "verify": "bun run check:frontend && bun run test:frontend && bun run build && bun run fmt:rust && bun run check:rust && bun run test:rust"
+    "verify": "pnpm run check:frontend && pnpm run test:frontend && pnpm run build && pnpm run fmt:rust && pnpm run check:rust && pnpm run test:rust"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",

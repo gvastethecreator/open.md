@@ -35,7 +35,7 @@ function readAsset(relativePath) {
 }
 
 if (!statSync(distDirectory, { throwIfNoEntry: false })?.isDirectory()) {
-  throw new Error('dist/ is missing; run `bun run build` before checking the bundle');
+  throw new Error('dist/ is missing; run `pnpm run build` before checking the bundle');
 }
 
 const indexHtml = readFileSync(indexPath, 'utf8');
