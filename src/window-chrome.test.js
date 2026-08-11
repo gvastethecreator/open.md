@@ -85,6 +85,50 @@ describe('Window Chrome', () => {
     expect(onError).toHaveBeenCalledWith('Could not minimize the window', failure);
   });
 
+  it('does not close the native window until the dirty-document guard accepts', async () => {
+    const fixture = createFixture();
+    let allowClose = false;
+    let closeRequested;
+    const canClose = vi.fn(() => allowClose);
+    const buttonCloseEvent = { preventDefault: vi.fn() };
+    const nativeWindow = {
+      isMaximized: vi.fn(async () => false),
+      minimize: vi.fn(async () => {}),
+      toggleMaximize: vi.fn(async () => {}),
+      close: vi.fn(async () => closeRequested(buttonCloseEvent)),
+      onResized: vi.fn(async () => vi.fn()),
+      onCloseRequested: vi.fn(async (listener) => {
+        closeRequested = listener;
+        return vi.fn();
+      }),
+    };
+    const chrome = createWindowChrome({
+      document: fixture.document,
+      elements: fixture.elements,
+      nativeWindow,
+      canClose,
+    });
+
+    await chrome.start();
+    fixture.elements.close.click();
+    await settle();
+    expect(canClose).toHaveBeenCalledOnce();
+    expect(nativeWindow.close).not.toHaveBeenCalled();
+
+    allowClose = true;
+    fixture.elements.close.click();
+    await settle();
+    expect(canClose).toHaveBeenCalledTimes(2);
+    expect(nativeWindow.close).toHaveBeenCalledOnce();
+    expect(buttonCloseEvent.preventDefault).not.toHaveBeenCalled();
+
+    allowClose = false;
+    const systemCloseEvent = { preventDefault: vi.fn() };
+    await closeRequested(systemCloseEvent);
+    expect(canClose).toHaveBeenCalledTimes(3);
+    expect(systemCloseEvent.preventDefault).toHaveBeenCalledOnce();
+  });
+
   it('keeps controls usable when resize subscription is unavailable', async () => {
     const fixture = createFixture();
     const failure = new Error('listener unavailable');

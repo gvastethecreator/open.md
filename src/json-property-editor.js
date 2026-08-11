@@ -37,6 +37,11 @@ export function createJsonPropertyEditor({
     const path = row?.dataset?.jsonPath;
     if (!path) return { ok: true, skipped: true };
 
+    const currentRow = model.rows?.find((item) => item.path === path);
+    if (currentRow && String(valueEl.textContent ?? '') === String(currentRow.text ?? '')) {
+      return { ok: true, skipped: true };
+    }
+
     const result = updateJsonPropertyModel(model, path, valueEl.textContent);
     if (!result.ok) {
       valueEl.classList.add('is-invalid');

@@ -71,6 +71,37 @@ describe('document session', () => {
     expect(session.current()).toMatchObject({ state: 'ready', path: 'guide.md' });
   });
 
+  it('quietly refreshes a saved read projection without publishing or stealing editor focus', async () => {
+    let current = payload({ html: '<h1>Before</h1>', source: '# Before' });
+    const onStateChange = vi.fn();
+    const onDocumentCommitted = vi.fn();
+    const session = createSession({
+      open: vi.fn(async () => current),
+      hooks: { onStateChange, onDocumentCommitted },
+    });
+
+    await session.open({ path: 'guide.md' });
+    const editorControl = document.querySelector('#editor-canvas');
+    editorControl.tabIndex = -1;
+    editorControl.focus();
+    onStateChange.mockClear();
+    onDocumentCommitted.mockClear();
+    current = payload({
+      html: '<h1>After</h1><pre><code>saved()</code></pre>',
+      source: '# After\n\n```js\nsaved()\n```',
+    });
+
+    await expect(session.open({ path: 'guide.md', quiet: true })).resolves.toMatchObject({ status: 'ready' });
+
+    expect(document.querySelector('#content h1')?.textContent).toBe('After');
+    expect(document.querySelector('#content .copy-code-btn')).not.toBeNull();
+    expect(document.querySelector('#source-content')?.textContent).toContain('# After');
+    expect(document.activeElement).toBe(editorControl);
+    expect(onStateChange).not.toHaveBeenCalled();
+    expect(onDocumentCommitted).not.toHaveBeenCalled();
+    expect(session.current()).toMatchObject({ state: 'ready', path: 'guide.md', document: current });
+  });
+
   it('hydrates a relative image through native bytes and Blob resource adapters', async () => {
     const resources = createResources();
     const readImage = vi.fn(async () => new Uint8Array([1, 2, 3]));

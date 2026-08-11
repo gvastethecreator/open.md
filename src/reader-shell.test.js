@@ -106,9 +106,13 @@ describe('reader shell', () => {
     await shell.start({ origin: 'launch', items: [{ path: 'sample.md' }] });
     title = 'After';
 
-    await expect(shell.reload()).resolves.toMatchObject({ status: 'ready', path: 'sample.md' });
+    const focusTarget = document.querySelector('#editor-canvas');
+    focusTarget.tabIndex = -1;
+    focusTarget.focus();
+    await expect(shell.reload({ quiet: true })).resolves.toMatchObject({ status: 'ready', path: 'sample.md' });
     expect(openDocument).toHaveBeenCalledTimes(2);
     expect(document.querySelector('#content h1')?.textContent).toBe('After');
+    expect(document.activeElement).toBe(focusTarget);
 
     shell.dispose();
   });

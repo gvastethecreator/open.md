@@ -44,11 +44,11 @@ export function mountReaderShell({ window, adapters, hooks = {} }) {
       if (disposed) return Promise.resolve(false);
       return documentSession.refreshDiagrams(diagramTheme, diagramTokens);
     },
-    reload() {
+    reload({ quiet = false } = {}) {
       if (disposed) return Promise.resolve({ status: 'disposed' });
       const current = documentSession.current();
       if (!current?.path) return Promise.resolve({ status: 'idle', path: null });
-      return documentSession.open({ path: current.path });
+      return documentSession.open({ path: current.path, quiet });
     },
     close() {
       if (disposed) return { status: 'disposed' };

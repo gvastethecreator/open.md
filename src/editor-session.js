@@ -138,7 +138,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   let editPresentation = 'rendered';
   let disposed = false;
   let blockLineCounts = new Map();
-  /** Block ids temporarily showing source while a multi-line selection spans them (Block multi-select). */
+  /** Additional source-projected blocks retained for legacy projection reconciliation. */
   let selectionSourceIds = new Set();
   const drafts = new Map();
 
@@ -182,6 +182,21 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       : isJsonProps() ? 'json-props' : isBlockPresentation() ? 'block' : 'classic',
   });
   const notify = () => hooks.onStateChange?.(snapshot());
+
+  const reportJsonFlushFailure = (result) => {
+    if (!result || result.ok !== false) return false;
+    saveState = 'error';
+    saveError = result.error || 'Fix invalid JSON values before continuing';
+    notify();
+    hooks.onUnavailable?.(saveError);
+    return true;
+  };
+
+  const preparePresentationChange = () => {
+    if (!isJsonProps()) return true;
+    const flushed = flushJsonProps();
+    return !reportJsonFlushFailure(flushed);
+  };
 
   const disposeJsonPropertyEditor = () => {
     jsonPropertyEditor?.dispose?.();
@@ -606,9 +621,9 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       contextHint.append('Type ');
       const shortcut = document.createElement('kbd');
       shortcut.textContent = '/';
-      contextHint.append(shortcut, ' for blocks · active line shows markup');
+      contextHint.append(shortcut, ' for blocks · active block shows source');
     } else if (markdown) {
-      contextHint.textContent = 'Active line is Markdown · other lines are preview';
+      contextHint.textContent = 'Active block is Markdown · other blocks are preview';
     } else {
       contextHint.textContent = 'Each line saves as text';
     }
@@ -673,8 +688,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
   const renderBlock = (block, index) => {
     const isSpacer = block.type === 'paragraph' && block.text === '';
-    // Rendered live preview: only the active line and multi-select
-    // expansion show source Markdown; every other line is rendered preview.
+    // Rendered live preview: the active block shows source Markdown and every
+    // other block stays rendered. Continuous multi-line work belongs to Source Edit.
     const showSource = activeBlockId === block.id || selectionSourceIds.has(block.id);
     const isActive = activeBlockId === block.id;
     const wrapper = document.createElement('div');
@@ -1071,6 +1086,22 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       }
     }
 
+    if (
+      event.key === 'Delete'
+      && content
+      && selection?.isCollapsed
+      && caretOffset(content, selection) >= (content.textContent?.length || 0)
+    ) {
+      const blocks = documentSnapshot.blocks;
+      const index = blocks.findIndex((item) => item.id === block.id);
+      const next = blocks[index + 1];
+      if (next) {
+        event.preventDefault();
+        mergeWithPrevious(findWrapper(next.id));
+        return;
+      }
+    }
+
     if (event.key === 'Backspace') {
       if (block?.type === 'divider') {
         event.preventDefault();
@@ -1311,13 +1342,11 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     const presentationChanged = nextEditPresentation !== editPresentation;
     // JSON props ignore Classic/Block preference flips; keep the property surface.
     if (isJsonProps() && !presentationChanged) {
-      flushJsonProps();
-      jsonPropertyEditor?.load?.(source());
       applyPresentationChrome();
       updateContextChrome();
       if (blockToolbar) blockToolbar.hidden = true;
       notify();
-      return;
+      return true;
     }
     if (!presentationChanged) {
       if (classicSurface?.isMounted?.()) classicSurface.commitFromDom?.();
@@ -1325,10 +1354,10 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       updateContextChrome();
       updateBlockToolbar();
       notify();
-      return;
+      return true;
     }
     if (isJsonProps()) {
-      flushJsonProps();
+      if (!preparePresentationChange()) return false;
     } else if (classicSurface?.isMounted?.()) {
       classicSurface.commitFromDom?.();
     } else {
@@ -1348,11 +1377,22 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     activeBlockId = documentSnapshot.blocks[0]?.id || null;
     if (!isSourceSelected() && activeDocument?.presentation === 'json-props') {
       const result = mountJsonProperties(source());
-      if (result.ok) return;
+      if (result.ok) return true;
       activeDocument = { ...activeDocument, presentation: 'default', markdown: false };
-      hooks.onUnavailable?.(result.reason === 'invalid'
+      const unavailableMessage = result.reason === 'invalid'
         ? 'Invalid JSON — editing as plain text'
-        : 'Large JSON — editing as plain text');
+        : 'Large JSON — editing as plain text';
+      const fallbackPath = activeDocument.path;
+      // Source/Rendered controls announce their settled mode after this refresh.
+      // Defer the actionable fallback message so generic mode feedback cannot hide it.
+      window.setTimeout(() => {
+        if (
+          !disposed
+          && mode === 'edit'
+          && !isSourceSelected()
+          && activeDocument?.path === fallbackPath
+        ) hooks.onUnavailable?.(unavailableMessage);
+      }, 0);
     }
     if (classicSurface?.isMounted?.() && isBlockPresentation()) classicSurface.unmount();
     render();
@@ -1367,6 +1407,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     } else if (activeBlockId) {
       queueMicrotask(() => focusBlock(activeBlockId, 'end', { preserveScroll: true }));
     }
+    return true;
   };
 
   const save = async () => {
@@ -1375,12 +1416,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     }
     if (isJsonProps()) {
       const flushed = flushJsonProps();
-      if (flushed && flushed.ok === false) {
+      if (reportJsonFlushFailure(flushed)) {
         // Park autosave (observeEditor skips saveState error) until the next edit.
-        saveState = 'error';
-        saveError = flushed.error || 'Fix invalid JSON values before saving';
-        notify();
-        hooks.onUnavailable?.(saveError);
         return { status: 'unavailable', error: flushed.error };
       }
       documentModel.applySource(source());
@@ -1596,6 +1633,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     clearDocument,
     enter,
     exit,
+    preparePresentationChange,
     refreshPresentation,
     toggle() {
       return mode === 'edit' ? exit() : enter();

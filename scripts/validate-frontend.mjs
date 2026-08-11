@@ -331,6 +331,7 @@ for (const permission of [
   'core:window:allow-toggle-maximize',
   'core:window:allow-minimize',
   'core:window:allow-close',
+  'core:window:allow-destroy',
   'core:window:allow-set-always-on-top',
 ]) {
   if (!capabilities.permissions?.includes(permission)) {

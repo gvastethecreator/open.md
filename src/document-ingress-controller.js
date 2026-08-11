@@ -38,7 +38,7 @@ export function createDocumentIngressController({
     body?.classList.toggle('is-dragging', Boolean(active));
   };
 
-  const canChangeDocument = () => adapters.canChangeDocument?.() !== false;
+  const canChangeDocument = async () => (await adapters.canChangeDocument?.()) !== false;
 
   const openDocument = (value) => {
     if (disposed) return Promise.reject(new Error('Document Ingress Controller is disposed'));
@@ -95,7 +95,7 @@ export function createDocumentIngressController({
 
   const openPicker = async () => {
     if (disposed) return { status: 'disposed' };
-    if (!canChangeDocument()) return { status: 'blocked' };
+    if (!await canChangeDocument()) return { status: 'blocked' };
     hooks.closeReadingTools?.();
     if (typeof openFileDialog !== 'function') {
       hooks.onToast?.('Could not open the file picker');
@@ -147,7 +147,7 @@ export function createDocumentIngressController({
 
           if (event.payload.type === 'drop') {
             setDragState(false);
-            if (!canChangeDocument()) return;
+            if (!await canChangeDocument()) return;
             try {
               await openDocument({
                 origin: 'drop',

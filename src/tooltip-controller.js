@@ -768,7 +768,7 @@ export function createTooltipController({ window, document, hooks = {} }) {
     trackPointer(event);
   };
   const onDismiss = (event) => {
-    const eventTarget = event?.target;
+    const eventTarget = event?.target?.nodeType ? event.target : null;
     const host = eventTarget ? tooltipTarget(eventTarget) : null;
     if (
       eventTarget

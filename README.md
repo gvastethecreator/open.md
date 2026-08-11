@@ -20,9 +20,10 @@ you choose to modify.
 
 - Markdown and plain-text reading, plus in-app companions (JSON, CSV, config-
   style text, and local raster images).
-- Edit mode with **Classic** live preview by default (active line as source,
-  other lines rendered) and an optional block editor under View options.
-  Source mode shows the full file. See [Editing](docs/EDITING.md).
+- Independent **Rendered/Source** and **Read only/Edit** controls. Markdown
+  Rendered Edit uses per-block live preview; Source Edit is one continuous
+  full-file surface. Optional block tools live under View options. See
+  [Editing](docs/EDITING.md).
 - Drag and drop, native file associations, and multi-window document opens.
   Optional single-instance mode (Advanced → System) reuses one process for
   Open with / second launches; multiple instances are allowed by default.
@@ -62,7 +63,7 @@ repository does not currently publish installers or hosted release binaries.
 
 - [Development and checks](docs/DEVELOPMENT.md) — project layout, local
   commands, and CI expectations.
-- [Editing](docs/EDITING.md) — Classic and block editors, modes, and save.
+- [Editing](docs/EDITING.md) — the four mode combinations, block tools, and save.
 - [GitHub Pages landing](docs/PAGES.md) — local preview, deployment, and media
   provenance.
 - [File associations](docs/FILE_ASSOCIATIONS.md) — how packaged builds

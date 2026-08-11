@@ -63,6 +63,7 @@ let readerKeyboard = null;
 let applicationLifecycle = null;
 let appLoadingScreen = null;
 let pendingInitialTheme = Promise.resolve();
+let pendingSavedReaderPath = null;
 
 const ui = {
   windowFileTitle: null,
@@ -208,6 +209,7 @@ async function setupWindowChrome(own) {
       close: ui.windowCloseButton,
     },
     nativeWindow,
+    canClose: () => confirmEditorDiscard('Discard unsaved changes and close open.md?'),
     onError: (message, error) => {
       console.error(message, error);
       showToast(message);
@@ -389,9 +391,28 @@ function cycleTheme(direction = 1) {
   themeCoordinator?.cycle(direction);
 }
 
-function closeCurrentFile() {
+async function confirmEditorDiscard(message = 'Discard unsaved changes?') {
+  if (!editorSession?.isDirty()) return true;
+  try {
+    const discard = await runtimeAdapters?.dialogs?.confirm?.(message, {
+      title: 'open.md',
+      kind: 'warning',
+      okLabel: 'Discard',
+      cancelLabel: 'Keep editing',
+    });
+    if (discard) editorSession.exit({ force: true });
+    return discard === true;
+  } catch (error) {
+    console.error('Could not confirm discarding unsaved changes:', error);
+    showToast('Could not confirm closing. Your changes are still here.');
+    return false;
+  }
+}
+
+async function closeCurrentFile() {
+  const canChangeDocument = await confirmEditorDiscard();
   documentViewState?.requestClose({
-    canChangeDocument: !editorSession || editorSession.canChangeDocument(),
+    canChangeDocument,
   });
 }
 
@@ -405,7 +426,29 @@ function handleDocumentSessionState(snapshot) {
 }
 
 function commitDocumentViewState(value) {
+  // A normal session commit owns the visible reader DOM, so any deferred
+  // post-save refresh for the previous projection is no longer needed.
+  pendingSavedReaderPath = null;
   documentViewState?.commitDocument(value);
+}
+
+async function exitEditMode() {
+  const path = getCurrentFilePath();
+  if (!await confirmEditorDiscard('Discard unsaved changes and return to reading?')) return false;
+  // Accepting a dirty-discard exits immediately inside confirmEditorDiscard;
+  // report that successful transition instead of attempting a second exit.
+  const exited = editorSession
+    ? (editorSession.isEditing() ? editorSession.exit({ force: true }) : true)
+    : false;
+  if (!exited || !path || pendingSavedReaderPath !== path) return exited;
+
+  const refreshed = await readerShell?.reload({ quiet: true });
+  if (getCurrentFilePath() === path && refreshed?.status === 'ready') {
+    pendingSavedReaderPath = null;
+  } else if (getCurrentFilePath() === path) {
+    showToast('Saved, but the reading view could not refresh');
+  }
+  return exited;
 }
 
 function mountDocumentViewState(own) {
@@ -623,6 +666,7 @@ function mountApplicationEditor(own) {
       onSaved: async ({ path, result }) => {
         if (result && typeof result.source === 'string') {
           documentViewState?.applySavedDocument({ path, document: result });
+          pendingSavedReaderPath = path;
           return;
         }
         await readerShell?.reload();
@@ -700,8 +744,11 @@ function mountDocumentModeCoordinator(own) {
       ),
       getDocumentIdentity: getCurrentDocument,
       enterEdit: () => editorSession?.enter(),
-      exitEdit: () => editorSession?.exit(),
-      setSource: (active) => setReadingTool('source', active),
+      exitEdit: exitEditMode,
+      setSource: async (active) => {
+        if (isEditing() && editorSession?.preparePresentationChange?.() === false) return false;
+        return setReadingTool('source', active);
+      },
     },
     hooks: {
       closeTransientUi: () => {
@@ -891,7 +938,7 @@ function mountDocumentIngress(own) {
     document,
     adapters: {
       openDocument: (value) => readerShell?.open(value),
-      canChangeDocument: () => !editorSession || editorSession.canChangeDocument(),
+      canChangeDocument: () => confirmEditorDiscard(),
       acknowledgeOpenFile: (id) => runtimeAdapters.openRequests.acknowledge(id),
       listen: runtimeAdapters.ingress.listen,
       openFileDialog: runtimeAdapters.ingress.openFileDialog,
