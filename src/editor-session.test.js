@@ -193,6 +193,30 @@ describe('editor session', () => {
     expect(document.querySelector('[data-history-action]')).toBeNull();
   });
 
+  it('merges the next rendered block on Delete at the current block end', () => {
+    const { session } = mount();
+    session.setDocument({ path: 'sample.md', source: 'Alpha\nBeta', markdown: true });
+    session.enter();
+    const content = document.querySelector('[data-editor-content]');
+    const range = document.createRange();
+    range.selectNodeContents(content);
+    range.collapse(false);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    content.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Delete',
+      bubbles: true,
+      cancelable: true,
+    }));
+
+    expect(session.source()).toBe('AlphaBeta');
+    expect(document.querySelectorAll('[data-block-id]')).toHaveLength(1);
+    expect(document.querySelector('[data-editor-content]')?.textContent).toBe('AlphaBeta');
+    session.dispose();
+  });
+
   it('keeps native checkbox semantics while its completion label follows state', () => {
     const { session } = mount();
     session.setDocument({ path: 'sample.md', source: '- [ ] Ship the release', markdown: true });
@@ -298,6 +322,29 @@ describe('editor session', () => {
     session.dispose();
   });
 
+  it('keeps the next JSON cell mounted when an unchanged cell loses focus', async () => {
+    const save = vi.fn(async (_path, source) => ({ source }));
+    const { session } = mount(save, {}, { blockEditor: false });
+    session.setDocument({
+      path: 'config.json',
+      source: '{\n  "name": "open.md",\n  "count": 1\n}\n',
+      markdown: false,
+      presentation: 'json-props',
+    });
+    session.enter();
+
+    const name = document.querySelector('[data-json-path="name"] [data-json-value]');
+    const count = document.querySelector('[data-json-path="count"] [data-json-value]');
+    name.focus();
+    count.focus();
+
+    expect(count.isConnected).toBe(true);
+    count.textContent = '9';
+    await expect(session.save()).resolves.toMatchObject({ status: 'saved' });
+    expect(save).toHaveBeenCalledWith('config.json', expect.stringContaining('"count": 9'));
+    session.dispose();
+  });
+
   it('gives JSON Source its own raw Edit mode and restores properties in Rendered Edit', async () => {
     let sourceMode = true;
     const { session } = mount(vi.fn(async () => ({ source: '' })), {}, {
@@ -326,6 +373,34 @@ describe('editor session', () => {
     expect(session.current().presentation).toBe('source');
     expect(document.querySelector('.json-props')).toBeNull();
     expect(session.source()).toContain('"count": 1');
+    session.dispose();
+  });
+
+  it('keeps invalid JSON source in plain edit and reports the fallback after the mode settles', async () => {
+    let sourceMode = true;
+    const onUnavailable = vi.fn();
+    const { session } = mount(vi.fn(async () => ({ source: '' })), { onUnavailable }, {
+      blockEditor: false,
+      isSourceMode: () => sourceMode,
+    });
+    session.setDocument({
+      path: 'config.json',
+      source: '{\n  "count": 1\n}\n',
+      markdown: false,
+      presentation: 'json-props',
+    });
+    session.enter();
+    const content = document.querySelector('[data-classic-content][data-editor-mode="source"]');
+    content.textContent = '{ invalid';
+    content.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+
+    sourceMode = false;
+    expect(session.refreshPresentation()).toBe(true);
+    expect(session.current().presentation).toBe('classic');
+    expect(session.source()).toMatch(/^\{ invalid/);
+    expect(onUnavailable).not.toHaveBeenCalled();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(onUnavailable).toHaveBeenCalledWith('Invalid JSON — editing as plain text');
     session.dispose();
   });
 
@@ -444,6 +519,33 @@ describe('editor session', () => {
     expect(active?.dataset.blockId).toBe(second.dataset.blockId);
     expect(active?.querySelector('[data-editor-content]')?.textContent).toBe('Two edited');
     expect(session.current()).toMatchObject({ dirty: false, saveState: 'saved' });
+    session.dispose();
+  });
+
+  it('keeps an invalid pending JSON cell when a presentation change is requested', () => {
+    let sourceMode = false;
+    const onUnavailable = vi.fn();
+    const { session } = mount(vi.fn(async () => ({ source: '' })), { onUnavailable }, {
+      blockEditor: false,
+      isSourceMode: () => sourceMode,
+    });
+    session.setDocument({
+      path: 'num.json',
+      source: '{\n  "count": 1\n}\n',
+      markdown: false,
+      presentation: 'json-props',
+    });
+    session.enter();
+    const value = document.querySelector('[data-json-path="count"] [data-json-value]');
+    value.textContent = 'not-a-number';
+    sourceMode = true;
+
+    expect(session.refreshPresentation()).toBe(false);
+    expect(session.current()).toMatchObject({ presentation: 'json-props', saveState: 'error' });
+    expect(value.isConnected).toBe(true);
+    expect(value.textContent).toBe('not-a-number');
+    expect(value.classList.contains('is-invalid')).toBe(true);
+    expect(onUnavailable).toHaveBeenCalled();
     session.dispose();
   });
 
@@ -1155,7 +1257,7 @@ describe('editor session', () => {
     expect(session.current()).toMatchObject({ dirty: true, presentation: 'block' });
     expect(blockToolbar().hidden).toBe(true);
     expect(session.source()).toContain('Hello dirty');
-    expect(document.getElementById('editor-context-hint').textContent).toMatch(/Active line|Markdown|preview/i);
+    expect(document.getElementById('editor-context-hint').textContent).toMatch(/Active block|Markdown|preview/i);
     session.dispose();
   });
 

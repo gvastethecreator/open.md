@@ -289,6 +289,16 @@ describe('Tooltip Controller', () => {
     expect(view.tooltip.hidden).toBe(false);
   });
 
+  it('dismisses safely when a window resize has a non-Node target', () => {
+    const view = fixture({ reduced: true });
+    const one = view.document.querySelector('#one');
+    one.dispatchEvent(new view.dom.window.FocusEvent('focusin', { bubbles: true }));
+    expect(view.tooltip.hidden).toBe(false);
+
+    expect(() => view.dom.window.dispatchEvent(new view.dom.window.Event('resize'))).not.toThrow();
+    expect(view.tooltip.hidden).toBe(true);
+  });
+
   it('removes its stable surface, observer and descriptions on dispose', () => {
     const view = fixture({ reduced: true });
     const one = view.document.querySelector('#one');

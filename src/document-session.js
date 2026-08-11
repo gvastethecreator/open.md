@@ -321,7 +321,7 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
     return getImageMimeType(path);
   };
 
-  const openImageDocument = async ({ path, candidate, openedDocument }) => {
+  const openImageDocument = async ({ path, candidate, openedDocument, quiet = false }) => {
     if (typeof adapters.documents.readImageFile !== 'function') {
       throw new Error('Standalone image loading is unavailable');
     }
@@ -367,20 +367,24 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
 
     if (sourceContent) sourceContent.textContent = '';
     content.removeAttribute('aria-busy');
-    notify({ state: 'ready', path, document: openedDocument });
+    const readyState = { state: 'ready', path, document: openedDocument };
+    if (quiet) state = Object.freeze(readyState);
+    else notify(readyState);
     hooks.onImageStateChange?.(imageViewer?.getState?.() || null);
-    focusContent({
-      content,
-      readerPage,
-      sourceView,
-      fragment: '',
-      sourceActive: false,
-    });
-    hooks.onSettled?.(state);
+    if (!quiet) {
+      focusContent({
+        content,
+        readerPage,
+        sourceView,
+        fragment: '',
+        sourceActive: false,
+      });
+      hooks.onSettled?.(state);
+    }
     return { status: 'ready', path, document: openedDocument };
   };
 
-  const open = async ({ path, fragment = '' }) => {
+  const open = async ({ path, fragment = '', quiet = false }) => {
     if (disposed) throw new Error('Reader shell is disposed');
     if (typeof path !== 'string' || path.trim() === '') {
       clear();
@@ -391,9 +395,11 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
     disposeImageViewer();
     resources.clear();
     content.setAttribute('aria-busy', 'true');
-    if (sourceContent) sourceContent.textContent = '';
-    renderLoading(document, content, path);
-    notify({ state: 'loading', path, document: null });
+    if (!quiet) {
+      if (sourceContent) sourceContent.textContent = '';
+      renderLoading(document, content, path);
+      notify({ state: 'loading', path, document: null });
+    }
 
     try {
       const openedDocument = normalizeDocumentPayload(await adapters.documents.open(path));
@@ -424,10 +430,10 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
       }
 
       content.innerHTML = readHtml;
-      hooks.onDocumentCommitted?.({ path, document: openedDocument });
+      if (!quiet) hooks.onDocumentCommitted?.({ path, document: openedDocument });
 
       if (isImageDocument) {
-        return await openImageDocument({ path, candidate, openedDocument });
+        return await openImageDocument({ path, candidate, openedDocument, quiet });
       }
 
       content.querySelectorAll('img').forEach((image) => {
@@ -489,21 +495,29 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
       if (!isCurrent(candidate)) return { status: 'superseded', path };
 
       content.removeAttribute('aria-busy');
-      notify({ state: 'ready', path, document: openedDocument });
-      focusContent({
-        content,
-        readerPage,
-        sourceView,
-        fragment,
-        sourceActive: Boolean(hooks.isSourceActive?.()),
-      });
-      hooks.onSettled?.(state);
+      const readyState = { state: 'ready', path, document: openedDocument };
+      if (quiet) state = Object.freeze(readyState);
+      else {
+        notify(readyState);
+        focusContent({
+          content,
+          readerPage,
+          sourceView,
+          fragment,
+          sourceActive: Boolean(hooks.isSourceActive?.()),
+        });
+        hooks.onSettled?.(state);
+      }
       return { status: 'ready', path, document: openedDocument };
     } catch (error) {
       if (!isCurrent(candidate)) return { status: 'superseded', path };
       disposeImageViewer();
       resources.clear();
       content.removeAttribute('aria-busy');
+      if (quiet) {
+        hooks.onDiagnostic?.('Could not refresh the saved document view', error);
+        return { status: 'failed', path, error };
+      }
       if (sourceContent) sourceContent.textContent = '';
       renderFailure(document, content, error, hooks.chooseAnotherFile);
       notify({ state: 'failed', path, document: null, error });

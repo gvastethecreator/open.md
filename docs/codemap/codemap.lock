@@ -1,7 +1,7 @@
 {
-  "current_commit": "a4f5bdbdc27fe79e89865d86fb429725bd1ee5f4",
+  "current_commit": "2b90a4037f2ccb4afa85aa3a83a9a3b1e5c3654c",
   "working_tree_dirty": true,
-  "generated_at": "2026-08-08T10:06:14Z",
+  "generated_at": "2026-08-11T07:49:58Z",
   "scanned_scope": [
     "."
   ],
@@ -31,8 +31,8 @@
     {
       "id": ".",
       "path": ".",
-      "file_count": 13,
-      "fingerprint": "3c9df41c02c89e5cd0b0b015241134fa14c1af7b337d0b023fa37d7389ccfe8f"
+      "file_count": 14,
+      "fingerprint": "0469540b7c9243e839156ab7ffa5ee0d1816da5813e9f4617137d51d49b4af07"
     },
     {
       "id": ".github",
@@ -50,7 +50,7 @@
       "id": "docs",
       "path": "docs",
       "file_count": 22,
-      "fingerprint": "ba3258f349082aecbc8acf96e436e63fab867bff8231fa550dd2089569f709f4"
+      "fingerprint": "e0ce06475d9b37b79167b9112e6da72060b28053c1d370f20e40c13fcb0da226"
     },
     {
       "id": "examples",
@@ -62,19 +62,19 @@
       "id": "scripts",
       "path": "scripts",
       "file_count": 4,
-      "fingerprint": "a3b08d5f8d521c7dd7a554daaa2dcaa9c2374ad78b690ebd448bd0599790fadc"
+      "fingerprint": "426ae2532238cc550ca0cb6927dd01056de1b3a21bdc3400d4caab16641a5ece"
     },
     {
       "id": "src",
       "path": "src",
       "file_count": 110,
-      "fingerprint": "06300976f4583652f3851d071f234b5085f9a5349916fa3a2529877e0d7fdc1f"
+      "fingerprint": "213f72695229e0ce5abfbc4e908fa0c9fe7c160240b3f22b3038d3a15f648d7e"
     },
     {
       "id": "src-tauri",
       "path": "src-tauri",
       "file_count": 65,
-      "fingerprint": "0594601411cbf86c32de518ee6a6af3bea928ce692febb6a440c5391be7d7de9"
+      "fingerprint": "a0ed37c6498b3d26174c2ea15d1454698c5e2134150379f8a897a6a812e5b89a"
     }
   ]
 }

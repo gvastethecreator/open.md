@@ -79,7 +79,7 @@ describe('Document Ingress Controller', () => {
     });
     expect(view.hooks.closeReadingTools).toHaveBeenCalledOnce();
 
-    view.setCanChange(false);
+    view.setCanChange(Promise.resolve(false));
     await expect(view.controller.openPicker()).resolves.toEqual({ status: 'blocked' });
     expect(view.openFileDialog).toHaveBeenCalledOnce();
 
@@ -119,11 +119,11 @@ describe('Document Ingress Controller', () => {
 
     await view.dragHandler({ payload: { type: 'over' } });
     expect(document.body.classList.contains('is-dragging')).toBe(true);
-    view.setCanChange(false);
+    view.setCanChange(Promise.resolve(false));
     await view.dragHandler({ payload: { type: 'drop', paths: ['blocked.md'] } });
     expect(view.openDocument).not.toHaveBeenCalledWith(expect.objectContaining({ origin: 'drop' }));
 
-    view.setCanChange(true);
+    view.setCanChange(Promise.resolve(true));
     await view.dragHandler({ payload: { type: 'drop', paths: ['dropped.md'] } });
     expect(view.openDocument).toHaveBeenCalledWith({
       origin: 'drop',

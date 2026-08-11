@@ -3,6 +3,7 @@ import { listen as defaultListen } from '@tauri-apps/api/event';
 import { getCurrentWebview as defaultGetCurrentWebview } from '@tauri-apps/api/webview';
 import { getCurrentWindow as defaultGetCurrentWindow } from '@tauri-apps/api/window';
 import {
+  confirm as defaultConfirmDialog,
   open as defaultOpenFileDialog,
   save as defaultSaveFileDialog,
 } from '@tauri-apps/plugin-dialog';
@@ -59,6 +60,7 @@ export function createApplicationRuntimeAdapters({
   getCurrentWindow = defaultGetCurrentWindow,
   listen = defaultListen,
   getCurrentWebview = defaultGetCurrentWebview,
+  confirmDialog = defaultConfirmDialog,
   openFileDialog = defaultOpenFileDialog,
   saveFileDialog = defaultSaveFileDialog,
   openUrl = null,
@@ -174,6 +176,12 @@ export function createApplicationRuntimeAdapters({
 
   const openDocument = (path) => invokeNative('open_new_window', { path });
 
+  const confirm = (message, options) => (
+    native
+      ? confirmDialog(message, options)
+      : Promise.resolve(window.confirm(message))
+  );
+
   const loadSyntax = async () => {
     if (!syntaxPromise) {
       syntaxPromise = Promise.resolve(syntaxLoader()).catch((error) => {
@@ -287,6 +295,7 @@ export function createApplicationRuntimeAdapters({
       render: diagrams.render,
     }),
     syntax: Object.freeze({ highlight, highlightDocument }),
+    dialogs: Object.freeze({ confirm }),
     windows: Object.freeze({
       openDocument,
       getNativeWindow,

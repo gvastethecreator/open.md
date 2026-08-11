@@ -101,14 +101,17 @@ default-app policy.
   `src/reading-navigation-controller.js` own UI/native lifecycles that the
   composition root connects through adapters and hooks. Theme state commits
   only after diagram preparation; save generations distinguish a same-path
-  reload from a replacement document.
+  reload from a replacement document. A successful editor save updates the
+  document identity immediately, then quietly refreshes the enriched reader
+  projection when Edit closes so focus and document identity stay stable.
 - `src/editor-document.js` owns canonical block state and history.
-  `src/editor-session.js` projects an Obsidian-style live preview (active line
-  as source Markdown, other lines as rendered preview). Classic (default) uses a
-  continuous multiline host; Block editor (View options) enables the floating
-  block toolbar, slash menu, and drag reorder. It composes the overlay,
-  selection, and block-interaction controllers. Cursor snapshots reuse the
-  frozen document projection instead of rebuilding the document.
+  `src/editor-session.js` projects Markdown Rendered Edit as per-block live
+  preview: the active block shows source and the others render. Block editor
+  (View options) adds the floating toolbar, slash menu, and drag reorder over
+  that shared projection. `src/editor-classic-surface.js` owns the continuous
+  full-file Source Edit surface. The session composes the overlay, selection,
+  and block-interaction controllers. Cursor snapshots reuse the frozen
+  document projection instead of rebuilding the document.
 - `src/core/reader.js` retains pure reader calculations that can be tested
   without Tauri or the browser composition root.
 - `src/mermaid-renderer.js` loads Mermaid only when a document contains a

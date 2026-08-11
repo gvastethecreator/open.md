@@ -451,9 +451,69 @@ export function createEditorClassicSurface({
     return true;
   };
 
+  const replaceMultiLineSelection = (event, replacement = '') => {
+    const selection = window.getSelection();
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    if (!range || selection.isCollapsed) return false;
+
+    const rowFor = (node) => {
+      const element = node?.nodeType === 1 ? node : node?.parentElement;
+      return element?.closest?.('[data-classic-line]') || null;
+    };
+    const startRow = rowFor(range.startContainer);
+    const endRow = rowFor(range.endContainer);
+    let startLine = Number(startRow?.dataset.classicLine);
+    let endLine = Number(endRow?.dataset.classicLine);
+    if (!Number.isFinite(startLine) || !Number.isFinite(endLine) || startLine === endLine) {
+      return false;
+    }
+    if (endLine < startLine) [startLine, endLine] = [endLine, startLine];
+
+    const startContent = startRow.querySelector('[data-classic-content]');
+    const endContent = endRow.querySelector('[data-classic-content]');
+    if (!startContent || !endContent) return false;
+
+    event.preventDefault();
+    const lines = readLinesFromDom();
+    const startOffset = boundaryOffsetIn(startContent, range.startContainer, range.startOffset);
+    const endOffset = boundaryOffsetIn(endContent, range.endContainer, range.endOffset);
+    const before = (lines[startLine] ?? '').slice(0, startOffset);
+    const after = (lines[endLine] ?? '').slice(endOffset);
+    const inserted = String(replacement ?? '').replace(/\r\n?/g, '\n').split('\n');
+    const nextLines = inserted.length === 1
+      ? [`${before}${inserted[0]}${after}`]
+      : [
+          `${before}${inserted[0]}`,
+          ...inserted.slice(1, -1),
+          `${inserted.at(-1)}${after}`,
+        ];
+    lines.splice(startLine, endLine - startLine + 1, ...nextLines);
+    commitLines(lines);
+    activeLine = startLine + nextLines.length - 1;
+    const caret = inserted.length === 1
+      ? before.length + inserted[0].length
+      : inserted.at(-1).length;
+    preferredColumn = caret;
+    stickyVerticalNav = false;
+    selectionLines = new Set();
+    render({ source: joinLines(lines), focusLine: activeLine, caret });
+    canvas.focus?.({ preventScroll: true });
+    ensureActiveLineVisible();
+    return true;
+  };
+
   const handleBeforeInput = (event) => {
-    if (!['insertParagraph', 'insertLineBreak'].includes(event?.inputType)) return false;
-    return insertLineBreak(event);
+    if (['insertParagraph', 'insertLineBreak'].includes(event?.inputType)) {
+      return insertLineBreak(event);
+    }
+    if (['insertText', 'insertReplacementText', 'insertFromPaste'].includes(event?.inputType)) {
+      const replacement = event.data ?? event.dataTransfer?.getData?.('text/plain');
+      if (replacement != null && replaceMultiLineSelection(event, replacement)) return true;
+    }
+    if (String(event?.inputType || '').startsWith('delete')) {
+      return replaceMultiLineSelection(event, '');
+    }
+    return false;
   };
 
   const handleKeydown = (event) => {
@@ -486,6 +546,14 @@ export function createEditorClassicSurface({
 
     if (event.key === 'Enter') return insertLineBreak(event, { fromKeydown: true });
 
+    if (
+      !selection?.isCollapsed
+      && (event.key === 'Backspace' || event.key === 'Delete')
+      && replaceMultiLineSelection(event, '')
+    ) {
+      return true;
+    }
+
     if (event.key === 'Backspace' && selection?.isCollapsed && offset === 0 && activeLine > 0) {
       event.preventDefault();
       const lines = readLinesFromDom();
@@ -498,6 +566,29 @@ export function createEditorClassicSurface({
       preferredColumn = caret;
       stickyVerticalNav = false;
       activeLine -= 1;
+      selectionLines = new Set();
+      render({ source: joinLines(lines), focusLine: activeLine, caret });
+      canvas.focus?.({ preventScroll: true });
+      ensureActiveLineVisible();
+      return true;
+    }
+
+    if (
+      event.key === 'Delete'
+      && selection?.isCollapsed
+      && offset >= length
+      && activeLine < linesNow.length - 1
+    ) {
+      event.preventDefault();
+      const lines = readLinesFromDom();
+      const current = lines[activeLine] ?? '';
+      const next = lines[activeLine + 1] ?? '';
+      const caret = current.length;
+      lines[activeLine] = `${current}${next}`;
+      lines.splice(activeLine + 1, 1);
+      commitLines(lines);
+      preferredColumn = caret;
+      stickyVerticalNav = false;
       selectionLines = new Set();
       render({ source: joinLines(lines), focusLine: activeLine, caret });
       canvas.focus?.({ preventScroll: true });

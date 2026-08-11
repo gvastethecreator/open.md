@@ -13,7 +13,7 @@ function fixture({ reduced = false, viewTransitions = false } = {}) {
   const dom = new JSDOM(`<!doctype html><html><body class="is-line-guide is-minimap">
     <button id="source-mode"><i></i></button><span id="source-label"></span>
     <button id="edit-mode"><i></i></button><span id="edit-label"></span>
-    <main id="read"></main><pre id="source"></pre><section id="edit"></section>
+    <main id="read" tabindex="-1"></main><pre id="source" tabindex="-1"></pre><section id="edit"></section>
     <aside id="lines"></aside><aside id="minimap"></aside>
   </body></html>`);
   dom.window.matchMedia = () => ({ matches: reduced });
@@ -56,6 +56,7 @@ function createHarness(options = {}) {
   let mode = 'read';
   let available = true;
   let allowExit = true;
+  let allowSource = true;
   const calls = [];
   const toasts = [];
   const coordinator = createDocumentModeCoordinator({
@@ -80,8 +81,10 @@ function createHarness(options = {}) {
       },
       setSource: async (active) => {
         calls.push(`source:${active}`);
+        if (!allowSource) return false;
         if (active) mode = mode === 'edit' ? 'source-edit' : 'source';
         else mode = mode === 'source-edit' ? 'edit' : 'read';
+        return true;
       },
     },
     hooks: {
@@ -99,6 +102,7 @@ function createHarness(options = {}) {
     setMode: (value) => { mode = value; },
     setAvailable: (value) => { available = value; },
     setAllowExit: (value) => { allowExit = value; },
+    setAllowSource: (value) => { allowSource = value; },
   };
 }
 
@@ -123,6 +127,7 @@ describe('Document Mode Coordinator', () => {
     expect(harness.mode()).toBe('edit');
     await harness.coordinator.toggleEdit();
     expect(harness.mode()).toBe('read');
+    expect(harness.dom.window.document.activeElement).toBe(harness.elements.readSurface);
     expect(harness.calls).toEqual([
       'close-ui', 'cancel-theme', 'enter',
       'close-ui', 'cancel-theme', 'source:true',
@@ -130,6 +135,17 @@ describe('Document Mode Coordinator', () => {
       'close-ui', 'cancel-theme', 'exit',
     ]);
     expect(harness.toasts).toEqual(['Edit mode', 'Source view', 'Rendered view', 'Read only mode']);
+  });
+
+  it('moves focus to Source Read after leaving Source Edit', async () => {
+    const harness = createHarness({ reduced: true });
+    harness.setMode('source-edit');
+    harness.coordinator.refresh();
+
+    await harness.coordinator.toggleEdit();
+
+    expect(harness.mode()).toBe('source');
+    expect(harness.dom.window.document.activeElement).toBe(harness.elements.sourceSurface);
   });
 
   it('does not toast when a mode change is blocked', async () => {
@@ -142,6 +158,12 @@ describe('Document Mode Coordinator', () => {
     harness.setMode('edit');
     harness.setAllowExit(false);
     await expect(harness.coordinator.toggleEdit()).resolves.toBe(false);
+    expect(harness.mode()).toBe('edit');
+    expect(harness.toasts).toEqual([]);
+
+    harness.setAllowExit(true);
+    harness.setAllowSource(false);
+    await expect(harness.coordinator.toggleSource()).resolves.toBe(false);
     expect(harness.mode()).toBe('edit');
     expect(harness.toasts).toEqual([]);
   });

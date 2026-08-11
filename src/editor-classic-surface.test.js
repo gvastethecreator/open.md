@@ -78,6 +78,30 @@ describe('Editor Classic Surface', () => {
     expect(rows[2].querySelector('[data-editor-mode="preview"]')).toBeTruthy();
   });
 
+  it('replaces a multi-line selection as one source edit', () => {
+    const { surface, canvas, getSource } = mountSurface('AlphaLong\nxy\nGammaLonger\nDelta');
+    const rows = [...canvas.querySelectorAll('[data-classic-line]')];
+    const start = rows[0].querySelector('[data-classic-content]');
+    const end = rows[2].querySelector('[data-classic-content]');
+    const range = document.createRange();
+    range.setStart(start.firstChild, 2);
+    range.setEnd(end.firstChild, 3);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    const event = new InputEvent('beforeinput', {
+      bubbles: true,
+      cancelable: true,
+      inputType: 'insertText',
+      data: 'REPLACED',
+    });
+    expect(surface.handleBeforeInput(event)).toBe(true);
+    expect(event.defaultPrevented).toBe(true);
+    expect(getSource()).toBe('AlREPLACEDmaLonger\nDelta');
+    expect(canvas.querySelectorAll('.classic-line')).toHaveLength(2);
+  });
+
   it('splits lines on Enter and keeps continuous host', () => {
     const { surface, canvas, applySource, getSource } = mountSurface('Hello');
     const content = canvas.querySelector('[data-editor-mode="source"]');
@@ -250,6 +274,20 @@ describe('Editor Classic Surface', () => {
     placeCaretIn(canvas.querySelector('[data-editor-mode="source"]'), 0);
 
     const event = new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true });
+    expect(surface.handleKeydown(event)).toBe(true);
+    expect(event.defaultPrevented).toBe(true);
+    expect(getSource()).toBe('HelloWorld');
+    expect(surface.activeLine()).toBe(0);
+    expect(canvas.querySelectorAll('.classic-line')).toHaveLength(1);
+    expect(caretOffsetInSource(canvas.querySelector('[data-editor-mode="source"]'))).toBe(5);
+  });
+
+  it('merges with the next line on Delete at the line end', () => {
+    const { surface, canvas, getSource } = mountSurface('Hello\nWorld');
+    surface.activateLine(0, { caret: 5, clearSelection: true });
+    placeCaretIn(canvas.querySelector('[data-editor-mode="source"]'), 5);
+
+    const event = new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true });
     expect(surface.handleKeydown(event)).toBe(true);
     expect(event.defaultPrevented).toBe(true);
     expect(getSource()).toBe('HelloWorld');

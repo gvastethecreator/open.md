@@ -35,6 +35,10 @@ describe('Application Runtime Adapters', () => {
     expect(saved.source).toBe('# Updated\n\nText');
     expect(view.window.__OPENMD_PREVIEW_DOCUMENTS__['preview.md'].source).toBe('# Updated\n\nText');
 
+    const confirm = vi.spyOn(view.window, 'confirm').mockReturnValue(false);
+    await expect(adapters.dialogs.confirm('Discard?')).resolves.toBe(false);
+    expect(confirm).toHaveBeenCalledWith('Discard?');
+
     view.window.__OPENMD_PREVIEW_SAVE_FAILURE__ = true;
     await expect(adapters.documents.save('preview.md', 'nope')).rejects.toThrow('Preview save failure');
     expect(view.window.__OPENMD_PREVIEW_DOCUMENTS__['preview.md'].source).toBe('# Updated\n\nText');
@@ -62,11 +66,13 @@ describe('Application Runtime Adapters', () => {
     });
     const nativeWindow = { setAlwaysOnTop: vi.fn(async () => {}) };
     const openUrl = vi.fn(async () => {});
+    const confirmDialog = vi.fn(async () => true);
     const adapters = createApplicationRuntimeAdapters({
       window: view.window,
       invoke,
       getCurrentWindow: () => nativeWindow,
       openUrl,
+      confirmDialog,
     });
 
     await adapters.documents.open('notes.md');
@@ -74,6 +80,7 @@ describe('Application Runtime Adapters', () => {
     await adapters.documents.readImage('notes.md', 'assets/pixel.png');
     await adapters.documents.readImageFile('photo.png');
     await adapters.windows.openDocument('other.md');
+    await expect(adapters.dialogs.confirm('Discard?', { kind: 'warning' })).resolves.toBe(true);
     await adapters.windows.setAlwaysOnTop(true);
     await adapters.openRequests.acknowledge(7);
     await adapters.windows.openExternalUrl('https://example.com');
@@ -113,6 +120,7 @@ describe('Application Runtime Adapters', () => {
     ]);
     expect(nativeWindow.setAlwaysOnTop).toHaveBeenCalledWith(true);
     expect(openUrl).toHaveBeenCalledWith('https://example.com');
+    expect(confirmDialog).toHaveBeenCalledWith('Discard?', { kind: 'warning' });
   });
 
   it('exposes browser fallbacks for system settings without invoking Tauri', async () => {

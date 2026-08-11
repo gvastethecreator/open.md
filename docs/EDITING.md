@@ -1,72 +1,75 @@
 # Editing files
 
-`open.md` can edit an open Markdown or plain-text companion file without changing its format. Images are view-only and do not enter Edit or Source.
+`open.md` edits an open Markdown or text companion without changing its file
+format. Images are view-only: Source and Edit are unavailable for them.
 
-Markdown uses a live-preview editor with two presentations:
+Two independent controls create four states:
 
-- **Classic** (default): continuous **source-line** live preview (Obsidian-style).
-  Only the active hard line is raw Markdown; every other line is rendered. The
-  host is one contenteditable surface — not Notion-style block islands.
-- **Block editor** (View options → Editing): optional per-block islands with
-  slash commands, floating toolbar, and drag reorder.
+| Presentation | Read only | Edit |
+| --- | --- | --- |
+| **Rendered** | Rendered document | Live-preview editor |
+| **Source** | Full file source | Continuous full-file editor |
 
-Non-Markdown companions (CSV, YAML, logs, and similar) use a plain monospace
-buffer so saves preserve text without Markdown block rewriting.
+The Rendered/Source control changes presentation. The Read only/Edit control
+changes whether the current presentation can be edited. Open a supported file,
+then use either control in the status bar. <kbd>Ctrl</kbd> + <kbd>Shift</kbd> +
+<kbd>E</kbd> toggles Read only and Edit. On macOS, use <kbd>Cmd</kbd> instead of
+<kbd>Ctrl</kbd>.
 
-**JSON** uses a minimal property editor when the file parses as an object or
-array: top-level keys (or items) appear as editable rows; nested values edit
-as JSON text. Invalid or very large JSON falls back to the plain buffer.
-Source mode always shows the full text. Markdown block tools stay Markdown-only.
+Mode changes keep the same document frame and reader scroll position while the
+window chrome stays fixed. Reduced-motion preferences switch the surface
+immediately. The source file remains Markdown or text; there is no private
+document format.
 
-## Enter edit mode
+Non-Markdown companions (CSV, YAML, TOML, INI, ENV, logs, and similar) use a
+plain text surface so saves do not rewrite their syntax. Valid JSON objects and
+arrays use a property editor in Rendered Edit; nested values edit as JSON text.
+Invalid or very large JSON falls back to the plain editor. Source Edit always
+shows the exact full JSON text. Markdown block tools stay Markdown-only.
 
-Open a supported file, then select the mode icon in the status bar or press
-<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd>. The icon moves through Read,
-Edit and Source; its tooltip names the current mode and the next one. On macOS,
-use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd>.
+## Rendered Edit
 
-Mode changes morph the document surface between its Read, Edit and Source
-geometry while the window chrome stays fixed. Reduced-motion preferences switch
-the surface immediately. The reader keeps the same scroll position while you
-move between modes.
+Markdown Rendered Edit uses per-block live preview:
 
-Edit mode uses an **Obsidian-style live preview** surface. The source file
-remains Markdown or text; there is no private document format. While the caret
-is in the editor, the status bar shows its source line and visible column. The
-gear in the title bar can show source-line numbers and the minimap in Edit as
-well as Read. Word wrap is on by default and can be changed there for Read,
-Edit and Source.
+- The active block shows its editable source and structural marker.
+- Other blocks stay rendered until activated.
+- Enter splits a block. Backspace at the start and Delete at the end merge
+  neighboring blocks.
+- Arrow keys move between blocks at their boundaries. Undo and redo use the
+  platform shortcuts.
+- Selection and inline formatting stay inside the active block. Use Source Edit
+  for continuous selection or replacement across several lines.
+- Heading markers `#` through `######` and quote markers remain visible inside
+  the document frame, including at the 440 px minimum window width.
 
-## Live preview
+Select text to show the inline toolbar for bold, italic, strikethrough, code,
+and links. While the caret is in the editor, the status bar shows its source
+line and visible column. View options can show source-line numbers and the
+minimap in Read, Rendered Edit, and Source Edit. Word wrap applies to every text
+surface.
 
-### Classic (default)
+Advanced options → **Reduce motion** disables non-essential editor animation.
+The operating system's `prefers-reduced-motion` setting is always honored.
 
-- Operates on **file source lines** (`\n`), not block widgets.
-- **Active line** = full source Markdown for that line (e.g. `# Title`, `**bold**`),
-  with typography matching the element type (a `#` line scales like an h1, code
-  is monospaced, quotes are muted/italic, etc.).
-- **Other lines** = rendered preview of that source line.
-- Click a preview line to make it the sole active source line.
-- Multi-line selection does not re-project lines mid-drag (avoids height jumps);
-  only the active caret line stays in source Markdown.
-- Keyboard: ↑/↓ move hard lines with a preferred column; ←/→ cross line edges;
-  Home/End are line bounds; Ctrl/Cmd+Home/End are document bounds.
-- Active-line highlight is a full-width band (animated when motion is allowed);
-  the caret can show a short trail effect (Neovide-style).
-- No block toolbar, slash menu, or drag handles.
+## Source Edit
 
-Advanced options → **Reduce motion** disables non-essential editor animation
-(trail, active-line band motion, caret motion). The OS
-`prefers-reduced-motion` setting is always honored as well.
+Source Edit is one continuous, line-based host for the complete file. It keeps
+raw syntax visible, supports selection and replacement across lines, and uses
+these navigation rules:
 
-### Block editor (optional)
+- ↑/↓ move hard lines with a preferred column.
+- ←/→ cross line edges.
+- Home/End move to line bounds.
+- Ctrl/Cmd+Home and Ctrl/Cmd+End move to document bounds.
+- Page Up/Page Down keep the caret column when possible.
 
-- Per-block islands with slash commands, floating toolbar, and drag reorder.
+Use Source Edit for tables, embedded HTML, footnotes, nested rich blocks,
+Mermaid source, image syntax, or any exact syntax not exposed by Rendered Edit.
 
-## Block editor (optional)
+## Block editor tools (optional)
 
-Turn on **Block editor** under View options → Editing when you want Notion-style
-block tools. While it is on:
+Turn on **Block editor** under View options → Editing to add Notion-style tools
+to Rendered Edit. While it is on:
 
 Type `/` in an empty block to choose:
 
@@ -78,7 +81,7 @@ Type `/` in an empty block to choose:
 - a divider.
 
 Block actions live on a **floating toolbar at the bottom** of the window while
-Block editor and Edit are both active:
+Block editor, Rendered, and Edit are active:
 
 - add a block;
 - drag handle (drag to reorder, or click for move / duplicate / delete);
@@ -139,9 +142,9 @@ essential shortcuts. Press <kbd>Esc</kbd> to return to the document.
 ## Current limits
 
 Editing covers the common Markdown blocks above. Existing heading levels 4–6
-are preserved. Complex tables, embedded HTML, footnotes, nested rich blocks,
+remain editable. Complex tables, embedded HTML, footnotes, nested rich blocks,
 Mermaid diagrams and image authoring do not have dedicated visual controls; use
-Source view for exact syntax edits. New-file creation, Save As, collaboration,
+Source Edit for exact syntax edits. New-file creation, Save As, collaboration,
 comments and cloud sync are outside this mode. To keep the app responsive,
 documents over 2 MiB or 20,000 lines remain available in Read and Source views
-but do not open in the live-preview editor.
+but Edit remains unavailable.

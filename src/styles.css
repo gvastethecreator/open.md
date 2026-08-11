@@ -4933,8 +4933,13 @@ label.appearance-theme-field.reading-tool-toggle .theme-select {
 
   .markdown-body,
   .source-view,
-  .help-content,
   .editor-view {
+    /* Keep enough shared inline space for the longest rendered-edit Markdown
+       marker (######) instead of clipping it outside the narrow viewport. */
+    padding: 30px 20px 82px 60px;
+  }
+
+  .help-content {
     padding: 30px 20px 82px;
   }
 

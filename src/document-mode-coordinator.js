@@ -322,8 +322,8 @@ export function createDocumentModeCoordinator({
 
   const toggleSource = () => performChange('source', async (initialMode, { isCurrentDocument }) => {
     const sourceActive = initialMode === 'source' || initialMode === 'source-edit';
-    await adapters.setSource?.(!sourceActive);
-    return isCurrentDocument();
+    const changed = await adapters.setSource?.(!sourceActive);
+    return changed !== false && isCurrentDocument();
   }, (nextMode) => {
     hooks.onToast?.(`${getDocumentModePresentation(nextMode).source.label} view`);
   });
@@ -331,6 +331,9 @@ export function createDocumentModeCoordinator({
   const toggleEdit = () => performChange('edit', async (initialMode, { documentIdentity, isCurrentDocument }) => {
     if (initialMode === 'edit' || initialMode === 'source-edit') {
       const exited = await adapters.exitEdit?.();
+      if (exited && isCurrentDocument()) {
+        surfaceFor(current())?.focus?.({ preventScroll: true });
+      }
       return Boolean(exited) && isCurrentDocument();
     }
     const entered = await adapters.enterEdit?.(documentIdentity);
