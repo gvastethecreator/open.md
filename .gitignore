@@ -35,6 +35,12 @@ src-tauri/gen/
 coverage
 *.tsbuildinfo
 
+# Browser/e2e evidence
+.playwright/
+playwright-report/
+test-results/
+*.trace.zip
+
 # Local environment / secrets
 .env
 .env.*

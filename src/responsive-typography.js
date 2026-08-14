@@ -1,5 +1,3 @@
-import { layout, prepare } from '@chenglou/pretext';
-
 const FIT_SELECTORS = [
   '.markdown-body h1',
   '.markdown-body h2',
@@ -69,7 +67,7 @@ function resetElement(element) {
   delete element.dataset.pretextLines;
 }
 
-function measureElement(window, element) {
+function measureElement(window, element, { layout, prepare }) {
   const text = element.textContent?.trim();
   const width = element.clientWidth;
   if (!text || width <= 0 || element.closest('.minimap-document')) return null;
@@ -106,14 +104,38 @@ export function createResponsiveTypography({ window, root = window.document, onD
   let disposed = false;
   let frameId = null;
   let available = typeof Intl?.Segmenter === 'function';
+  let pretext = null;
+  let pretextPromise = null;
+
+  const loadPretext = () => {
+    if (pretext || pretextPromise || !available) return pretextPromise;
+    pretextPromise = import('@chenglou/pretext')
+      .then((module) => {
+        pretext = module;
+        pretextPromise = null;
+        if (!disposed) schedule();
+        return module;
+      })
+      .catch((error) => {
+        pretextPromise = null;
+        available = false;
+        onDiagnostic?.('Pretext layout unavailable; CSS fallback retained', error);
+        return null;
+      });
+    return pretextPromise;
+  };
 
   const refresh = () => {
     if (disposed || !available) return false;
+    if (!pretext) {
+      void loadPretext();
+      return false;
+    }
     try {
       const elements = [...root.querySelectorAll(FIT_SELECTORS)]
         .filter((element) => !element.closest('.minimap-document'));
       elements.forEach(resetElement);
-      const measurements = elements.map((element) => measureElement(window, element));
+      const measurements = elements.map((element) => measureElement(window, element, pretext));
       elements.forEach((element, index) => {
         const result = measurements[index];
         if (!result) return;

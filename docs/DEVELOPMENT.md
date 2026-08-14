@@ -16,7 +16,10 @@ It describes the repository layout, the local checks, and the CI gates for
 - `docs/` — developer and provenance documentation; private audit notes belong
   under the ignored `.local/` directory. Architecture ARC-01..45 are closed in
   [architecture/WORKPLAN.md](architecture/WORKPLAN.md); reviews there are
-  historical completion records, not an open ticket queue.
+  historical completion records, not an open ticket queue. The current runtime
+  boundary is summarized in [architecture/CURRENT.md](architecture/CURRENT.md),
+  and dependency/security evidence lives in [DEPENDENCY_UPDATES.md](DEPENDENCY_UPDATES.md)
+  and [QUALITY_AUDIT.md](QUALITY_AUDIT.md).
 
 The frontend and native layers communicate through the Tauri command/event
 bridge. Opening a document is read-only until the user enters **Edit** and
