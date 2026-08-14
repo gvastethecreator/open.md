@@ -9,6 +9,12 @@ stable release is cut.
 
 ### Changed
 
+- 2026-08-11 maintenance: `highlight.js` updated to 11.11.2, the Mermaid
+  `dompurify` override moved to 3.4.13 to clear GHSA-55q2-fjhq-7xh7, and the
+  Rust lockfile refreshed with the latest compatible crates (`html-escape`
+  0.2.15 included). The responsive typography adapter now lazy-loads
+  `@chenglou/pretext`, reducing initial boot JavaScript from 317,189 B to
+  275,650 B while keeping its CSS fallback and tests.
 - Maintenance: frontend packages updated to latest (`vite` 8.2, `jsdom` 30,
   `@tauri-apps/plugin-dialog` 2.7.2); Rust lockfile refreshed to latest
   compatible crates (`serde`/`serde_json`, dialog plugin, transitive tokio and

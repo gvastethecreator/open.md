@@ -63,6 +63,12 @@ repository does not currently publish installers or hosted release binaries.
 
 - [Development and checks](docs/DEVELOPMENT.md) — project layout, local
   commands, and CI expectations.
+- [Dependency updates](docs/DEPENDENCY_UPDATES.md) — resolved versions,
+  changelogs, security overrides, and migration notes.
+- [Quality audit](docs/QUALITY_AUDIT.md) — current gates, bundle budget, and
+  residual release boundaries.
+- [Current architecture](docs/architecture/CURRENT.md) — runtime ownership and
+  lazy-loading boundaries.
 - [Editing](docs/EDITING.md) — the four mode combinations, block tools, and save.
 - [GitHub Pages landing](docs/PAGES.md) — local preview, deployment, and media
   provenance.

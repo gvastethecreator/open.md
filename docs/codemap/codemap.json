@@ -1,694 +1,195 @@
 {
-  "generated_at": "2026-08-11T07:49:58Z",
-  "generated_from_commit": "2b90a4037f2ccb4afa85aa3a83a9a3b1e5c3654c",
+  "generated_at": "2026-08-11T13:39:19Z",
+  "generated_from_commit": "37fb285ce894636572a7d13161e9a9dc942c0061",
   "scope": [
     "."
   ],
   "nodes": [
     {
-      "id": "application-composition",
-      "path": "src/main.js",
-      "role": "Wires browser, editor, document, saved-reader refresh, and Tauri adapters into one application.",
-      "type": "module",
-      "boundary": "Application",
-      "entrypoints": [
-        "src/main.js:startOpenMdApplication"
-      ],
-      "tests": [
-        "src/application-composition.test.js",
-        "src/main.test.js"
-      ],
-      "constraints": [
-        "Owns composition, concrete adapters, and deferred reader refresh after save, but not editor or document policy."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/main.js",
-            "symbol": "startOpenMdApplication"
-          }
-        ]
-      }
-    },
-    {
-      "id": "application-lifecycle",
-      "path": "src/application-lifecycle.js",
-      "role": "Starts the application and disposes acquired listeners and owners in reverse order.",
-      "type": "service",
-      "boundary": "Application",
-      "entrypoints": [
-        "src/application-lifecycle.js:createApplicationLifecycleController"
-      ],
-      "tests": [
-        "src/application-lifecycle.test.js"
-      ],
-      "constraints": [
-        "A disposed lifecycle cannot accept new owners."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/application-lifecycle.js",
-            "symbol": "createApplicationLifecycleController"
-          }
-        ]
-      }
-    },
-    {
-      "id": "application-runtime",
-      "path": "src/application-runtime-adapters.js",
-      "role": "Provides native and preview adapters for documents, dialogs, events, storage, syntax, and diagrams.",
-      "type": "interface",
-      "boundary": "Application",
-      "entrypoints": [
-        "src/application-runtime-adapters.js:createApplicationRuntimeAdapters"
-      ],
-      "tests": [
-        "src/application-runtime-adapters.test.js"
-      ],
-      "constraints": [
-        "Browser preview uses explicit preview documents and rejects unavailable native access.",
-        "Native confirmation uses the Tauri dialog plugin while browser preview uses window.confirm."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/application-runtime-adapters.js",
-            "symbol": "createApplicationRuntimeAdapters"
-          }
-        ]
-      }
-    },
-    {
-      "id": "document-ingress",
-      "path": "src/document-ingress-controller.js",
-      "role": "Normalizes picker, drop, association, and startup requests before document replacement.",
-      "type": "interface",
-      "boundary": "Document",
-      "entrypoints": [
-        "src/document-ingress-controller.js:createDocumentIngressController"
-      ],
-      "tests": [
-        "src/document-ingress-controller.test.js"
-      ],
-      "constraints": [
-        "Async dirty-document guards can refuse replacement before an open request is submitted."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/document-ingress-controller.js",
-            "symbol": "createDocumentIngressController"
-          }
-        ]
-      }
-    },
-    {
-      "id": "document-mode",
-      "path": "src/document-mode-coordinator.js",
-      "role": "Coordinates Rendered or Source view with Read-only or Edit state.",
-      "type": "service",
-      "boundary": "Document",
-      "entrypoints": [
-        "src/document-mode-coordinator.js:createDocumentModeCoordinator"
-      ],
-      "tests": [
-        "src/document-mode-coordinator.test.js"
-      ],
-      "constraints": [
-        "Mode transitions retain document identity and cancel stale visual work."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/document-mode-coordinator.js",
-            "symbol": "createDocumentModeCoordinator"
-          }
-        ]
-      }
-    },
-    {
-      "id": "document-save",
-      "path": "src/document-save-coordinator.js",
-      "role": "Owns manual save, autosave, task updates, rollback, and stale-result guards.",
-      "type": "service",
-      "boundary": "Document",
-      "entrypoints": [
-        "src/document-save-coordinator.js:createDocumentSaveCoordinator"
-      ],
-      "tests": [
-        "src/document-save-coordinator.test.js"
-      ],
-      "constraints": [
-        "A save result cannot replace a different document or a newer revision."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/document-save-coordinator.js",
-            "symbol": "createDocumentSaveCoordinator"
-          }
-        ]
-      }
-    },
-    {
-      "id": "document-session",
-      "path": "src/document-session.js",
-      "role": "Opens or quietly refreshes one document, renders its read and source surfaces, and owns transient resources.",
-      "type": "service",
-      "boundary": "Document",
-      "entrypoints": [
-        "src/document-session.js:createDocumentSession"
-      ],
-      "tests": [
-        "src/document-session.test.js"
-      ],
-      "constraints": [
-        "Only the current generation can commit content, focus, or resources; quiet refresh suppresses normal lifecycle hooks and focus changes."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/document-session.js",
-            "symbol": "createDocumentSession"
-          }
-        ]
-      }
-    },
-    {
-      "id": "document-view",
-      "path": "src/document-view-state.js",
-      "role": "Projects idle, loading, ready, failed, replaced, and saved document state into the application.",
-      "type": "service",
-      "boundary": "Document",
-      "entrypoints": [
-        "src/document-view-state.js:createDocumentViewStateController"
-      ],
-      "tests": [
-        "src/document-view-state.test.js"
-      ],
-      "constraints": [
-        "A same-path save updates the current projection without resetting editor focus."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/document-view-state.js",
-            "symbol": "createDocumentViewStateController"
-          }
-        ]
-      }
-    },
-    {
-      "id": "editor-document",
-      "path": "src/editor-document.js",
-      "role": "Owns editor blocks, Markdown parsing, serialization, history, cursor, and model commands.",
-      "type": "module",
-      "boundary": "Editor",
-      "entrypoints": [
-        "src/editor-document.js:createEditorDocumentModel"
-      ],
-      "tests": [
-        "src/editor-document.test.js"
-      ],
-      "constraints": [
-        "The model is canonical; the DOM remains a projection."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/editor-document.js",
-            "symbol": "createEditorDocumentModel"
-          }
-        ]
-      }
-    },
-    {
-      "id": "editor-interactions",
-      "path": "src/editor-block-interaction-controller.js",
-      "role": "Owns block drag, layout motion, overlay, selection, and inline interaction adapters.",
-      "type": "interface",
-      "boundary": "Editor",
-      "entrypoints": [
-        "src/editor-block-interaction-controller.js:createEditorBlockInteractionController"
-      ],
-      "tests": [
-        "src/editor-block-interaction-controller.test.js",
-        "src/editor-overlay-controller.test.js",
-        "src/editor-selection-controller.test.js"
-      ],
-      "constraints": [
-        "Interaction controllers mutate the editor through injected model commands."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/editor-block-interaction-controller.js",
-            "symbol": "createEditorBlockInteractionController"
-          }
-        ]
-      }
-    },
-    {
-      "id": "editor-session",
-      "path": "src/editor-session.js",
-      "role": "Projects the editor model, composes interactions, and owns the edit lifecycle.",
-      "type": "service",
-      "boundary": "Editor",
-      "entrypoints": [
-        "src/editor-session.js:createEditorSession"
-      ],
-      "tests": [
-        "src/editor-session.test.js"
-      ],
-      "constraints": [
-        "Documents larger than the editor limits remain available only outside Edit."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/editor-session.js",
-            "symbol": "createEditorSession"
-          }
-        ]
-      }
-    },
-    {
-      "id": "editor-source",
-      "path": "src/editor-classic-surface.js",
-      "role": "Renders the continuous source-line editing surface and maintains source selection offsets.",
-      "type": "interface",
-      "boundary": "Editor",
-      "entrypoints": [
-        "src/editor-classic-surface.js:createEditorClassicSurface"
-      ],
-      "tests": [
-        "src/editor-classic-surface.test.js"
-      ],
-      "constraints": [
-        "The surface operates on source lines and one contenteditable host."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/editor-classic-surface.js",
-            "symbol": "createEditorClassicSurface"
-          }
-        ]
-      }
-    },
-    {
-      "id": "editor-state",
-      "path": "src/editor-state-coordinator.js",
-      "role": "Fans one editor snapshot into feedback, mode, save, navigation, typography, and status updates.",
-      "type": "service",
-      "boundary": "Editor",
-      "entrypoints": [
-        "src/editor-state-coordinator.js:createEditorStateCoordinator"
-      ],
-      "tests": [
-        "src/editor-state-coordinator.test.js"
-      ],
-      "constraints": [
-        "Reentrant snapshots drain in FIFO order."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/editor-state-coordinator.js",
-            "symbol": "createEditorStateCoordinator"
-          }
-        ]
-      }
-    },
-    {
-      "id": "format-registry",
-      "path": "src/format-registry.js",
-      "role": "Defines format capabilities, editor kinds, read renderers, modes, and highlighting.",
-      "type": "module",
-      "boundary": "Document",
-      "entrypoints": [
-        "src/format-registry.js:resolveFormatId"
-      ],
-      "tests": [
-        "src/format-detect.test.js",
-        "src/format-readers.test.js",
-        "src/format-registry.test.js"
-      ],
-      "constraints": [
-        "Format capability decisions come from this registry."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/format-registry.js",
-            "symbol": "resolveFormatId"
-          }
-        ]
-      }
-    },
-    {
-      "id": "native-access",
-      "path": "src-tauri/src/document_access.rs",
-      "role": "Reads, renders, validates, and safely replaces supported local documents and bytes.",
-      "type": "service",
-      "boundary": "Native",
-      "entrypoints": [
-        "src-tauri/src/document_access.rs:open_document",
-        "src-tauri/src/document_access.rs:save_document"
-      ],
-      "tests": [
-        "src-tauri/src/document_access.rs"
-      ],
-      "constraints": [
-        "Safe save uses a sibling temporary file and recovery policy before replacement."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src-tauri/src/document_access.rs",
-            "symbol": "open_document"
-          },
-          {
-            "path": "src-tauri/src/document_access.rs",
-            "symbol": "save_document"
-          }
-        ]
-      }
-    },
-    {
-      "id": "native-composition",
-      "path": "src-tauri/src/lib.rs",
-      "role": "Registers Tauri commands, native windows, file associations, and process startup.",
-      "type": "interface",
-      "boundary": "Native",
-      "entrypoints": [
-        "src-tauri/src/lib.rs:run"
-      ],
-      "tests": [
-        "src-tauri/src/lib.rs"
-      ],
-      "constraints": [
-        "Filesystem and document policy remain in native-access.",
-        "Desktop capabilities permit both close and destroy because accepted close requests are finalized by Tauri with destroy."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src-tauri/src/lib.rs",
-            "symbol": "pub fn run"
-          }
-        ]
-      }
-    },
-    {
-      "id": "reader-controls",
-      "path": "src/reader-controls.js",
-      "role": "Owns reading-tool panels, preferences, source selection, and related focus behavior.",
-      "type": "interface",
-      "boundary": "Reader",
-      "entrypoints": [
-        "src/reader-controls.js:createReaderControls"
-      ],
-      "tests": [
-        "src/reader-controls.test.js"
-      ],
-      "constraints": [
-        "Preferences and transient panel state remain separate."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/reader-controls.js",
-            "symbol": "createReaderControls"
-          }
-        ]
-      }
-    },
-    {
-      "id": "reader-shell",
-      "path": "src/reader-shell.js",
-      "role": "Composes one document session, reload policy, open-intent controller, and reader preferences.",
-      "type": "service",
-      "boundary": "Reader",
-      "entrypoints": [
-        "src/reader-shell.js:mountReaderShell"
-      ],
-      "tests": [
-        "src/reader-shell.test.js"
-      ],
-      "constraints": [
-        "Only one current document session belongs to a shell; reload can refresh the current path without replacing document identity."
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/reader-shell.js",
-            "symbol": "mountReaderShell"
-          }
-        ]
-      }
-    },
-    {
-      "id": "ui-shell",
+      "id": "external-dependencies",
       "path": "index.html",
-      "role": "Defines the desktop shell, document surfaces, editor controls, panels, and status chrome.",
-      "type": "interface",
-      "boundary": "UI",
+      "role": "Represents external packages referenced by tracked source files.",
+      "type": "external",
+      "boundary": "External",
       "entrypoints": [
-        "index.html:/src/main.js"
+        "index.html:https://github.com/gvastethecreator/open.md"
       ],
-      "tests": [
-        "src/application-composition.test.js",
-        "src/reader-shell.test.js"
-      ],
+      "tests": [],
       "constraints": [
-        "Rendered, Source, and Edit surfaces share the document-frame geometry."
+        "Only dependencies with literal tracked-source references appear here."
       ],
       "evidence": {
         "status": "verified",
         "locations": [
           {
             "path": "index.html",
-            "symbol": "/src/main.js"
+            "symbol": "https://github.com/gvastethecreator/open.md"
           }
         ]
       }
     },
     {
-      "id": "window-chrome",
-      "path": "src/window-chrome.js",
-      "role": "Owns native minimize, maximize, guarded close, and window-state presentation.",
-      "type": "interface",
-      "boundary": "UI",
+      "id": "index",
+      "path": "index.html",
+      "role": "Owns the tracked files for the index module.",
+      "type": "module",
+      "boundary": "Index",
       "entrypoints": [
-        "src/window-chrome.js:createWindowChrome"
+        "index.html:open.md"
+      ],
+      "tests": [],
+      "constraints": [
+        "This baseline uses tracked source and explicit dependency references only."
+      ],
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "index.html",
+            "symbol": "open.md"
+          }
+        ]
+      }
+    },
+    {
+      "id": "repository",
+      "path": "README.md",
+      "role": "Owns the tracked files for the repository module.",
+      "type": "module",
+      "boundary": "Repository",
+      "entrypoints": [
+        "README.md:open.md"
+      ],
+      "tests": [],
+      "constraints": [
+        "This baseline uses tracked source and explicit dependency references only."
+      ],
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "README.md",
+            "symbol": "open.md"
+          }
+        ]
+      }
+    },
+    {
+      "id": "scripts",
+      "path": "scripts",
+      "role": "Owns the tracked files for the scripts module.",
+      "type": "service",
+      "boundary": "Scripts",
+      "entrypoints": [
+        "scripts/check-bundle.mjs:listFiles"
+      ],
+      "tests": [],
+      "constraints": [
+        "This baseline uses tracked source and explicit dependency references only."
+      ],
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "scripts/check-bundle.mjs",
+            "symbol": "listFiles"
+          }
+        ]
+      }
+    },
+    {
+      "id": "src",
+      "path": "src",
+      "role": "Owns the tracked files for the src module.",
+      "type": "module",
+      "boundary": "Src",
+      "entrypoints": [
+        "src/main.js:cacheElements"
       ],
       "tests": [
-        "src/window-chrome.test.js"
+        "src/app-loading-screen.test.js",
+        "src/application-composition.test.js",
+        "src/application-lifecycle.test.js",
+        "src/application-runtime-adapters.test.js",
+        "src/context-menu-controller.test.js"
       ],
       "constraints": [
-        "Button and operating-system close requests must pass the injected async dirty-document guard before Tauri destroys the window."
+        "This baseline uses tracked source and explicit dependency references only."
       ],
       "evidence": {
         "status": "verified",
         "locations": [
           {
-            "path": "src/window-chrome.js",
-            "symbol": "createWindowChrome"
-          }
-        ]
-      }
-    }
-  ],
-  "edges": [
-    {
-      "from": "application-composition",
-      "to": "application-lifecycle",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
             "path": "src/main.js",
-            "symbol": "createApplicationLifecycleController"
+            "symbol": "cacheElements"
           }
         ]
       }
     },
     {
-      "from": "application-composition",
-      "to": "application-runtime",
-      "type": "calls",
+      "id": "src-core",
+      "path": "src/core",
+      "role": "Owns the tracked files for the src / core module.",
+      "type": "service",
+      "boundary": "Src",
+      "entrypoints": [
+        "src/core/reader.js:isSupportedFilePath"
+      ],
+      "tests": [
+        "src/main.test.js"
+      ],
+      "constraints": [
+        "This baseline uses tracked source and explicit dependency references only."
+      ],
       "evidence": {
         "status": "verified",
         "locations": [
           {
-            "path": "src/main.js",
-            "symbol": "createApplicationRuntimeAdapters"
+            "path": "src/core/reader.js",
+            "symbol": "isSupportedFilePath"
           }
         ]
       }
     },
     {
-      "from": "application-composition",
-      "to": "document-ingress",
-      "type": "calls",
+      "id": "src-tauri",
+      "path": "src-tauri",
+      "role": "Owns the tracked files for the src-tauri module.",
+      "type": "module",
+      "boundary": "Src Tauri",
+      "entrypoints": [
+        "src-tauri/Cargo.toml:package"
+      ],
+      "tests": [],
+      "constraints": [
+        "This baseline uses tracked source and explicit dependency references only."
+      ],
       "evidence": {
         "status": "verified",
         "locations": [
           {
-            "path": "src/main.js",
-            "symbol": "createDocumentIngressController"
+            "path": "src-tauri/Cargo.toml",
+            "symbol": "package"
           }
         ]
       }
     },
     {
-      "from": "application-composition",
-      "to": "document-mode",
-      "type": "calls",
+      "id": "src-tauri-src",
+      "path": "src-tauri/src",
+      "role": "Owns the tracked files for the src-tauri / src module.",
+      "type": "module",
+      "boundary": "Src Tauri",
+      "entrypoints": [
+        "src-tauri/src/lib.rs:get_file_content"
+      ],
+      "tests": [],
+      "constraints": [
+        "This baseline uses tracked source and explicit dependency references only."
+      ],
       "evidence": {
         "status": "verified",
         "locations": [
-          {
-            "path": "src/main.js",
-            "symbol": "createDocumentModeCoordinator"
-          }
-        ]
-      }
-    },
-    {
-      "from": "application-composition",
-      "to": "document-save",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/main.js",
-            "symbol": "createDocumentSaveCoordinator"
-          }
-        ]
-      }
-    },
-    {
-      "from": "application-composition",
-      "to": "document-view",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/main.js",
-            "symbol": "createDocumentViewStateController"
-          }
-        ]
-      }
-    },
-    {
-      "from": "application-composition",
-      "to": "editor-session",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/main.js",
-            "symbol": "createEditorSession"
-          }
-        ]
-      }
-    },
-    {
-      "from": "application-composition",
-      "to": "editor-state",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/main.js",
-            "symbol": "createEditorStateCoordinator"
-          }
-        ]
-      }
-    },
-    {
-      "from": "application-composition",
-      "to": "reader-controls",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/main.js",
-            "symbol": "createReaderControls"
-          }
-        ]
-      }
-    },
-    {
-      "from": "application-composition",
-      "to": "reader-shell",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/main.js",
-            "symbol": "mountReaderShell"
-          }
-        ]
-      }
-    },
-    {
-      "from": "application-composition",
-      "to": "window-chrome",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/main.js",
-            "symbol": "createWindowChrome"
-          }
-        ]
-      }
-    },
-    {
-      "from": "application-runtime",
-      "to": "native-composition",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/application-runtime-adapters.js",
-            "symbol": "invokeNative('get_file_content'"
-          },
-          {
-            "path": "src/application-runtime-adapters.js",
-            "symbol": "invokeNative('save_file_content'"
-          },
           {
             "path": "src-tauri/src/lib.rs",
             "symbol": "get_file_content"
@@ -697,263 +198,388 @@
       }
     },
     {
-      "from": "document-ingress",
-      "to": "reader-shell",
-      "type": "calls",
+      "id": "vite-config",
+      "path": "vite.config.js",
+      "role": "Owns the tracked files for the vite.config module.",
+      "type": "module",
+      "boundary": "Vite.Config",
+      "entrypoints": [
+        "vite.config.js:import { defineConfig } from \"vite\";"
+      ],
+      "tests": [],
+      "constraints": [
+        "This baseline uses tracked source and explicit dependency references only."
+      ],
       "evidence": {
         "status": "verified",
         "locations": [
           {
-            "path": "src/main.js",
-            "symbol": "openDocument: (value) => readerShell?.open(value)"
-          },
-          {
-            "path": "src/document-ingress-controller.js",
-            "symbol": "adapters.openDocument?.(value)"
+            "path": "vite.config.js",
+            "symbol": "import { defineConfig } from \"vite\";"
           }
         ]
       }
-    },
+    }
+  ],
+  "edges": [
     {
-      "from": "document-mode",
-      "to": "editor-session",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/main.js",
-            "symbol": "enterEdit: () => editorSession?.enter()"
-          },
-          {
-            "path": "src/main.js",
-            "symbol": "exitEdit: exitEditMode"
-          }
-        ]
-      }
-    },
-    {
-      "from": "document-save",
-      "to": "application-runtime",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/main.js",
-            "symbol": "saveDocument: (path, source) => runtimeAdapters.documents.save(path, source)"
-          }
-        ]
-      }
-    },
-    {
-      "from": "document-save",
-      "to": "editor-session",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/main.js",
-            "symbol": "saveEditor: () => editorSession?.save()"
-          }
-        ]
-      }
-    },
-    {
-      "from": "document-session",
-      "to": "application-runtime",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/document-session.js",
-            "symbol": "adapters.documents.open(path)"
-          },
-          {
-            "path": "src/main.js",
-            "symbol": "adapters: runtimeAdapters"
-          }
-        ]
-      }
-    },
-    {
-      "from": "document-session",
-      "to": "format-registry",
-      "type": "imports",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/document-session.js",
-            "symbol": "./format-registry.js"
-          }
-        ]
-      }
-    },
-    {
-      "from": "document-view",
-      "to": "editor-session",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/document-view-state.js",
-            "symbol": "adapters.getEditorSession?.()?.setDocument"
-          }
-        ]
-      }
-    },
-    {
-      "from": "document-view",
-      "to": "format-registry",
-      "type": "imports",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/document-view-state.js",
-            "symbol": "./format-registry.js"
-          }
-        ]
-      }
-    },
-    {
-      "from": "editor-session",
-      "to": "editor-document",
-      "type": "imports",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/editor-session.js",
-            "symbol": "./editor-document.js"
-          }
-        ]
-      }
-    },
-    {
-      "from": "editor-session",
-      "to": "editor-interactions",
-      "type": "imports",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/editor-session.js",
-            "symbol": "./editor-block-interaction-controller.js"
-          },
-          {
-            "path": "src/editor-session.js",
-            "symbol": "./editor-selection-controller.js"
-          },
-          {
-            "path": "src/editor-session.js",
-            "symbol": "./editor-overlay-controller.js"
-          }
-        ]
-      }
-    },
-    {
-      "from": "editor-session",
-      "to": "editor-source",
-      "type": "imports",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/editor-session.js",
-            "symbol": "./editor-classic-surface.js"
-          }
-        ]
-      }
-    },
-    {
-      "from": "editor-session",
-      "to": "editor-state",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/main.js",
-            "symbol": "onStateChange: (snapshot) => editorStateCoordinator?.apply(snapshot)"
-          }
-        ]
-      }
-    },
-    {
-      "from": "editor-state",
-      "to": "document-mode",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/main.js",
-            "symbol": "refreshDocumentMode: () => documentModeCoordinator?.refresh()"
-          }
-        ]
-      }
-    },
-    {
-      "from": "editor-state",
-      "to": "document-save",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/main.js",
-            "symbol": "observeSave: ({ snapshot }) => documentSaveCoordinator?.observeEditor(snapshot)"
-          }
-        ]
-      }
-    },
-    {
-      "from": "native-composition",
-      "to": "native-access",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src-tauri/src/lib.rs",
-            "symbol": "document_access::open_document"
-          },
-          {
-            "path": "src-tauri/src/lib.rs",
-            "symbol": "document_access::save_document"
-          }
-        ]
-      }
-    },
-    {
-      "from": "reader-shell",
-      "to": "document-session",
-      "type": "calls",
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/reader-shell.js",
-            "symbol": "createDocumentSession"
-          }
-        ]
-      }
-    },
-    {
-      "from": "ui-shell",
-      "to": "application-composition",
+      "from": "index",
+      "to": "external-dependencies",
       "type": "imports",
       "evidence": {
         "status": "verified",
         "locations": [
           {
             "path": "index.html",
+            "symbol": "https://github.com/gvastethecreator/open.md"
+          }
+        ]
+      }
+    },
+    {
+      "from": "index",
+      "to": "src",
+      "type": "imports",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "index.html",
+            "symbol": "/src/styles.css"
+          },
+          {
+            "path": "index.html",
             "symbol": "/src/main.js"
+          }
+        ]
+      }
+    },
+    {
+      "from": "repository",
+      "to": "index",
+      "type": "reads",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "CHANGELOG.md",
+            "symbol": "index.html"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "index.html"
+          }
+        ]
+      }
+    },
+    {
+      "from": "repository",
+      "to": "scripts",
+      "type": "calls",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "package.json",
+            "symbol": "./scripts/check-bundle.mjs"
+          },
+          {
+            "path": "package.json",
+            "symbol": "./scripts/validate-pages.mjs"
+          },
+          {
+            "path": "package.json",
+            "symbol": "./scripts/generate-runtime-themes.mjs"
+          },
+          {
+            "path": "package.json",
+            "symbol": "./scripts/validate-frontend.mjs"
+          }
+        ]
+      }
+    },
+    {
+      "from": "repository",
+      "to": "scripts",
+      "type": "reads",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "CONTEXT.md",
+            "symbol": "scripts/validate-frontend.mjs"
+          }
+        ]
+      }
+    },
+    {
+      "from": "repository",
+      "to": "src",
+      "type": "calls",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "package.json",
+            "symbol": "src/reader-shell.test.js"
+          }
+        ]
+      }
+    },
+    {
+      "from": "repository",
+      "to": "src",
+      "type": "reads",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "CHANGELOG.md",
+            "symbol": "src/themes.json"
+          },
+          {
+            "path": "CHANGELOG.md",
+            "symbol": "src/main.js"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src/main.js"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src/application-lifecycle.js"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src/application-runtime-adapters.js"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src/document-ingress-controller.js"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src/document-view-state.js"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src/reader-viewport-controller.js"
+          }
+        ]
+      }
+    },
+    {
+      "from": "repository",
+      "to": "src-core",
+      "type": "reads",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src/core/reader.js"
+          }
+        ]
+      }
+    },
+    {
+      "from": "repository",
+      "to": "src-tauri",
+      "type": "reads",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "CHANGELOG.md",
+            "symbol": "src-tauri/Cargo.toml"
+          }
+        ]
+      }
+    },
+    {
+      "from": "repository",
+      "to": "src-tauri-src",
+      "type": "reads",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "CHANGELOG.md",
+            "symbol": "src-tauri/src/lib.rs"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src-tauri/src/lib.rs"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src-tauri/src/app_settings.rs"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src-tauri/src/file_associations.rs"
+          },
+          {
+            "path": "CONTEXT.md",
+            "symbol": "src-tauri/src/document_access.rs"
+          }
+        ]
+      }
+    },
+    {
+      "from": "src",
+      "to": "external-dependencies",
+      "type": "imports",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/app-loading-screen.test.js",
+            "symbol": "vitest"
+          },
+          {
+            "path": "src/application-composition.test.js",
+            "symbol": "jsdom"
+          },
+          {
+            "path": "src/application-composition.test.js",
+            "symbol": "vitest"
+          },
+          {
+            "path": "src/application-lifecycle.test.js",
+            "symbol": "vitest"
+          },
+          {
+            "path": "src/application-runtime-adapters.js",
+            "symbol": "@tauri-apps/api/core"
+          },
+          {
+            "path": "src/application-runtime-adapters.js",
+            "symbol": "@tauri-apps/api/event"
+          },
+          {
+            "path": "src/application-runtime-adapters.js",
+            "symbol": "@tauri-apps/api/webview"
+          },
+          {
+            "path": "src/application-runtime-adapters.js",
+            "symbol": "@tauri-apps/api/window"
+          }
+        ]
+      }
+    },
+    {
+      "from": "src",
+      "to": "src-core",
+      "type": "imports",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/main.test.js",
+            "symbol": "./core/reader.js"
+          },
+          {
+            "path": "src/theme-coordinator.js",
+            "symbol": "./core/reader.js"
+          }
+        ]
+      }
+    },
+    {
+      "from": "src-core",
+      "to": "src",
+      "type": "imports",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/core/reader.js",
+            "symbol": "../format-detect.js"
+          },
+          {
+            "path": "src/core/reader.js",
+            "symbol": "../status-metrics.js"
+          },
+          {
+            "path": "src/core/reader.js",
+            "symbol": "../document-path.js"
+          },
+          {
+            "path": "src/core/reader.js",
+            "symbol": "../document-payload.js"
+          },
+          {
+            "path": "src/core/reader.js",
+            "symbol": "../markdown-source.js"
+          },
+          {
+            "path": "src/core/reader.js",
+            "symbol": "../reading-geometry.js"
+          },
+          {
+            "path": "src/core/reader.js",
+            "symbol": "../document-mode-coordinator.js"
+          },
+          {
+            "path": "src/core/reader.js",
+            "symbol": "../reader-viewport-controller.js"
+          }
+        ]
+      }
+    },
+    {
+      "from": "src-tauri-src",
+      "to": "external-dependencies",
+      "type": "imports",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/app_settings.rs",
+            "symbol": "serde"
+          },
+          {
+            "path": "src-tauri/src/document_access.rs",
+            "symbol": "pulldown_cmark"
+          },
+          {
+            "path": "src-tauri/src/document_access.rs",
+            "symbol": "serde"
+          },
+          {
+            "path": "src-tauri/src/document_access.rs",
+            "symbol": "syntect"
+          },
+          {
+            "path": "src-tauri/src/file_associations.rs",
+            "symbol": "serde"
+          },
+          {
+            "path": "src-tauri/src/images.rs",
+            "symbol": "tauri"
+          },
+          {
+            "path": "src-tauri/src/lib.rs",
+            "symbol": "tauri"
+          },
+          {
+            "path": "src-tauri/src/open_requests.rs",
+            "symbol": "serde"
+          }
+        ]
+      }
+    },
+    {
+      "from": "vite-config",
+      "to": "external-dependencies",
+      "type": "imports",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "vite.config.js",
+            "symbol": "vite"
           }
         ]
       }
@@ -961,62 +587,52 @@
   ],
   "flows": [
     {
-      "trigger": "The user leaves Edit after a successful save.",
+      "trigger": "Tracked reference CHANGELOG.md:index.html",
       "steps": [
-        "application-composition",
-        "reader-shell",
-        "document-session",
-        "application-runtime",
-        "native-composition",
-        "native-access"
+        "repository",
+        "index",
+        "src",
+        "external-dependencies"
       ],
-      "outcome": "The saved document reopens quietly into Read without replacing identity or stealing focus."
+      "outcome": "The verified dependency path reaches external-dependencies through 3 step(s)."
     },
     {
-      "trigger": "The user opens or drops a supported file.",
+      "trigger": "Tracked reference CHANGELOG.md:index.html to src-core",
       "steps": [
-        "application-composition",
-        "document-ingress",
-        "reader-shell",
-        "document-session",
-        "application-runtime",
-        "native-composition",
-        "native-access"
+        "repository",
+        "index",
+        "src",
+        "src-core"
       ],
-      "outcome": "Native access returns a current document payload for the active session."
+      "outcome": "The verified dependency path reaches src-core through 3 step(s)."
     },
     {
-      "trigger": "The document session renders a supported format.",
+      "trigger": "Tracked reference CONTEXT.md:src/core/reader.js",
       "steps": [
-        "reader-shell",
-        "document-session",
-        "format-registry"
+        "repository",
+        "src-core",
+        "src",
+        "external-dependencies"
       ],
-      "outcome": "The registry selects the read renderer, editor kind, mode set, and highlighting."
+      "outcome": "The verified dependency path reaches external-dependencies through 3 step(s)."
     },
     {
-      "trigger": "The user selects Source and then Edit.",
+      "trigger": "Tracked reference index.html:/src/styles.css",
       "steps": [
-        "application-composition",
-        "document-mode",
-        "editor-session",
-        "editor-source"
+        "index",
+        "src",
+        "external-dependencies"
       ],
-      "outcome": "The editor uses the continuous source-line surface."
+      "outcome": "The verified dependency path reaches external-dependencies through 2 step(s)."
     },
     {
-      "trigger": "The user edits and saves a document.",
+      "trigger": "Tracked reference index.html:/src/styles.css to src-core",
       "steps": [
-        "application-composition",
-        "document-mode",
-        "editor-session",
-        "editor-state",
-        "document-save",
-        "application-runtime",
-        "native-composition",
-        "native-access"
+        "index",
+        "src",
+        "src-core"
       ],
-      "outcome": "The current editor source reaches the safe native save path."
+      "outcome": "The verified dependency path reaches src-core through 2 step(s)."
     }
   ]
 }

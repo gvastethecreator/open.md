@@ -5,94 +5,97 @@
       "label": "📦 deps",
       "type": "shell",
       "command": "pnpm",
-      "args": [
-        "install"
-      ],
-      "group": "none"
+      "args": ["install"],
+      "problemMatcher": []
+    },
+    {
+      "label": "📊 outdated",
+      "type": "shell",
+      "command": "pnpm",
+      "args": ["outdated"],
+      "problemMatcher": []
     },
     {
       "label": "⚡ web",
       "type": "shell",
       "command": "pnpm",
-      "args": [
-        "run",
-        "dev"
-      ],
+      "args": ["run", "dev"],
       "isBackground": true,
       "problemMatcher": []
     },
     {
-      "label": "🚀 dev",
+      "label": "🚀 tauri",
       "type": "shell",
       "command": "pnpm",
-      "args": [
-        "run",
-        "tauri",
-        "dev"
-      ],
+      "args": ["run", "tauri", "dev"],
       "isBackground": true,
       "problemMatcher": []
     },
     {
-      "label": "🧪 test",
+      "label": "🧹 static",
       "type": "shell",
       "command": "pnpm",
-      "args": [
-        "run",
-        "test:frontend"
-      ],
-      "group": "test"
+      "args": ["run", "check:static"],
+      "group": "test",
+      "problemMatcher": []
     },
     {
-      "label": "🦀 test",
+      "label": "📄 pages",
       "type": "shell",
       "command": "pnpm",
-      "args": [
-        "run",
-        "test:rust"
-      ],
-      "group": "test"
+      "args": ["run", "check:pages"],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "🧪 front",
+      "type": "shell",
+      "command": "pnpm",
+      "args": ["run", "test:frontend"],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "🎨 Rust fmt",
+      "type": "shell",
+      "command": "pnpm",
+      "args": ["run", "fmt:rust"],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "🦀 Rust test",
+      "type": "shell",
+      "command": "pnpm",
+      "args": ["run", "test:rust"],
+      "group": "test",
+      "problemMatcher": ["$rustc"]
     },
     {
       "label": "🔍 check",
       "type": "shell",
       "command": "pnpm",
-      "args": [
-        "run",
-        "check:frontend"
-      ],
-      "group": "test"
+      "args": ["run", "check:frontend"],
+      "group": "test",
+      "problemMatcher": []
     },
     {
       "label": "✅ verify",
       "type": "shell",
       "command": "pnpm",
-      "args": [
-        "run",
-        "verify"
-      ],
-      "group": {
-        "kind": "test",
-        "isDefault": true
-      }
+      "args": ["run", "verify"],
+      "group": {"kind": "test", "isDefault": true},
+      "problemMatcher": []
     },
     {
       "label": "🏗️ build",
       "type": "shell",
       "command": "pnpm",
-      "args": [
-        "run",
-        "tauri",
-        "build"
-      ],
-      "dependsOn": [
-        "✅ verify"
-      ],
+      "args": ["run", "tauri", "build"],
+      "dependsOn": ["✅ verify"],
       "dependsOrder": "sequence",
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      }
+      "group": {"kind": "build", "isDefault": true},
+      "problemMatcher": []
     }
   ]
 }
