@@ -2,7 +2,7 @@
   "name": "open-md",
   "private": true,
   "version": "0.1.0",
-  "packageManager": "pnpm@11.20.0",
+  "packageManager": "pnpm@11.21.0",
   "type": "module",
   "description": "Minimalist local Markdown/text reader and editor built with Tauri v2, Rust and Vite.",
   "license": "MIT",
@@ -14,7 +14,7 @@
     "type": "git",
     "url": "https://github.com/gvastethecreator/open.md.git"
   },
-  "homepage": "https://github.com/gvastethecreator/open.md",
+  "homepage": "https://gvastethecreator.github.io/open.md/",
   "bugs": {
     "url": "https://github.com/gvastethecreator/open.md/issues"
   },
@@ -46,8 +46,8 @@
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.2",
     "@tauri-apps/plugin-opener": "^2.5.4",
-    "highlight.js": "11.11.2",
-    "iconoir": "^7.11.1",
+    "highlight.js": "11.12.0",
+    "iconoir": "^7.12.1",
     "mermaid": "^11.16.1"
   },
   "overrides": {

@@ -17,7 +17,7 @@ are historical evidence and keep the command names from the revision they tested
 
 ## Package and build contracts
 
-- JavaScript uses pnpm 11.20 and `pnpm-lock.yaml`; Bun is intentionally absent.
+- JavaScript uses Node.js 24.19.0, pnpm 11.21 and `pnpm-lock.yaml`; Bun is intentionally absent.
 - Cargo owns `src-tauri`; `src-tauri/Cargo.lock` is updated with `cargo update`.
 - Mermaid, syntax highlighting and rich format readers remain deferred. The bundle
   checker enforces the 380,000-byte initial JavaScript budget.

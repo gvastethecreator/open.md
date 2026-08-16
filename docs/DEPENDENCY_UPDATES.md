@@ -1,6 +1,6 @@
 # Dependency updates
 
-Audit date: **2026-08-11**. The application uses `pnpm@11.20.0` for JavaScript
+Audit date: **2026-08-14**. The application uses `pnpm@11.21.0` for JavaScript
 and Cargo for the Tauri crate. Bun is not part of the runtime or package
 manager contract.
 
@@ -15,10 +15,10 @@ manager contract.
 | `@tauri-apps/plugin-dialog` | 2.7.2 | [Tauri releases](https://github.com/tauri-apps/tauri-plugin-dialog/releases) | File picker and save dialogs remain compatible. |
 | `@tauri-apps/plugin-opener` | 2.5.4 | [Tauri releases](https://github.com/tauri-apps/tauri-plugin-opener/releases) | External-link adapter stays isolated. |
 | Mermaid | 11.16.1 | [Mermaid releases](https://github.com/mermaid-js/mermaid/releases) | Mermaid remains dynamically imported and deferred. |
-| highlight.js | 11.11.2 | [highlight.js releases](https://github.com/highlightjs/highlight.js/releases) | Latest patch picked up for syntax rendering. |
+| highlight.js | 11.12.0 | [highlight.js releases](https://github.com/highlightjs/highlight.js/releases) | Latest patch picked up for syntax rendering. |
 | jsdom | 30.0.1 | [jsdom releases](https://github.com/jsdom/jsdom/releases) | Test environment stays on the Node 24-compatible line. |
 | `@tabler/icons` | 3.46.0 | [Tabler releases](https://github.com/tabler/tabler-icons/releases) | Existing icon surface unchanged. |
-| iconoir | 7.11.1 | [Iconoir releases](https://github.com/iconoir-icons/iconoir/releases) | Existing CSS icon surface unchanged. |
+| iconoir | 7.12.1 | [Iconoir releases](https://github.com/iconoir-icons/iconoir/releases) | Existing CSS icon surface unchanged. |
 | `@chenglou/pretext` | 0.0.8 | [Pretext package](https://www.npmjs.com/package/@chenglou/pretext) | Kept as the typography engine but moved behind a dynamic import. |
 
 Security overrides:

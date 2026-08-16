@@ -29,7 +29,6 @@ body {
   background: var(--canvas);
   font-size: 1rem;
   line-height: 1.55;
-  text-rendering: optimizeLegibility;
 }
 
 body::-webkit-scrollbar { width: 0.72rem; }
@@ -80,9 +79,8 @@ button { font: inherit; }
   letter-spacing: -0.035em;
   text-decoration: none;
 }
-.wordmark img { width: 1.75rem; height: 1.75rem; }
-
 .site-nav { display: flex; align-items: center; gap: clamp(1rem, 2.4vw, 2.25rem); font-size: 0.9rem; }
+.site-nav a, .site-footer a { display: inline-flex; min-height: 2.75rem; align-items: center; }
 .site-nav a { text-decoration: none; }
 .site-nav a:hover { text-decoration: underline; }
 .nav-repo { font-weight: 760; }
@@ -97,7 +95,7 @@ button { font: inherit; }
   overflow: hidden;
 }
 
-.hero-copy { width: min(100%, 31rem); }
+.hero-copy { width: min(100%, 31rem); contain: layout style; }
 .eyebrow {
   margin: 0 0 1.3rem;
   color: var(--accent);
@@ -106,7 +104,6 @@ button { font: inherit; }
   text-transform: uppercase;
 }
 
-h1, h2, h3, p { text-wrap: pretty; }
 h1, h2, h3 { color: var(--ink); }
 h1 {
   margin: 0;
@@ -138,28 +135,17 @@ h3 { margin: 0; font-size: clamp(1.3rem, 2vw, 1.9rem); line-height: 1.1; letter-
 .button-primary { color: var(--paper); background: var(--ink); border-color: var(--ink); }
 .button-primary:hover { color: var(--ink); background: var(--marker); }
 .text-link { font-weight: 700; }
-.release-note { margin: 1.1rem 0 0; color: var(--muted); font-size: 0.88rem; }
-.release-note strong { color: var(--ink); }
-
-.hero-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 2rem 0 0; padding-top: 1rem; border-top: 1px solid var(--edge); }
-.hero-facts div { min-width: 0; }
-.hero-facts dt { color: var(--muted); font: 700 0.68rem/1.2 "Cascadia Code", Consolas, monospace; text-transform: uppercase; letter-spacing: 0.08em; }
-.hero-facts dd { margin: 0.35rem 0 0; font: 600 0.77rem/1.45 "Cascadia Code", Consolas, monospace; }
-
-.hero-artifact { position: relative; margin: 0; min-width: 0; }
+.hero-artifact { position: relative; margin: 0; min-width: 0; contain: layout style; }
 .hero-artifact img { width: 100%; height: auto; min-height: 0; object-fit: contain; border: 1px solid #20272e; box-shadow: 0 2.5rem 6rem rgba(24, 33, 43, 0.2); }
 .hero-artifact figcaption {
   position: absolute;
   left: -1rem;
   bottom: -1rem;
-  display: flex;
-  gap: 1.25rem;
   padding: 0.75rem 1rem;
   color: var(--ink);
   background: var(--marker);
   font: 720 0.72rem/1.2 "Cascadia Code", Consolas, monospace;
 }
-.hero-artifact figcaption span + span { color: #46513c; font-weight: 600; }
 
 .capability-strip {
   display: grid;
@@ -224,7 +210,7 @@ h3 { margin: 0; font-size: clamp(1.3rem, 2vw, 1.9rem); line-height: 1.1; letter-
   background: var(--accent);
 }
 .run-section h2 { color: var(--paper); }
-.run-section .eyebrow { color: #c6ffff; }
+.run-section .eyebrow { color: var(--paper); }
 .run-section p:not(.eyebrow) { max-width: 35rem; color: #e7ffff; }
 .run-links { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 1.4rem; margin-top: 2rem; }
 .button-light { color: var(--ink); background: var(--paper); border-color: var(--paper); }
@@ -234,6 +220,13 @@ h3 { margin: 0; font-size: clamp(1.3rem, 2vw, 1.9rem); line-height: 1.1; letter-
 .run-section code span { color: var(--marker); }
 
 .site-footer { display: flex; justify-content: space-between; gap: 2rem; padding: 2.2rem var(--gutter); border-top: 1px solid var(--edge); background: var(--canvas); font-size: 0.87rem; }
+.deferred-section { content-visibility: auto; }
+.has-js .deferred-section:not(.is-visible) { content-visibility: hidden; }
+.screens { contain-intrinsic-size: auto 82rem; }
+.motion-section { contain-intrinsic-size: auto 47rem; }
+.reading-path { contain-intrinsic-size: auto 57rem; }
+.run-section { contain-intrinsic-size: auto 37rem; }
+.site-footer { contain-intrinsic-size: auto 7.25rem; }
 .site-footer p { margin: 0; color: var(--muted); }
 .site-footer nav { display: flex; gap: 1.4rem; }
 
@@ -253,14 +246,13 @@ h3 { margin: 0; font-size: clamp(1.3rem, 2vw, 1.9rem); line-height: 1.1; letter-
   .hero-copy { width: 100%; }
   .hero-artifact { margin: 1rem calc(var(--gutter) * -1) 0 0; }
   .hero-artifact img { width: 118%; max-width: none; height: auto; min-height: 0; }
-  .hero-artifact figcaption { left: 0.75rem; bottom: -1.2rem; flex-direction: column; gap: 0.25rem; }
-  .hero-facts { grid-template-columns: 1fr; }
+  .hero-artifact figcaption { left: 0.75rem; bottom: -1.2rem; }
   .capability-strip { grid-template-columns: 1fr; }
   .capability-strip p { min-height: 4.8rem; }
   .capability-strip p + p { border-left: 0; border-top: 1px solid var(--ink); }
   .section { padding-top: 6rem; padding-bottom: 6rem; }
-  .shot-tabs { overflow-x: auto; scrollbar-width: thin; }
-  .shot-tabs button { flex: 0 0 auto; }
+  .has-js .shot-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; }
+  .shot-tabs button { width: 100%; padding-inline: 0.55rem; }
   .shot-frame { min-height: 22rem; }
   .shot-frame-wide img { width: 135%; max-width: none; object-position: top left; }
   .shot-frame-narrow img { max-height: 35rem; }
@@ -269,6 +261,11 @@ h3 { margin: 0; font-size: clamp(1.3rem, 2vw, 1.9rem); line-height: 1.1; letter-
   .path-list li { grid-template-columns: 2.5rem minmax(0, 1fr); gap: 0.75rem; }
   .site-footer { flex-direction: column; }
   .site-footer nav { flex-wrap: wrap; }
+  .screens { contain-intrinsic-size: auto 71rem; }
+  .motion-section { contain-intrinsic-size: auto 41rem; }
+  .reading-path { contain-intrinsic-size: auto 55rem; }
+  .run-section { contain-intrinsic-size: auto 41.5rem; }
+  .site-footer { contain-intrinsic-size: auto 10.5rem; }
 }
 
 @media (max-width: 24rem) {
