@@ -30,7 +30,7 @@ role; in-app edit does not change that bundle policy. See
 
 ## Local setup
 
-Install Rust stable, **Node.js 24 and pnpm 11.20** (see `packageManager` in
+Install Rust stable, **Node.js 24.19.0 and pnpm 11.21** (see `.node-version`, `packageManager` in
 `package.json` and CI), plus the platform prerequisites listed by
 [Tauri](https://v2.tauri.app/start/prerequisites/). pnpm is required by the
 repository's Tauri development and build configuration.

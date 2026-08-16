@@ -20,7 +20,8 @@ In the repository settings, choose **GitHub Actions** as the Pages source. The w
 
 ## Media provenance
 
-- `reader-desktop-dark.png`, `reader-help-light.png`, and `reader-narrow-dark.png` are captures from the real open.md runtime.
-- `open-md-motion-study.mp4` was generated with Grok Imagine from those three captures. It is labelled as illustrative on the page because generated motion can soften fine interface text.
+- `reader-desktop-dark.png`, `reader-help-light.png`, `source-edit-dark.png`, and `reader-narrow-dark.png` are captures from the real open.md runtime.
+- `reader-hero-dark.png` is a smaller derivative of the desktop capture used only to reduce landing-page startup work.
+- `open-md-motion-study.mp4` was generated with Grok Imagine from the original reader, help, and narrow captures. It is labelled as illustrative on the page because generated motion can soften fine interface text.
 
 Keep that distinction intact when replacing media: screenshots are product evidence; generated media is presentation.

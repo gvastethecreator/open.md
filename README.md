@@ -1,4 +1,17 @@
-# open.md
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/header/document.svg?title=open.md&subtitle=A+quiet%2C+local-first+Markdown+reader+and+editor&logo=tauri&theme=blue&align=center&mode=dark" />
+    <img alt="open.md" src="https://shieldcn.dev/header/document.svg?title=open.md&subtitle=A+quiet%2C+local-first+Markdown+reader+and+editor&logo=tauri&theme=blue&align=center&mode=light" />
+  </picture>
+</p>
+
+<p align="center">
+  <a href="https://github.com/gvastethecreator/open.md/actions/workflows/ci.yml"><img alt="CI status" src="https://shieldcn.dev/github/ci/gvastethecreator/open.md.svg?workflow=ci&branch=main&variant=secondary&size=xs" /></a>
+  <a href="https://gvastethecreator.github.io/open.md/"><img alt="Project site" src="https://shieldcn.dev/badge/site-live-2563eb.svg?logo=githubpages&variant=branded&size=xs" /></a>
+  <a href="https://github.com/gvastethecreator/open.md/stargazers"><img alt="GitHub stars" src="https://shieldcn.dev/github/stars/gvastethecreator/open.md.svg?variant=secondary&size=xs" /></a>
+  <a href="https://github.com/gvastethecreator/open.md/commits/main"><img alt="Last commit" src="https://shieldcn.dev/github/last-commit/gvastethecreator/open.md.svg?variant=secondary&size=xs" /></a>
+  <a href="LICENSE"><img alt="MIT license" src="https://shieldcn.dev/github/license/gvastethecreator/open.md.svg?variant=secondary&size=xs" /></a>
+</p>
 
 A quiet desktop reader and editor for local Markdown and plain-text files.
 
@@ -15,6 +28,14 @@ you choose to modify.
 > Status: early development (`0.1.0` development milestone). The reading and
 > editing paths are usable, but behaviour may still change before a tagged
 > release.
+
+## Product tour
+
+| Rendered reading                                                                                                                         | Source editing                                                                                                                     |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| <img src="docs/assets/landing/reader-desktop-dark.png" alt="open.md rendering a local Markdown document in a dark desktop window" /> | <img src="docs/assets/landing/source-edit-dark.png" alt="open.md editing the complete Markdown source in a dark desktop window" /> |
+| **Keyboard guide**                                                                                                                       | **Narrow window**                                                                                                                  |
+| <img src="docs/assets/landing/reader-help-light.png" alt="open.md keyboard and workflow guide in a light desktop window" />          | <img src="docs/assets/landing/reader-narrow-dark.png" alt="open.md preserving document hierarchy in a narrow dark window" />   |
 
 ## Features
 
@@ -79,6 +100,10 @@ repository does not currently publish installers or hosted release binaries.
 - [Contributing](CONTRIBUTING.md) — setup, pull requests, and contribution
   expectations.
 - [Security policy](SECURITY.md).
+
+## Support
+
+Support continued development through [GitHub Sponsors](https://github.com/sponsors/gvastethecreator) or [Ko-fi](https://ko-fi.com/gvaste).
 
 ## License
 

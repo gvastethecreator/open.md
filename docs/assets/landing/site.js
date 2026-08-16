@@ -1,5 +1,14 @@
 document.documentElement.classList.add('has-js');
 
+const deferredSections = [...document.querySelectorAll('.deferred-section')];
+
+function revealDeferredSection(index = 0) {
+  deferredSections[index]?.classList.add('is-visible');
+  if (index + 1 < deferredSections.length) {
+    requestAnimationFrame(() => revealDeferredSection(index + 1));
+  }
+}
+
 const tabs = [...document.querySelectorAll('[data-shot-tab]')];
 const panels = [...document.querySelectorAll('[data-shot-panel]')];
 
@@ -33,8 +42,6 @@ tabs.forEach((tab, index) => {
   });
 });
 
-if (tabs.length > 0) activateShot(tabs[0].dataset.shotTab);
-
 const videoShell = document.querySelector('[data-video-shell]');
 const video = videoShell?.querySelector('video');
 const videoError = videoShell?.querySelector('[data-video-error]');
@@ -43,3 +50,9 @@ video?.addEventListener('error', () => {
   video.hidden = true;
   if (videoError) videoError.hidden = false;
 });
+
+if (deferredSections.length > 0) {
+  // Commit the compact first view before below-fold sections enter layout.
+  void document.body.offsetHeight;
+  setTimeout(() => revealDeferredSection(), 100);
+}

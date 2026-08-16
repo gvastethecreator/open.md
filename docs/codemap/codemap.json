@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-08-11T13:39:19Z",
-  "generated_from_commit": "37fb285ce894636572a7d13161e9a9dc942c0061",
+  "generated_at": "2026-08-15T09:31:34Z",
+  "generated_from_commit": "dc5ecd7cccecbc7e63649b10469caf6306a5654d",
   "scope": [
     "."
   ],
@@ -58,7 +58,7 @@
       "type": "module",
       "boundary": "Repository",
       "entrypoints": [
-        "README.md:open.md"
+        "README.md:Product tour"
       ],
       "tests": [],
       "constraints": [
@@ -69,7 +69,7 @@
         "locations": [
           {
             "path": "README.md",
-            "symbol": "open.md"
+            "symbol": "Product tour"
           }
         ]
       }

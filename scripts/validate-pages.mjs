@@ -16,8 +16,10 @@ const requiredFiles = [
   path.join(pagesRoot, '.nojekyll'),
   path.join(pagesRoot, 'PAGES.md'),
   path.join(pagesRoot, 'assets', 'landing', 'reader-desktop-dark.png'),
+  path.join(pagesRoot, 'assets', 'landing', 'reader-hero-dark.png'),
   path.join(pagesRoot, 'assets', 'landing', 'reader-help-light.png'),
   path.join(pagesRoot, 'assets', 'landing', 'reader-narrow-dark.png'),
+  path.join(pagesRoot, 'assets', 'landing', 'source-edit-dark.png'),
   path.join(pagesRoot, 'assets', 'landing', 'open-md-motion-study.mp4'),
 ];
 
@@ -35,7 +37,7 @@ for (const marker of [
   'href="#main">Skip to content</a>',
   'role="tablist"',
   'role="tabpanel"',
-  'controls playsinline muted preload="metadata"',
+  'controls playsinline muted preload="none"',
   'It is an illustrative composition, not a screen recording',
   'Hosted installers are not published yet',
   'https://gvastethecreator.github.io/open.md/',
@@ -76,8 +78,10 @@ function readPngSize(relativePath) {
 
 const expectedPngSizes = new Map([
   ['assets/landing/reader-desktop-dark.png', [1440, 900]],
+  ['assets/landing/reader-hero-dark.png', [960, 600]],
   ['assets/landing/reader-help-light.png', [1440, 900]],
   ['assets/landing/reader-narrow-dark.png', [480, 800]],
+  ['assets/landing/source-edit-dark.png', [1440, 900]],
 ]);
 for (const [relativePath, expected] of expectedPngSizes) {
   const actual = readPngSize(relativePath);
@@ -102,9 +106,9 @@ for (const marker of ['ArrowRight', 'ArrowLeft', "video?.addEventListener('error
   if (!script.includes(marker)) throw new Error(`Pages script is missing ${marker}`);
 }
 for (const marker of [
-  'actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b',
-  'actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b',
-  'actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e',
+  'actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d',
+  'actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9',
+  'actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128',
   'path: docs',
 ]) {
   if (!workflow.includes(marker)) throw new Error(`Pages workflow is missing ${marker}`);
