@@ -1,0 +1,42 @@
+{
+  "schema": "openmd.store-product.v1",
+  "submissionType": "exe",
+  "reservationStatus": "pending",
+  "product": {
+    "displayName": "open.md",
+    "publisherDisplayName": "GVASTETHECREATOR",
+    "storeId": null,
+    "privacyPolicyUrl": "https://gvastethecreator.github.io/open.md/privacy.html",
+    "supportUrl": "https://github.com/gvastethecreator/open.md/issues",
+    "deepLink": null,
+    "webStoreUrl": null
+  },
+  "package": {
+    "installerType": "exe",
+    "technology": "Tauri v2 / NSIS",
+    "architecture": "x64",
+    "language": "en-US",
+    "silentInstallParameter": "/S",
+    "installScope": "currentUser",
+    "offline": true,
+    "webView2Mode": "offlineInstaller",
+    "urlTemplate": null,
+    "urlStatus": "pending",
+    "immutableUrlRequired": true
+  },
+  "signing": {
+    "status": "pending",
+    "expectedSubject": null,
+    "timestampUrl": null,
+    "trustedRootRequired": true
+  },
+  "updates": {
+    "status": "pending",
+    "mechanism": "tauri-plugin-updater",
+    "endpoint": null,
+    "publicKeyFingerprint": null,
+    "storeManaged": false
+  },
+  "firstStoreVersion": "0.1.0",
+  "lastReviewed": "2026-08-18"
+}
