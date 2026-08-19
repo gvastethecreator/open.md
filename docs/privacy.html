@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>open.md — Privacy Policy</title>
+  <meta name="description" content="Privacy policy for the open.md local Markdown and text reader/editor.">
+  <style>
+    :root { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; color: #171717; background: #f5f5f3; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    main { width: min(820px, calc(100% - 32px)); margin: 48px auto; padding: 40px; background: #fff; border: 1px solid #d7d7d2; border-radius: 12px; box-shadow: 0 16px 50px rgba(0,0,0,.06); }
+    h1 { margin-top: 0; font-size: clamp(2rem, 5vw, 3.2rem); letter-spacing: -.05em; }
+    h2 { margin-top: 2.2rem; font-size: 1.25rem; }
+    p, li { line-height: 1.65; }
+    code { padding: .12rem .35rem; border-radius: 5px; background: #ededeb; }
+    .meta { color: #666; }
+    .lang { margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #ddd; }
+    a { color: inherit; text-decoration-thickness: .08em; text-underline-offset: .16em; }
+    @media (prefers-color-scheme: dark) {
+      :root { color: #ececea; background: #111; }
+      main { background: #181818; border-color: #333; box-shadow: none; }
+      code { background: #292929; }
+      .meta { color: #aaa; }
+      .lang { border-color: #333; }
+    }
+    @media (max-width: 600px) { main { margin: 16px auto; padding: 24px; } }
+  </style>
+</head>
+<body>
+<main>
+  <h1>open.md privacy</h1>
+  <p class="meta">Effective August 18, 2026</p>
+  <p><strong>open.md is local-first.</strong> It does not require an account, show advertising, collect analytics, or upload documents, file paths, local images, or reading preferences.</p>
+
+  <h2>Files and editing</h2>
+  <p>The app reads only files selected through the file picker, drag and drop, command-line launch, or the operating system's Open with flow. Opening a file does not write to it. A file changes only when the user edits and saves it, or while the user has explicitly enabled autosave.</p>
+
+  <h2>Images, links, and network access</h2>
+  <p>Relative local images can be displayed under a bounded local-file policy. Remote Markdown images are not fetched. External links are opened by the operating system and the destination service applies its own policy.</p>
+  <p>The current app has no telemetry, cloud sync, advertising, or production updater. A future Microsoft Store EXE release may request release metadata and signed update artifacts from a documented HTTPS endpoint; it will not send document content or local paths.</p>
+
+  <h2>Local settings</h2>
+  <p>Native settings are stored under <code>%APPDATA%\com.gvastethecreator.openmd</code>. Reader preferences are stored in the application's local WebView data. Optional path-to-theme preferences may contain local paths and remain on the device.</p>
+
+  <h2>File associations</h2>
+  <p>Packaged builds may register <code>.md</code>, <code>.markdown</code>, and <code>.txt</code> for Open with. open.md never silently takes over the user's default application.</p>
+
+  <h2>Deletion</h2>
+  <p>Uninstalling open.md does not delete user documents. Application preferences may remain until the user removes the app settings directory or local WebView profile.</p>
+
+  <h2>Security and contact</h2>
+  <p>Use the repository's private security-reporting process for vulnerabilities. Do not place private documents or sensitive paths in public issues.</p>
+  <p><a href="https://github.com/gvastethecreator/open.md">Project repository</a> · <a href="https://github.com/gvastethecreator/open.md/security">Security</a></p>
+
+  <section class="lang" lang="es">
+    <h1>Privacidad de open.md</h1>
+    <p class="meta">Vigente desde el 18 de agosto de 2026</p>
+    <p><strong>open.md funciona de manera local.</strong> No requiere cuenta, no muestra publicidad, no recopila analíticas y no sube documentos, rutas, imágenes locales ni preferencias.</p>
+
+    <h2>Archivos y edición</h2>
+    <p>La aplicación lee únicamente archivos elegidos por el usuario mediante el selector, arrastrar y soltar, la línea de comandos o Abrir con. Abrir un archivo no lo modifica. Solo cambia cuando el usuario edita y guarda, o cuando habilitó explícitamente el guardado automático.</p>
+
+    <h2>Imágenes, enlaces y red</h2>
+    <p>Puede mostrar imágenes locales relativas bajo una política acotada. No descarga imágenes remotas desde Markdown. Los enlaces externos se abren mediante el sistema operativo.</p>
+    <p>La versión actual no incluye telemetría, sincronización en la nube, publicidad ni un updater de producción. Una futura versión EXE para Microsoft Store podrá consultar metadata y artefactos firmados en un endpoint HTTPS documentado, sin enviar documentos ni rutas locales.</p>
+
+    <h2>Configuración local</h2>
+    <p>La configuración nativa se guarda en <code>%APPDATA%\com.gvastethecreator.openmd</code>. Las preferencias de lectura se guardan en los datos locales del WebView. Las asociaciones opcionales entre rutas y temas permanecen en el dispositivo.</p>
+
+    <h2>Asociaciones y eliminación</h2>
+    <p>Las compilaciones empaquetadas pueden registrar <code>.md</code>, <code>.markdown</code> y <code>.txt</code> para Abrir con, pero nunca reemplazan silenciosamente la aplicación predeterminada. Desinstalar open.md no elimina los documentos del usuario.</p>
+
+    <h2>Seguridad y contacto</h2>
+    <p>Reporta vulnerabilidades mediante el proceso privado del repositorio. No publiques documentos ni rutas sensibles en issues públicos.</p>
+  </section>
+</main>
+</body>
+</html>
