@@ -80,6 +80,26 @@ pnpm run tauri build
 This creates a local bundle under `src-tauri/target/release/bundle/`. The
 repository does not currently publish installers or hosted release binaries.
 
+## Microsoft Store preparation
+
+The planned Windows Store edition uses Partner Center's **EXE or MSI app**
+route with a signed, offline, current-user NSIS installer. Repository-side
+packaging, listing, privacy, hosting, certification, and lifecycle contracts
+live in [the Store runbook](docs/store/README.md).
+
+```powershell
+pnpm run store:validate
+```
+
+The application is **not submission-ready yet**. Public submission remains
+blocked until the product is reserved, a publicly trusted code-signing
+certificate and immutable versioned HTTPS hosting are configured, the signed
+Tauri updater is implemented, and the complete install/update/uninstall matrix
+has evidence.
+
+Read the bilingual [privacy policy](PRIVACY.md). The Store-facing privacy page
+is published from `docs/privacy.html`.
+
 ## Documentation
 
 - [Development and checks](docs/DEVELOPMENT.md) — project layout, local
@@ -95,6 +115,10 @@ repository does not currently publish installers or hosted release binaries.
   provenance.
 - [File associations](docs/FILE_ASSOCIATIONS.md) — how packaged builds
   integrate with the operating system's **Open with** flow.
+- [Microsoft Store runbook](docs/store/README.md) — EXE submission, signing,
+  hosting, updater, listing, and release evidence.
+- [Privacy policy](PRIVACY.md) — local file, settings, retention, and network
+  behavior in English and Spanish.
 - [Bundled themes](docs/THEMES.md) — source provenance and licensing for the
   theme catalogue.
 - [Contributing](CONTRIBUTING.md) — setup, pull requests, and contribution
