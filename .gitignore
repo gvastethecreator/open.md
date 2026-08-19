@@ -12,6 +12,7 @@ node_modules
 dist
 dist-ssr
 *.local
+/artifacts/
 
 # Accidental lockfiles (this repo uses pnpm + pnpm-lock.yaml)
 package-lock.json
@@ -45,6 +46,13 @@ test-results/
 .env
 .env.*
 !.env.example
+*.pfx
+*.p12
+*.pvk
+*.cer
+*.key
+*.snk
+*.pem
 
 # OS files
 .DS_Store
