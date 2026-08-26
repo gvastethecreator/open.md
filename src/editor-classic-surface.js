@@ -10,8 +10,10 @@
 
 import {
   classicLineKind,
+  classicLineKinds,
   classicLinePreviewHtml,
   classicLineSourceHtml,
+  parseMarkdownLine,
 } from './editor-document.js';
 import { MOTION_EASE_OUT } from './reader-motion.js';
 
@@ -241,28 +243,33 @@ export function createEditorClassicSurface({
     });
   };
 
-  const renderLineRow = (line, index, { source, active }) => {
+  const kindsFor = (lineList) => classicLineKinds(lineList, { markdown: isMarkdown() });
+
+  const renderLineRow = (line, index, { source, active, kind } = {}) => {
     const markdown = isMarkdown();
-    const kind = classicLineKind(line, { markdown });
+    const resolvedKind = kind || classicLineKind(line, { markdown });
     const row = document.createElement('div');
-    row.className = `classic-line classic-line--${kind}`;
+    row.className = `classic-line classic-line--${resolvedKind}`;
     row.dataset.classicLine = String(index);
     row.dataset.sourceText = line;
-    row.dataset.lineKind = kind;
+    row.dataset.lineKind = resolvedKind;
+    if (markdown && (resolvedKind === 'bullet' || resolvedKind === 'numbered' || resolvedKind === 'todo')) {
+      row.style.setProperty('--block-indent', String(parseMarkdownLine(line).indent || 0));
+    }
     if (active) row.classList.add('is-active-line');
     if (source && !active) row.classList.add('is-selection-source');
 
     const content = document.createElement('div');
     content.className = [
       'classic-line-content',
-      `classic-line-content--${kind}`,
+      `classic-line-content--${resolvedKind}`,
       active ? 'is-active-line' : '',
       source && !active ? 'is-selection-source' : '',
       source ? 'classic-line-source' : 'classic-line-preview',
     ].filter(Boolean).join(' ');
     content.dataset.classicContent = '';
     content.dataset.editorMode = source ? 'source' : 'preview';
-    content.dataset.lineKind = kind;
+    content.dataset.lineKind = resolvedKind;
 
     if (source) {
       // Raw Markdown stays editable; typography follows the line kind (h1, list…).
@@ -274,7 +281,7 @@ export function createEditorClassicSurface({
       content.innerHTML = classicLineSourceHtml(line, { highlight: true });
     } else {
       content.contentEditable = 'false';
-      content.innerHTML = classicLinePreviewHtml(line, { markdown });
+      content.innerHTML = classicLinePreviewHtml(line, { markdown, kind: resolvedKind });
     }
 
     row.append(content);
@@ -288,6 +295,7 @@ export function createEditorClassicSurface({
   } = {}) => {
     if (disposed || !mounted) return;
     const lines = splitLines(source);
+    const kinds = kindsFor(lines);
     activeLine = Math.max(0, Math.min(focusLine, lines.length - 1));
     const fragment = document.createDocumentFragment();
     lines.forEach((line, index) => {
@@ -295,6 +303,7 @@ export function createEditorClassicSurface({
       fragment.append(renderLineRow(line, index, {
         source: sourceMode,
         active: index === activeLine,
+        kind: kinds[index],
       }));
     });
     withSelectionSuppressed(() => {
@@ -320,7 +329,8 @@ export function createEditorClassicSurface({
   };
 
   const replaceLineRow = (index, line, { source, active, caret = null } = {}) => {
-    const next = renderLineRow(line, index, { source, active });
+    const kinds = kindsFor(splitLines(readSource()));
+    const next = renderLineRow(line, index, { source, active, kind: kinds[index] });
     const current = canvas.querySelector(`[data-classic-line="${index}"]`);
     if (current) current.replaceWith(next);
     else canvas.append(next);

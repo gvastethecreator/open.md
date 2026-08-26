@@ -3,6 +3,8 @@ const FIT_SELECTORS = [
   '.markdown-body h2',
   '.editor-block--heading1 .editor-block-content',
   '.editor-block--heading2 .editor-block-content',
+  '.classic-line--heading1',
+  '.classic-line--heading2',
 ].join(',');
 
 function clamp(value, minimum, maximum) {
@@ -77,7 +79,9 @@ function measureElement(window, element, { layout, prepare }) {
   const lineHeight = Number.parseFloat(style.lineHeight);
   if (!Number.isFinite(baseSize) || !Number.isFinite(lineHeight)) return null;
 
-  const headingOne = element.matches('h1, .editor-block--heading1 .editor-block-content');
+  const headingOne = element.matches(
+    'h1, .editor-block--heading1 .editor-block-content, .classic-line--heading1',
+  );
   const narrow = window.matchMedia?.('(max-width: 460px)').matches;
   const maxLines = headingOne && narrow ? 3 : 2;
   const minSize = Math.max(headingOne ? 20 : 16, baseSize * (headingOne ? 0.76 : 0.84));

@@ -1,7 +1,7 @@
 {
-  "source_commit": "15cec47613d5b6ba120dc0e511f13a74c4b20f43",
+  "source_commit": "e884b4a667d812fdf81f7c95902a848f4b76ae7f",
   "working_tree_dirty": true,
-  "generated_at": "2026-08-26T12:00:00Z",
+  "generated_at": "2026-08-26T14:00:00Z",
   "scanned_scope": [
     "."
   ],
@@ -34,44 +34,44 @@
     {
       "id": ".",
       "path": ".",
-      "file_count": 16,
-      "fingerprint": "ff61db1dce8e5c77eb2be4a551dbe782d283757b8b7df1c79ea6fa9b40f36433"
+      "file_count": 18,
+      "fingerprint": "15c9acadd17a94528d856e18443eb714f427f895216e38ceaf32b6b80f494134"
     },
     {
       "id": ".github",
       "path": ".github",
-      "file_count": 7,
-      "fingerprint": "5a731f8a099e48cca29737011c2dc68be1c2f75f0c42e5f0fa2fca29e1b9888b"
+      "file_count": 8,
+      "fingerprint": "7ccdccd9ed572a5c5efce6a392c4f7d8d484c3177ccd343642b63d4f78a40985"
     },
     {
       "id": "docs",
       "path": "docs",
-      "file_count": 30,
-      "fingerprint": "85450e02ed57b04395cf1d1fef959e00b05818dbe9753f4456ad4eb262335f99"
+      "file_count": 41,
+      "fingerprint": "063bb5b596de90861cc6ec19d9a9b665d1f0daf6fb032ed3341473530e9e80df"
     },
     {
       "id": "examples",
       "path": "examples",
-      "file_count": 6,
-      "fingerprint": "4877faefdc11ca682880a6e7c124b7691b47bfee723ca201d9cc0ee3708f054d"
+      "file_count": 37,
+      "fingerprint": "48b973f9196883280089936307b02e6a12a96365e6c5d25372ff33f3542228f3"
     },
     {
       "id": "scripts",
       "path": "scripts",
-      "file_count": 4,
-      "fingerprint": "70ce37738c7f128344c97bc3300f1e99d4a8e3add1c6fcdb5cadf0d720ccf150"
+      "file_count": 9,
+      "fingerprint": "0b7ec0137b9d7abf6b5199def9009a3e17d3c09b145f930bfd3f6a79cc43eb18"
     },
     {
       "id": "src",
       "path": "src",
-      "file_count": 110,
-      "fingerprint": "e370e1ea8d413c0f9439b591d4e4c6a14c0a37c420bebd3c4495506503b1c6ff"
+      "file_count": 114,
+      "fingerprint": "622afda46380aa3ea494cb2f31e4ecf635573aafe2015837e087de9c764f2b9b"
     },
     {
       "id": "src-tauri",
       "path": "src-tauri",
-      "file_count": 65,
-      "fingerprint": "909a09d92c73d86993fad71781e7e329ccabcaf1010d0f34be0daf3062aa7543"
+      "file_count": 67,
+      "fingerprint": "34388cc1eefc694eca417b0ad807e74072ccd8610b0d9eb0beb8270a006eda4c"
     }
   ]
 }

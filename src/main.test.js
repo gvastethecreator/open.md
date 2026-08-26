@@ -372,7 +372,6 @@ describe('Frontend Logic Tests', () => {
         stats: false,
         wordWrap: false,
         coloredHeadings: false,
-        blockEditor: false,
       });
       expect(normalizeReadingTools({})).toEqual({
         lineGuide: false,
@@ -381,9 +380,8 @@ describe('Frontend Logic Tests', () => {
         stats: false,
         wordWrap: true,
         coloredHeadings: false,
-        blockEditor: false,
       });
-      expect(normalizeReadingTools({ blockEditor: true }).blockEditor).toBe(true);
+      expect(normalizeReadingTools({ blockEditor: true }).blockEditor).toBeUndefined();
     });
 
     it('updates only the task marker at the rendered source line', () => {

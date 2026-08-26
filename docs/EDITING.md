@@ -27,28 +27,27 @@ Non-Markdown companions that stay editable (CSV, YAML, TOML, INI, ENV, and
 similar) use a plain text surface so saves do not rewrite their syntax. Valid JSON objects and
 arrays use a property editor in Rendered Edit; nested values edit as JSON text.
 Invalid or very large JSON falls back to the plain editor. Source Edit always
-shows the exact full JSON text. Markdown block tools stay Markdown-only.
+shows the exact full JSON text.
 
 ## Rendered Edit
 
-Markdown Rendered Edit uses per-block live preview:
+Markdown Rendered Edit uses Classic live preview (Obsidian-style):
 
-- The active block shows its editable source and structural marker.
-- Other blocks stay rendered until activated. Click a rendered block to edit it at the click offset.
-- Enter splits a block. Backspace at the start and Delete at the end merge
-  neighboring blocks.
-- Arrow keys move between blocks at their boundaries. Undo and redo use the
-  platform shortcuts.
-- Selection and inline formatting stay inside the active block. Use Source Edit
-  for continuous selection or replacement across several lines.
+- The active line shows its editable Markdown source.
+- Other lines stay rendered until activated. Click a rendered line to edit it
+  at the click offset.
+- Enter splits a line. Backspace at the start of a line merges with the
+  previous line.
+- Arrow keys move between visual lines, then hard lines at the edges, with a
+  preferred column. Undo and redo use the platform shortcuts.
+- Type Markdown markers (`**bold**`, headings, lists) in the active line.
+  Preview appears when you leave the line.
 - Heading markers `#` through `######` and quote markers remain visible inside
   the document frame, including at the 440 px minimum window width.
 
-Select text to show the inline toolbar for bold, italic, strikethrough, code,
-and links. While the caret is in the editor, the status bar shows its source
-line and visible column. View options can show source-line numbers and the
-minimap in Read, Rendered Edit, and Source Edit. Word wrap applies to every text
-surface.
+While the caret is in the editor, the status bar shows its source line and
+visible column. View options can show source-line numbers and the minimap in
+Read, Rendered Edit, and Source Edit. Word wrap applies to every text surface.
 
 Advanced options → **Reduce motion** disables non-essential editor and chrome
 animation (toasts, menus, theme wipe, trail, line band). The operating
@@ -56,58 +55,26 @@ system's `prefers-reduced-motion` setting is always honored.
 
 ## Source Edit
 
-Source Edit is one continuous, line-based host for the complete file. It keeps
-raw syntax visible, supports selection and replacement across lines, and uses
-these navigation rules:
+Source Edit is the same continuous, line-based host with raw syntax visible on
+every line. It supports selection and replacement across lines, and uses these
+navigation rules:
 
-- Click a preview line to edit it at the click offset.
-- ↑/↓ move visual lines when word wrap is on, then hard lines at the visual edges, with a preferred column.
+- Click a line to edit it at the click offset.
+- ↑/↓ move visual lines when word wrap is on, then hard lines at the visual
+  edges, with a preferred column.
 - ←/→ cross line edges.
 - Home/End move to line bounds.
 - Ctrl/Cmd+Home and Ctrl/Cmd+End move to document bounds.
 - Page Up/Page Down keep the caret column when possible.
 
 Use Source Edit for tables, embedded HTML, footnotes, nested rich blocks,
-Mermaid source, image syntax, or any exact syntax not exposed by Rendered Edit.
-
-## Block editor tools (optional)
-
-Turn on **Block editor** under View options → Editing to add Notion-style tools
-to Rendered Edit. While it is on:
-
-Type `/` in an empty block to choose:
-
-- text or headings 1–3;
-- bulleted or numbered lists;
-- a to-do item;
-- a quote;
-- fenced code;
-- a divider.
-
-Block actions live on a **floating toolbar at the bottom** of the window while
-Block editor, Rendered, and Edit are active:
-
-- add a block;
-- drag handle (drag to reorder, or click for move / duplicate / delete);
-- move up / down, duplicate, delete;
-- change block type.
-
-There are no buttons in the left margin, so typing never shifts the text
-horizontally.
+Mermaid source, image syntax, or any exact syntax check.
 
 ## Formatting and structure
 
-Select text to show the **inline format toolbar** near the selection for bold,
-italic, strikethrough, code and links. <kbd>Ctrl</kbd> + <kbd>Alt</kbd> +
-<kbd>1</kbd> through <kbd>3</kbd> changes the current block to a heading.
-
-In Block editor, press <kbd>Tab</kbd> or <kbd>Shift</kbd> + <kbd>Tab</kbd> to
-change list indentation. <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>↑</kbd> or
-<kbd>↓</kbd> moves the current block without leaving the keyboard. Use
-<kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>M</kbd> to open its move, duplicate
-and delete actions. For selected text, <kbd>Ctrl</kbd> + <kbd>Shift</kbd> +
-<kbd>X</kbd> toggles strikethrough and <kbd>Ctrl</kbd> + <kbd>E</kbd> toggles
-inline code.
+Type Markdown in the active source line. There is no inline format toolbar and
+no block slash menu. Use Source Edit when you need to select or replace text
+across several lines.
 
 ## Save and recover
 
@@ -145,10 +112,11 @@ essential shortcuts. Press <kbd>Esc</kbd> to return to the document.
 
 ## Current limits
 
-Editing covers the common Markdown blocks above. Existing heading levels 4–6
-remain editable. Complex tables, embedded HTML, footnotes, nested rich blocks,
-Mermaid diagrams and image authoring do not have dedicated visual controls; use
-Source Edit for exact syntax edits. New-file creation, Save As, collaboration,
+Editing covers common Markdown line kinds (headings, lists, quotes, code,
+dividers). Existing heading levels 4–6 remain editable. Complex tables,
+embedded HTML, footnotes, nested rich blocks, Mermaid diagrams and image
+authoring do not have dedicated visual controls; use Source Edit for exact
+syntax edits. New-file creation, Save As, collaboration,
 comments and cloud sync are outside this mode. To keep the app responsive,
 documents over 2 MiB or 20,000 lines remain available in Read and Source views
 but Edit remains unavailable.

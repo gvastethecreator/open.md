@@ -45,6 +45,30 @@ describe('Editor Classic Surface', () => {
     expect(canvas.querySelectorAll('[data-editor-mode="preview"]').length).toBeGreaterThanOrEqual(2);
   });
 
+  it('keeps fenced code, nested lists and images on their document kinds', () => {
+    const source = [
+      '# Title',
+      '',
+      '  - nested',
+      '![Desk](assets/quiet-desk.webp)',
+      '```js',
+      'const ready = true;',
+      '```',
+    ].join('\n');
+    const { canvas } = mountSurface(source);
+    const rows = [...canvas.querySelectorAll('[data-classic-line]')];
+    expect(rows[2].classList.contains('classic-line--bullet')).toBe(true);
+    expect(rows[2].style.getPropertyValue('--block-indent')).toBe('1');
+    expect(rows[3].classList.contains('classic-line--image')).toBe(true);
+    expect(rows[3].querySelector('img.classic-line-image')?.getAttribute('src'))
+      .toBe('assets/quiet-desk.webp');
+    expect(rows[4].classList.contains('classic-line--fence')).toBe(true);
+    expect(rows[5].classList.contains('classic-line--code')).toBe(true);
+    expect(rows[5].querySelector('[data-editor-mode="preview"]')?.textContent)
+      .toContain('const ready = true;');
+    expect(rows[6].classList.contains('classic-line--fence')).toBe(true);
+  });
+
   it('activates a preview line as the sole source line on click', () => {
     const { surface, canvas } = mountSurface();
     // Line index 2 is "Hello **world**" in "# Title\n\nHello **world**\n\n- item"

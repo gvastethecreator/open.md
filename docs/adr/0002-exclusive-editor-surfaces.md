@@ -1,12 +1,13 @@
 # ADR 0002: Exclusive editor surfaces
 
-- Status: accepted
+- Status: accepted (Block surface superseded by
+  [ADR 0004](0004-classic-only-markdown-edit.md))
 - Date: 2026-08-26
 - Decision owners: open.md maintainers
 
 ## Context
 
-The reader has three edit surfaces: Block (Rendered Markdown), Classic
+The reader had three edit surfaces: Block (Rendered Markdown), Classic
 (Source Edit and plain companions), and JSON properties. They shared one
 canvas listener set in `editor-session.js`. Overlay, selection, and
 block-drag controllers started for the whole session.
@@ -22,7 +23,11 @@ that was hard to measure as a single failing value.
 
 ## Decision
 
-Exactly one edit surface is mounted. That surface owns input:
+Exactly one edit surface is mounted. That surface owns input. ADR 0004 later
+removed the Block surface; the isolation rule still applies to Classic and
+JSON.
+
+Historical Block wiring:
 
 1. Block binds canvas `input`, `keydown`, `click`, `focusin`, and `change`.
    The selection controller listens to `selectionchange` only then.
@@ -49,3 +54,5 @@ flush fails, JSON stays mounted.
   Isolation removes mixed owners. It does not repair Classic rebuilds.
 - Overlay, selection, and block-drag expose `start` and `stop`. `start`
   while already started is a no-op.
+- [ADR 0004](0004-classic-only-markdown-edit.md) removes the Block surface.
+  Exclusive isolation remains for Classic and JSON.

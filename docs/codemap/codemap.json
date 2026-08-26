@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-08-26T12:00:00Z",
-  "generated_from_commit": "15cec47613d5b6ba120dc0e511f13a74c4b20f43",
+  "generated_at": "2026-08-26T14:00:00Z",
+  "generated_from_commit": "e884b4a667d812fdf81f7c95902a848f4b76ae7f",
   "scope": [
     "."
   ],
@@ -56,6 +56,10 @@
           "type": "calls"
         },
         {
+          "id": "scripts-store",
+          "type": "calls"
+        },
+        {
           "id": "src",
           "type": "calls"
         }
@@ -79,6 +83,43 @@
       "entrypoints": [
         "scripts/check-bundle.mjs:listFiles"
       ],
+      "tests": [
+        "src/free-port.test.js"
+      ],
+      "callers": [
+        {
+          "id": "repository",
+          "type": "calls"
+        },
+        {
+          "id": "src",
+          "type": "imports"
+        },
+        {
+          "id": "vite-config",
+          "type": "imports"
+        }
+      ],
+      "callees": [],
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "scripts/check-bundle.mjs",
+            "symbol": "listFiles",
+            "line": 14
+          }
+        ]
+      }
+    },
+    {
+      "id": "scripts-store",
+      "path": "scripts/store",
+      "type": "database",
+      "boundary": "Scripts",
+      "entrypoints": [
+        "scripts/store/Build-StoreInstaller.ps1:Invoke"
+      ],
       "tests": [],
       "callers": [
         {
@@ -91,9 +132,9 @@
         "status": "verified",
         "locations": [
           {
-            "path": "scripts/check-bundle.mjs",
-            "symbol": "listFiles",
-            "line": 14
+            "path": "scripts/store/Build-StoreInstaller.ps1",
+            "symbol": "Invoke",
+            "line": 44
           }
         ]
       }
@@ -129,6 +170,10 @@
           "type": "imports"
         },
         {
+          "id": "scripts",
+          "type": "imports"
+        },
+        {
           "id": "src-core",
           "type": "imports"
         }
@@ -139,7 +184,7 @@
           {
             "path": "src/main.js",
             "symbol": "cacheElements",
-            "line": 122
+            "line": 115
           }
         ]
       }
@@ -241,6 +286,10 @@
         {
           "id": "external-dependencies",
           "type": "imports"
+        },
+        {
+          "id": "scripts",
+          "type": "imports"
         }
       ],
       "evidence": {
@@ -283,6 +332,26 @@
     },
     {
       "from": "repository",
+      "to": "scripts-store",
+      "type": "calls",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "package.json",
+            "symbol": "./scripts/store/Test-StoreReadiness.ps1",
+            "line": 36
+          },
+          {
+            "path": "package.json",
+            "symbol": "./scripts/store/Build-StoreInstaller.ps1",
+            "line": 37
+          }
+        ]
+      }
+    },
+    {
+      "from": "repository",
       "to": "src",
       "type": "calls",
       "evidence": {
@@ -317,6 +386,21 @@
             "path": "src/application-composition.test.js",
             "symbol": "vitest",
             "line": 5
+          }
+        ]
+      }
+    },
+    {
+      "from": "src",
+      "to": "scripts",
+      "type": "imports",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/free-port.test.js",
+            "symbol": "../scripts/free-port.mjs",
+            "line": 3
           }
         ]
       }
@@ -402,6 +486,21 @@
             "path": "vite.config.js",
             "symbol": "vite",
             "line": 1
+          }
+        ]
+      }
+    },
+    {
+      "from": "vite-config",
+      "to": "scripts",
+      "type": "imports",
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "vite.config.js",
+            "symbol": "./scripts/free-port.mjs",
+            "line": 2
           }
         ]
       }

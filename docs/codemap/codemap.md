@@ -1,10 +1,10 @@
 # Code map · open.md
 
-generated: 2026-08-26T12:00:00Z
-commit: 15cec47613d5
+generated: 2026-08-26T14:00:00Z
+commit: e884b4a667d8
 scope: .
 
-counts: 8 nodes · 7 edges · 5 flows · 0 overflow · 0 unknown
+counts: 9 nodes · 10 edges · 5 flows · 0 overflow · 0 unknown
 
 ## Modules
 
@@ -16,19 +16,25 @@ counts: 8 nodes · 7 edges · 5 flows · 0 overflow · 0 unknown
 
 - `repository` · `package.json` · module · Repository
   callers: (none)
-  callees: scripts (calls), src (calls)
+  callees: scripts (calls), scripts-store (calls), src (calls)
   tests: (none)
   entry: package.json:name
 
 - `scripts` · `scripts` · service · Scripts
+  callers: repository (calls), src (imports), vite-config (imports)
+  callees: (none)
+  tests: src/free-port.test.js
+  entry: scripts/check-bundle.mjs:listFiles
+
+- `scripts-store` · `scripts/store` · database · Scripts
   callers: repository (calls)
   callees: (none)
   tests: (none)
-  entry: scripts/check-bundle.mjs:listFiles
+  entry: scripts/store/Build-StoreInstaller.ps1:Invoke
 
 - `src` · `src` · module · Src
   callers: repository (calls), src-core (imports)
-  callees: external-dependencies (imports), src-core (imports)
+  callees: external-dependencies (imports), scripts (imports), src-core (imports)
   tests: src/app-loading-screen.test.js, src/application-composition.test.js, src/application-lifecycle.test.js, src/application-runtime-adapters.test.js, src/context-menu-controller.test.js
   entry: src/main.js:cacheElements
 
@@ -52,7 +58,7 @@ counts: 8 nodes · 7 edges · 5 flows · 0 overflow · 0 unknown
 
 - `vite-config` · `vite.config.js` · module · Vite.Config
   callers: (none)
-  callees: external-dependencies (imports)
+  callees: external-dependencies (imports), scripts (imports)
   tests: (none)
   entry: vite.config.js:defineConfig
 
@@ -63,12 +69,15 @@ counts: 8 nodes · 7 edges · 5 flows · 0 overflow · 0 unknown
 ## Edges
 
 - repository -> scripts · calls
+- repository -> scripts-store · calls
 - repository -> src · calls
 - src -> external-dependencies · imports
+- src -> scripts · imports
 - src -> src-core · imports
 - src-core -> src · imports
 - src-tauri-src -> external-dependencies · imports
 - vite-config -> external-dependencies · imports
+- vite-config -> scripts · imports
 
 ## Unknown
 

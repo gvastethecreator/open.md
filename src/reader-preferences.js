@@ -30,8 +30,6 @@ export const DEFAULT_READING_TOOLS = Object.freeze({
   stats: false,
   wordWrap: true,
   coloredHeadings: false,
-  // Classic (false) is continuous multiline live preview; true enables block tools.
-  blockEditor: false,
 });
 
 export const DEFAULT_ADVANCED_PREFERENCES = Object.freeze({

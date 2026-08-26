@@ -231,101 +231,6 @@ export function createDocumentContentActions({
     return { kind: doc?.kind, path };
   };
 
-  const markdownEditContextItems = (target) => {
-    const editorSession = adapters.getEditorSession?.();
-    const context = editorSession?.contextFor(target);
-    if (!context) return null;
-    const wrapper = target.closest('[data-block-id]');
-    const blockText = wrapper?.querySelector('[data-editor-content]')?.innerText || '';
-    const items = [];
-
-    if (context.hasSelection) {
-      items.push(
-        {
-          id: 'copy-selection',
-          label: 'Copy selection',
-          icon: 'iconoir-copy',
-          shortcut: 'Ctrl+C',
-          onSelect: () => writeClipboardText(context.selectionText, 'Selection copied'),
-        },
-        {
-          id: 'cut-selection',
-          label: 'Cut selection',
-          icon: 'iconoir-edit-pencil',
-          shortcut: 'Ctrl+X',
-          onSelect: () => {
-            if (!document.execCommand?.('cut')) hooks.onToast?.('Could not cut the selection');
-          },
-        },
-        { type: 'separator' },
-        { id: 'bold', label: 'Bold', icon: 'iconoir-bold', onSelect: () => editorSession.applyInlineCommand('bold') },
-        { id: 'italic', label: 'Italic', icon: 'iconoir-italic', onSelect: () => editorSession.applyInlineCommand('italic') },
-        { id: 'strike', label: 'Strikethrough', icon: 'iconoir-text', onSelect: () => editorSession.applyInlineCommand('strike') },
-        { id: 'inline-code', label: 'Inline code', icon: 'iconoir-code', onSelect: () => editorSession.applyInlineCommand('code') },
-        { id: 'link', label: 'Add link', icon: 'iconoir-link', shortcut: 'Ctrl+K', onSelect: () => editorSession.openLinkFromSelection() },
-      );
-    } else {
-      items.push({
-        id: 'copy-block',
-        label: 'Copy block',
-        icon: 'iconoir-copy',
-        onSelect: () => writeClipboardText(blockText, 'Block copied'),
-      });
-    }
-
-    items.push({
-      id: 'paste',
-      label: 'Paste text',
-      icon: 'iconoir-page-down',
-      shortcut: 'Ctrl+V',
-      onSelect: pasteClipboardText,
-    });
-
-    if (editorSession.isBlockEditor?.()) {
-      items.push(
-        { type: 'separator' },
-        {
-          id: 'move-up',
-          label: 'Move block up',
-          icon: 'iconoir-arrow-up',
-          shortcut: 'Alt+Shift+↑',
-          disabled: !context.canMoveUp,
-          onSelect: () => editorSession.performBlockAction(context.blockId, 'move-up'),
-        },
-        {
-          id: 'move-down',
-          label: 'Move block down',
-          icon: 'iconoir-arrow-down',
-          shortcut: 'Alt+Shift+↓',
-          disabled: !context.canMoveDown,
-          onSelect: () => editorSession.performBlockAction(context.blockId, 'move-down'),
-        },
-        {
-          id: 'duplicate',
-          label: 'Duplicate block',
-          icon: 'iconoir-copy',
-          onSelect: () => editorSession.performBlockAction(context.blockId, 'duplicate'),
-        },
-        {
-          id: 'delete',
-          label: 'Delete block',
-          icon: 'iconoir-trash',
-          danger: true,
-          disabled: !context.canDelete,
-          onSelect: () => editorSession.performBlockAction(context.blockId, 'delete'),
-        },
-      );
-    }
-
-    return {
-      label: editorSession.isBlockEditor?.()
-        ? `${context.blockType} block actions`
-        : 'Edit actions',
-      context,
-      items: compactItems(items),
-    };
-  };
-
   const plainEditContextItems = (target) => {
     const root = elements.editorView || elements.content;
     const inEditor = Boolean(
@@ -425,23 +330,7 @@ export function createDocumentContentActions({
     };
   };
 
-  const editContextItems = (target) => {
-    const presentation = adapters.getEditorSession?.()?.current?.()?.presentation;
-    if (presentation === 'block') return markdownEditContextItems(target);
-    if (
-      presentation === 'classic'
-      || presentation === 'source'
-      || presentation === 'json-props'
-    ) {
-      return plainEditContextItems(target);
-    }
-    const format = currentFormat();
-    const hint = formatHint();
-    if (isMarkdownFormat(format, hint) || getEditorKind(format, hint) === 'blocks') {
-      return markdownEditContextItems(target);
-    }
-    return plainEditContextItems(target);
-  };
+  const editContextItems = (target) => plainEditContextItems(target);
 
   const imageDocumentContextItems = () => {
     const path = adapters.getDocumentPath?.() || '';

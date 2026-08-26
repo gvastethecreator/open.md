@@ -164,18 +164,20 @@ flowchart LR
 - `src/editor-document.js` owns canonical blocks, Markdown/TXT serialization,
   cursor snapshots, bounded history, CRUD, split/merge and reorder operations.
 - `src/editor-session.js` composes exclusive edit surfaces. One surface is
-  mounted at a time: Block (Rendered Markdown), Classic (Source Edit and
-  non-Markdown), or JSON properties.
+  mounted at a time: Classic (Markdown Rendered Edit, Source Edit, and
+  non-Markdown companions) or JSON properties.
+- Classic is the Obsidian-style source-line host. The active line is raw
+  Markdown. Other lines are preview. Source Edit keeps the same host and
+  shows highlighted source. JSON uses per-cell listeners.
 - Each surface binds and unbinds its own canvas and document listeners on
   mount and unmount. The session does not keep a shared input switch.
-- Overlay, selection, and block-drag controllers run only while Block is
-  mounted. Block tools (slash, floating toolbar, drag) start only when the
-  Block editor preference is on. Initial edit focus uses `preventScroll`.
+  Initial edit focus uses `preventScroll`.
 - Invariant: the DOM is a projection of the editor model; it does not own an
   independent block or undo/redo history.
 - Cursor-only updates reuse the frozen source/block/stat projection; moving the
   caret cannot serialize or clone the full document.
-- See [ADR 0002](docs/adr/0002-exclusive-editor-surfaces.md).
+- See [ADR 0002](docs/adr/0002-exclusive-editor-surfaces.md) and
+  [ADR 0004](docs/adr/0004-classic-only-markdown-edit.md).
 
 ### Document format authority
 
