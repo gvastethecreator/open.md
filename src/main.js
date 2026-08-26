@@ -109,13 +109,6 @@ const ui = {
   editModeLabel: null,
   editorSaveButton: null,
   editorSaveLabel: null,
-  editorCommandMenu: null,
-  editorBlockMenu: null,
-  editorInlineToolbar: null,
-  editorCaretEcho: null,
-  editorLinkPopover: null,
-  editorLinkInput: null,
-  editorLinkApply: null,
   editorContextLabel: null,
   editorContextHint: null,
 };
@@ -177,14 +170,6 @@ function cacheElements() {
   ui.editModeLabel = document.getElementById('edit-mode-label');
   ui.editorSaveButton = document.getElementById('editor-save-button');
   ui.editorSaveLabel = document.getElementById('editor-save-label');
-  ui.editorCommandMenu = document.getElementById('editor-command-menu');
-  ui.editorBlockMenu = document.getElementById('editor-block-menu');
-  ui.editorBlockToolbar = document.getElementById('editor-block-toolbar');
-  ui.editorInlineToolbar = document.getElementById('editor-inline-toolbar');
-  ui.editorCaretEcho = document.getElementById('editor-caret-echo');
-  ui.editorLinkPopover = document.getElementById('editor-link-popover');
-  ui.editorLinkInput = document.getElementById('editor-link-input');
-  ui.editorLinkApply = document.getElementById('editor-link-apply');
   ui.editorContextLabel = document.getElementById('editor-context-label');
   ui.editorContextHint = document.getElementById('editor-context-hint');
 }
@@ -638,20 +623,11 @@ function mountApplicationEditor(own) {
     elements: {
       root: ui.editorView,
       canvas: ui.editorCanvas,
-      commandMenu: ui.editorCommandMenu,
-      blockMenu: ui.editorBlockMenu,
-      blockToolbar: ui.editorBlockToolbar,
-      inlineToolbar: ui.editorInlineToolbar,
-      caretEcho: ui.editorCaretEcho,
-      linkPopover: ui.editorLinkPopover,
-      linkInput: ui.editorLinkInput,
-      linkApply: ui.editorLinkApply,
       contextLabel: ui.editorContextLabel,
       contextHint: ui.editorContextHint,
     },
     adapters: {
       save: (path, source) => runtimeAdapters.documents.save(path, source),
-      isBlockEditor: () => Boolean(readerControls?.current().readingTools.blockEditor),
       isSourceMode: isSourceModeSelected,
       getAdvancedPreferences: () => readerControls?.current()?.advanced
         || readerShell?.preferences?.current()?.advanced

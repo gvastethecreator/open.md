@@ -24,27 +24,11 @@ function fixture({
   </body>`);
   const { document } = dom.window;
   const toasts = [];
-  let blockEditor = true;
   const editorSession = {
-    contextFor: vi.fn(() => ({
-      hasSelection: true,
-      selectionText: 'selected',
-      blockId: 'block-1',
-      blockType: 'paragraph',
-      canMoveUp: false,
-      canMoveDown: true,
-      canDelete: true,
-    })),
-    applyInlineCommand: vi.fn(),
-    openLinkFromSelection: vi.fn(),
-    performBlockAction: vi.fn(),
-    isBlockEditor: () => blockEditor,
     current: () => ({ presentation: editPresentation }),
   };
   let mode = 'read';
-  const defaultPresentation = format === 'markdown' || kind === 'markdown' || kind === 'blocks'
-    ? 'block'
-    : (format === 'json' || kind === 'json' ? 'json-props' : 'classic');
+  const defaultPresentation = format === 'json' || kind === 'json' ? 'json-props' : 'classic';
   let editPresentation = defaultPresentation;
   let sourceActive = false;
   const toggleReadTask = vi.fn();
@@ -88,7 +72,6 @@ function fixture({
     toggleReadTask,
     setMode: (next) => { mode = next; },
     setSourceActive: (next) => { sourceActive = next; },
-    setBlockEditor: (next) => { blockEditor = next; },
     setPresentation: (next) => { editPresentation = next; },
   };
 }
@@ -125,27 +108,12 @@ describe('Document Content Actions', () => {
     expect(view.toggleReadTask).toHaveBeenCalledWith(expect.objectContaining({ sourceLine: 7, checked: false }));
   });
 
-  it('keeps Edit block and inline actions when Block editor is on', () => {
+  it('keeps Markdown Edit on Classic copy and paste, without block tools', () => {
     const view = fixture();
     view.setMode('edit');
-    const context = view.controller.resolveContext({ target: view.document.querySelector('[data-editor-content]') });
-
-    action(context, 'bold').onSelect();
-    action(context, 'move-down').onSelect();
-    action(context, 'delete').onSelect();
-
-    expect(view.editorSession.applyInlineCommand).toHaveBeenCalledWith('bold');
-    expect(view.editorSession.performBlockAction).toHaveBeenCalledWith('block-1', 'move-down');
-    expect(view.editorSession.performBlockAction).toHaveBeenCalledWith('block-1', 'delete');
-  });
-
-  it('hides block move/delete actions when block tools are off', () => {
-    const view = fixture();
-    view.setMode('edit');
-    view.setBlockEditor(false);
     const context = view.controller.resolveContext({ target: view.document.querySelector('[data-editor-content]') });
     expect(context.label).toBe('Edit actions');
-    expect(action(context, 'bold')).toBeTruthy();
+    expect(action(context, 'bold')).toBeUndefined();
     expect(action(context, 'move-down')).toBeUndefined();
     expect(action(context, 'delete')).toBeUndefined();
     expect(action(context, 'paste')).toBeTruthy();

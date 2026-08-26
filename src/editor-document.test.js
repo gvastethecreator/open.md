@@ -2,6 +2,8 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  classicLineKinds,
+  classicLinePreviewHtml,
   classicLineSourceHtml,
   createEditorDocumentModel,
   editableHtmlToMarkdown,
@@ -69,6 +71,49 @@ describe('editor document model', () => {
     expect(host.querySelector('code')?.textContent).toBe('code');
     expect(host.querySelector('a')?.getAttribute('href')).toBe('https://example.com');
     expect(editableHtmlToMarkdown(host)).toBe('Use **bold**, *italics*, ~~old~~, `code` and [docs](https://example.com).');
+  });
+
+  it('classifies fenced interiors, tables and images for Classic preview', () => {
+    const lines = [
+      '# Title',
+      '',
+      'Text with **bold** and `code`.',
+      '  - nested',
+      '![Desk](assets/quiet-desk.webp)',
+      '| A | B |',
+      '| --- | --- |',
+      '| 1 | 2 |',
+      '```js',
+      'const ready = true;',
+      '```',
+    ];
+    expect(classicLineKinds(lines)).toEqual([
+      'heading1',
+      'paragraph',
+      'paragraph',
+      'bullet',
+      'image',
+      'table',
+      'table',
+      'table',
+      'fence',
+      'code',
+      'fence',
+    ]);
+  });
+
+  it('renders Classic preview with document chrome, not raw markers', () => {
+    expect(classicLinePreviewHtml('Hello **world** and `code`')).toContain('<strong>world</strong>');
+    expect(classicLinePreviewHtml('Hello **world** and `code`')).toContain('<code>code</code>');
+    expect(classicLinePreviewHtml('- nested item')).toContain('classic-line-bullet');
+    expect(classicLinePreviewHtml('![Desk](assets/quiet-desk.webp)')).toContain(
+      'src="assets/quiet-desk.webp"',
+    );
+    expect(classicLinePreviewHtml('| A | **B** |')).toContain('classic-line-cell');
+    expect(classicLinePreviewHtml('const ready = true;', { kind: 'code' })).toContain(
+      'classic-line-code',
+    );
+    expect(classicLinePreviewHtml('![x](javascript:alert(1))')).not.toContain('src="javascript:');
   });
 
   it('highlights raw Markdown delimiters without rendering the source', () => {

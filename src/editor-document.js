@@ -157,6 +157,24 @@ function escapeHtml(value) {
     .replace(/'/g, '&#039;');
 }
 
+function isTableLine(raw) {
+  const line = String(raw ?? '');
+  if (/^\s*\|.+\|\s*$/.test(line)) return true;
+  return /^\s*\|?(?:\s*:?-{3,}:?\s*\|)+\s*:?-{3,}:?\s*\|?\s*$/.test(line);
+}
+
+function isImageLine(raw) {
+  return /^\s*!\[[^\]]*\]\([^)\s]+\)\s*$/.test(String(raw ?? ''));
+}
+
+function safePreviewSrc(href) {
+  const value = String(href ?? '').trim();
+  if (!value) return '';
+  if (/^(?:https?:)/i.test(value)) return value;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(value)) return '';
+  return value;
+}
+
 /**
  * Structural kind of one hard source line for Classic typography
  * (active source keeps raw Markdown but uses the same visual scale).
@@ -166,24 +184,81 @@ export function classicLineKind(line, { markdown = true } = {}) {
   if (!markdown) return 'paragraph';
   if (/^\s{0,3}(```|~~~)/.test(raw)) return 'fence';
   if (/^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/.test(raw)) return 'divider';
+  if (isTableLine(raw)) return 'table';
+  if (isImageLine(raw)) return 'image';
   const block = parseMarkdownLine(raw);
   return block.type || 'paragraph';
+}
+
+/** Walk a full document so fenced interiors stay `code`, not paragraphs. */
+export function classicLineKinds(lines, { markdown = true } = {}) {
+  const rows = Array.isArray(lines) ? lines : [];
+  if (!markdown) return rows.map(() => 'paragraph');
+  const kinds = [];
+  let fence = null;
+  for (const line of rows) {
+    const raw = String(line ?? '');
+    const marker = raw.match(/^\s{0,3}(```|~~~)/);
+    if (fence) {
+      const closed = Boolean(marker && marker[1] === fence && /^\s{0,3}(?:```|~~~)\s*$/.test(raw));
+      kinds.push(closed ? 'fence' : 'code');
+      if (closed) fence = null;
+      continue;
+    }
+    if (marker) {
+      kinds.push('fence');
+      fence = marker[1];
+      continue;
+    }
+    kinds.push(classicLineKind(raw, { markdown: true }));
+  }
+  return kinds;
+}
+
+function imagePreviewHtml(raw) {
+  const match = String(raw ?? '').match(/^\s*!\[([^\]]*)\]\(([^)\s]+)\)\s*$/);
+  if (!match) return '';
+  const src = safePreviewSrc(match[2]);
+  if (!src) return inlineMarkdownToHtml(raw);
+  return `<img class="classic-line-image" alt="${escapeHtml(match[1])}" src="${escapeHtml(src)}">`;
+}
+
+function tablePreviewHtml(raw) {
+  const cells = String(raw ?? '').split('|').slice(1, -1).map((cell) => cell.trim());
+  if (cells.length === 0) return escapeHtml(raw) || '<br>';
+  if (cells.every((cell) => /^:?-{3,}:?$/.test(cell))) {
+    return '<span class="classic-line-table-rule" aria-hidden="true"></span>';
+  }
+  const html = cells
+    .map((cell) => `<span class="classic-line-cell">${inlineMarkdownToHtml(cell)}</span>`)
+    .join('');
+  return `<span class="classic-line-table">${html}</span>`;
 }
 
 /**
  * Render one hard source line for Classic live preview (inactive lines).
  * Structural markers are shown as chrome; body text uses inline Markdown.
  */
-export function classicLinePreviewHtml(line, { markdown = true } = {}) {
+export function classicLinePreviewHtml(line, { markdown = true, kind } = {}) {
   const raw = String(line ?? '');
   if (!markdown) {
     return raw ? escapeHtml(raw) : '<br>';
   }
-  if (/^\s{0,3}(```|~~~)/.test(raw)) {
+  const resolved = kind || classicLineKind(raw, { markdown: true });
+  if (resolved === 'fence') {
     return `<code class="classic-line-fence">${escapeHtml(raw)}</code>`;
   }
-  if (/^\s{0,3}(?:-{3,}|\*{3,}|_{3,})\s*$/.test(raw)) {
+  if (resolved === 'code') {
+    return `<code class="classic-line-code">${escapeHtml(raw) || ' '}</code>`;
+  }
+  if (resolved === 'divider') {
     return '<hr class="classic-line-hr" aria-hidden="true">';
+  }
+  if (resolved === 'table') {
+    return tablePreviewHtml(raw);
+  }
+  if (resolved === 'image') {
+    return imagePreviewHtml(raw) || inlineMarkdownToHtml(raw);
   }
   const block = parseMarkdownLine(raw);
   // Keep preview chrome lightweight (no nested font-size) so source/preview
@@ -233,6 +308,11 @@ export function inlineMarkdownToHtml(value) {
 
   let output = escapeHtml(value);
   output = output.replace(/`([^`\n]+)`/g, (_match, text) => hold(`<code>${text}</code>`));
+  output = output.replace(/!\[([^\]\n]*)\]\(([^)\s]+)\)/g, (_match, alt, href) => {
+    const src = safePreviewSrc(href);
+    if (!src) return _match;
+    return hold(`<img class="classic-line-image" alt="${alt}" src="${escapeHtml(src)}">`);
+  });
   output = output.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (_match, label, href) => {
     const safeHref = /^(?:https?:|mailto:|#|\.\.?\/)/i.test(href) ? href : '#';
     return hold(`<a href="${escapeHtml(safeHref)}">${label}</a>`);

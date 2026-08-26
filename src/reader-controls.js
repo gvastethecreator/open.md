@@ -356,7 +356,6 @@ export function createReaderControls({
       'stats',
       'wordWrap',
       'coloredHeadings',
-      'blockEditor',
     ]
       .some((tool) => state.readingTools[tool] !== DEFAULT_READING_TOOLS[tool]);
 
@@ -378,7 +377,6 @@ export function createReaderControls({
     body.classList.toggle('is-minimap', available && state.readingTools.minimap);
     body.classList.toggle('is-word-wrap', state.readingTools.wordWrap);
     body.classList.toggle('is-colored-headings', available && state.readingTools.coloredHeadings);
-    body.classList.toggle('is-block-editor', available && Boolean(state.readingTools.blockEditor));
     updateReadingToolControls();
     applyEdgeFade();
     hooks.onReadingToolsApplied?.({ ...state.readingTools, sourceActive });
@@ -440,7 +438,7 @@ export function createReaderControls({
     const result = await adapters.preferences.update({ readingTools: { [tool]: next } });
     if (disposed || (tool === 'source' && !isCurrentSourceChange())) return false;
     // Apply the returned snapshot immediately so presentation adapters
-    // (isBlockEditor) never read a stale readingTools map.
+    // never read a stale readingTools map.
     if (result?.snapshot) {
       Object.assign(state, snapshotValue(result.snapshot), {
         readingTools: { ...snapshotValue(result.snapshot).readingTools },
@@ -471,7 +469,6 @@ export function createReaderControls({
       stats: 'Reading stats',
       wordWrap: 'Word wrap',
       coloredHeadings: 'Heading colors',
-      blockEditor: 'Block editor',
     };
     hooks.onToast?.(`${labels[tool]} ${next ? 'on' : 'off'}`);
   }

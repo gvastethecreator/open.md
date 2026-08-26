@@ -43,9 +43,9 @@ you choose to modify.
 - Markdown and plain-text reading, plus in-app companions (JSON, CSV, config-
   style text, and local raster images).
 - Independent **Rendered/Source** and **Read only/Edit** controls. Markdown
-  Rendered Edit uses per-block live preview; Source Edit is one continuous
-  full-file surface. Optional block tools live under View options. Scene
-  `.nfo` and `.log` companions keep Edit unavailable. See
+  Rendered Edit uses Classic live preview (active line is source, other lines
+  are rendered). Source Edit is the same full-file surface with raw syntax.
+  Scene `.nfo` and `.log` companions keep Edit unavailable. See
   [Editing](docs/EDITING.md).
 - Drag and drop, native file associations, and multi-window document opens.
   Optional single-instance mode (Advanced → System) reuses one process for

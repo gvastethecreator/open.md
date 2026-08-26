@@ -108,13 +108,11 @@ default-app policy.
   document identity immediately, then quietly refreshes the enriched reader
   projection when Edit closes so focus and document identity stay stable.
 - `src/editor-document.js` owns canonical block state and history.
-  `src/editor-session.js` projects Markdown Rendered Edit as per-block live
-  preview: the active block shows source and the others render. Block editor
-  (View options) adds the floating toolbar, slash menu, and drag reorder over
-  that shared projection. `src/editor-classic-surface.js` owns the continuous
-  full-file Source Edit surface. The session composes the overlay, selection,
-  and block-interaction controllers. Cursor snapshots reuse the frozen
-  document projection instead of rebuilding the document.
+  `src/editor-session.js` mounts Classic for Markdown Rendered Edit and
+  Source Edit, or JSON properties. Classic is the continuous source-line
+  host: the active line is raw Markdown and the other lines are preview.
+  Source Edit uses the same host with highlighted source. Cursor snapshots
+  reuse the frozen document projection instead of rebuilding the document.
 - `src/core/reader.js` retains pure reader calculations that can be tested
   without Tauri or the browser composition root.
 - `src/mermaid-renderer.js` loads Mermaid only when a document contains a

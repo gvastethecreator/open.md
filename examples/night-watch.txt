@@ -23,7 +23,7 @@ I trimmed the wick to 7 mm at 02:10 of the previous cycle and it has held.
 Fuel is 390 ml. If you are the first watch, do not "improve" the flame.
 The bored lantern is still a lantern.
 
-Things the station is not:
+- Things the station is not:
     a cloud
     a product tour
     a place that wants your account

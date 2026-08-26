@@ -24,6 +24,13 @@ stable release is cut.
 
 ### Changed
 
+- Markdown Edit is Classic only (Obsidian-style source-line live preview).
+  The Block surface, Block editor preference, slash menu, floating block
+  toolbar, and inline format toolbar are removed. JSON properties stay a
+  separate exclusive surface.
+- Classic live preview uses the document heading scale, list indent, fenced
+  code interiors, tables, and images instead of leaving most lines as body
+  text.
 - 2026-08-11 maintenance: `highlight.js` updated to 11.11.2, the Mermaid
   `dompurify` override moved to 3.4.13 to clear GHSA-55q2-fjhq-7xh7, and the
   Rust lockfile refreshed with the latest compatible crates (`html-escape`
@@ -40,7 +47,6 @@ stable release is cut.
 - Edit mode defaults to **Classic** continuous source-line live preview
   (`editor-classic-surface.js`): only the active hard line is raw Markdown
   (with type-scaled typography), other lines are rendered, no block islands.
-  **Block editor** remains optional under View options → Editing.
 - Classic keyboard navigation crosses hard lines with a sticky preferred
   column (retained across shorter lines), edge ArrowLeft/Right, Home/End,
   PageUp/Down, Enter split, and Backspace merge at column 0.
