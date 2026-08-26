@@ -193,6 +193,14 @@ export function createEditorOverlayController({
     }
   };
 
+  const unbind = () => {
+    commandMenu.removeEventListener('mousedown', onCommandMouseDown);
+    commandMenu.removeEventListener('click', onCommandClick);
+    blockMenu.removeEventListener('click', onBlockClick);
+    blockMenu.removeEventListener('keydown', onBlockKeyDown);
+    document.removeEventListener('pointerdown', onDocumentPointerDown);
+  };
+
   const start = () => {
     if (started || disposed) return;
     started = true;
@@ -203,20 +211,28 @@ export function createEditorOverlayController({
     document.addEventListener('pointerdown', onDocumentPointerDown);
   };
 
+  const stop = () => {
+    if (!started || disposed) return;
+    unbind();
+    started = false;
+    closeCommand();
+    closeBlock();
+  };
+
   const dispose = () => {
     if (disposed) return;
     disposed = true;
-    commandMenu.removeEventListener('mousedown', onCommandMouseDown);
-    commandMenu.removeEventListener('click', onCommandClick);
-    blockMenu.removeEventListener('click', onBlockClick);
-    blockMenu.removeEventListener('keydown', onBlockKeyDown);
-    document.removeEventListener('pointerdown', onDocumentPointerDown);
+    if (started) {
+      unbind();
+      started = false;
+    }
     closeCommand();
     closeBlock();
   };
 
   return Object.freeze({
     start,
+    stop,
     openCommand,
     closeCommand,
     openBlock,

@@ -1,6 +1,8 @@
+import { MOTION_EASE_OUT, shouldReduceMotion } from './reader-motion.js';
+
 const BLOCK_DRAG_MIME = 'text/x-openmd-block';
 const BLOCK_LAYOUT_DURATION = 220;
-const BLOCK_LAYOUT_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)';
+const BLOCK_LAYOUT_EASING = MOTION_EASE_OUT;
 const AUTO_SCROLL_EDGE = 72;
 const AUTO_SCROLL_MAX_SPEED = 14;
 
@@ -61,7 +63,7 @@ export function createEditorBlockInteractionController({
     if (
       disposed
       || !previousLayout
-      || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      || (adapters.shouldReduceMotion?.() ?? shouldReduceMotion(window))
     ) return;
     canvas.querySelectorAll('[data-block-id]').forEach((wrapper) => {
       if (typeof wrapper.animate !== 'function') return;
@@ -410,6 +412,13 @@ export function createEditorBlockInteractionController({
     adapters.focusBlock?.(sourceId);
   };
 
+  const unbind = () => {
+    root.removeEventListener('dragstart', onDragStart);
+    root.removeEventListener('dragend', onDragEnd);
+    canvas.removeEventListener('dragover', onDragOver);
+    canvas.removeEventListener('drop', onDrop);
+  };
+
   const start = () => {
     if (started || disposed) return;
     started = true;
@@ -420,13 +429,22 @@ export function createEditorBlockInteractionController({
     canvas.addEventListener('drop', onDrop);
   };
 
+  const stop = () => {
+    if (!started || disposed) return;
+    unbind();
+    started = false;
+    clearDragState();
+    reorderCommitted = false;
+    cancelAnimations();
+  };
+
   const dispose = () => {
     if (disposed) return;
     disposed = true;
-    root.removeEventListener('dragstart', onDragStart);
-    root.removeEventListener('dragend', onDragEnd);
-    canvas.removeEventListener('dragover', onDragOver);
-    canvas.removeEventListener('drop', onDrop);
+    if (started) {
+      unbind();
+      started = false;
+    }
     clearDragState();
     reorderCommitted = false;
     cancelAnimations();
@@ -434,6 +452,7 @@ export function createEditorBlockInteractionController({
 
   return Object.freeze({
     start,
+    stop,
     captureLayout,
     animateLayout,
     cancelAnimations,
