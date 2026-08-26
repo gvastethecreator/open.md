@@ -426,6 +426,15 @@ export function createDocumentContentActions({
   };
 
   const editContextItems = (target) => {
+    const presentation = adapters.getEditorSession?.()?.current?.()?.presentation;
+    if (presentation === 'block') return markdownEditContextItems(target);
+    if (
+      presentation === 'classic'
+      || presentation === 'source'
+      || presentation === 'json-props'
+    ) {
+      return plainEditContextItems(target);
+    }
     const format = currentFormat();
     const hint = formatHint();
     if (isMarkdownFormat(format, hint) || getEditorKind(format, hint) === 'blocks') {

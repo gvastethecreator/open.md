@@ -39,8 +39,13 @@ function fixture({
     openLinkFromSelection: vi.fn(),
     performBlockAction: vi.fn(),
     isBlockEditor: () => blockEditor,
+    current: () => ({ presentation: editPresentation }),
   };
   let mode = 'read';
+  const defaultPresentation = format === 'markdown' || kind === 'markdown' || kind === 'blocks'
+    ? 'block'
+    : (format === 'json' || kind === 'json' ? 'json-props' : 'classic');
+  let editPresentation = defaultPresentation;
   let sourceActive = false;
   const toggleReadTask = vi.fn();
   const imageViewer = { fit: vi.fn(), actualSize: vi.fn() };
@@ -84,6 +89,7 @@ function fixture({
     setMode: (next) => { mode = next; },
     setSourceActive: (next) => { sourceActive = next; },
     setBlockEditor: (next) => { blockEditor = next; },
+    setPresentation: (next) => { editPresentation = next; },
   };
 }
 
@@ -133,7 +139,7 @@ describe('Document Content Actions', () => {
     expect(view.editorSession.performBlockAction).toHaveBeenCalledWith('block-1', 'delete');
   });
 
-  it('hides block move/delete actions in Classic presentation', () => {
+  it('hides block move/delete actions when block tools are off', () => {
     const view = fixture();
     view.setMode('edit');
     view.setBlockEditor(false);
@@ -142,6 +148,15 @@ describe('Document Content Actions', () => {
     expect(action(context, 'bold')).toBeTruthy();
     expect(action(context, 'move-down')).toBeUndefined();
     expect(action(context, 'delete')).toBeUndefined();
+    expect(action(context, 'paste')).toBeTruthy();
+  });
+
+  it('does not offer Markdown inline formats in Source Edit', () => {
+    const view = fixture();
+    view.setMode('edit');
+    view.setPresentation('source');
+    const context = view.controller.resolveContext({ target: view.document.querySelector('[data-editor-content]') });
+    expect(action(context, 'bold')).toBeUndefined();
     expect(action(context, 'paste')).toBeTruthy();
   });
 
