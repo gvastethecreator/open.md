@@ -34,7 +34,7 @@ shows the exact full JSON text. Markdown block tools stay Markdown-only.
 Markdown Rendered Edit uses per-block live preview:
 
 - The active block shows its editable source and structural marker.
-- Other blocks stay rendered until activated.
+- Other blocks stay rendered until activated. Click a rendered block to edit it at the click offset.
 - Enter splits a block. Backspace at the start and Delete at the end merge
   neighboring blocks.
 - Arrow keys move between blocks at their boundaries. Undo and redo use the
@@ -50,8 +50,9 @@ line and visible column. View options can show source-line numbers and the
 minimap in Read, Rendered Edit, and Source Edit. Word wrap applies to every text
 surface.
 
-Advanced options → **Reduce motion** disables non-essential editor animation.
-The operating system's `prefers-reduced-motion` setting is always honored.
+Advanced options → **Reduce motion** disables non-essential editor and chrome
+animation (toasts, menus, theme wipe, trail, line band). The operating
+system's `prefers-reduced-motion` setting is always honored.
 
 ## Source Edit
 
@@ -59,7 +60,8 @@ Source Edit is one continuous, line-based host for the complete file. It keeps
 raw syntax visible, supports selection and replacement across lines, and uses
 these navigation rules:
 
-- ↑/↓ move hard lines with a preferred column.
+- Click a preview line to edit it at the click offset.
+- ↑/↓ move visual lines when word wrap is on, then hard lines at the visual edges, with a preferred column.
 - ←/→ cross line edges.
 - Home/End move to line bounds.
 - Ctrl/Cmd+Home and Ctrl/Cmd+End move to document bounds.
