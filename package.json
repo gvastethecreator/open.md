@@ -32,7 +32,9 @@
     "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
     "fmt:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check",
-    "verify": "pnpm run check:frontend && pnpm run test:frontend && pnpm run build && pnpm run fmt:rust && pnpm run check:rust && pnpm run test:rust"
+    "verify": "pnpm run check:frontend && pnpm run test:frontend && pnpm run build && pnpm run fmt:rust && pnpm run check:rust && pnpm run test:rust",
+    "store:validate": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/store/Test-StoreReadiness.ps1",
+    "store:build": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/store/Build-StoreInstaller.ps1"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",
