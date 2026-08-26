@@ -21,9 +21,13 @@ Companions get richer Read when possible (JSON tree, CSV table, structured
 INI/YAML-family views), full-document Source highlighting where languages are
 available, and format-aware Edit (JSON property rows when valid; plain
 monospace otherwise). Images are view-only (no Edit/Source) with context
-actions to copy or download the image and fit/actual-size zoom. The status bar
-adapts metrics to the open format (for example dimensions for images, key
-counts for JSON).
+actions to copy or download the image and fit/actual-size zoom. Classic scene
+`.nfo` files (CP437 box art) open as Read/Source only on a VGA cell grid; they
+have no editor. UTF-8 Kodi/Plex or Windows System Information XML that also
+uses `.nfo` stays ordinary text and stays editable. `.log` companions are also
+Read/Source only. The status bar adapts
+metrics to the open format (for example dimensions for images, key counts for
+JSON).
 
 ## In-app controls
 

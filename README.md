@@ -19,7 +19,8 @@ A quiet desktop reader and editor for local Markdown and plain-text files.
 
 `open.md` is a small Tauri desktop application for reading and editing `.md`,
 `.markdown`, and `.txt` files, plus companion formats opened in-app (JSON, CSV,
-common config/text sidecars, and local raster images). Drop a file onto the
+common config/text sidecars, and local raster images). Scene `.nfo` art and
+`.log` files open for reading (and Source) only. Drop a file onto the
 window, open it from the file picker, or use the operating system's **Open
 with** menu. Documents stay local: the app does not fetch remote images.
 Opening a file never writes to it; **Edit** and save change only the document
@@ -43,7 +44,8 @@ you choose to modify.
   style text, and local raster images).
 - Independent **Rendered/Source** and **Read only/Edit** controls. Markdown
   Rendered Edit uses per-block live preview; Source Edit is one continuous
-  full-file surface. Optional block tools live under View options. See
+  full-file surface. Optional block tools live under View options. Scene
+  `.nfo` and `.log` companions keep Edit unavailable. See
   [Editing](docs/EDITING.md).
 - Drag and drop, native file associations, and multi-window document opens.
   Optional single-instance mode (Advanced → System) reuses one process for

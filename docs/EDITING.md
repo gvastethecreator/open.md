@@ -2,6 +2,8 @@
 
 `open.md` edits an open Markdown or text companion without changing its file
 format. Images are view-only: Source and Edit are unavailable for them.
+Classic scene `.nfo` files and `.log` files are Read and Source only. They
+have no editor.
 
 Two independent controls create four states:
 
@@ -21,8 +23,8 @@ window chrome stays fixed. Reduced-motion preferences switch the surface
 immediately. The source file remains Markdown or text; there is no private
 document format.
 
-Non-Markdown companions (CSV, YAML, TOML, INI, ENV, logs, and similar) use a
-plain text surface so saves do not rewrite their syntax. Valid JSON objects and
+Non-Markdown companions that stay editable (CSV, YAML, TOML, INI, ENV, and
+similar) use a plain text surface so saves do not rewrite their syntax. Valid JSON objects and
 arrays use a property editor in Rendered Edit; nested values edit as JSON text.
 Invalid or very large JSON falls back to the plain editor. Source Edit always
 shows the exact full JSON text. Markdown block tools stay Markdown-only.

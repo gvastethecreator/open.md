@@ -46,12 +46,15 @@ flowchart LR
 ### Native document access
 
 - Owns canonical file access, supported document and image policy, byte
-  limits, UTF-8 validation, Markdown/plain-text rendering, metadata, and image
-  containment.
+  limits, UTF-8 validation, CP437 fallback for classic `.nfo` companions,
+  Markdown/plain-text rendering, metadata, and image containment. Scene
+  `.nfo` and `.log` companions are not native save targets; Kodi/Windows XML
+  `.nfo` remains UTF-8 text.
 - Returns the current structured document payload only; there is no welcome or
   legacy string payload.
 - `src-tauri/src/lib.rs` and `images.rs` are Tauri adapters, not policy
   owners.
+- See [ADR 0003](docs/adr/0003-nfo-cp437.md).
 
 ### Document resource
 
@@ -157,16 +160,19 @@ flowchart LR
 
 - `src/editor-document.js` owns canonical blocks, Markdown/TXT serialization,
   cursor snapshots, bounded history, CRUD, split/merge and reorder operations.
-- `src/editor-session.js` renders model snapshots and composes dedicated
-  overlay, selection, and block-interaction controllers.
-- Overlay, selection and block controllers own their document listeners,
-  transient state, keyboard/focus rules, animation handles and disposal.
-- The editor session owns and removes its canvas input, keyboard, click, and
-  change listeners; initial edit focus uses `preventScroll`.
+- `src/editor-session.js` composes exclusive edit surfaces. One surface is
+  mounted at a time: Block (Rendered Markdown), Classic (Source Edit and
+  non-Markdown), or JSON properties.
+- Each surface binds and unbinds its own canvas and document listeners on
+  mount and unmount. The session does not keep a shared input switch.
+- Overlay, selection, and block-drag controllers run only while Block is
+  mounted. Block tools (slash, floating toolbar, drag) start only when the
+  Block editor preference is on. Initial edit focus uses `preventScroll`.
 - Invariant: the DOM is a projection of the editor model; it does not own an
   independent block or undo/redo history.
 - Cursor-only updates reuse the frozen source/block/stat projection; moving the
   caret cannot serialize or clone the full document.
+- See [ADR 0002](docs/adr/0002-exclusive-editor-surfaces.md).
 
 ### Document format authority
 
