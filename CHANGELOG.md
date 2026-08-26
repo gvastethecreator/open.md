@@ -7,6 +7,18 @@ stable release is cut.
 
 ## [Unreleased]
 
+### Added
+
+- Classic scene `.nfo` companions open when the file is IBM Code Page 437.
+  Read and Source use a VGA cell grid (PxPlus IBM VGA8). There is no editor.
+  UTF-8 Kodi/Windows XML `.nfo` files stay ordinary text.
+- `.log` companions are Read and Source only. There is no editor.
+
+### Fixed
+
+- Full-document NFO and log Read no longer grow a Copy code overlay.
+- Native save rejects scene `.nfo` and `.log` files so UTF-8 cannot overwrite them.
+
 ### Changed
 
 - 2026-08-11 maintenance: `highlight.js` updated to 11.11.2, the Mermaid

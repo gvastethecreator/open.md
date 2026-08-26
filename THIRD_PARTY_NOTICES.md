@@ -24,6 +24,14 @@ Inter Project Authors and licensed under the SIL Open Font License, Version
 1.1. The complete upstream license is bundled at
 `src/assets/fonts/LICENSE.txt`.
 
+## IBM VGA 8×16 (PxPlus IBM VGA8)
+
+Classic `.nfo` Read/Source uses `PxPlus IBM VGA8` from
+[The Ultimate Oldschool PC Font Pack](https://int10h.org/oldschool-pc-fonts/)
+by VileR, version 2.2. The face is copyright 2016-2020 VileR and licensed
+under Creative Commons Attribution-ShareAlike 4.0 International. Attribution
+and the license pointer are bundled at `src/assets/fonts/LICENSE-IBM-VGA.txt`.
+
 ## Gogh theme catalogue
 
 `src/themes.json` incorporates the `data/themes.json` catalogue from
