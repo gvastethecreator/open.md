@@ -301,7 +301,9 @@ export function createEditorDocumentModel({
   let disposed = false;
   const limit = Math.max(2, Math.floor(Number(historyLimit) || 150));
   let history = [serializeEditorDocument(blocks, { markdown })];
+  let historyCursors = [null];
   let historyIndex = 0;
+  let coalesceOpen = false;
   const subscribers = new Set();
 
   const serializeCurrent = () => serializeEditorDocument(blocks, { markdown });
@@ -334,21 +336,36 @@ export function createEditorDocumentModel({
     subscribers.forEach((subscriber) => subscriber(next));
     return next;
   };
-  const recordHistory = () => {
+  const recordHistory = (cursor = null) => {
     const current = serializeCurrent();
     if (history[historyIndex] === current) return false;
     history = history.slice(0, historyIndex + 1);
+    historyCursors = historyCursors.slice(0, historyIndex + 1);
     history.push(current);
-    if (history.length > limit) history.shift();
+    historyCursors.push(cursor || null);
+    if (history.length > limit) {
+      history.shift();
+      historyCursors.shift();
+    }
     historyIndex = history.length - 1;
     return true;
   };
-  const commit = (mutate) => {
+  const commit = (mutate, options = {}) => {
     if (disposed) return null;
     const result = mutate();
     if (result === false || result === null) return result;
     if (blocks.length === 0) blocks = [createEditorBlock()];
-    recordHistory();
+    const cursor = options.cursor || null;
+    if (options.coalesce && coalesceOpen && historyIndex === history.length - 1) {
+      history[historyIndex] = serializeCurrent();
+      historyCursors[historyIndex] = cursor;
+    } else {
+      if (options.coalesce && options.originCursor) {
+        historyCursors[historyIndex] = options.originCursor;
+      }
+      recordHistory(cursor);
+      coalesceOpen = Boolean(options.coalesce);
+    }
     revision += 1;
     publish({ structure: true });
     return result;
@@ -513,13 +530,16 @@ export function createEditorDocumentModel({
     if (index === historyIndex) return { changed: false, action };
     const activeIndex = Math.max(0, findIndex(activeId));
     historyIndex = index;
+    coalesceOpen = false;
     blocks = parseEditorDocument(history[index], { markdown });
+    cursor = historyCursors[index] || cursor;
     revision += 1;
     publish({ structure: true });
     return {
       changed: true,
       action,
       focusId: blocks[Math.min(activeIndex, blocks.length - 1)].id,
+      cursor: historyCursors[index] || null,
     };
   };
   const undo = (activeId = null) => restoreHistory(historyIndex - 1, 'undo', activeId);
@@ -542,17 +562,23 @@ export function createEditorDocumentModel({
     blocks = parseEditorDocument(nextSource, { markdown });
     cursor = null;
     history = [serializeCurrent()];
+    historyCursors = [null];
     historyIndex = 0;
+    coalesceOpen = false;
     revision += 1;
     return publish({ structure: true });
   };
 
   /** Replace document from full source text and record history (Classic surface). */
-  const applySource = (nextSource = '') => commit(() => {
+  const applySource = (nextSource = '', options = {}) => commit(() => {
     const normalized = String(nextSource ?? '').replace(/\r\n?/g, '\n');
     if (serializeCurrent() === normalized) return false;
     blocks = parseEditorDocument(normalized, { markdown });
     return true;
+  }, {
+    coalesce: Boolean(options.coalesce),
+    cursor: options.cursor || null,
+    originCursor: options.originCursor || null,
   });
 
   const subscribe = (subscriber) => {
