@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   detectImageFormatFromMagic,
   looksLikeJson,
+  looksLikeNfoXml,
   resolveDocumentFormat,
 } from './format-detect.js';
 
@@ -54,6 +55,20 @@ describe('format detect', () => {
     expect(resolveDocumentFormat('config.json').format).toBe('json');
     expect(resolveDocumentFormat('data.csv').format).toBe('csv');
     expect(resolveDocumentFormat('setup.ini').format).toBe('ini');
+    expect(resolveDocumentFormat('info.nfo').format).toBe('nfo');
+    expect(resolveDocumentFormat('app.log').format).toBe('log');
+  });
+
+  it('classifies nfo XML as text and leaves scene art as nfo', () => {
+    const xml = new TextEncoder().encode('  <?xml version="1.0"?>\n<movie></movie>');
+    const movie = new TextEncoder().encode('<movie><title>A</title></movie>');
+    const art = new TextEncoder().encode('<not-xml banner');
+    expect(looksLikeNfoXml(xml)).toBe(true);
+    expect(looksLikeNfoXml(movie)).toBe(true);
+    expect(looksLikeNfoXml(art)).toBe(false);
+    expect(resolveDocumentFormat('film.nfo', xml).format).toBe('text');
+    expect(resolveDocumentFormat('banner.nfo', art).format).toBe('nfo');
+    expect(resolveDocumentFormat('banner.nfo').format).toBe('nfo');
   });
 
   it('detects JSON leading character after BOM/whitespace', () => {

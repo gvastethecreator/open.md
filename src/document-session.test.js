@@ -71,6 +71,21 @@ describe('document session', () => {
     expect(session.current()).toMatchObject({ state: 'ready', path: 'guide.md' });
   });
 
+  it('does not put a copy-code control on a full-document nfo pre', async () => {
+    const session = createSession({
+      open: vi.fn(async () => payload({
+        html: '<pre data-plain-text="true" data-format="nfo"><code>╔═╗</code></pre>',
+        source: '╔═╗',
+        format: 'nfo',
+        kind: 'text',
+      })),
+    });
+
+    await expect(session.open({ path: 'info.nfo' })).resolves.toMatchObject({ status: 'ready' });
+    expect(document.querySelector('#content .copy-code-btn')).toBeNull();
+    expect(document.querySelector('#content pre[data-plain-text="true"]')).not.toBeNull();
+  });
+
   it('quietly refreshes a saved read projection without publishing or stealing editor focus', async () => {
     let current = payload({ html: '<h1>Before</h1>', source: '# Before' });
     const onStateChange = vi.fn();

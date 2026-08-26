@@ -156,6 +156,7 @@ describe('Frontend Logic Tests', () => {
       expect(isSupportedFilePath('config.JSON')).toBe(true);
       expect(isSupportedFilePath('setup.ini')).toBe(true);
       expect(isSupportedFilePath('info.nfo')).toBe(true);
+      expect(isSupportedFilePath('debug.log')).toBe(true);
       expect(isSupportedFilePath('settings.toml')).toBe(true);
       expect(isSupportedFilePath('photo.png')).toBe(true);
       expect(isSupportedFilePath('cover.WEBP')).toBe(true);
@@ -285,6 +286,27 @@ describe('Frontend Logic Tests', () => {
         readingTimeMinutes: 1,
       });
       expect(() => normalizeDocumentPayload('<p>Legacy</p>')).toThrow('Invalid document payload');
+      expect(normalizeDocumentPayload({
+        html: '<pre>art</pre>',
+        source: 'art',
+        format: 'nfo',
+        kind: 'text',
+        sourceEncoding: 'cp437',
+        lineCount: 1,
+        characterCount: 3,
+        wordCount: 1,
+        readingTimeMinutes: 1,
+      })).toMatchObject({ format: 'nfo', kind: 'text', sourceEncoding: 'cp437' });
+      expect(normalizeDocumentPayload({
+        html: '<pre>ready</pre>',
+        source: 'ready',
+        format: 'log',
+        kind: 'text',
+        lineCount: 1,
+        characterCount: 5,
+        wordCount: 1,
+        readingTimeMinutes: 1,
+      })).toMatchObject({ format: 'log', kind: 'text' });
     });
 
     it('keeps essential document counts and only exposes a custom zoom', () => {

@@ -22,8 +22,8 @@ const FORMAT_BY_EXTENSION = Object.freeze({
   md: 'markdown',
   markdown: 'markdown',
   txt: 'text',
-  nfo: 'text',
-  log: 'text',
+  nfo: 'nfo',
+  log: 'log',
   env: 'env',
   json: 'json',
   ini: 'ini',
@@ -125,6 +125,50 @@ function skipBomAndWs(bytes) {
     else break;
   }
   return i;
+}
+
+const NFO_XML_PREFIXES = [
+  '<?xml',
+  '<movie',
+  '<tvshow',
+  '<episodedetails',
+  '<musicvideo',
+  '<album',
+  '<artist',
+  '<nfo',
+];
+
+function asciiSlice(bytes, start, maxLength) {
+  const end = Math.min(bytes.length, start + maxLength);
+  let out = '';
+  for (let i = start; i < end; i += 1) {
+    if (bytes[i] > 0x7e) return out;
+    out += String.fromCharCode(bytes[i]);
+  }
+  return out;
+}
+
+function nfoXmlBoundary(char) {
+  return char === undefined
+    || char === ' '
+    || char === '\t'
+    || char === '\n'
+    || char === '\r'
+    || char === '>'
+    || char === '/';
+}
+
+/**
+ * Kodi/Plex/Windows System Information XML among `.nfo` companions.
+ */
+export function looksLikeNfoXml(header) {
+  const bytes = asBytes(header);
+  const start = skipBomAndWs(bytes);
+  if (start >= bytes.length) return false;
+  const ascii = asciiSlice(bytes, start, 24).toLowerCase();
+  return NFO_XML_PREFIXES.some((prefix) => (
+    ascii.startsWith(prefix) && nfoXmlBoundary(ascii[prefix.length])
+  ));
 }
 
 /**
@@ -232,6 +276,9 @@ export function resolveDocumentFormat(filePath, header = null) {
     }
   }
   if (extension === 'json') format = 'json';
+  if (extension === 'nfo') {
+    format = header != null && looksLikeNfoXml(header) ? 'text' : 'nfo';
+  }
 
   return {
     supported: true,

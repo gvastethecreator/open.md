@@ -3,8 +3,9 @@
  */
 
 const KNOWN_KINDS = new Set(['image', 'markdown', 'text']);
+const KNOWN_ENCODINGS = new Set(['utf-8', 'cp437']);
 const KNOWN_FORMATS = new Set([
-  'markdown', 'text', 'json', 'yaml', 'toml', 'ini', 'env', 'csv',
+  'markdown', 'text', 'json', 'yaml', 'toml', 'ini', 'env', 'csv', 'nfo', 'log',
   'png', 'jpeg', 'gif', 'webp', 'bmp', 'avif', 'image',
 ]);
 
@@ -70,5 +71,9 @@ export function normalizeDocumentPayload(payload) {
   };
   if (resolvedKind) normalized.kind = resolvedKind;
   if (resolvedFormat) normalized.format = resolvedFormat;
+  const encodingRaw = typeof payload.sourceEncoding === 'string' ? payload.sourceEncoding : undefined;
+  if (encodingRaw && KNOWN_ENCODINGS.has(encodingRaw)) {
+    normalized.sourceEncoding = encodingRaw;
+  }
   return normalized;
 }

@@ -95,6 +95,102 @@ describe('Document View State', () => {
     expect(view.controller.current()).toEqual({ state: 'idle', path: null, document: null });
   });
 
+  it('projects nfo chrome and skips the editor', () => {
+    const body = {
+      classList: {
+        image: false,
+        nfo: false,
+        toggle(name, on) {
+          if (name === 'is-image-document') this.image = Boolean(on);
+          if (name === 'is-nfo-document') this.nfo = Boolean(on);
+        },
+      },
+      attrs: {},
+      setAttribute(name, value) { this.attrs[name] = value; },
+      removeAttribute(name) { delete this.attrs[name]; },
+    };
+    const editorSession = {
+      current: vi.fn(() => ({ path: null })),
+      clearDocument: vi.fn(),
+      setDocument: vi.fn(),
+    };
+    const controller = createDocumentViewStateController({
+      window: { document: { body } },
+      adapters: { getEditorSession: () => editorSession },
+      hooks: {
+        replaceDocument: vi.fn(),
+        resetReadingState: vi.fn(),
+        closeReadingTools: vi.fn(),
+        syncViewport: vi.fn(),
+        applyReadingTools: vi.fn(),
+        setStatus: vi.fn(),
+        updateTitle: vi.fn(),
+        updateUrl: vi.fn(),
+        markNavigationDirty: vi.fn(),
+        handleNavigationScroll: vi.fn(),
+      },
+    });
+    const document = {
+      html: '<pre>art</pre>',
+      source: 'art',
+      format: 'nfo',
+      kind: 'text',
+      lineCount: 1,
+      characterCount: 3,
+      wordCount: 1,
+      readingTimeMinutes: 1,
+      sourceEncoding: 'cp437',
+    };
+    controller.handle({ state: 'loading', path: 'info.nfo', document: null });
+    controller.handle({ state: 'ready', path: 'info.nfo', document });
+    expect(body.classList.nfo).toBe(true);
+    expect(body.classList.image).toBe(false);
+    expect(body.attrs['data-document-format']).toBe('nfo');
+    expect(editorSession.setDocument).not.toHaveBeenCalled();
+    expect(editorSession.clearDocument).toHaveBeenCalled();
+
+    controller.handle({ state: 'idle', path: null, document: null });
+    expect(body.classList.nfo).toBe(false);
+    expect(body.attrs['data-document-format']).toBeUndefined();
+  });
+
+  it('skips the editor for log companions', () => {
+    const editorSession = {
+      current: vi.fn(() => ({ path: null })),
+      clearDocument: vi.fn(),
+      setDocument: vi.fn(),
+    };
+    const controller = createDocumentViewStateController({
+      window: { document: { body: { classList: { toggle() {} }, setAttribute() {}, removeAttribute() {} } } },
+      adapters: { getEditorSession: () => editorSession },
+      hooks: {
+        replaceDocument: vi.fn(),
+        resetReadingState: vi.fn(),
+        closeReadingTools: vi.fn(),
+        syncViewport: vi.fn(),
+        applyReadingTools: vi.fn(),
+        setStatus: vi.fn(),
+        updateTitle: vi.fn(),
+        updateUrl: vi.fn(),
+        markNavigationDirty: vi.fn(),
+        handleNavigationScroll: vi.fn(),
+      },
+    });
+    const document = {
+      html: '<pre>ready</pre>',
+      source: 'ready',
+      format: 'log',
+      kind: 'text',
+      lineCount: 1,
+      characterCount: 5,
+      wordCount: 1,
+      readingTimeMinutes: 1,
+    };
+    controller.handle({ state: 'ready', path: 'app.log', document });
+    expect(editorSession.setDocument).not.toHaveBeenCalled();
+    expect(editorSession.clearDocument).toHaveBeenCalled();
+  });
+
   it('owns close eligibility for empty, dirty, and ready documents', () => {
     const view = fixture();
     const closeShell = vi.fn();
