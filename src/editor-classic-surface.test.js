@@ -151,10 +151,13 @@ describe('Editor Classic Surface', () => {
 
     expect(getSource()).toBe('# Title\n**next**');
     expect(canvas.querySelectorAll('.classic-line')).toHaveLength(2);
-    expect([...next.querySelectorAll('.source-markup-token')].map((token) => token.textContent))
-      .toEqual(['**', '**']);
+    expect(next.textContent).toBe('**next**');
     expect(canvas.contentEditable).toBe('true');
     expect(window.getSelection().rangeCount).toBe(1);
+    next.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true }));
+    const highlighted = canvas.querySelector('.classic-line.is-active-line [data-classic-content]');
+    expect([...highlighted.querySelectorAll('.source-markup-token')].map((token) => token.textContent))
+      .toEqual(['**', '**']);
   });
 
   it('owns insertParagraph beforeinput for keyboard and virtual-keyboard line breaks', () => {
@@ -538,6 +541,101 @@ describe('Editor Classic Surface', () => {
     // step = floor(100 / 20) = 5 — not floor(2000 / 28) which would jump near the end
     expect(surface.activeLine()).toBe(5);
     expect(surface.activeLine()).toBeLessThan(30);
+  });
+
+  it('places the caret at the click offset on a preview line, not the line end', () => {
+    const { surface, canvas } = mountSurface('Short\nHello world\nTail');
+    const previewRow = canvas.querySelector('[data-classic-line="1"]');
+    const preview = previewRow.querySelector('[data-classic-content]');
+    const text = preview.firstChild;
+    expect(text).toBeTruthy();
+    const clickOffset = 4;
+    const range = document.createRange();
+    range.setStart(text.nodeType === 3 ? text : preview.childNodes[0], clickOffset);
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    const event = {
+      target: preview,
+      clientX: 12,
+      clientY: 8,
+      preventDefault() { this.defaultPrevented = true; },
+    };
+    expect(surface.handleClick(event)).toBe(true);
+    const active = canvas.querySelector('.is-active-line [data-editor-mode="source"]');
+    expect(active?.textContent).toContain('Hello world');
+    const caret = caretOffsetInSource(active);
+    expect(caret).toBe(clickOffset);
+    expect(caret).not.toBe(active.textContent.length);
+  });
+
+  it('does not rebuild the typing host during ordinary input or composing input', () => {
+    const { surface, canvas, getSource } = mountSurface('Hello');
+    const host = canvas.querySelector('[data-editor-mode="source"]');
+    host.textContent = 'Hello!';
+    placeCaretIn(host, 6);
+    expect(surface.handleInput(new InputEvent('input', { bubbles: true, inputType: 'insertText' }))).toBe(true);
+    expect(getSource()).toBe('Hello!');
+    expect(canvas.querySelector('[data-editor-mode="source"]')).toBe(host);
+
+    host.textContent = 'Hello!ñ';
+    const composing = new InputEvent('input', {
+      bubbles: true,
+      inputType: 'insertCompositionText',
+      isComposing: true,
+    });
+    const before = getSource();
+    expect(surface.handleInput(composing)).toBe(true);
+    expect(getSource()).toBe(before);
+    expect(canvas.querySelector('[data-editor-mode="source"]')).toBe(host);
+
+    const blocked = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      bubbles: true,
+      cancelable: true,
+      isComposing: true,
+    });
+    expect(surface.handleKeydown(blocked)).toBe(false);
+    expect(blocked.defaultPrevented).toBe(false);
+    expect(getSource()).toBe(before);
+  });
+
+  it('keeps ArrowDown on the same hard line when the line is visually wrapped', () => {
+    const { surface, canvas } = mountSurface(`${'abcdefghij'.repeat(3)}\nnext`);
+    const content = canvas.querySelector('[data-editor-mode="source"]');
+    const original = Range.prototype.getClientRects;
+    Range.prototype.getClientRects = function getClientRects() {
+      const offset = this.startOffset;
+      const top = offset < 10 ? 0 : offset < 20 ? 16 : 32;
+      const rect = {
+        top, left: offset % 10, bottom: top + 16, right: (offset % 10) + 8, height: 16, width: 8,
+      };
+      return {
+        length: 1,
+        0: rect,
+        item: (index) => (index === 0 ? rect : undefined),
+        [Symbol.iterator]: function* iterate() { yield rect; },
+      };
+    };
+    try {
+      placeCaretIn(content, 4);
+      const down = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
+      expect(surface.handleKeydown(down)).toBe(true);
+      expect(surface.activeLine()).toBe(0);
+      expect(caretOffsetInSource(canvas.querySelector('[data-editor-mode="source"]'))).toBe(14);
+
+      placeCaretIn(canvas.querySelector('[data-editor-mode="source"]'), 14);
+      const downFromWrap = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
+      expect(surface.handleKeydown(downFromWrap)).toBe(true);
+      expect(surface.activeLine()).toBe(0);
+      const after = caretOffsetInSource(canvas.querySelector('[data-editor-mode="source"]'));
+      expect(after).toBe(24);
+      expect(after).not.toBe(content.textContent.length);
+    } finally {
+      Range.prototype.getClientRects = original;
+    }
   });
 });
 

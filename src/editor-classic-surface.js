@@ -13,6 +13,7 @@ import {
   classicLinePreviewHtml,
   classicLineSourceHtml,
 } from './editor-document.js';
+import { MOTION_EASE_OUT } from './reader-motion.js';
 
 function normalizeSource(value) {
   const text = String(value ?? '').replace(/\r\n?/g, '\n');
@@ -83,6 +84,81 @@ function placeCaret(element, offset, selection) {
   selection.addRange(range);
 }
 
+function isComposingEvent(event) {
+  return Boolean(event?.isComposing || event?.key === 'Process');
+}
+
+function caretOffsetFromPointer(element, event) {
+  if (!element || !event) return null;
+  const doc = element.ownerDocument;
+  try {
+    if (typeof doc.caretPositionFromPoint === 'function' && Number.isFinite(event.clientX)) {
+      const pos = doc.caretPositionFromPoint(event.clientX, event.clientY);
+      if (pos?.offsetNode && element.contains(pos.offsetNode)) {
+        return boundaryOffsetIn(element, pos.offsetNode, pos.offset);
+      }
+    }
+    if (typeof doc.caretRangeFromPoint === 'function' && Number.isFinite(event.clientX)) {
+      const range = doc.caretRangeFromPoint(event.clientX, event.clientY);
+      if (range?.startContainer && element.contains(range.startContainer)) {
+        return boundaryOffsetIn(element, range.startContainer, range.startOffset);
+      }
+    }
+  } catch {
+    /* jsdom / missing layout */
+  }
+  return null;
+}
+
+function rangeAtOffset(element, offset) {
+  const doc = element.ownerDocument;
+  const range = doc.createRange();
+  if (!element.firstChild) element.appendChild(doc.createTextNode(''));
+  let remaining = Math.max(0, Math.floor(Number(offset) || 0));
+  const walker = doc.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  let node = walker.nextNode();
+  while (node) {
+    const len = node.nodeValue?.length || 0;
+    if (remaining <= len) {
+      range.setStart(node, remaining);
+      range.collapse(true);
+      return range;
+    }
+    remaining -= len;
+    node = walker.nextNode();
+  }
+  range.selectNodeContents(element);
+  range.collapse(false);
+  return range;
+}
+
+function collapsedRectAt(element, offset) {
+  const range = rangeAtOffset(element, offset);
+  const rects = typeof range.getClientRects === 'function' ? range.getClientRects() : null;
+  if (rects && rects.length > 0) return rects[0];
+  return typeof range.getBoundingClientRect === 'function' ? range.getBoundingClientRect() : null;
+}
+
+function visualLineStarts(element) {
+  const length = element?.textContent?.length || 0;
+  const starts = [0];
+  let lastTop = null;
+  for (let offset = 0; offset <= length; offset += 1) {
+    const rect = collapsedRectAt(element, offset);
+    if (!rect || !Number.isFinite(rect.top)) continue;
+    if (rect.height <= 0 && rect.width <= 0) continue;
+    if (lastTop == null) {
+      lastTop = rect.top;
+      continue;
+    }
+    if (Math.abs(rect.top - lastTop) > 2) {
+      starts.push(offset);
+      lastTop = rect.top;
+    }
+  }
+  return starts;
+}
+
 export function createEditorClassicSurface({
   window,
   canvas,
@@ -105,6 +181,9 @@ export function createEditorClassicSurface({
   let suppressNextInsertParagraph = false;
   let bandRaf = null;
   let bandAnimation = null;
+  let listenersBound = false;
+  let composing = false;
+  let lastCaret = 0;
 
   const isMarkdown = () => adapters.isMarkdown?.() !== false;
   const highlightSource = () => Boolean(adapters.highlightSource?.());
@@ -131,13 +210,14 @@ export function createEditorClassicSurface({
     }
   };
 
-  const commitLines = (lines, { history = true } = {}) => {
+  const commitLines = (lines, { coalesce = false, originCaret = lastCaret } = {}) => {
     const next = joinLines(lines);
-    if (history && typeof adapters.applySource === 'function') {
-      adapters.applySource(next);
-    } else if (typeof adapters.applySource === 'function') {
-      // applySource always records history today; still the public path.
-      adapters.applySource(next);
+    if (typeof adapters.applySource === 'function') {
+      adapters.applySource(next, {
+        coalesce,
+        cursor: { line: activeLine + 1, column: Math.max(1, lastCaret + 1) },
+        originCursor: { line: activeLine + 1, column: Math.max(1, originCaret + 1) },
+      });
     }
     hooks.onChange?.();
     return next;
@@ -235,6 +315,48 @@ export function createEditorClassicSurface({
     const col = Math.max(1, (caret ?? 0) + 1);
     adapters.setCursor?.({ line: activeLine + 1, column: col });
     preferredColumn = caret == null ? preferredColumn : caret;
+    if (caret != null) lastCaret = caret;
+    scheduleActiveLineBand();
+  };
+
+  const replaceLineRow = (index, line, { source, active, caret = null } = {}) => {
+    const next = renderLineRow(line, index, { source, active });
+    const current = canvas.querySelector(`[data-classic-line="${index}"]`);
+    if (current) current.replaceWith(next);
+    else canvas.append(next);
+    if (active && caret != null) {
+      const content = next.querySelector('[data-classic-content]');
+      try {
+        canvas.focus({ preventScroll: true });
+      } catch {
+        canvas.focus?.();
+      }
+      if (content) placeCaret(content, caret, window.getSelection());
+    }
+    return next;
+  };
+
+  const flipActiveLine = (nextIndex, caret) => {
+    const lines = splitLines(readSource());
+    const previous = activeLine;
+    activeLine = Math.max(0, Math.min(nextIndex, lines.length - 1));
+    if (previous !== activeLine) {
+      replaceLineRow(previous, lines[previous] ?? '', {
+        source: selectionLines.has(previous),
+        active: false,
+      });
+    }
+    replaceLineRow(activeLine, lines[activeLine] ?? '', {
+      source: true,
+      active: true,
+      caret,
+    });
+    lastCaret = caret ?? lastCaret;
+    preferredColumn = caret ?? preferredColumn;
+    adapters.setCursor?.({
+      line: activeLine + 1,
+      column: Math.max(1, (caret ?? lastCaret) + 1),
+    });
     scheduleActiveLineBand();
   };
 
@@ -248,10 +370,18 @@ export function createEditorClassicSurface({
     if (joinLines(domLines) !== joinLines(lines)) {
       commitLines(domLines);
     }
-    activeLine = next;
-    const nextCaret = caret == null ? (lines[activeLine]?.length || 0) : caret;
+    const liveLines = splitLines(readSource());
+    const nextCaret = caret == null
+      ? 0
+      : Math.max(0, Math.min(caret, (liveLines[next] || '').length));
     preferredColumn = nextCaret;
+    lastCaret = nextCaret;
     stickyVerticalNav = false;
+    if (lineElements().length === liveLines.length) {
+      flipActiveLine(next, nextCaret);
+      return;
+    }
+    activeLine = next;
     render({
       source: readSource(),
       focusLine: activeLine,
@@ -260,7 +390,7 @@ export function createEditorClassicSurface({
   };
 
   const handleClick = (event) => {
-    if (disposed || !mounted) return false;
+    if (disposed || !mounted || isComposingEvent(event)) return false;
     const target = event.target?.nodeType === 1 ? event.target : event.target?.parentElement;
     if (!target) return false;
     if (target.closest?.('[data-todo-check]')) return false;
@@ -270,49 +400,72 @@ export function createEditorClassicSurface({
     if (!Number.isFinite(index)) return false;
     // Any pointer placement ends a sticky vertical sequence.
     stickyVerticalNav = false;
-    if (index === activeLine && row.querySelector('[data-editor-mode="source"]')) {
+    const content = row.querySelector('[data-classic-content]');
+    if (index === activeLine && content?.dataset.editorMode === 'source') {
       return true; // let browser place caret inside active source
     }
     event.preventDefault();
-    activateLine(index, { caret: null, clearSelection: true });
+    const selection = window.getSelection();
+    let caret = caretOffsetFromPointer(content, event);
+    if (caret == null && content) caret = caretOffsetIn(content, selection);
+    if (caret == null) caret = 0;
+    activateLine(index, { caret, clearSelection: true });
     return true;
   };
 
-  const handleInput = () => {
+  const handleInput = (event) => {
     if (disposed || !mounted) return false;
+    if (isComposingEvent(event) || composing) return true;
     stickyVerticalNav = false;
     const activeContent = canvas.querySelector(
       `[data-classic-line="${activeLine}"] [data-classic-content]`,
     );
+    const hostBefore = activeContent;
     const selection = window.getSelection();
+    const originCaret = lastCaret;
     const caret = caretOffsetIn(activeContent, selection);
+    lastCaret = caret;
+    preferredColumn = caret;
     const lines = readLinesFromDom();
-    commitLines(lines);
-    // Keep projection: active line stays source; do not full-render unless line count changed.
+    commitLines(lines, { coalesce: true, originCaret });
     const rows = lineElements();
     if (rows.length !== lines.length) {
-      render({ source: joinLines(lines), focusLine: activeLine, caret: null });
-      const content = canvas.querySelector(`[data-classic-line="${activeLine}"] [data-classic-content]`);
-      if (content) {
-        const selection = window.getSelection();
-        placeCaret(content, content.textContent?.length || 0, selection);
-      }
+      render({ source: joinLines(lines), focusLine: activeLine, caret });
     } else {
       rows.forEach((row, index) => {
         row.dataset.sourceText = lines[index] ?? '';
       });
       const content = canvas.querySelector(`[data-classic-line="${activeLine}"] [data-classic-content]`);
-      if (content && highlightSource()) {
-        withSelectionSuppressed(() => {
-          content.innerHTML = classicLineSourceHtml(lines[activeLine] ?? '', { highlight: true });
-          placeCaret(content, caret, selection);
-        });
-      }
-      const col = caretOffsetIn(content, selection) + 1;
-      adapters.setCursor?.({ line: activeLine + 1, column: Math.max(1, col) });
-      hooks.onChange?.();
+      if (content !== hostBefore) return true;
+      adapters.setCursor?.({ line: activeLine + 1, column: Math.max(1, caret + 1) });
     }
     return true;
+  };
+
+  const restyleActiveSource = () => {
+    if (!highlightSource()) return;
+    const content = canvas.querySelector(
+      `[data-classic-line="${activeLine}"] [data-classic-content]`,
+    );
+    if (!content || content.dataset.editorMode !== 'source') return;
+    const selection = window.getSelection();
+    const caret = caretOffsetIn(content, selection);
+    const line = readLinesFromDom()[activeLine] ?? '';
+    withSelectionSuppressed(() => {
+      content.innerHTML = classicLineSourceHtml(line, { highlight: true });
+      placeCaret(content, caret, selection);
+    });
+  };
+
+  const handleCompositionStart = () => {
+    composing = true;
+  };
+
+  const handleCompositionEnd = (event) => {
+    composing = false;
+    const result = handleInput(event);
+    restyleActiveSource();
+    return result;
   };
 
   /**
@@ -360,15 +513,18 @@ export function createEditorClassicSurface({
     const savedPreferred = retainPreferred ? desired : null;
     const offset = Math.max(0, Math.min(desired, length));
     if (!retainPreferred) preferredColumn = offset;
+    lastCaret = offset;
     selectionLines = new Set();
-    activeLine = next;
-    render({ source: joinLines(nextLines), focusLine: next, caret: offset });
-    // Ensure focus remains on the continuous host after replaceChildren.
-    try {
-      canvas.focus({ preventScroll: true });
-    } catch {
-      /* jsdom may not implement focus options */
-      canvas.focus?.();
+    if (lineElements().length === nextLines.length) {
+      flipActiveLine(next, offset);
+    } else {
+      activeLine = next;
+      render({ source: joinLines(nextLines), focusLine: next, caret: offset });
+      try {
+        canvas.focus({ preventScroll: true });
+      } catch {
+        canvas.focus?.();
+      }
     }
     // render() overwrites preferredColumn from the clamped caret; focus may
     // fire selectionchange. Restore sticky column after both.
@@ -503,6 +659,7 @@ export function createEditorClassicSurface({
   };
 
   const handleBeforeInput = (event) => {
+    if (isComposingEvent(event) || composing) return false;
     if (['insertParagraph', 'insertLineBreak'].includes(event?.inputType)) {
       return insertLineBreak(event);
     }
@@ -516,8 +673,39 @@ export function createEditorClassicSurface({
     return false;
   };
 
+  const moveVisualOrHard = (event, direction) => {
+    const content = canvas.querySelector(
+      `[data-classic-line="${activeLine}"] [data-classic-content]`,
+    );
+    const selection = window.getSelection();
+    const offset = caretOffsetIn(content, selection);
+    const starts = visualLineStarts(content);
+    if (starts.length > 1) {
+      let visual = 0;
+      for (let index = 0; index < starts.length; index += 1) {
+        if (starts[index] <= offset) visual = index;
+      }
+      const nextVisual = visual + direction;
+      if (nextVisual >= 0 && nextVisual < starts.length) {
+        event.preventDefault();
+        const lineStart = starts[nextVisual];
+        const lineEnd = nextVisual + 1 < starts.length
+          ? starts[nextVisual + 1]
+          : (content.textContent?.length || 0);
+        const column = preferredColumn;
+        const nextOffset = Math.max(lineStart, Math.min(lineStart + column, lineEnd));
+        lastCaret = nextOffset;
+        placeCaret(content, nextOffset, selection);
+        adapters.setCursor?.({ line: activeLine + 1, column: Math.max(1, nextOffset + 1) });
+        return true;
+      }
+    }
+    return false;
+  };
+
   const handleKeydown = (event) => {
     if (disposed || !mounted) return false;
+    if (isComposingEvent(event) || composing) return false;
     const selection = window.getSelection();
     if (!selection?.isCollapsed && !['Enter', 'Backspace', 'Delete'].includes(event.key)) {
       // Let multi-select browser behavior stand unless we own the key.
@@ -533,11 +721,20 @@ export function createEditorClassicSurface({
       || event.key === 'ArrowDown'
       || event.key === 'PageUp'
       || event.key === 'PageDown';
+    const wrapStarts = visualLineStarts(content);
+    let visualColumn = offset;
+    if (wrapStarts.length > 1) {
+      let visual = 0;
+      for (let index = 0; index < wrapStarts.length; index += 1) {
+        if (wrapStarts[index] <= offset) visual = index;
+      }
+      visualColumn = offset - wrapStarts[visual];
+    }
 
-    // Sticky column: capture from the live caret at the start of a vertical
-    // sequence; keep it across shorter lines until a horizontal/edit action.
+    // Sticky column: capture the visual column at the start of a vertical
+    // sequence so wrap rows do not use the absolute hard-line offset.
     if (isVerticalNav) {
-      if (!stickyVerticalNav) preferredColumn = offset;
+      if (!stickyVerticalNav) preferredColumn = visualColumn;
       stickyVerticalNav = true;
     } else {
       stickyVerticalNav = false;
@@ -597,6 +794,7 @@ export function createEditorClassicSurface({
     }
 
     if (event.key === 'ArrowUp' && selection?.isCollapsed && !meta) {
+      if (moveVisualOrHard(event, -1)) return true;
       if (activeLine <= 0) return false;
       event.preventDefault();
       goToLine(activeLine - 1, preferredColumn, { retainPreferred: true });
@@ -604,6 +802,7 @@ export function createEditorClassicSurface({
     }
 
     if (event.key === 'ArrowDown' && selection?.isCollapsed && !meta) {
+      if (moveVisualOrHard(event, 1)) return true;
       if (activeLine >= linesNow.length - 1) return false;
       event.preventDefault();
       goToLine(activeLine + 1, preferredColumn, { retainPreferred: true });
@@ -754,7 +953,7 @@ export function createEditorClassicSurface({
         ],
         {
           duration: 180,
-          easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+          easing: MOTION_EASE_OUT,
           fill: 'none',
         },
       );
@@ -825,7 +1024,10 @@ export function createEditorClassicSurface({
       const colOffset = caretOffsetIn(content, selection);
       // While a vertical sticky sequence is active, ignore selection noise from
       // goToLine/placeCaret. Pointer/input/non-vertical keys clear sticky first.
-      if (!stickyVerticalNav) preferredColumn = colOffset;
+      if (!stickyVerticalNav) {
+        preferredColumn = colOffset;
+        lastCaret = colOffset;
+      }
       adapters.setCursor?.({ line: activeLine + 1, column: Math.max(1, colOffset + 1) });
       return true;
     }
@@ -835,6 +1037,51 @@ export function createEditorClassicSurface({
       : null;
     activateLine(index, { caret, clearSelection: true });
     return true;
+  };
+
+  const onInput = (event) => handleInput(event);
+  const onBeforeInput = (event) => handleBeforeInput(event);
+  const onCompositionStart = (event) => handleCompositionStart(event);
+  const onCompositionEnd = (event) => handleCompositionEnd(event);
+  const onKeydown = (event) => {
+    const meta = event.ctrlKey || event.metaKey;
+    if (meta && !event.altKey && event.key.toLowerCase() === 'z') {
+      event.preventDefault();
+      adapters.restoreHistory?.(event.shiftKey ? 'redo' : 'undo');
+      return;
+    }
+    if (meta && !event.altKey && event.key.toLowerCase() === 'y') {
+      event.preventDefault();
+      adapters.restoreHistory?.('redo');
+      return;
+    }
+    handleKeydown(event);
+  };
+  const onClick = (event) => handleClick(event);
+  const onSelectionChange = () => handleSelectionChange();
+
+  const bindListeners = () => {
+    if (listenersBound || disposed) return;
+    canvas.addEventListener('input', onInput);
+    canvas.addEventListener('beforeinput', onBeforeInput);
+    canvas.addEventListener('compositionstart', onCompositionStart);
+    canvas.addEventListener('compositionend', onCompositionEnd);
+    canvas.addEventListener('keydown', onKeydown);
+    canvas.addEventListener('click', onClick);
+    window.document.addEventListener('selectionchange', onSelectionChange);
+    listenersBound = true;
+  };
+
+  const unbindListeners = () => {
+    if (!listenersBound) return;
+    canvas.removeEventListener('input', onInput);
+    canvas.removeEventListener('beforeinput', onBeforeInput);
+    canvas.removeEventListener('compositionstart', onCompositionStart);
+    canvas.removeEventListener('compositionend', onCompositionEnd);
+    canvas.removeEventListener('keydown', onKeydown);
+    canvas.removeEventListener('click', onClick);
+    window.document.removeEventListener('selectionchange', onSelectionChange);
+    listenersBound = false;
   };
 
   const mount = () => {
@@ -848,12 +1095,14 @@ export function createEditorClassicSurface({
       band.hidden = false;
       band.dataset.ready = '0';
     }
+    bindListeners();
     render({ source: readSource(), focusLine: 0, caret: 0 });
   };
 
   const unmount = () => {
     mounted = false;
     selectionLines = new Set();
+    unbindListeners();
     canvas.classList.remove('is-classic-surface');
     const band = adapters.getActiveLineBand?.();
     if (band) {
@@ -870,6 +1119,7 @@ export function createEditorClassicSurface({
     disposed = true;
     mounted = false;
     selectionLines = new Set();
+    unbindListeners();
     cancelBandAnimation();
     if (bandRaf != null) window.cancelAnimationFrame?.(bandRaf);
     bandRaf = null;
