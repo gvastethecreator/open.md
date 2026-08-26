@@ -1,0 +1,56 @@
+# Station roster  ·  .yml companion (same YAML family, second extension)
+# Who holds the lamp. Who is a moth. Who is furniture.
+
+schema: lumen.roster/v1
+station: Lumen Harbor
+updated: 2026-08-26T23:47:00Z
+relief: nobody came
+
+keepers:
+  - id: unnamed
+    display: the unnamed keeper
+    watches: [middle, last]
+    languages: [en, ja]
+    notes: >
+      Writes letters. Does not post them.
+      Trims wicks. Does not improve flames.
+    present: true
+  - id: glass-eaters-friend
+    display: Glass-Eater's friend
+    watches: [first]
+    notes: Coffee still steaming.
+    present: false
+
+moths:
+  - { id: ida, rank: census, present: true }
+  - { id: percival, rank: halo, present: true }
+  - { id: little-noise, rank: smudge, present: true }
+  - { id: glass-eater, rank: critic, present: true }
+
+furniture:
+  chair:
+    occupied: false
+    kind: reflection
+    image: assets/rain-glass.avif
+  desk:
+    kind: pier that learned to float
+    notebook: a-quiet-place.md
+  lamp:
+    id: 4
+    operator: unnamed
+    image: assets/lantern.jpg
+
+on_call:
+  radio: LH-00
+  daemon: harbor.conf
+  tides: tide-log.csv
+
+shifts:
+  - date: 2026-08-26
+    blocks:
+      - { watch: first, keeper: glass-eaters-friend, moths: 3 }
+      - { watch: middle, keeper: unnamed, moths: 9 }
+      - { watch: last, keeper: unnamed, moths: 14 }
+  - date: 2026-08-27
+    blocks:
+      - { watch: first, keeper: null, moths: 0, note: unassigned }

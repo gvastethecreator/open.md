@@ -1,0 +1,121 @@
+<?xml version="1.0"?>
+<MsInfo>
+<Metadata>
+<Version>8.0</Version>
+<CreationUTC>08/26/26 23:47:00</CreationUTC>
+</Metadata>
+<Category name="System Summary">
+<Data><Item><![CDATA[OS Name]]></Item><Value><![CDATA[Lumen Harbor Keeper OS]]></Value></Data>
+<Data><Item><![CDATA[Version]]></Item><Value><![CDATA[10.0.26200 Build 26200]]></Value></Data>
+<Data><Item><![CDATA[Other OS Description]]></Item><Value><![CDATA[Night-shift edition, café-aware]]></Value></Data>
+<Data><Item><![CDATA[OS Manufacturer]]></Item><Value><![CDATA[Lumen Harbor Workshop]]></Value></Data>
+<Data><Item><![CDATA[System Name]]></Item><Value><![CDATA[LUMEN-HARBOR]]></Value></Data>
+<Data><Item><![CDATA[System Manufacturer]]></Item><Value><![CDATA[Pier Desk Assemblies]]></Value></Data>
+<Data><Item><![CDATA[System Model]]></Item><Value><![CDATA[Quiet Place 14]]></Value></Data>
+<Data><Item><![CDATA[System Type]]></Item><Value><![CDATA[x64-based PC]]></Value></Data>
+<Data><Item><![CDATA[System SKU]]></Item><Value><![CDATA[LH-00-UTF8]]></Value></Data>
+<Data><Item><![CDATA[Processor]]></Item><Value><![CDATA[Lantern Core 7 @ 2.10 GHz, 8 cores, 16 logical]]></Value></Data>
+<Data><Item><![CDATA[BIOS Version/Date]]></Item><Value><![CDATA[Wet Wick 1.4.7, 26/08/2026]]></Value></Data>
+<Data><Item><![CDATA[SMBIOS Version]]></Item><Value><![CDATA[3.6]]></Value></Data>
+<Data><Item><![CDATA[Embedded Controller Version]]></Item><Value><![CDATA[4.07]]></Value></Data>
+<Data><Item><![CDATA[BIOS Mode]]></Item><Value><![CDATA[UEFI]]></Value></Data>
+<Data><Item><![CDATA[BaseBoard Manufacturer]]></Item><Value><![CDATA[Harbor Plankworks]]></Value></Data>
+<Data><Item><![CDATA[BaseBoard Product]]></Item><Value><![CDATA[PIER-DESK-4]]></Value></Data>
+<Data><Item><![CDATA[Platform Role]]></Item><Value><![CDATA[Desktop]]></Value></Data>
+<Data><Item><![CDATA[Secure Boot State]]></Item><Value><![CDATA[On]]></Value></Data>
+<Data><Item><![CDATA[PCR7 Configuration]]></Item><Value><![CDATA[Elevation Required to View]]></Value></Data>
+<Data><Item><![CDATA[Windows Directory]]></Item><Value><![CDATA[C:\Keeper\Windows]]></Value></Data>
+<Data><Item><![CDATA[System Directory]]></Item><Value><![CDATA[C:\Keeper\Windows\System32]]></Value></Data>
+<Data><Item><![CDATA[Boot Device]]></Item><Value><![CDATA[\Device\HarddiskVolume4]]></Value></Data>
+<Data><Item><![CDATA[Locale]]></Item><Value><![CDATA[United Kingdom]]></Value></Data>
+<Data><Item><![CDATA[Hardware Abstraction Layer]]></Item><Value><![CDATA[10.0.26200.1000]]></Value></Data>
+<Data><Item><![CDATA[User Name]]></Item><Value><![CDATA[LUMEN-HARBOR\keeper]]></Value></Data>
+<Data><Item><![CDATA[Time Zone]]></Item><Value><![CDATA[(UTC+00:00) Dublin, Edinburgh, Lisbon, London]]></Value></Data>
+<Data><Item><![CDATA[Installed Physical Memory (RAM)]]></Item><Value><![CDATA[32.00 GB]]></Value></Data>
+<Data><Item><![CDATA[Total Physical Memory]]></Item><Value><![CDATA[31.7 GB]]></Value></Data>
+<Data><Item><![CDATA[Available Physical Memory]]></Item><Value><![CDATA[18.4 GB]]></Value></Data>
+<Data><Item><![CDATA[Total Virtual Memory]]></Item><Value><![CDATA[36.7 GB]]></Value></Data>
+<Data><Item><![CDATA[Available Virtual Memory]]></Item><Value><![CDATA[22.1 GB]]></Value></Data>
+<Data><Item><![CDATA[Page File Space]]></Item><Value><![CDATA[5.00 GB]]></Value></Data>
+<Data><Item><![CDATA[Page File]]></Item><Value><![CDATA[C:\pagefile.sys]]></Value></Data>
+<Data><Item><![CDATA[Kernel DMA Protection]]></Item><Value><![CDATA[On]]></Value></Data>
+<Data><Item><![CDATA[Virtualization-based security]]></Item><Value><![CDATA[Running]]></Value></Data>
+<Data><Item><![CDATA[Hyper-V - VM Monitor Mode Extensions]]></Item><Value><![CDATA[Yes]]></Value></Data>
+</Category>
+<Category name="Hardware Resources">
+<Category name="Conflicts/Sharing">
+<Data><Resource_Type><![CDATA[I/O Port]]></Resource_Type><Device><![CDATA[Lantern #4 kerosene controller]]></Device><Status><![CDATA[Shared with moth census UART]]></Status></Data>
+<Data><Resource_Type><![CDATA[IRQ]]></Resource_Type><Device><![CDATA[Fog bank twelve]]></Device><Status><![CDATA[No conflict. Voice optional.]]></Status></Data>
+</Category>
+<Category name="DMA">
+<Data><Channel><![CDATA[4]]></Channel><Device><![CDATA[Direct lamp access]]></Device><Status><![CDATA[OK]]></Status></Data>
+</Category>
+<Category name="Forced Hardware">
+<Data><Device><![CDATA[Empty chair reflection]]></Device><PNP_Device_ID><![CDATA[CHAIR\REFLECTION\GLASS]]></PNP_Device_ID><Error_Code><![CDATA[This device is working properly. Do not sit.]]></Error_Code></Data>
+</Category>
+<Category name="I/O">
+<Data><Address_Range><![CDATA[0x03F8-0x03FF]]></Address_Range><Device><![CDATA[Harbor radio COM1]]></Device></Data>
+<Data><Address_Range><![CDATA[0x0378-0x037A]]></Address_Range><Device><![CDATA[Blotter parallel (unused)]]></Device></Data>
+</Category>
+<Category name="IRQs">
+<Data><IRQ_Channel><![CDATA[IRQ 5]]></IRQ_Channel><Device><![CDATA[Radio 2182 kHz]]></Device></Data>
+<Data><IRQ_Channel><![CDATA[IRQ 11]]></IRQ_Channel><Device><![CDATA[Moth union GPIO]]></Device></Data>
+<Data><IRQ_Channel><![CDATA[IRQ 12]]></IRQ_Channel><Device><![CDATA[Rain on glass HID]]></Device></Data>
+</Category>
+<Category name="Memory">
+<Data><Address_Range><![CDATA[0xA0000-0xBFFFF]]></Address_Range><Device><![CDATA[VGA cell grid (fixtures only)]]></Device></Data>
+<Data><Address_Range><![CDATA[0xF0000000-0xF1FFFFFF]]></Address_Range><Device><![CDATA[Lantern display adapter]]></Device></Data>
+</Category>
+</Category>
+<Category name="Components">
+<Category name="Display">
+<Data><Name><![CDATA[Lantern Display Adapter]]></Name><PNP_Device_ID><![CDATA[PCI\VEN_0E4D&DEV_1987]]></PNP_Device_ID><Adapter_Type><![CDATA[Internal]]></Adapter_Type><Adapter_Description><![CDATA[Wet Wick GPU 4]]></Adapter_Description><Adapter_RAM><![CDATA[8.00 GB]]></Adapter_RAM><Driver_Version><![CDATA[1.4.7.2347]]></Driver_Version><Inf_File><![CDATA[lumen.inf]]></Inf_File><Color_Planes><![CDATA[1]]></Color_Planes><Color_Table_Entries><![CDATA[4294967296]]></Color_Table_Entries><Resolution><![CDATA[1920 x 1080 x 60 hertz]]></Resolution><Bits_Per_Pixel><![CDATA[32]]></Bits_Per_Pixel></Data>
+</Category>
+<Category name="Sound Device">
+<Data><Name><![CDATA[Fog Bank Audio]]></Name><PNP_Device_ID><![CDATA[HDAUDIO\FUNC_01&VEN_8086]]></PNP_Device_ID><Manufacturer><![CDATA[Lumen Harbor Workshop]]></Manufacturer><Status><![CDATA[OK]]></Status></Data>
+</Category>
+<Category name="Storage">
+<Category name="Drives">
+<Data><Description><![CDATA[Local Fixed Disk]]></Description><Drive><![CDATA[C:]]></Drive><Volume_Name><![CDATA[KEEPER]]></Volume_Name><File_System><![CDATA[NTFS]]></File_System><Size><![CDATA[952.00 GB]]></Size><Free_Space><![CDATA[611.12 GB]]></Free_Space><Compressed><![CDATA[No]]></Compressed></Data>
+</Category>
+<Category name="Disks">
+<Data><Description><![CDATA[Disk drive]]></Description><Manufacturer><![CDATA[Pier Desk Assemblies]]></Manufacturer><Model><![CDATA[QUIET-PLACE-1TB]]></Model><Bytes_Per_Sector><![CDATA[4096]]></Bytes_Per_Sector><Media_Type><![CDATA[Fixed hard disk media]]></Media_Type><Partitions><![CDATA[3]]></Partitions><SCSI_Bus><![CDATA[0]]></SCSI_Bus><SATA_Port><![CDATA[0]]></SATA_Port><Size><![CDATA[1024.20 GB]]></Size></Data>
+</Category>
+</Category>
+<Category name="Network">
+<Category name="Adapter">
+<Data><Name><![CDATA[Harbor Radio 2182]]></Name><Adapter_Type><![CDATA[Ethernet 802.3]]></Adapter_Type><Connection_Name><![CDATA[ch-4]]></Connection_Name><MAC_Address><![CDATA[00-LH-00-CA-FE-14]]></MAC_Address><DHCP_Enabled><![CDATA[No]]></DHCP_Enabled><IP_Address><![CDATA[0.0.0.0 (cloud forbidden)]]></IP_Address><Default_IP_Gateway><![CDATA[fog]]></Default_IP_Gateway></Data>
+</Category>
+</Category>
+<Category name="Ports">
+<Category name="Serial">
+<Data><Name><![CDATA[Communications Port (COM1)]]></Name><Status><![CDATA[OK]]></Status><PNP_Device_ID><![CDATA[ACPI\PNP0501\1]]></PNP_Device_ID></Data>
+</Category>
+</Category>
+</Category>
+<Category name="Software Environment">
+<Category name="System Drivers">
+<Data><Name><![CDATA[lamp.sys]]></Name><Description><![CDATA[Kerosene lantern #4]]></Description><File><![CDATA[C:\Keeper\Windows\System32\drivers\lamp.sys]]></File><Started><![CDATA[Yes]]></Started><Start_Mode><![CDATA[Auto]]></Start_Mode><State><![CDATA[Running]]></State><Status><![CDATA[OK]]></Status><Error_Control><![CDATA[Normal]]></Error_Control><Accept_Pause><![CDATA[FALSE]]></Accept_Pause><Accept_Stop><![CDATA[TRUE]]></Accept_Stop></Data>
+<Data><Name><![CDATA[fog.sys]]></Name><Description><![CDATA[Fog bank twelve]]></Description><File><![CDATA[C:\Keeper\Windows\System32\drivers\fog.sys]]></File><Started><![CDATA[Yes]]></Started><Start_Mode><![CDATA[Auto]]></Start_Mode><State><![CDATA[Running]]></State><Status><![CDATA[OK]]></Status><Error_Control><![CDATA[Ignore]]></Error_Control><Accept_Pause><![CDATA[FALSE]]></Accept_Pause><Accept_Stop><![CDATA[FALSE]]></Accept_Stop></Data>
+</Category>
+<Category name="Services">
+<Data><Display_Name><![CDATA[Lumen Harbor Pier Daemon]]></Display_Name><Name><![CDATA[HarborConf]]></Name><State><![CDATA[Running]]></State><Start_Mode><![CDATA[Auto]]></Start_Mode><Service_Type><![CDATA[Own Process]]></Service_Type><Path><![CDATA[C:\Keeper\lumen-station.exe --conf harbor.conf]]></Path><Error_Control><![CDATA[Normal]]></Error_Control><Start_Name><![CDATA[LocalSystem]]></Start_Name><Tag_ID><![CDATA[0]]></Tag_ID></Data>
+<Data><Display_Name><![CDATA[Moth Census]]></Display_Name><Name><![CDATA[MothUnion]]></Name><State><![CDATA[Running]]></State><Start_Mode><![CDATA[Auto]]></Start_Mode><Service_Type><![CDATA[Own Process]]></Service_Type><Path><![CDATA[C:\Keeper\census.exe --named Ida,Percival]]></Path><Error_Control><![CDATA[Normal]]></Error_Control><Start_Name><![CDATA[NT AUTHORITY\LocalService]]></Start_Name><Tag_ID><![CDATA[0]]></Tag_ID></Data>
+<Data><Display_Name><![CDATA[Cloud Phone-Home]]></Display_Name><Name><![CDATA[NoCloud]]></Name><State><![CDATA[Stopped]]></State><Start_Mode><![CDATA[Disabled]]></Start_Mode><Service_Type><![CDATA[Own Process]]></Service_Type><Path><![CDATA[C:\Keeper\do-not-run.exe]]></Path><Error_Control><![CDATA[Critical]]></Error_Control><Start_Name><![CDATA[LocalSystem]]></Start_Name><Tag_ID><![CDATA[0]]></Tag_ID></Data>
+</Category>
+<Category name="Startup Programs">
+<Data><Name><![CDATA[Lumen Harbor Station Tools]]></Name><Command><![CDATA["C:\Keeper\lumen-station.exe"]]></Command><Location><![CDATA[HKCU\Software\Microsoft\Windows\CurrentVersion\Run]]></Location><User><![CDATA[keeper]]></User></Data>
+<Data><Name><![CDATA[Trim wick reminder]]></Name><Command><![CDATA[C:\Keeper\trim-lamp.cmd]]></Command><Location><![CDATA[Startup]]></Location><User><![CDATA[keeper]]></User></Data>
+</Category>
+<Category name="Environment Variables">
+<Data><Variable><![CDATA[HARBOR_NAME]]></Variable><Value><![CDATA[Lumen Harbor]]></Value><User_Name><![CDATA[LUMEN-HARBOR\keeper]]></User_Name></Data>
+<Data><Variable><![CDATA[HARBOR_CLOUD]]></Variable><Value><![CDATA[false]]></Value><User_Name><![CDATA[LUMEN-HARBOR\keeper]]></User_Name></Data>
+<Data><Variable><![CDATA[HARBOR_COFFEE]]></Variable><Value><![CDATA[café, naïve, 東京]]></Value><User_Name><![CDATA[LUMEN-HARBOR\keeper]]></User_Name></Data>
+<Data><Variable><![CDATA[Path]]></Variable><Value><![CDATA[C:\Keeper;C:\Keeper\Windows\System32]]></Value><User_Name><![CDATA[<SYSTEM>]]></User_Name></Data>
+</Category>
+<Category name="Running Tasks">
+<Data><Name><![CDATA[lumen-station.exe]]></Name><PID><![CDATA[1987]]></PID><Session><![CDATA[1]]></Session><Mem_Usage><![CDATA[84,212 K]]></Mem_Usage><Status><![CDATA[Running]]></Status><User_Name><![CDATA[LUMEN-HARBOR\keeper]]></User_Name><CPU_Time><![CDATA[0:11:14]]></CPU_Time><Window_Title><![CDATA[a-quiet-place.md — open.md]]></Window_Title></Data>
+<Data><Name><![CDATA[msinfo32.exe]]></Name><PID><![CDATA[437]]></PID><Session><![CDATA[1]]></Session><Mem_Usage><![CDATA[22,400 K]]></Mem_Usage><Status><![CDATA[Running]]></Status><User_Name><![CDATA[LUMEN-HARBOR\keeper]]></User_Name><CPU_Time><![CDATA[0:00:09]]></CPU_Time><Window_Title><![CDATA[System Information]]></Window_Title></Data>
+</Category>
+</Category>
+</MsInfo>

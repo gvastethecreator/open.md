@@ -1,3 +1,5 @@
+import { MOTION_EASE_EXIT, MOTION_EASE_OUT, shouldReduceMotion } from './reader-motion.js';
+
 const VIEWPORT_GAP = 8;
 const SAFE_TOP = 38;
 const SAFE_BOTTOM = 36;
@@ -11,7 +13,7 @@ function focusableItems(menu) {
 }
 
 function prefersReducedMotion(window) {
-  return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  return shouldReduceMotion(window);
 }
 
 export function createContextMenuController({
@@ -82,7 +84,7 @@ export function createContextMenuController({
       { opacity: 0, transform: 'translateY(-2px) scale(0.985)' },
     ], {
       duration: 100,
-      easing: 'cubic-bezier(0.4, 0, 1, 1)',
+      easing: MOTION_EASE_EXIT,
       fill: 'forwards',
     });
     if (!exitAnimation?.finished) {
@@ -170,7 +172,7 @@ export function createContextMenuController({
       { opacity: 1, transform: 'translateY(0) scale(1)' },
     ], {
       duration: 150,
-      easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+      easing: MOTION_EASE_OUT,
       fill: 'both',
     });
     enterAnimation?.finished?.then(

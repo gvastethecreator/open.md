@@ -1,4 +1,5 @@
 import {
+  APP_REDUCE_MOTION_CLASS,
   DEFAULT_ADVANCED_PREFERENCES,
   DEFAULT_READING_TOOLS,
   FONT_PRESETS,
@@ -183,7 +184,7 @@ export function createReaderControls({
       elements.csvRowCapInput.value = String(state.advanced.csvRowCap);
     }
     updateSystemControls();
-    body.classList.toggle('is-app-reduce-motion', Boolean(state.advanced.reduceMotion));
+    body.classList.toggle(APP_REDUCE_MOTION_CLASS, Boolean(state.advanced.reduceMotion));
     applyEdgeFade();
   }
 

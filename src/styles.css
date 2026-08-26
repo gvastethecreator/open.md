@@ -84,6 +84,7 @@
   --radius-xs: 2px;
   --radius-sm: 4px;
   --radius-md: 6px;
+  /* JS copies: src/reader-motion.js */
   --motion-fast: 140ms;
   --motion-base: 200ms;
   --motion-slow: 280ms;

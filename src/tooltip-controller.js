@@ -1,8 +1,10 @@
+import { MOTION_EASE_EXIT, MOTION_EASE_OUT, MOTION_FAST_MS, shouldReduceMotion } from './reader-motion.js';
+
 const TOOLTIP_ID = 'app-tooltip';
 const FIRST_HOVER_DELAY = 420;
 const HOVER_GRACE_WINDOW = 600;
 const GRACE_HOVER_DELAY = 40;
-const HIDE_DELAY = 140;
+const HIDE_DELAY = MOTION_FAST_MS;
 const SAFE_ZONE_PAD = 10;
 const VIEWPORT_GAP = 8;
 const TOOLTIP_GAP = 8;
@@ -10,7 +12,6 @@ const TOOLTIP_GAP = 8;
 const TEXT_SWAP_MS = 160;
 /** Shell width tween — geometry only (card-resize scale). */
 const WIDTH_MORPH_MS = 180;
-const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
 const TRAILING_SHORTCUT = /^(.*?)\s*(?:·|\(|—)\s*((?:(?:Ctrl|Cmd|Command|Shift|Alt|Option|Meta|Win)\+)*(?:[A-Za-z0-9]+|F\d{1,2}|\+|Esc|Enter|Tab|Space))\s*\)?\s*$/u;
 
@@ -19,7 +20,7 @@ function clamp(value, min, max) {
 }
 
 function prefersReducedMotion(window) {
-  return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  return shouldReduceMotion(window);
 }
 
 function tooltipTarget(node) {
@@ -387,7 +388,7 @@ export function createTooltipController({ window, document, hooks = {} }) {
       shellAnimation = run(tooltip, [
         { opacity: 1, transform: `translate(${dx}px, ${dy}px)` },
         { opacity: 1, transform: 'translate(0, 0)' },
-      ], { duration: 120, easing: EASE_OUT });
+      ], { duration: 120, easing: MOTION_EASE_OUT });
       shellAnimation?.finished?.then(() => {
         if (activeTarget === target && !tooltip.hidden) {
           clearShellInlineMotion();
@@ -415,7 +416,7 @@ export function createTooltipController({ window, document, hooks = {} }) {
     shellAnimation = run(tooltip, [
       { opacity: 0, transform: `translate(${openTravel.x}px, ${openTravel.y}px) scale(0.98)` },
       { opacity: 1, transform: 'translate(0, 0) scale(1)' },
-    ], { duration: 130, easing: EASE_OUT });
+    ], { duration: 130, easing: MOTION_EASE_OUT });
     shellAnimation?.finished?.then(() => {
       if (activeTarget === target && !tooltip.hidden) {
         clearShellInlineMotion();
@@ -506,7 +507,7 @@ export function createTooltipController({ window, document, hooks = {} }) {
         top: `${Math.round(endCoords.top)}px`,
         opacity: 1,
       },
-    ], { duration: WIDTH_MORPH_MS, easing: EASE_OUT });
+    ], { duration: WIDTH_MORPH_MS, easing: MOTION_EASE_OUT });
 
     const outgoing = run(previous, [
       { opacity: 1 },
@@ -572,7 +573,7 @@ export function createTooltipController({ window, document, hooks = {} }) {
     shellAnimation = run(tooltip, [
       { opacity: 1, transform: 'translate(0, 0) scale(1)' },
       { opacity: 0, transform: `translate(${closeTravel.x}px, ${closeTravel.y}px) scale(0.985)` },
-    ], { duration: 90, easing: 'cubic-bezier(0.4, 0, 1, 1)' });
+    ], { duration: 90, easing: MOTION_EASE_EXIT });
     if (!shellAnimation?.finished) {
       finishHide(version, { recoverHover });
       return;

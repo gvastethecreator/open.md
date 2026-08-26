@@ -1,0 +1,132 @@
+# Lumen Harbor  ·  cargo of silence
+# TOML companion: tables, arrays of tables, dates, inline tables.
+
+schema = "lumen.cargo/v1"
+station = "Lumen Harbor"
+cloud = false
+generated = 2026-08-26T23:47:00Z
+tagline = "The document is the interface."
+
+[lamp]
+id = 4
+fuel = "kerosene"
+wick_mm = 7
+fuel_ml = 390
+trimmed = true
+trimmed_at = 2026-08-26T02:10:00Z
+still_life = "assets/lantern.jpg"
+flicker = "assets/lantern.gif"
+
+[weather]
+fog_m = 62
+rain = "vertical"
+wind_kt = 11
+wind_from = "WSW"
+tide_cm = 184
+tide_phase = "flood"
+
+[radio]
+channel = "ch-4"
+call_sign = "LH-00"
+frequency_khz = 2182
+last_heard = "number"
+retry_seconds = 11
+
+[unicode]
+coffee = "café"
+attempt = "naïve"
+city = "東京"
+pi = 3.14159
+
+[limits]
+nfo_edit = false
+log_edit = false
+max_unread_letters = 14
+
+[paths]
+notebook = "a-quiet-place.md"
+bible = "lumen-harbor.markdown"
+program_nfo = "lumen-station.nfo"
+kodi_movie = "kodi-the-quiet-place.nfo"
+msinfo = "windows-msinfo.nfo"
+log = "overnight.log"
+
+[census]
+moths = 14
+letters = 14
+chairs = 1
+chair_occupied = false
+
+[[moths]]
+name = "Ida"
+wings = "cream, ash speckle"
+vice = "patience"
+
+[[moths]]
+name = "Percival"
+wings = "slightly drunk"
+vice = "kerosene halo"
+
+[[moths]]
+name = "Little Noise"
+wings = "too small"
+vice = "existing"
+
+[[moths]]
+name = "Glass-Eater"
+wings = "photographs poorly"
+vice = "glass"
+
+[[cargo]]
+id = "LH-C-001"
+name = "unread letters"
+qty = 14
+mass_kg = 0.6
+wet = true
+note = "including night-watch.txt"
+
+[[cargo]]
+id = "LH-C-002"
+name = "cyanotype chart"
+qty = 1
+mass_kg = 0.2
+wet = false
+file = "assets/harbor-chart.jpeg"
+
+[[cargo]]
+id = "LH-C-003"
+name = "mineral pigments"
+qty = 6
+mass_kg = 0.15
+wet = true
+file = "assets/pigments.bmp"
+
+[[cargo]]
+id = "LH-C-004"
+name = "kerosene"
+qty = 1
+mass_kg = 0.39
+wet = false
+note = "already in the lamp"
+
+[[watches]]
+id = "first"
+keeper = "Glass-Eater's friend"
+moths = 3
+fog_m = 18
+
+[[watches]]
+id = "middle"
+keeper = "the unnamed"
+moths = 9
+fog_m = 41
+
+[[watches]]
+id = "last"
+keeper = "the unnamed still"
+moths = 14
+fog_m = 62
+
+[inline]
+desk = { wood = "oak", learned = "to float", notebook = true }
+chair = { occupied = false, kind = "reflection" }

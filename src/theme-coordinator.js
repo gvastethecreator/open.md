@@ -3,6 +3,7 @@ import {
   getThemeTokens,
   isColorDark,
 } from './core/reader.js';
+import { shouldReduceMotion } from './reader-motion.js';
 
 const DEFAULT_CURATED_NAMES = ['Paper', 'Github Light', 'Github Dark', 'Ayu Light', 'Ayu Dark'];
 
@@ -211,7 +212,7 @@ export function createThemeCoordinator({
       }
     };
     const canWipe = !silent
-      && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      && !shouldReduceMotion(window)
       && typeof document.startViewTransition === 'function';
 
     if (!canWipe) {

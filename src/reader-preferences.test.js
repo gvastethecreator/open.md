@@ -83,7 +83,7 @@ describe('reader preferences', () => {
   });
 
   it('shouldReduceMotion is true for OS preference or app toggle', async () => {
-    const { shouldReduceMotion } = await import('./reader-preferences.js');
+    const { APP_REDUCE_MOTION_CLASS, shouldReduceMotion } = await import('./reader-preferences.js');
     expect(shouldReduceMotion({
       matchMedia: () => ({ matches: false }),
     }, { reduceMotion: false })).toBe(false);
@@ -93,6 +93,10 @@ describe('reader preferences', () => {
     expect(shouldReduceMotion({
       matchMedia: () => ({ matches: false }),
     }, { reduceMotion: true })).toBe(true);
+    expect(shouldReduceMotion({
+      matchMedia: () => ({ matches: false }),
+      document: { body: { classList: { contains: (name) => name === APP_REDUCE_MOTION_CLASS } } },
+    }, { reduceMotion: false })).toBe(true);
   });
 
   it('persists path theme memory map', async () => {

@@ -148,6 +148,9 @@ flowchart LR
   snapshots drain FIFO; the composition root only supplies adapters.
 - Each module owns its timers, listeners, transition/RAF state and disposal;
   the composition root does not coordinate their private revisions or queues.
+- JS motion copies of CSS `--motion-*` tokens live in `src/reader-motion.js`.
+  WAAPI, View Transition, and rAF owners call `shouldReduceMotion`
+  (OS preference, Advanced toggle, or `body.is-app-reduce-motion`).
 - A Read/Edit/Source transition is scoped to the document identity captured at
   its start and restores that document's exact reader scroll position; Source
   and Edit availability are projected independently from format capabilities.

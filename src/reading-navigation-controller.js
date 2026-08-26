@@ -8,6 +8,7 @@ import {
   getScrollEdgeState,
   getVisibleSourceLineRange,
 } from './reading-geometry.js';
+import { MOTION_BASE_MS, MOTION_EASE_OUT, MOTION_SLOW_MS, shouldReduceMotion } from './reader-motion.js';
 
 export function createReadingNavigationController({
   window,
@@ -143,9 +144,9 @@ export function createReadingNavigationController({
 
   const lineTransitionName = (line) => `openmd-ln-${line}`;
   const modeMorphActive = () => document.body.classList.contains('is-mode-morphing');
-  const reducedMotion = () => Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
-  const LINE_MORPH_MS = 280;
-  const LINE_MORPH_EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
+  const reducedMotion = () => shouldReduceMotion(window);
+  const LINE_MORPH_MS = MOTION_SLOW_MS;
+  const LINE_MORPH_EASE = MOTION_EASE_OUT;
 
   const cancelMorphAnimations = () => {
     for (const animation of morphAnimations) {
@@ -236,7 +237,7 @@ export function createReadingNavigationController({
             { opacity: 0, transform: 'translateY(3px)' },
             { opacity: targetOpacity, transform: 'translate(0px, 0px)' },
           ],
-          { duration: 200, easing: LINE_MORPH_EASE, fill: 'none' },
+          { duration: MOTION_BASE_MS, easing: LINE_MORPH_EASE, fill: 'none' },
         ));
         continue;
       }
@@ -630,7 +631,7 @@ export function createReadingNavigationController({
   };
 
   const scrollToTop = () => {
-    const reduced = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+    const reduced = reducedMotion();
     activeScroller()?.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
   };
 

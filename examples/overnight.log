@@ -1,0 +1,49 @@
+2026-08-26T21:58:00.000Z INFO  harbor.boot pier daemon 1.4.7 wet-wick cloud=false
+2026-08-26T21:58:00.400Z DEBUG harbor.config loaded station.ini radio.cfg harbor.conf harbor.env
+2026-08-26T21:58:01.100Z INFO  harbor.lamp lantern id=4 fuel=kerosene wick_mm=7 fuel_ml=390 trimmed=true
+2026-08-26T21:58:02.000Z INFO  harbor.census moths=14 named=Ida,Percival,Little Noise,Glass-Eater
+2026-08-26T21:58:03.200Z DEBUG harbor.radio listen 2182 kHz call_sign=LH-00
+2026-08-26T21:58:08.000Z INFO  harbor.watch last watch standing keeper=the unnamed still
+2026-08-26T21:58:21.000Z WARN  harbor.radio voice swallowed; last_heard=number fog_m=41
+2026-08-26T21:58:21.400Z DEBUG harbor.radio retry scheduled retry_seconds=11
+2026-08-26T21:58:32.600Z INFO  harbor.radio number written to blotter; last digit wet
+2026-08-26T21:58:40.000Z TRACE harbor.chair occupied=false kind=reflection
+2026-08-26T21:58:55.000Z INFO  harbor.tide flood 184 cm at pier chart=assets/harbor-chart.jpeg
+2026-08-26T21:59:10.000Z DEBUG harbor.fs opened a-quiet-place.md bytes=ok images=8
+2026-08-26T21:59:11.200Z DEBUG harbor.fs opened lumen-station.nfo encoding=utf-8 format=nfo
+2026-08-26T21:59:12.000Z DEBUG harbor.fs opened kodi-the-quiet-place.nfo encoding=utf-8 format=text
+2026-08-26T21:59:13.000Z DEBUG harbor.fs opened windows-msinfo.nfo encoding=utf-8 format=text
+2026-08-26T21:59:30.000Z WARN  harbor.moth Percival on the halo again; union clause cited
+2026-08-26T22:00:00.000Z INFO  harbor.letter night-watch.txt drafted posted=false
+2026-08-26T22:00:20.000Z ERROR harbor.radio call sign LH-00 not acknowledged after 3 retries
+    at harbor.radio.handshake(radio.cfg:44)
+    at harbor.radio.retry(radio.rs:218)
+    at harbor.watch.last(overnight.log:1)
+Caused by: fog.SwallowError: channel ch-4 ate the voice
+    at fog.bank.twelve(weather.yaml:18)
+2026-08-26T22:00:21.000Z WARN  harbor.radio continuing watch; do not invent the last digit
+2026-08-26T22:01:00.000Z INFO  harbor.lamp wick still 7 mm halo=bored
+2026-08-26T22:02:00.000Z DEBUG harbor.unicode café naïve 東京 π — intact
+2026-08-26T22:03:00.000Z INFO  harbor.census recount moths=14 chair still empty
+2026-08-26T22:04:00.000Z DEBUG harbor.tide flood holding 184 cm; do not invent centimetres
+2026-08-26T22:05:00.000Z TRACE harbor.minimap optional=true rendered=false
+2026-08-26T22:07:00.000Z DEBUG harbor.heartbeat watch=last fog_m=60 moths=14 radio=number chair=empty
+2026-08-26T22:08:00.000Z DEBUG harbor.heartbeat watch=last fog_m=65 moths=14 radio=number chair=empty
+2026-08-26T22:09:00.000Z DEBUG harbor.heartbeat watch=last fog_m=70 moths=14 radio=number chair=empty
+2026-08-26T22:10:00.000Z DEBUG harbor.heartbeat watch=last fog_m=75 moths=14 radio=number chair=empty
+2026-08-26T22:11:00.000Z DEBUG harbor.heartbeat watch=last fog_m=80 moths=14 radio=number chair=empty
+2026-08-26T22:12:00.000Z DEBUG harbor.heartbeat watch=last fog_m=85 moths=14 radio=number chair=empty
+2026-08-26T22:13:00.000Z DEBUG harbor.heartbeat watch=last fog_m=90 moths=14 radio=number chair=empty
+2026-08-26T22:14:00.000Z DEBUG harbor.heartbeat watch=last fog_m=95 moths=14 radio=number chair=empty
+2026-08-26T22:13:00.000Z WARN  harbor.moth Glass-Eater declined the photograph again
+2026-08-26T22:14:00.000Z INFO  harbor.fs relative image ok path=assets/quiet-desk.webp
+2026-08-26T22:14:01.000Z INFO  harbor.fs relative image ok path=assets/harbor-night.png
+2026-08-26T22:14:02.000Z INFO  harbor.fs relative image ok path=assets/lantern.jpg
+2026-08-26T22:14:03.000Z INFO  harbor.fs relative image ok path=assets/lantern.gif
+2026-08-26T22:14:04.000Z INFO  harbor.fs relative image ok path=assets/paper-moth.webp
+2026-08-26T22:14:05.000Z INFO  harbor.fs relative image ok path=assets/harbor-chart.jpeg
+2026-08-26T22:14:06.000Z INFO  harbor.fs relative image ok path=assets/pigments.bmp
+2026-08-26T22:14:07.000Z INFO  harbor.fs relative image ok path=assets/rain-glass.avif
+2026-08-26T22:15:00.000Z INFO  harbor.letter postscript 3 inventory written
+2026-08-26T22:16:20.000Z INFO  harbor.watch 23:47 local fog; letter unposted; daemon idle
+2026-08-26T22:16:21.000Z DEBUG harbor.boot no cloud session, as requested
