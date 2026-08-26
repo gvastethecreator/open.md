@@ -30,8 +30,10 @@ export function createDocumentViewStateController({
   const setDocumentChrome = (path, document = null) => {
     const format = resolveFormatId(path, document);
     const isImage = Boolean(path) && isImageFormat(format, { kind: document?.kind });
+    const isNfo = Boolean(path) && format === 'nfo';
     const body = window.document?.body;
     body?.classList.toggle('is-image-document', isImage);
+    body?.classList.toggle('is-nfo-document', isNfo);
     if (path && format) body?.setAttribute('data-document-format', format);
     else body?.removeAttribute('data-document-format');
   };

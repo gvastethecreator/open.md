@@ -88,6 +88,26 @@ const DESCRIPTORS = Object.freeze({
     productSurface: 'companion',
     statusProfile: 'csv',
   }),
+  nfo: Object.freeze({
+    id: 'nfo',
+    family: 'text',
+    modes: Object.freeze(['read', 'source']),
+    editorKind: 'none',
+    readRenderer: 'plain',
+    highlightLanguage: null,
+    productSurface: 'companion',
+    statusProfile: 'text',
+  }),
+  log: Object.freeze({
+    id: 'log',
+    family: 'text',
+    modes: Object.freeze(['read', 'source']),
+    editorKind: 'none',
+    readRenderer: 'plain',
+    highlightLanguage: null,
+    productSurface: 'companion',
+    statusProfile: 'text',
+  }),
   png: imageDescriptor('png'),
   jpeg: imageDescriptor('jpeg'),
   gif: imageDescriptor('gif'),
@@ -188,6 +208,8 @@ export function getFormatLabel(format, hint = {}) {
   if (descriptor.id === 'csv') return 'CSV';
   if (descriptor.id === 'ini') return 'INI';
   if (descriptor.id === 'env') return 'Env';
+  if (descriptor.id === 'nfo') return 'NFO';
+  if (descriptor.id === 'log') return 'Log';
   return 'Text';
 }
 

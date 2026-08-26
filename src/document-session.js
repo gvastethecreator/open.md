@@ -114,6 +114,7 @@ function enhanceCodeBlocks({ window, document, content, clipboard, onToast, onDi
   content.querySelectorAll('pre').forEach((pre) => {
     const code = pre.querySelector('code');
     if (!code || pre.querySelector('.copy-code-btn')) return;
+    if (pre.dataset.plainText === 'true' && (pre.dataset.format === 'nfo' || pre.dataset.format === 'log')) return;
 
     const button = document.createElement('button');
     button.className = 'copy-code-btn';

@@ -15,6 +15,8 @@ const requiredFiles = [
   'src/assets/fonts/InterVariable.woff2',
   'src/assets/fonts/InterVariable-Italic.woff2',
   'src/assets/fonts/LICENSE.txt',
+  'src/assets/fonts/PxPlus_IBM_VGA8.ttf',
+  'src/assets/fonts/LICENSE-IBM-VGA.txt',
   'src-tauri/tauri.conf.json',
   'src-tauri/capabilities/default.json',
   'docs/FILE_ASSOCIATIONS.md'

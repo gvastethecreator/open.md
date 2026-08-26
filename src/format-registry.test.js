@@ -13,6 +13,19 @@ import {
 } from './format-registry.js';
 
 describe('format registry', () => {
+  it('locks nfo and log to read and source without an editor', () => {
+    for (const format of ['nfo', 'log']) {
+      expect(allowsDocumentMode(format, 'read')).toBe(true);
+      expect(allowsDocumentMode(format, 'source')).toBe(true);
+      expect(allowsDocumentMode(format, 'edit')).toBe(false);
+      expect(getEditorKind(format)).toBe('none');
+      expect(getReadRenderer(format)).toBe('plain');
+      expect(isCompanionTextFormat(format)).toBe(true);
+    }
+    expect(getFormatLabel('nfo')).toBe('NFO');
+    expect(getFormatLabel('log')).toBe('Log');
+  });
+
   it('locks images to read-only modes (F8)', () => {
     expect(allowsDocumentMode('png', 'read')).toBe(true);
     expect(allowsDocumentMode('png', 'edit')).toBe(false);

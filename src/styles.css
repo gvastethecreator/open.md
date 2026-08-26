@@ -14,6 +14,14 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "PxPlus IBM VGA8";
+  src: url("./assets/fonts/PxPlus_IBM_VGA8.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
 :root {
   --font-sans: Inter, "Segoe UI", Helvetica, Arial, sans-serif;
   --font-mono: "Cascadia Code", "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
@@ -1164,6 +1172,60 @@ body.is-image-document .line-gutter,
 body.is-image-document #document-minimap,
 body.is-image-document .source-view,
 body.is-image-document .editor-view {
+  display: none !important;
+}
+
+body.is-nfo-document .markdown-body,
+body.is-nfo-document .markdown-body pre,
+body.is-nfo-document .markdown-body pre code,
+body.is-nfo-document .source-view,
+body.is-nfo-document .source-view code {
+  font-family: "PxPlus IBM VGA8", ui-monospace, monospace;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+  tab-size: 8;
+  font-synthesis: none;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+body.is-nfo-document.is-word-wrap .source-view,
+body.is-nfo-document.is-word-wrap .markdown-body pre,
+body.is-nfo-document.is-word-wrap .source-view code {
+  white-space: pre !important;
+  overflow-wrap: normal;
+}
+
+body.is-nfo-document .markdown-body,
+body.is-nfo-document .source-view {
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+  overflow-x: auto;
+}
+
+body.is-nfo-document .markdown-body pre,
+body.is-nfo-document .markdown-body pre code {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  max-width: none;
+  background: transparent !important;
+  color: inherit !important;
+}
+
+body.is-nfo-document .editor-view,
+body[data-document-format="log"] .editor-view {
+  display: none !important;
+}
+
+body.is-nfo-document .copy-code-btn,
+body[data-document-format="log"] .copy-code-btn {
   display: none !important;
 }
 
