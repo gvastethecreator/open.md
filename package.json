@@ -39,7 +39,7 @@
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.4",
     "jsdom": "30.0.1",
-    "vite": "^8.2.1",
+    "vite": "^8.2.2",
     "vitest": "^4.1.10"
   },
   "dependencies": {
