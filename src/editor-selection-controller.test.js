@@ -181,6 +181,21 @@ describe('Editor Selection Controller', () => {
     expect(view.elements.root.classList.contains('has-custom-caret')).toBe(true);
   });
 
+  it('does not capture selection after stop', () => {
+    const view = fixture();
+    selectText(view, view.content.firstChild, 0, 3);
+    expect(view.elements.inlineToolbar.hidden).toBe(false);
+    view.controller.stop();
+    expect(view.elements.inlineToolbar.hidden).toBe(true);
+    expect(view.elements.caretEcho.hidden).toBe(true);
+    const callCount = view.setCursor.mock.calls.length;
+    view.document.dispatchEvent(new view.dom.window.Event('selectionchange'));
+    expect(view.setCursor).toHaveBeenCalledTimes(callCount);
+    view.controller.start();
+    view.document.dispatchEvent(new view.dom.window.Event('selectionchange'));
+    expect(view.setCursor.mock.calls.length).toBeGreaterThan(callCount);
+  });
+
   it('clears saved selection, caret and listeners on dispose', () => {
     const view = fixture();
     selectText(view, view.content.firstChild, 0, 3);

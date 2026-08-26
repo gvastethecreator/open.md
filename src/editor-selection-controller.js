@@ -1,3 +1,5 @@
+import { shouldReduceMotion } from './reader-motion.js';
+
 const INLINE_COMMANDS = Object.freeze({
   bold: 'bold',
   italic: 'italic',
@@ -148,7 +150,7 @@ export function createEditorSelectionController({
     root.classList.add('has-custom-caret');
     const reduced = typeof adapters.shouldReduceMotion === 'function'
       ? Boolean(adapters.shouldReduceMotion())
-      : Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
+      : shouldReduceMotion(window);
     if (!reduced) {
       adapters.getCaretTrail?.()?.moveTo?.(left, top, height, 2);
     } else {
@@ -351,6 +353,17 @@ export function createEditorSelectionController({
     }
   };
 
+  const unbind = () => {
+    document.removeEventListener('selectionchange', capture);
+    scrollContainer?.removeEventListener('scroll', scheduleCaretSync);
+    window.removeEventListener('resize', scheduleCaretSync);
+    inlineToolbar.removeEventListener('mousedown', onToolbarMouseDown);
+    inlineToolbar.removeEventListener('click', onToolbarClick);
+    linkApply?.removeEventListener('click', onLinkApply);
+    linkInput?.removeEventListener('keydown', onLinkKeyDown);
+    cancelCaretSync();
+  };
+
   const start = () => {
     if (started || disposed) return;
     started = true;
@@ -363,22 +376,26 @@ export function createEditorSelectionController({
     linkInput?.addEventListener('keydown', onLinkKeyDown);
   };
 
+  const stop = () => {
+    if (!started || disposed) return;
+    unbind();
+    started = false;
+    clear();
+  };
+
   const dispose = () => {
     if (disposed) return;
     disposed = true;
-    document.removeEventListener('selectionchange', capture);
-    scrollContainer?.removeEventListener('scroll', scheduleCaretSync);
-    window.removeEventListener('resize', scheduleCaretSync);
-    inlineToolbar.removeEventListener('mousedown', onToolbarMouseDown);
-    inlineToolbar.removeEventListener('click', onToolbarClick);
-    linkApply?.removeEventListener('click', onLinkApply);
-    linkInput?.removeEventListener('keydown', onLinkKeyDown);
-    cancelCaretSync();
+    if (started) {
+      unbind();
+      started = false;
+    }
     clear();
   };
 
   return Object.freeze({
     start,
+    stop,
     capture,
     applyFromCurrentSelection,
     openLinkFromCurrentSelection,
