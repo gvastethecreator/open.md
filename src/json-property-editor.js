@@ -163,6 +163,7 @@ export function createJsonPropertyEditor({
       });
 
       value.addEventListener('keydown', (event) => {
+        if (event.isComposing || event.key === 'Process') return;
         if (event.key === 'Enter' && !event.shiftKey && !row.composite) {
           event.preventDefault();
           value.blur();
