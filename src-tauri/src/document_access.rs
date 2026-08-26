@@ -30,6 +30,8 @@ pub(crate) struct DocumentPayload {
     kind: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     format: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_encoding: Option<&'static str>,
 }
 
 const HEADER_SNIFF_BYTES: usize = 512;
@@ -65,14 +67,14 @@ pub(crate) fn open_document(file_path: &Path) -> Result<DocumentPayload, String>
     }
 
     let bytes = fs::read(&canonical_path).map_err(user_friendly_read_error)?;
-    let content = String::from_utf8(bytes)
-        .map_err(|_| "The file is not in UTF-8 and cannot be rendered correctly.".to_string())?;
+    let (content, source_encoding) = decode_text_document(&bytes, resolved.format)?;
 
     Ok(build_document_payload(
         &content,
         resolved.kind == "markdown",
         resolved.kind,
         resolved.format,
+        source_encoding,
     ))
 }
 
@@ -137,8 +139,17 @@ pub(crate) fn save_bytes(file_path: &Path, bytes: &[u8]) -> Result<(), String> {
 pub(crate) fn save_document(file_path: &Path, content: &str) -> Result<DocumentPayload, String> {
     recover_interrupted_save(file_path)?;
     let canonical_path = fs::canonicalize(file_path).map_err(user_friendly_write_error)?;
+    if is_log_document(&canonical_path) {
+        return Err("This log file cannot be edited.".to_string());
+    }
     if !is_editable_document(&canonical_path) {
         return Err("Unsupported file format. Save a Markdown or text file instead.".to_string());
+    }
+    if is_nfo_path(&canonical_path) {
+        let existing = fs::read(&canonical_path).map_err(user_friendly_write_error)?;
+        if !looks_like_nfo_xml(&existing) {
+            return Err("This NFO file cannot be edited.".to_string());
+        }
     }
 
     let content_size = content.len() as u64;
@@ -188,7 +199,7 @@ pub(crate) fn save_document(file_path: &Path, content: &str) -> Result<DocumentP
     }
     result?;
 
-    let format = text_format_from_path(&canonical_path);
+    let format = text_format_from_saved_content(&canonical_path, content.as_bytes());
     let kind = if is_markdown_document(&canonical_path) {
         "markdown"
     } else {
@@ -199,6 +210,7 @@ pub(crate) fn save_document(file_path: &Path, content: &str) -> Result<DocumentP
         kind == "markdown",
         kind,
         format,
+        "utf-8",
     ))
 }
 
@@ -353,8 +365,17 @@ fn is_text_document(file_path: &Path) -> bool {
     is_markdown_document(file_path) || is_plain_text_document(file_path)
 }
 
+fn is_log_document(file_path: &Path) -> bool {
+    document_extension(file_path).as_deref() == Some("log")
+}
+
+fn is_nfo_path(file_path: &Path) -> bool {
+    document_extension(file_path).as_deref() == Some("nfo")
+}
+
 fn is_editable_document(file_path: &Path) -> bool {
-    is_text_document(file_path)
+    is_markdown_document(file_path)
+        || (is_plain_text_document(file_path) && !is_log_document(file_path))
 }
 
 /// Markdown, plain-text companions, and implicit image companions.
@@ -399,6 +420,7 @@ fn open_image_document_with_format(
         reading_time_minutes: 0,
         kind: Some("image"),
         format: Some(format),
+        source_encoding: None,
     })
 }
 
@@ -485,7 +507,76 @@ fn text_format_from_path(file_path: &Path) -> &'static str {
         Some("env") => "env",
         Some("csv") => "csv",
         Some("md") | Some("markdown") => "markdown",
+        Some("nfo") => "nfo",
+        Some("log") => "log",
         _ => "text",
+    }
+}
+
+fn text_format_from_saved_content(file_path: &Path, content: &[u8]) -> &'static str {
+    let format = text_format_from_path(file_path);
+    if format == "nfo" && looks_like_nfo_xml(content) {
+        "text"
+    } else {
+        format
+    }
+}
+
+fn skip_bom_and_ws(bytes: &[u8]) -> usize {
+    let mut i = 0;
+    if bytes.len() >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF {
+        i = 3;
+    }
+    while i < bytes.len() {
+        match bytes[i] {
+            0x20 | 0x09 | 0x0A | 0x0D => i += 1,
+            _ => break,
+        }
+    }
+    i
+}
+
+fn starts_with_ascii_ignore_case(bytes: &[u8], prefix: &[u8]) -> bool {
+    if bytes.len() < prefix.len() {
+        return false;
+    }
+    bytes[..prefix.len()]
+        .iter()
+        .zip(prefix)
+        .all(|(byte, expected)| byte.to_ascii_lowercase() == expected.to_ascii_lowercase())
+}
+
+fn nfo_xml_prefix_boundary(next: Option<u8>) -> bool {
+    matches!(
+        next,
+        None | Some(b' ') | Some(b'\t') | Some(b'\n') | Some(b'\r') | Some(b'>') | Some(b'/')
+    )
+}
+
+pub(crate) fn looks_like_nfo_xml(bytes: &[u8]) -> bool {
+    let start = skip_bom_and_ws(bytes);
+    let rest = &bytes[start..];
+    const PREFIXES: [&[u8]; 8] = [
+        b"<?xml",
+        b"<movie",
+        b"<tvshow",
+        b"<episodedetails",
+        b"<musicvideo",
+        b"<album",
+        b"<artist",
+        b"<nfo",
+    ];
+    PREFIXES.iter().any(|prefix| {
+        starts_with_ascii_ignore_case(rest, prefix)
+            && nfo_xml_prefix_boundary(rest.get(prefix.len()).copied())
+    })
+}
+
+fn decode_text_document(bytes: &[u8], format: &str) -> Result<(String, &'static str), String> {
+    match String::from_utf8(bytes.to_vec()) {
+        Ok(content) => Ok((content, "utf-8")),
+        Err(_) if format == "nfo" => Ok((crate::cp437::decode(bytes), "cp437")),
+        Err(_) => Err("The file is not in UTF-8 and cannot be rendered correctly.".to_string()),
     }
 }
 
@@ -550,7 +641,14 @@ fn resolve_document_format(file_path: &Path, header: Option<&[u8]>) -> ResolvedF
                 fail_closed: None,
             };
         }
-        let format = text_format_from_path(file_path);
+        let mut format = text_format_from_path(file_path);
+        if format == "nfo" {
+            if let Some(bytes) = header {
+                if looks_like_nfo_xml(bytes) {
+                    format = "text";
+                }
+            }
+        }
         return ResolvedFormat {
             kind: "text",
             format,
@@ -653,6 +751,7 @@ fn build_document_payload(
     is_markdown: bool,
     kind: &'static str,
     format: &'static str,
+    source_encoding: &'static str,
 ) -> DocumentPayload {
     let word_count = content.split_whitespace().count();
     let reading_time_minutes = if word_count == 0 {
@@ -679,6 +778,11 @@ fn build_document_payload(
         reading_time_minutes,
         kind: Some(kind),
         format: Some(format),
+        source_encoding: if source_encoding == "utf-8" {
+            None
+        } else {
+            Some(source_encoding)
+        },
     }
 }
 
@@ -966,6 +1070,12 @@ mod tests {
         let opened = open_document(&json_path).expect("json should open");
         assert_eq!(opened.kind, Some("text"));
         assert_eq!(opened.format, Some("json"));
+
+        let log_path = fixture.path().join("app.log");
+        fs::write(&log_path, "ready\n").unwrap();
+        let log = open_document(&log_path).expect("log should open");
+        assert_eq!(log.kind, Some("text"));
+        assert_eq!(log.format, Some("log"));
     }
 
     #[test]
@@ -1082,7 +1192,8 @@ mod tests {
 
     #[test]
     fn document_payload_serializes_the_frontend_contract() {
-        let payload = build_document_payload("# Title\nBody", true, "markdown", "markdown");
+        let payload =
+            build_document_payload("# Title\nBody", true, "markdown", "markdown", "utf-8");
         let serialized = serde_json::to_value(payload).expect("payload should serialize");
 
         assert_eq!(serialized["source"], "# Title\nBody");
@@ -1156,6 +1267,82 @@ mod tests {
         assert_eq!(image_mime_type(Path::new("cover.PNG")), Some("image/png"));
         assert_eq!(image_mime_type(Path::new("vector.svg")), None);
         assert_eq!(file_size_label(5 * 1024 * 1024), "5.0 MiB");
+    }
+
+    #[test]
+    fn opens_cp437_nfo_and_rejects_xml_nfo_as_plain_text() {
+        let fixture = FixtureDirectory::new("nfo-documents");
+        let scene_path = fixture.path().join("sample-scene.nfo");
+        let xml_path = fixture.path().join("movie.nfo");
+        let lt_art_path = fixture.path().join("lt-art.nfo");
+        let mut scene = vec![
+            b'N', b'F', b'O', b'\r', b'\n', 0xB0, 0xB1, 0xB2, 0xC9, 0xCD, 0xBB, b'\r', b'\n',
+        ];
+        scene.push(0x1A);
+        fs::write(&scene_path, scene).unwrap();
+        fs::write(
+            &xml_path,
+            "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<movie><title>Test</title></movie>\n",
+        )
+        .unwrap();
+        fs::write(&lt_art_path, b"<not-xml art \xB0\xB1>\r\n").unwrap();
+
+        let scene = open_document(&scene_path).expect("cp437 nfo should open");
+        assert_eq!(scene.format, Some("nfo"));
+        assert_eq!(scene.kind, Some("text"));
+        assert_eq!(scene.source_encoding, Some("cp437"));
+        assert!(scene.source.contains('\u{2591}'));
+        assert!(!scene.source.contains('\u{001A}'));
+        assert!(scene.source.contains('\r'));
+
+        let xml = open_document(&xml_path).expect("xml nfo should open as text");
+        assert_eq!(xml.format, Some("text"));
+        assert_eq!(xml.source_encoding, None);
+        assert!(xml.source.contains("<movie>"));
+
+        let lt_art = open_document(&lt_art_path).expect("angle-bracket art should stay nfo");
+        assert_eq!(lt_art.format, Some("nfo"));
+        assert_eq!(lt_art.source_encoding, Some("cp437"));
+
+        let example_scene =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/fixtures/sample-scene.nfo");
+        let example = open_document(&example_scene).expect("bundled scene nfo should open");
+        assert_eq!(example.format, Some("nfo"));
+        assert_eq!(example.source_encoding, Some("cp437"));
+        assert!(example.source.contains('╔'));
+        assert!(example.source.contains('╠'));
+        assert!(example.html.contains("data-format=\"nfo\""));
+    }
+
+    #[test]
+    fn saves_xml_nfo_as_text() {
+        let fixture = FixtureDirectory::new("nfo-save");
+        let xml_path = fixture.path().join("show.nfo");
+        fs::write(&xml_path, "<tvshow><title>A</title></tvshow>\n").unwrap();
+        let saved = save_document(&xml_path, "<tvshow><title>B</title></tvshow>\n")
+            .expect("xml nfo should stay editable text");
+        assert_eq!(saved.format, Some("text"));
+        assert_eq!(
+            fs::read_to_string(&xml_path).unwrap(),
+            "<tvshow><title>B</title></tvshow>\n"
+        );
+    }
+
+    #[test]
+    fn rejects_save_for_scene_nfo_and_log() {
+        let fixture = FixtureDirectory::new("view-only-save");
+        let scene_path = fixture.path().join("scene.nfo");
+        let log_path = fixture.path().join("app.log");
+        fs::write(&scene_path, [0xC9, 0xCD, 0xBB, b'\r', b'\n', 0x1A]).unwrap();
+        fs::write(&log_path, "ready\n").unwrap();
+
+        let scene_error = save_document(&scene_path, "overwrite").unwrap_err();
+        assert!(scene_error.contains("cannot be edited"));
+        assert_eq!(fs::read(&scene_path).unwrap()[0], 0xC9);
+
+        let log_error = save_document(&log_path, "overwrite").unwrap_err();
+        assert!(log_error.contains("cannot be edited"));
+        assert_eq!(fs::read_to_string(&log_path).unwrap(), "ready\n");
     }
 
     #[test]

@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use tauri::AppHandle;
 
 mod app_settings;
+mod cp437;
 mod document_access;
 mod file_associations;
 mod images;
