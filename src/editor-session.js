@@ -137,6 +137,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   let jsonPropertyEditor = null;
   let editPresentation = 'rendered';
   let disposed = false;
+  let blockInputBound = false;
   let blockLineCounts = new Map();
   /** Additional source-projected blocks retained for legacy projection reconciliation. */
   let selectionSourceIds = new Set();
@@ -250,12 +251,26 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     const selection = window.getSelection();
     if (!selection) return;
     const range = document.createRange();
-    if (content.firstChild?.nodeType === 3) {
-      const text = content.firstChild;
-      const offset = position === 'start' ? 0 : (text.textContent?.length || 0);
-      range.setStart(text, Math.min(offset, text.textContent?.length || 0));
-      range.collapse(true);
-    } else {
+    const numeric = typeof position === 'number' && Number.isFinite(position);
+    let remaining = numeric
+      ? Math.max(0, Math.floor(position))
+      : position === 'start' ? 0 : Infinity;
+    if (!content.firstChild) content.appendChild(document.createTextNode(''));
+    const walker = document.createTreeWalker(content, window.NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    let placed = false;
+    while (node) {
+      const len = node.nodeValue?.length || 0;
+      if (remaining <= len) {
+        range.setStart(node, remaining);
+        range.collapse(true);
+        placed = true;
+        break;
+      }
+      remaining -= len;
+      node = walker.nextNode();
+    }
+    if (!placed) {
       range.selectNodeContents(content);
       range.collapse(position === 'start');
     }
@@ -263,11 +278,44 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     selection.addRange(range);
   };
 
+  const caretOffsetFromPointer = (element, event) => {
+    if (!element || !event) return null;
+    try {
+      if (typeof document.caretPositionFromPoint === 'function' && Number.isFinite(event.clientX)) {
+        const pos = document.caretPositionFromPoint(event.clientX, event.clientY);
+        if (pos?.offsetNode && element.contains(pos.offsetNode)) {
+          const before = document.createRange();
+          before.selectNodeContents(element);
+          before.setEnd(pos.offsetNode, pos.offset);
+          return before.toString().length;
+        }
+      }
+      if (typeof document.caretRangeFromPoint === 'function' && Number.isFinite(event.clientX)) {
+        const pointed = document.caretRangeFromPoint(event.clientX, event.clientY);
+        if (pointed?.startContainer && element.contains(pointed.startContainer)) {
+          const before = document.createRange();
+          before.selectNodeContents(element);
+          before.setEnd(pointed.startContainer, pointed.startOffset);
+          return before.toString().length;
+        }
+      }
+    } catch {
+      /* jsdom */
+    }
+    return null;
+  };
+
   /** Rebuild one wrapper body as source or preview (Classic live-preview). */
   const projectWrapperMode = (wrapper, block, { source, active }) => {
     if (!wrapper || !block) return;
+    wrapper.className = `editor-block editor-block--${block.type}`;
+    wrapper.dataset.blockId = block.id;
+    wrapper.dataset.blockType = block.type;
     wrapper.classList.toggle('is-active-line', Boolean(active));
     wrapper.classList.toggle('is-selection-source', Boolean(source && !active));
+    const isSpacer = block.type === 'paragraph' && block.text === '';
+    if (isSpacer) wrapper.dataset.blockSpacer = '';
+    else delete wrapper.dataset.blockSpacer;
     wrapper.style.setProperty('--block-indent', String(block.indent || 0));
 
     const body = document.createElement('div');
@@ -335,59 +383,6 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     wrapper.replaceChildren(body);
   };
 
-  /**
-   * Classic live preview: only the active line (and multi-select expansion) is
-   * source Markdown; every other line is rendered preview. Updates in place so
-   * the continuous host is not torn down on each caret move.
-   */
-  const reconcileClassicProjection = ({ caretPosition = null } = {}) => {
-    if (isBlockPresentation() || mode !== 'edit') return;
-    documentSnapshot.blocks.forEach((block) => {
-      const wrapper = findWrapper(block.id);
-      if (!wrapper) return;
-      const source = block.id === activeBlockId || selectionSourceIds.has(block.id);
-      const active = block.id === activeBlockId;
-      const content = blockContent(wrapper);
-      const modeNow = content?.dataset.editorMode;
-      const wantMode = source ? 'source' : 'preview';
-      const activeNow = wrapper.classList.contains('is-active-line');
-      if (modeNow !== wantMode || activeNow !== active) {
-        projectWrapperMode(wrapper, block, { source, active });
-      } else {
-        wrapper.classList.toggle('is-active-line', active);
-        wrapper.classList.toggle('is-selection-source', source && !active);
-        content?.classList.toggle('is-active-line', active);
-        content?.classList.toggle('is-selection-source', source && !active);
-      }
-    });
-    applyPresentationChrome();
-    if (caretPosition && activeBlockId) {
-      const content = blockContent(findWrapper(activeBlockId));
-      if (content) {
-        canvas.focus({ preventScroll: true });
-        placeCaretInContent(content, caretPosition);
-      }
-    }
-    updateBlockToolbar();
-  };
-
-  const setClassicActiveLine = (id, { position = null, clearSelectionSources = true } = {}) => {
-    if (!id || isBlockPresentation() || mode !== 'edit') return;
-    if (activeBlockId && activeBlockId !== id) {
-      const previousWrapper = findWrapper(activeBlockId);
-      if (previousWrapper) updateBlockFromElement(previousWrapper);
-    }
-    const same = activeBlockId === id;
-    activeBlockId = id;
-    if (clearSelectionSources && selectionSourceIds.size) selectionSourceIds = new Set();
-    if (same && position == null && !selectionSourceIds.size) {
-      updateBlockToolbar();
-      return;
-    }
-    reconcileClassicProjection({ caretPosition: position });
-    selectionController?.capture();
-  };
-
   const focusBlock = (id, position = 'end', { preserveScroll = false } = {}) => {
     // Classic uses source-line indices, not block ids — no-op for block focus APIs.
     if (isClassic()) {
@@ -407,11 +402,21 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       if (previousWrapper) updateBlockFromElement(previousWrapper);
     }
 
-    // Block islands: re-project when the active block changes.
     activeBlockId = id;
     if (previousId !== id) {
       selectionSourceIds = new Set();
-      render();
+      const previousBlock = previousId ? findBlock(previousId) : null;
+      const previousWrapper = previousId ? findWrapper(previousId) : null;
+      const nextBlock = findBlock(id);
+      const nextWrapper = findWrapper(id);
+      if (previousWrapper && previousBlock && nextWrapper && nextBlock) {
+        projectWrapperMode(previousWrapper, previousBlock, { source: false, active: false });
+        projectWrapperMode(nextWrapper, nextBlock, { source: true, active: true });
+        refreshBlockLineIndex();
+        applyPresentationChrome();
+      } else {
+        render();
+      }
     }
     const content = blockContent(findWrapper(id));
     if (!content) {
@@ -442,7 +447,13 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       : documentModel.undo(activeBlockId);
     if (!result.changed) return false;
     activeBlockId = result.focusId || activeBlockId;
-    render();
+    if (isClassic() && classicSurface?.isMounted?.()) {
+      const line = Math.max(0, (result.cursor?.line || 1) - 1);
+      const caret = Math.max(0, (result.cursor?.column || 1) - 1);
+      classicSurface.render({ source: source(), focusLine: line, caret });
+    } else {
+      render();
+    }
     notify();
     hooks.onHistoryRestore?.(action);
     if (!isClassic()) {
@@ -538,6 +549,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   };
 
   const performBlockAction = (id, action) => {
+    if (mode !== 'edit' || !isBlockPresentation()) return false;
     if (action === 'move-up') return moveBlock(id, -1);
     if (action === 'move-down') return moveBlock(id, 1);
     if (action === 'duplicate') return duplicateBlock(id);
@@ -759,6 +771,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
     // JSON property surface owns the canvas; never reproject Markdown blocks over it.
     if (isJsonProps()) {
+      unbindBlockInput();
+      if (classicSurface?.isMounted?.()) classicSurface.unmount();
       applyPresentationChrome();
       if (blockToolbar) blockToolbar.hidden = true;
       root.classList.toggle('is-empty-document', source().length === 0);
@@ -767,6 +781,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
     // Source Edit and non-Markdown content use the continuous raw-source surface.
     if (isClassic()) {
+      unbindBlockInput();
       applyPresentationChrome();
       if (!classicSurface?.isMounted?.()) classicSurface?.mount?.();
       else classicSurface?.render?.({ source: source(), focusLine: classicSurface.activeLine?.() ?? 0 });
@@ -788,88 +803,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     );
     animateBlockLayout(previousLayout, { enteringId });
     updateBlockToolbar();
+    bindBlockInput();
   }
-
-  const collectBlockIdsInRange = (range) => {
-    if (!range) return [];
-    const wrappers = [...canvas.querySelectorAll('[data-block-id]')];
-    const blockFromPoint = (node) => {
-      if (!node) return null;
-      const element = node.nodeType === 1 ? node : node.parentElement;
-      return element?.closest?.('[data-block-id]') || null;
-    };
-    const startBlock = blockFromPoint(range.startContainer);
-    const endBlock = blockFromPoint(range.endContainer);
-    // Prefer document-order walk between endpoints — more reliable than
-    // Range.intersectsNode across browsers and jsdom.
-    if (startBlock && endBlock && canvas.contains(startBlock) && canvas.contains(endBlock)) {
-      const ids = [];
-      let inRange = false;
-      for (const wrapper of wrappers) {
-        if (wrapper === startBlock || wrapper === endBlock) {
-          if (!inRange) {
-            inRange = true;
-            ids.push(wrapper.dataset.blockId);
-            if (startBlock === endBlock) break;
-            continue;
-          }
-          ids.push(wrapper.dataset.blockId);
-          break;
-        }
-        if (inRange) ids.push(wrapper.dataset.blockId);
-      }
-      if (ids.length > 0) return ids;
-    }
-    const ids = [];
-    wrappers.forEach((wrapper) => {
-      try {
-        if (range.intersectsNode?.(wrapper)) ids.push(wrapper.dataset.blockId);
-      } catch {
-        // intersectsNode can throw for detached nodes; ignore.
-      }
-    });
-    return ids;
-  };
-
-  const syncClassicSelectionSources = () => {
-    if (isBlockPresentation() || mode !== 'edit') {
-      if (selectionSourceIds.size) {
-        selectionSourceIds = new Set();
-      }
-      return;
-    }
-    const selection = window.getSelection();
-    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
-      if (selectionSourceIds.size) {
-        selectionSourceIds = new Set();
-        reconcileClassicProjection();
-      }
-      return;
-    }
-    const range = selection.getRangeAt(0);
-    if (!canvas.contains(range.commonAncestorContainer)) return;
-    const ids = collectBlockIdsInRange(range);
-    const next = new Set(ids.filter((id) => id && id !== activeBlockId));
-    const same = next.size === selectionSourceIds.size
-      && [...next].every((id) => selectionSourceIds.has(id));
-    // Prefer the focus/end container as the active line during multi-select.
-    const endEl = range.endContainer?.nodeType === 1
-      ? range.endContainer
-      : range.endContainer?.parentElement;
-    const focusId = endEl?.closest?.('[data-block-id]')?.dataset?.blockId || ids[ids.length - 1];
-    if (focusId && focusId !== activeBlockId) {
-      if (activeBlockId) {
-        const previousWrapper = findWrapper(activeBlockId);
-        if (previousWrapper) updateBlockFromElement(previousWrapper);
-      }
-      activeBlockId = focusId;
-      next.delete(focusId);
-    }
-    if (same && focusId === activeBlockId) return;
-    selectionSourceIds = next;
-    // Re-project newly expanded lines to source; keep multi-select readable.
-    reconcileClassicProjection();
-  };
 
   const splitBlock = (wrapper) => {
     const block = findBlock(wrapper.dataset.blockId);
@@ -914,15 +849,11 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
   };
 
   const handleCanvasInput = (event) => {
-    if (isClassic()) {
-      classicSurface?.handleInput?.(event);
-      saveState = 'idle';
-      saveError = '';
-      notify();
-      return;
-    }
+    if (event?.isComposing || event?.key === 'Process') return;
     const wrapper = event.target.closest?.('[data-block-id]');
     if (!wrapper) return;
+    const content = blockContent(wrapper);
+    const caret = caretOffset(content, window.getSelection());
     const update = updateBlockFromElement(wrapper);
     activeBlockId = wrapper.dataset.blockId;
     saveState = 'idle';
@@ -930,9 +861,20 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     if (update?.reclassified) {
       selectionSourceIds = new Set();
       closeCommandMenu();
-      render();
+      const block = findBlock(activeBlockId);
+      const live = findWrapper(activeBlockId);
+      if (live && block) {
+        projectWrapperMode(live, block, { source: true, active: true });
+        refreshBlockLineIndex();
+        const nextContent = blockContent(live);
+        nextContent?.focus({ preventScroll: true });
+        placeCaretInContent(nextContent, caret);
+      } else {
+        render();
+        focusBlock(activeBlockId, caret);
+      }
       notify();
-      focusBlock(activeBlockId, 'end');
+      updateBlockToolbar();
       return;
     }
     notify();
@@ -946,34 +888,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     }
   };
 
-  const handleCanvasBeforeInput = (event) => {
-    if (!isClassic() || !classicSurface?.handleBeforeInput?.(event)) return;
-    saveState = 'idle';
-    saveError = '';
-    notify();
-  };
-
   const handleCanvasKeydown = (event) => {
-    if (isClassic()) {
-      // App history first (override browser undo for model history).
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'z') {
-        event.preventDefault();
-        restoreHistory(event.shiftKey ? 'redo' : 'undo');
-        return;
-      }
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'y') {
-        event.preventDefault();
-        restoreHistory('redo');
-        return;
-      }
-      if (classicSurface?.handleKeydown?.(event)) {
-        saveState = 'idle';
-        saveError = '';
-        notify();
-      }
-      // Do not swallow unhandled keys — leave them to the browser.
-      return;
-    }
+    if (event.isComposing || event.key === 'Process') return;
     const wrapper = event.target.closest?.('[data-block-id]');
     if (!wrapper) return;
     const block = findBlock(wrapper.dataset.blockId);
@@ -1126,54 +1042,70 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     }
   };
 
-  const handleCanvasClick = (event) => {
+  let pendingPointerActivate = null;
+
+  const pointerCaretFor = (wrapper, event) => {
+    const content = blockContent(wrapper);
+    let position = caretOffsetFromPointer(content, event);
+    if (position == null && content) position = caretOffset(content, window.getSelection());
+    if (position == null) position = 0;
+    return position;
+  };
+
+  const activateBlockFromPointer = (wrapper, event, { preserveScroll = true } = {}) => {
+    const id = wrapper.dataset.blockId;
+    const position = pendingPointerActivate?.id === id
+      ? pendingPointerActivate.position
+      : pointerCaretFor(wrapper, event);
+    pendingPointerActivate = { id, position };
+    if (activeBlockId !== id) {
+      selectionSourceIds = new Set();
+      focusBlock(id, position, { preserveScroll });
+    }
+    return position;
+  };
+
+  const handleCanvasPointerDown = (event) => {
+    if (event.button != null && event.button !== 0) return;
     if (event.target.closest?.('[data-todo-check]')) return;
-    if (isClassic()) {
-      classicSurface?.handleClick?.(event);
+    const wrapper = event.target.closest?.('[data-block-id]');
+    if (!wrapper) {
+      pendingPointerActivate = null;
       return;
     }
+    activateBlockFromPointer(wrapper, event);
+  };
+
+  const handleCanvasClick = (event) => {
+    if (event.target.closest?.('[data-todo-check]')) return;
     const wrapper = event.target.closest?.('[data-block-id]');
     if (!wrapper) return;
     const id = wrapper.dataset.blockId;
     if (activeBlockId !== id) {
-      selectionSourceIds = new Set();
-      focusBlock(id, 'end');
-      return;
+      activateBlockFromPointer(wrapper, event, { preserveScroll: false });
+    } else {
+      activeBlockId = id;
+      updateBlockToolbar();
     }
-    activeBlockId = id;
-    updateBlockToolbar();
+    pendingPointerActivate = null;
   };
 
   const handleCanvasFocusIn = (event) => {
-    if (isClassic()) return;
     const wrapper = event.target.closest?.('[data-block-id]');
     if (!wrapper || !canvas.contains(wrapper)) return;
     const id = wrapper.dataset.blockId;
 
     if (activeBlockId !== id) {
-      const previousId = activeBlockId;
-      if (previousId) {
-        const previousWrapper = findWrapper(previousId);
-        if (previousWrapper) updateBlockFromElement(previousWrapper);
-      }
-      activeBlockId = id;
+      const pending = pendingPointerActivate?.id === id ? pendingPointerActivate.position : null;
+      const content = blockContent(wrapper);
+      let position = pending;
+      if (position == null) position = caretOffsetFromPointer(content, event);
+      if (position == null && content) position = caretOffset(content, window.getSelection());
+      if (position == null) position = 0;
       selectionSourceIds = new Set();
-      render();
-      queueMicrotask(() => {
-        const content = blockContent(findWrapper(id));
-        content?.focus({ preventScroll: true });
-        updateBlockToolbar();
-      });
+      focusBlock(id, position, { preserveScroll: true });
     } else {
       updateBlockToolbar();
-    }
-  };
-
-  const handleSelectionChange = () => {
-    if (disposed || mode !== 'edit') return;
-    if (isClassic()) {
-      classicSurface?.handleSelectionChange?.();
-      return;
     }
   };
 
@@ -1213,6 +1145,47 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
   const clearDragState = () => blockInteractionController?.clearDragState();
 
+  const syncBlockToolControllers = () => {
+    if (!blockInputBound || disposed) return;
+    if (isBlockEditor()) {
+      overlayController?.start();
+      blockInteractionController?.start();
+    } else {
+      overlayController?.stop();
+      blockInteractionController?.stop();
+    }
+  };
+
+  const bindBlockInput = () => {
+    if (blockInputBound || disposed) return;
+    canvas.addEventListener('input', handleCanvasInput);
+    canvas.addEventListener('keydown', handleCanvasKeydown);
+    canvas.addEventListener('mousedown', handleCanvasPointerDown);
+    canvas.addEventListener('click', handleCanvasClick);
+    canvas.addEventListener('focusin', handleCanvasFocusIn);
+    canvas.addEventListener('change', handleCanvasChange);
+    blockToolbar?.addEventListener('click', handleBlockToolbarClick);
+    selectionController?.start();
+    blockInputBound = true;
+    syncBlockToolControllers();
+  };
+
+  const unbindBlockInput = () => {
+    if (!blockInputBound) return;
+    canvas.removeEventListener('input', handleCanvasInput);
+    canvas.removeEventListener('keydown', handleCanvasKeydown);
+    canvas.removeEventListener('mousedown', handleCanvasPointerDown);
+    canvas.removeEventListener('click', handleCanvasClick);
+    canvas.removeEventListener('focusin', handleCanvasFocusIn);
+    canvas.removeEventListener('change', handleCanvasChange);
+    blockToolbar?.removeEventListener('click', handleBlockToolbarClick);
+    selectionController?.stop();
+    overlayController?.stop();
+    blockInteractionController?.stop();
+    caretTrail?.hide?.();
+    blockInputBound = false;
+  };
+
   const mountJsonProperties = (initialSource) => {
     const parsed = parseJsonPropertyModel(initialSource);
     if (!parsed.ok) return parsed;
@@ -1228,6 +1201,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       },
       onDiagnostic: hooks.onDiagnostic,
     });
+    unbindBlockInput();
+    if (classicSurface?.isMounted?.()) classicSurface.unmount();
     jsonPropertyEditor.load(initialSource);
     applyPresentationChrome();
     updateContextChrome();
@@ -1320,6 +1295,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     clearDragState();
     cancelBlockAnimations();
     selectionController?.clear();
+    unbindBlockInput();
     if (classicSurface?.isMounted?.()) classicSurface.unmount();
     disposeJsonPropertyEditor();
     mode = 'read';
@@ -1353,6 +1329,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       else commitAllSourceBlocks();
       updateContextChrome();
       updateBlockToolbar();
+      syncBlockToolControllers();
       notify();
       return true;
     }
@@ -1533,7 +1510,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       isMarkdown: () => isMarkdown(),
       highlightSource: () => isSourcePresentation() && activeDocument?.markdown !== false,
       getSource: () => source(),
-      applySource: (next) => documentModel.applySource(next),
+      applySource: (next, options) => documentModel.applySource(next, options),
+      restoreHistory,
       setCursor,
       shouldReduceMotion: resolveReduceMotion,
       getAriaLabel: () => isSourcePresentation() ? 'Source editor' : 'Document editor',
@@ -1566,8 +1544,6 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       onBlockAction: performBlockAction,
     },
   });
-  overlayController.start();
-
   selectionController = createEditorSelectionController({
     window,
     document,
@@ -1594,8 +1570,6 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       focusBlock,
     },
   });
-  selectionController.start();
-
   blockInteractionController = createEditorBlockInteractionController({
     window,
     elements: { root, canvas },
@@ -1604,6 +1578,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       render: () => render(),
       focusBlock,
       getDragBlockId: () => activeBlockId,
+      shouldReduceMotion: resolveReduceMotion,
     },
     hooks: {
       closeTransientUi: () => {
@@ -1613,16 +1588,6 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       onReorder: notify,
     },
   });
-  blockInteractionController.start();
-
-  canvas.addEventListener('input', handleCanvasInput);
-  canvas.addEventListener('beforeinput', handleCanvasBeforeInput);
-  canvas.addEventListener('keydown', handleCanvasKeydown);
-  canvas.addEventListener('click', handleCanvasClick);
-  canvas.addEventListener('focusin', handleCanvasFocusIn);
-  canvas.addEventListener('change', handleCanvasChange);
-  document.addEventListener('selectionchange', handleSelectionChange);
-  blockToolbar?.addEventListener('click', handleBlockToolbarClick);
 
   root.hidden = true;
   root.setAttribute('inert', '');
@@ -1650,20 +1615,22 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       duplicate: (path) => jsonPropertyEditor?.duplicate?.(path),
       remove: (path) => jsonPropertyEditor?.remove?.(path),
     }),
-    applyInlineCommand: (command) => selectionController?.applyFromCurrentSelection(command) || false,
-    openLinkFromSelection: () => selectionController?.openLinkFromCurrentSelection() || false,
+    applyInlineCommand: (command) => (
+      mode === 'edit' && isBlockPresentation()
+        ? (selectionController?.applyFromCurrentSelection(command) || false)
+        : false
+    ),
+    openLinkFromSelection: () => (
+      mode === 'edit' && isBlockPresentation()
+        ? (selectionController?.openLinkFromCurrentSelection() || false)
+        : false
+    ),
     performBlockAction,
     dispose() {
       if (disposed) return;
       disposed = true;
-      canvas.removeEventListener('input', handleCanvasInput);
-      canvas.removeEventListener('beforeinput', handleCanvasBeforeInput);
-      canvas.removeEventListener('keydown', handleCanvasKeydown);
-      canvas.removeEventListener('click', handleCanvasClick);
-      canvas.removeEventListener('focusin', handleCanvasFocusIn);
-      canvas.removeEventListener('change', handleCanvasChange);
-      document.removeEventListener('selectionchange', handleSelectionChange);
-      blockToolbar?.removeEventListener('click', handleBlockToolbarClick);
+      unbindBlockInput();
+      if (classicSurface?.isMounted?.()) classicSurface.unmount();
       disposeJsonPropertyEditor();
       overlayController?.dispose();
       selectionController?.dispose();

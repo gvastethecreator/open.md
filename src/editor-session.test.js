@@ -1069,7 +1069,7 @@ describe('editor session', () => {
     expect(worldRow).toBeTruthy();
     worldRow.querySelector('[data-classic-content]')
       .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-    // Session routes click to classic surface.
+    // Classic surface owns the canvas click listener.
     await Promise.resolve();
     // If click did not activate (handler needs surface), force through re-render path.
     if (!document.querySelector('.is-active-line [data-editor-mode="source"]')?.textContent.includes('**world**')) {
@@ -1114,8 +1114,7 @@ describe('editor session', () => {
 
     expect(session.source()).toBe('**bold**\n**next**');
     expect(document.querySelectorAll('.classic-line')).toHaveLength(2);
-    expect([...next.querySelectorAll('.source-markup-token')].map((token) => token.textContent))
-      .toEqual(['**', '**']);
+    expect(next.textContent).toBe('**next**');
     expect(document.getElementById('editor-canvas').contentEditable).toBe('true');
     expect(session.current().dirty).toBe(true);
     session.dispose();
@@ -1324,5 +1323,217 @@ describe('editor session', () => {
     expect(session.source()).toBe(sourceBeforeDispose);
     expect(canvas.querySelectorAll('[data-block-id]')).toHaveLength(blockCountBeforeDispose);
     expect(keydown.defaultPrevented).toBe(false);
+  });
+
+  it('does not clear the Source Edit cursor from the Block selection controller', async () => {
+    const { session } = mount(vi.fn(async () => ({ source: '' })), {}, {
+      blockEditor: false,
+      sourceMode: true,
+    });
+    session.setDocument({ path: 'notes.md', source: 'Hello world', markdown: true });
+    session.enter();
+    await Promise.resolve();
+
+    expect(document.querySelector('[data-block-id]')).toBeNull();
+    const content = document.querySelector('[data-classic-content]');
+    expect(content).toBeTruthy();
+    if (!content.firstChild) content.appendChild(document.createTextNode('Hello world'));
+    const range = document.createRange();
+    range.setStart(content.firstChild, 3);
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.dispatchEvent(new Event('selectionchange'));
+
+    expect(session.current().cursor).toEqual({ line: 1, column: 4 });
+    expect(document.getElementById('editor-inline-toolbar').hidden).toBe(true);
+    expect(document.getElementById('editor-caret-echo').hidden).toBe(true);
+    expect(document.getElementById('editor-view').classList.contains('has-custom-caret')).toBe(false);
+    session.dispose();
+  });
+
+  it('switches exclusive canvas ownership between Block and Source Edit', async () => {
+    let sourceMode = false;
+    const { session } = mount(vi.fn(async () => ({ source: '' })), {}, {
+      blockEditor: true,
+      isSourceMode: () => sourceMode,
+    });
+    session.setDocument({ path: 'notes.md', source: '# Title\n\nHello', markdown: true });
+    session.enter();
+    await Promise.resolve();
+
+    const canvas = document.getElementById('editor-canvas');
+    expect(canvas.querySelector('[data-block-id]')).toBeTruthy();
+    expect(canvas.classList.contains('is-classic-surface')).toBe(false);
+
+    sourceMode = true;
+    expect(session.refreshPresentation()).toBe(true);
+    await Promise.resolve();
+    expect(session.current().presentation).toBe('source');
+    expect(canvas.classList.contains('is-classic-surface')).toBe(true);
+    expect(canvas.querySelector('[data-block-id]')).toBeNull();
+    expect(canvas.querySelector('[data-classic-line]')).toBeTruthy();
+
+    sourceMode = false;
+    expect(session.refreshPresentation()).toBe(true);
+    await Promise.resolve();
+    expect(session.current().presentation).toBe('block');
+    expect(canvas.classList.contains('is-classic-surface')).toBe(false);
+    expect(canvas.querySelector('[data-block-id]')).toBeTruthy();
+    expect(canvas.querySelector('[data-classic-line]')).toBeNull();
+    session.dispose();
+  });
+
+  it('stops Source Edit input after the editor session is disposed', () => {
+    const { session } = mount(vi.fn(async () => ({ source: '' })), {}, {
+      blockEditor: false,
+      sourceMode: true,
+    });
+    session.setDocument({ path: 'notes.md', source: 'Hello', markdown: true });
+    session.enter();
+    const canvas = document.getElementById('editor-canvas');
+    const sourceBeforeDispose = session.source();
+    session.dispose();
+    const content = canvas.querySelector('[data-classic-content]');
+    if (content) {
+      content.textContent = 'Changed after dispose';
+      content.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    }
+    canvas.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    expect(session.source()).toBe(sourceBeforeDispose);
+  });
+
+  it('coalesces Classic typing into one undo and restores the caret', async () => {
+    const { session } = mount(vi.fn(async () => ({ source: '' })), {}, {
+      blockEditor: false,
+      sourceMode: true,
+    });
+    session.setDocument({ path: 'notes.md', source: 'Hello', markdown: true });
+    session.enter();
+    await Promise.resolve();
+    const canvas = document.getElementById('editor-canvas');
+    const content = canvas.querySelector('[data-classic-content]');
+    if (!content.firstChild) content.appendChild(document.createTextNode('Hello'));
+    const origin = 2;
+    const range = document.createRange();
+    range.setStart(content.firstChild, origin);
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.dispatchEvent(new Event('selectionchange'));
+
+    content.textContent = 'HeXllo';
+    if (!content.firstChild) content.appendChild(document.createTextNode('HeXllo'));
+    range.setStart(content.firstChild, origin + 1);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    content.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+
+    content.textContent = 'HeXYllo';
+    if (!content.firstChild) content.appendChild(document.createTextNode('HeXYllo'));
+    range.setStart(content.firstChild, origin + 2);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    content.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    expect(session.source()).toBe('HeXYllo');
+
+    canvas.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'z',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    }));
+    expect(session.source()).toBe('Hello');
+    const restored = canvas.querySelector('[data-editor-mode="source"]');
+    expect(restored).toBeTruthy();
+    const restoredSelection = window.getSelection();
+    expect(restoredSelection?.rangeCount).toBeGreaterThan(0);
+    const before = document.createRange();
+    before.selectNodeContents(restored);
+    before.setEnd(restoredSelection.getRangeAt(0).startContainer, restoredSelection.getRangeAt(0).startOffset);
+    expect(before.toString().length).toBe(origin);
+    session.dispose();
+  });
+
+  it('keeps sibling block nodes when activating another block at the click offset', async () => {
+    const { session } = mount();
+    session.setDocument({ path: 'notes.md', source: 'Alpha block\n\nHello world', markdown: true });
+    session.enter();
+    await Promise.resolve();
+    const first = document.querySelector('[data-block-id]');
+    const second = [...document.querySelectorAll('[data-block-id]')]
+      .find((wrapper) => wrapper !== first && !wrapper.hasAttribute('data-block-spacer'));
+    expect(second).toBeTruthy();
+    const preview = second.querySelector('[data-editor-content]');
+    const text = preview.firstChild;
+    const clickOffset = 4;
+    document.caretRangeFromPoint = () => {
+      const range = document.createRange();
+      range.setStart(text, clickOffset);
+      range.collapse(true);
+      return range;
+    };
+    const pointer = { bubbles: true, cancelable: true, clientX: 24, clientY: 12 };
+    preview.dispatchEvent(new MouseEvent('mousedown', pointer));
+    preview.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+    preview.dispatchEvent(new MouseEvent('click', pointer));
+    expect(first.isConnected).toBe(true);
+    expect(second.isConnected).toBe(true);
+    expect(second.classList.contains('is-active-line')).toBe(true);
+    const active = second.querySelector('[data-editor-mode="source"]');
+    expect(active).toBeTruthy();
+    const selection = window.getSelection();
+    const before = document.createRange();
+    before.selectNodeContents(active);
+    before.setEnd(selection.getRangeAt(0).startContainer, selection.getRangeAt(0).startOffset);
+    expect(before.toString().length).toBe(clickOffset);
+    expect(before.toString().length).not.toBe(active.textContent.length);
+    session.dispose();
+    delete document.caretRangeFromPoint;
+  });
+
+  it('does not split a block while composing', async () => {
+    const { session } = mount();
+    session.setDocument({ path: 'notes.md', source: 'Plain text', markdown: true });
+    session.enter();
+    await Promise.resolve();
+    const content = document.querySelector('[data-editor-content]');
+    const before = session.source();
+    content.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Enter',
+      bubbles: true,
+      cancelable: true,
+      isComposing: true,
+    }));
+    expect(session.source()).toBe(before);
+    expect(document.querySelectorAll('[data-block-id]').length).toBeGreaterThan(0);
+    session.dispose();
+  });
+
+  it('does not commit a JSON scalar on composing Enter', async () => {
+    const { session } = mount();
+    session.setDocument({
+      path: 'config.json',
+      source: '{\n  "name": "open.md"\n}\n',
+      markdown: false,
+      presentation: 'json-props',
+    });
+    expect(session.enter()).toBe(true);
+    const value = document.querySelector('[data-json-value]');
+    expect(value).toBeTruthy();
+    value.textContent = 'draft';
+    value.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Enter',
+      bubbles: true,
+      cancelable: true,
+      isComposing: true,
+    }));
+    expect(session.source()).toContain('"open.md"');
+    expect(value.textContent).toBe('draft');
+    session.dispose();
   });
 });
