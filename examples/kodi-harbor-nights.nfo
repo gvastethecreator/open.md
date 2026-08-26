@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<tvshow>
+  <title>Harbor Nights</title>
+  <originaltitle>Harbor Nights</originaltitle>
+  <showtitle>Harbor Nights</showtitle>
+  <sorttitle>Harbor Nights</sorttitle>
+  <year>2026</year>
+  <premiered>2026-01-11</premiered>
+  <releasedate>2026-01-11</releasedate>
+  <runtime>22</runtime>
+  <mpaa>TV-PG</mpaa>
+  <status>Continuing</status>
+  <aired>2026-01-11</aired>
+  <ratings>
+    <rating name="imdb" max="10" default="true">
+      <value>8.1</value>
+      <votes>640</votes>
+    </rating>
+    <rating name="themoviedb" max="10">
+      <value>7.8</value>
+      <votes>210</votes>
+    </rating>
+  </ratings>
+  <userrating>8</userrating>
+  <top250>0</top250>
+  <season>1</season>
+  <episode>12</episode>
+  <displayseason>-1</displayseason>
+  <displayepisode>-1</displayepisode>
+  <id>lh-nights</id>
+  <uniqueid type="lumen" default="true">lh-nights</uniqueid>
+  <uniqueid type="tvdb">900002</uniqueid>
+  <uniqueid type="imdb">tt9000002</uniqueid>
+  <plot>A twelve-episode weather serial from Lumen Harbor. Each installment is one watch: first, middle, or last. The lamp is a recurring character. The moths have a union clause in the credits. Dialogue is mostly rain, static, and the sound of a fountain pen on wet paper. Café scenes exist only as steam on glass. One episode was filmed in 東京 and then the fog ate the call sheet.</plot>
+  <outline>Night watches as television. No cloud. Plenty of tide.</outline>
+  <tagline>Trim the wick. Count the moths. Repeat.</tagline>
+  <genre>Drama</genre>
+  <genre>Anthology</genre>
+  <genre>Weather</genre>
+  <studio>Lumen Harbor Station</studio>
+  <studio>Wet Wick Workshop</studio>
+  <country>Nowhere in particular</country>
+  <language>en</language>
+  <credits>The Keeper</credits>
+  <director>Rain on Glass</director>
+  <namedseason number="1">Season 1 — Flood</namedseason>
+  <dateadded>2026-08-26 23:47:00</dateadded>
+  <playcount>1</playcount>
+  <tag>local-first</tag>
+  <tag>serial</tag>
+  <tag>moths</tag>
+  <actor>
+    <name>The Unnamed Keeper</name>
+    <role>Night watch</role>
+    <order>0</order>
+    <thumb>assets/quiet-desk.webp</thumb>
+  </actor>
+  <actor>
+    <name>Ida the Paper Moth</name>
+    <role>Recurring census</role>
+    <order>1</order>
+    <thumb>assets/paper-moth.webp</thumb>
+  </actor>
+  <actor>
+    <name>Brass Lantern #4</name>
+    <role>Light</role>
+    <order>2</order>
+    <thumb>assets/lantern.jpg</thumb>
+  </actor>
+  <namedseason number="1">Flood</namedseason>
+  <episodeguide>
+    <url cache="lh-nights.xml">https://example.invalid/lumen/harbor-nights</url>
+  </episodeguide>
+  <fanart>
+    <thumb>assets/harbor-night.png</thumb>
+    <thumb>assets/rain-glass.avif</thumb>
+  </fanart>
+  <thumb aspect="poster">assets/harbor-night.png</thumb>
+  <thumb aspect="banner">assets/quiet-desk.webp</thumb>
+  <extrafanart>
+    <thumb>assets/lantern.jpg</thumb>
+    <thumb>assets/harbor-chart.jpeg</thumb>
+  </extrafanart>
+</tvshow>

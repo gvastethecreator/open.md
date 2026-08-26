@@ -1,2 +1,8 @@
-2026-08-26T12:00:00Z ready
-2026-08-26T12:00:01Z opened sample-app.log
+2026-08-26T21:58:00.000Z INFO  harbor.boot pier daemon 1.4.7 wet-wick cloud=false
+2026-08-26T21:58:00.400Z DEBUG harbor.config loaded station.ini radio.cfg harbor.conf harbor.env
+2026-08-26T21:58:01.100Z INFO  harbor.lamp lantern id=4 fuel=kerosene wick_mm=7 fuel_ml=390 trimmed=true
+2026-08-26T21:58:02.000Z INFO  harbor.census moths=14 named=Ida,Percival,Little Noise,Glass-Eater
+2026-08-26T21:58:03.200Z DEBUG harbor.radio listen 2182 kHz call_sign=LH-00
+2026-08-26T21:58:08.000Z INFO  harbor.watch last watch standing keeper=the unnamed still
+2026-08-26T21:58:21.000Z WARN  harbor.radio voice swallowed; last_heard=number fog_m=41
+2026-08-26T21:58:21.400Z DEBUG harbor.radio retry scheduled retry_seconds=11

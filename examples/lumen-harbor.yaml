@@ -1,0 +1,96 @@
+# Lumen Harbor  ·  watch book
+# YAML companion: comments, nested maps, lists, multiline, anchors.
+
+station: &station
+  name: Lumen Harbor
+  id: LH-00
+  cloud: false
+  tagline: The document is the interface.
+
+generated: 2026-08-26T23:47:00Z
+
+lamp: &lamp
+  id: 4
+  fuel: kerosene
+  wick_mm: 7
+  fuel_ml: 390
+  trimmed: true
+  trimmed_at: 2026-08-26T02:10:00Z
+  still_life: assets/lantern.jpg
+
+weather:
+  fog_m: 62
+  rain: vertical
+  wind_kt: 11
+  wind_from: WSW
+  tide_cm: 184
+  tide_phase: flood
+
+moths:
+  total: 14
+  named:
+    - name: Ida
+      wings: cream, ash speckle
+      vice: patience
+    - name: Percival
+      wings: slightly drunk
+      vice: kerosene halo
+    - name: Little Noise
+      wings: too small
+      vice: existing
+    - name: Glass-Eater
+      wings: photographs poorly
+      vice: glass
+  union: true
+  bookmarks: false
+
+watches:
+  first:
+    <<: *station
+    keeper: Glass-Eater's friend
+    moths: 3
+    fog_m: 18
+    note: >
+      Coffee still steaming.
+      The chair was already empty.
+  middle:
+    <<: *station
+    keeper: the unnamed
+    moths: 9
+    fog_m: 41
+    note: >
+      Fog ate the call sign.
+      Wrote a number on the blotter.
+  last: &last
+    <<: *station
+    keeper: the unnamed still
+    moths: 14
+    fog_m: 62
+    lamp: *lamp
+    letter: night-watch.txt
+    note: |
+      Leave the chair empty.
+      Count the moths twice.
+      Do not post the letter until morning,
+      and morning is late.
+
+standing_orders:
+  - trim lantern #4 before the fog reaches the bollards
+  - log the tide; do not invent centimetres
+  - if the radio coughs, read radio.cfg before answering
+  - Unicode NFO from programs is not Kodi XML and not CP437 scene art
+  - the quiet place is a desk, a window, and one notebook
+
+radio:
+  channel: ch-4
+  call_sign: LH-00
+  frequency_khz: 2182
+  last_heard: number
+  retry_seconds: 11
+
+unicode:
+  coffee: café
+  attempt: naïve
+  city: 東京
+  dash: "—"
+  pi: 3.14159

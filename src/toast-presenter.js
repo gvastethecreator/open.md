@@ -1,11 +1,11 @@
+import { MOTION_EASE_EXIT, MOTION_EASE_OUT, MOTION_FAST_MS, shouldReduceMotion } from './reader-motion.js';
+
 const TOAST_RADIUS = 4;
 const ENTER_DURATION = 160;
 const MORPH_DURATION = 180;
 const OUTGOING_DURATION = 120;
 const INCOMING_DURATION = 160;
 const INCOMING_DELAY = 20;
-const EASE_OUT = 'cubic-bezier(0.2, 0, 0, 1)';
-const EASE_IN = 'cubic-bezier(0.4, 0, 1, 1)';
 
 function ensureToastElement(document, element) {
   const toast = element || document.createElement('div');
@@ -78,7 +78,7 @@ export function createToastPresenter({
   let animations = [];
   let disposed = false;
 
-  const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const reducedMotion = () => shouldReduceMotion(window);
   const canAnimate = () => !reducedMotion()
     && typeof surface.animate === 'function'
     && typeof message.animate === 'function';
@@ -150,11 +150,11 @@ export function createToastPresenter({
         opacity: 1,
         transform: 'translate(-50%, -50%) scale(1)',
       },
-    ], { duration: 140, easing: EASE_OUT });
+    ], { duration: MOTION_FAST_MS, easing: MOTION_EASE_OUT });
     const messageAnimation = animate(message, [
       { opacity: 0, transform: 'translateY(4px)' },
       { opacity: 1, transform: 'translateY(0)' },
-    ], { duration: ENTER_DURATION, easing: EASE_OUT });
+    ], { duration: ENTER_DURATION, easing: MOTION_EASE_OUT });
     runSequence([surfaceAnimation, messageAnimation], finishVisibleMotion);
   };
 
@@ -199,13 +199,13 @@ export function createToastPresenter({
         opacity: 1,
         transform: 'translate(-50%, -50%) scale(1)',
       },
-    ], { duration: MORPH_DURATION, easing: EASE_OUT });
+    ], { duration: MORPH_DURATION, easing: MOTION_EASE_OUT });
     const outgoingAnimation = animate(previousMessage, [
       {
         opacity: outgoingOpacity,
         transform: 'translate(-50%, -50%)',
         offset: 0,
-        easing: EASE_IN,
+        easing: MOTION_EASE_EXIT,
       },
       {
         opacity: 0,
@@ -224,7 +224,7 @@ export function createToastPresenter({
         opacity: 0,
         transform: 'translateY(8px)',
         offset: 0.52,
-        easing: EASE_OUT,
+        easing: MOTION_EASE_OUT,
       },
       { opacity: 1, transform: 'translateY(0)', offset: 1 },
     ], {
@@ -247,11 +247,11 @@ export function createToastPresenter({
     const surfaceAnimation = animate(surface, [
       { opacity: finiteOpacity(surfaceStyle.opacity), transform: surfaceStyle.transform || 'none' },
       { opacity: 1, transform: 'translate(-50%, -50%) scale(1)' },
-    ], { duration: 100, easing: EASE_OUT });
+    ], { duration: 100, easing: MOTION_EASE_OUT });
     const messageAnimation = animate(message, [
       { opacity: finiteOpacity(messageStyle.opacity), transform: messageStyle.transform || 'none' },
       { opacity: 1, transform: 'translateY(0)' },
-    ], { duration: 120, easing: EASE_OUT });
+    ], { duration: 120, easing: MOTION_EASE_OUT });
     runSequence([surfaceAnimation, messageAnimation], finishVisibleMotion);
   };
 
@@ -275,11 +275,11 @@ export function createToastPresenter({
     const surfaceAnimation = animate(surface, [
       { opacity: finiteOpacity(surfaceStyle.opacity), transform: surfaceStyle.transform || 'none' },
       { opacity: 0, transform: 'translate(-50%, calc(-50% - 2px)) scale(0.99)' },
-    ], { duration: exitDuration, easing: EASE_IN });
+    ], { duration: exitDuration, easing: MOTION_EASE_EXIT });
     const messageAnimation = animate(message, [
       { opacity: finiteOpacity(messageStyle.opacity), transform: messageStyle.transform || 'none' },
       { opacity: 0, transform: 'translateY(-4px)' },
-    ], { duration: Math.min(exitDuration, OUTGOING_DURATION), easing: EASE_IN });
+    ], { duration: Math.min(exitDuration, OUTGOING_DURATION), easing: MOTION_EASE_EXIT });
     runSequence([surfaceAnimation, messageAnimation], () => {
       toast.classList.remove('show', 'is-leaving', 'is-animating');
       clearPrevious();

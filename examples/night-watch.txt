@@ -1,0 +1,73 @@
+LUMEN HARBOR  ·  night letter  ·  last watch
+26 August 2026, 23:47  ·  fog 62 m  ·  tide flood 184 cm  ·  lamp #4 trimmed
+
+This is a plain-text companion. It has no headings the reader can promote
+into an outline. It has no fences for the highlighter. It has sentences,
+which is what .txt is for.
+
+I meant to post this in the morning. The morning did not come in on time.
+The radio swallowed its own call sign around 22:10 and gave me a number
+instead of a voice. I wrote the number on the blotter and then the rain
+erased the last digit, which I am choosing to treat as a kindness.
+
+The chair by the glass is empty. It has been empty the entire watch. I
+checked twice because the reflection is a good liar. If you are reading
+this from a later desk, do not sit down in the window. Sit at the wood.
+
+Ida is on the spine of the blue book again. Percival is drunk on the
+kerosene halo and will deny it. Little Noise is a smudge with opinions.
+Glass-Eater does not photograph. I counted fourteen moths and then I
+counted them again because the fog makes a census feel like guesswork.
+
+I trimmed the wick to 7 mm at 02:10 of the previous cycle and it has held.
+Fuel is 390 ml. If you are the first watch, do not "improve" the flame.
+The bored lantern is still a lantern.
+
+Things the station is not:
+    a cloud
+    a product tour
+    a place that wants your account
+    a grave, even when the radio goes quiet
+
+Things the station is:
+    a desk that learned to float
+    a file on disk
+    a habit of keeping minutes the tide will not keep
+
+Unicode belongs in a letter: café cooling on the sill, a naïve attempt to
+sleep sitting up, a note I once started in 東京 and never finished, an em
+dash — like this — where a comma would have been more honest.
+
+If you open the other files, they will pretend to be systems. JSON will
+count moths as if moths were integers. YAML will indent the watches.
+CSV will put salt in columns. The Kodi .nfo will claim this night was a
+film. The Windows .nfo will claim the pier was a computer. The Unicode
+program .nfo will put a box around the installer joke. Believe the rain
+first.
+
+I am leaving the unfinished tasks unfinished. Someone has to.
+
+— the unnamed keeper
+  last watch
+  Lumen Harbor
+
+Postscript. The cyanotype in the chart locker still says north is a
+rumour we agreed to keep. I agree again, in writing, so the rumour has
+a witness.
+
+Postscript 2. If this file wraps, the line length was a choice. Seventy
+columns is a courtesy, not a vow. The NFO grid is stricter. This letter
+is allowed to breathe.
+
+Postscript 3. Inventory of the blotter at close of watch:
+
+    1 brass lantern, lit
+    1 enamel mug, coffee gone
+    1 pair of dividers, brass, slightly stained
+    4 moths named, 10 moths anonymous
+    14 unread letters including this one
+    1 notebook that is also a test document
+    0 cloud sessions
+    0 people in the glass
+
+That is the whole of it. Good morning, if morning comes.

@@ -1,7 +1,10 @@
+import { MOTION_EASE_OUT, MOTION_FAST_MS, shouldReduceMotion } from './reader-motion.js';
+
 const DEFAULT_PADDING = 24;
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 32;
 const ZOOM_SENSITIVITY = 0.0015;
+const ZOOM_TRANSITION = `transform ${MOTION_FAST_MS}ms ${MOTION_EASE_OUT}`;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -10,7 +13,7 @@ function clamp(value, min, max) {
 /**
  * Lightweight pan/zoom surface for a standalone image document.
  * Default view is centered and fit-to-window with padding (no upscale past 1×).
- * Zoom transitions ease unless prefers-reduced-motion or animateZoom is false.
+ * Zoom transitions ease unless reduced motion is on or animateZoom is false.
  */
 export function createImageDocumentViewer({
   window,
@@ -27,19 +30,14 @@ export function createImageDocumentViewer({
   }
 
   const { document } = window;
-  const reducedMotion = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
-  const motionEnabled = Boolean(animateZoom) && !reducedMotion;
+  const motionEnabled = () => Boolean(animateZoom) && !shouldReduceMotion(window);
   const img = document.createElement('img');
   img.className = 'image-document__img';
   img.alt = typeof alt === 'string' ? alt : '';
   img.draggable = false;
   img.decoding = 'async';
   img.src = imageUrl;
-  if (motionEnabled) {
-    img.style.transition = 'transform 160ms ease-out';
-  } else {
-    img.style.transition = 'none';
-  }
+  img.style.transition = motionEnabled() ? ZOOM_TRANSITION : 'none';
 
   root.classList.add('image-document');
   root.replaceChildren(img);
@@ -64,10 +62,10 @@ export function createImageDocumentViewer({
   };
 
   const applyTransform = ({ animate = false } = {}) => {
-    if (!motionEnabled || !animate) {
+    if (!motionEnabled() || !animate) {
       img.style.transition = 'none';
     } else {
-      img.style.transition = 'transform 160ms ease-out';
+      img.style.transition = ZOOM_TRANSITION;
     }
     img.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
   };
@@ -129,10 +127,10 @@ export function createImageDocumentViewer({
     img.style.transition = 'none';
     const factor = Math.exp(-event.deltaY * ZOOM_SENSITIVITY);
     zoomAt(event.clientX, event.clientY, scale * factor, { animate: false });
-    if (motionEnabled) {
+    if (motionEnabled()) {
       wheelBurstTimer = window.setTimeout(() => {
         wheelBurstTimer = null;
-        if (!disposed) img.style.transition = 'transform 160ms ease-out';
+        if (!disposed) img.style.transition = ZOOM_TRANSITION;
       }, 80);
     }
   };
@@ -250,8 +248,8 @@ export function createImageDocumentViewer({
       fitScale,
       imageUrl,
     }),
-    prefersReducedMotion: () => reducedMotion,
-    motionEnabled: () => motionEnabled,
+    prefersReducedMotion: () => shouldReduceMotion(window),
+    motionEnabled,
     dispose() {
       if (disposed) return;
       disposed = true;

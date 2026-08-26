@@ -1,5 +1,6 @@
 import { JSDOM } from 'jsdom';
 import { describe, expect, it, vi } from 'vitest';
+import { APP_REDUCE_MOTION_CLASS } from './reader-motion.js';
 import { createToastPresenter } from './toast-presenter.js';
 
 function fixture({ animate = true, reduced = false } = {}) {
@@ -137,6 +138,18 @@ describe('Toast Presenter', () => {
     reducedPresenter.show('Two');
     expect(reduced.animations).toHaveLength(0);
     expect(liveMessage(reduced.toast).textContent).toBe('Two');
+
+    const appReduced = fixture();
+    appReduced.dom.window.document.body.classList.add(APP_REDUCE_MOTION_CLASS);
+    const appReducedPresenter = createToastPresenter({
+      window: appReduced.dom.window,
+      document: appReduced.dom.window.document,
+      element: appReduced.toast,
+    });
+    appReducedPresenter.show('One');
+    appReducedPresenter.show('Two');
+    expect(appReduced.animations).toHaveLength(0);
+    expect(liveMessage(appReduced.toast).textContent).toBe('Two');
 
     const fallback = fixture({ animate: false });
     const fallbackPresenter = createToastPresenter({ window: fallback.dom.window, document: fallback.dom.window.document, element: fallback.toast });

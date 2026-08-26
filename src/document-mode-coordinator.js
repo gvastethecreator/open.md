@@ -1,3 +1,5 @@
+import { shouldReduceMotion } from './reader-motion.js';
+
 export function getDocumentModePresentation(mode) {
   const normalizedMode = MODES.has(mode) ? mode : 'read';
   const sourceActive = normalizedMode === 'source' || normalizedMode === 'source-edit';
@@ -143,7 +145,7 @@ export function createDocumentModeCoordinator({
     cancelTransition();
     hooks.cancelCompetingTransition?.();
     const initialMode = current();
-    const reduced = Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+    const reduced = shouldReduceMotion(window);
     if (reduced) return update();
 
     const generation = ++morphGeneration;

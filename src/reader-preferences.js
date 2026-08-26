@@ -66,14 +66,16 @@ export function normalizeAdvancedPreferences(value) {
   });
 }
 
-/** True when the OS requests reduced motion or the app preference forces it. */
+/** Projected on `document.body` when Advanced → Reduce motion is on. */
+export const APP_REDUCE_MOTION_CLASS = 'is-app-reduce-motion';
+
+/** True for OS `prefers-reduced-motion`, the app toggle, or its body class. */
 export function shouldReduceMotion(windowLike, advanced = null) {
   if (advanced?.reduceMotion) return true;
   try {
-    return Boolean(windowLike?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
-  } catch {
-    return false;
-  }
+    if (windowLike?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return true;
+  } catch { /* matchMedia can throw */ }
+  return Boolean(windowLike?.document?.body?.classList?.contains(APP_REDUCE_MOTION_CLASS));
 }
 
 function freezeSnapshot(value) {

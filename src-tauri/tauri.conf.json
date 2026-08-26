@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "identifier": "com.gvastethecreator.openmd",
   "build": {
-    "beforeDevCommand": "pnpm run dev",
+    "beforeDevCommand": "pnpm exec vite",
     "beforeBuildCommand": "pnpm run build",
-    "devUrl": "http://127.0.0.1:5173",
+    "devUrl": "http://127.0.0.1:33223",
     "frontendDist": "../dist"
   },
   "app": {

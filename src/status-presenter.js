@@ -4,11 +4,8 @@ import {
   getStatusProfile,
   resolveFormatId,
 } from './format-registry.js';
+import { MOTION_EASE_OUT, shouldReduceMotion } from './reader-motion.js';
 import { getFormatStatusMetrics, getZoomStatusMetric } from './status-metrics.js';
-
-function prefersReducedMotion(window) {
-  return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
-}
 
 function metricNodes(metrics) {
   return [...(metrics?.querySelectorAll?.('.status-metric') || [])];
@@ -112,7 +109,7 @@ export function createStatusPresenter({ window, document, elements = {} }) {
         value.textContent = visible;
         if (
           changed
-          && !prefersReducedMotion(window)
+          && !shouldReduceMotion(window)
           && typeof value.animate === 'function'
         ) {
           value.getAnimations?.().forEach((animation) => animation.cancel());
@@ -121,7 +118,7 @@ export function createStatusPresenter({ window, document, elements = {} }) {
             { opacity: 1, transform: 'translateY(0)' },
           ], {
             duration: 160,
-            easing: 'cubic-bezier(0.2, 0, 0, 1)',
+            easing: MOTION_EASE_OUT,
           });
           animations.add(animation);
           animation.finished?.finally(() => animations.delete(animation));

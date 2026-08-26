@@ -18,6 +18,9 @@ stable release is cut.
 
 - Full-document NFO and log Read no longer grow a Copy code overlay.
 - Native save rejects scene `.nfo` and `.log` files so UTF-8 cannot overwrite them.
+- Advanced **Reduce motion** now also stops JS/WAAPI chrome motion (toasts,
+  tooltips, menus, theme wipe, block FLIP, status zoom), not only CSS and
+  Classic trail/band.
 
 ### Changed
 

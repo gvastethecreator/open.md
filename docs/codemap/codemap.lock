@@ -1,20 +1,22 @@
 {
-  "source_commit": "dc5ecd7cccecbc7e63649b10469caf6306a5654d",
+  "source_commit": "15cec47613d5b6ba120dc0e511f13a74c4b20f43",
   "working_tree_dirty": true,
-  "generated_at": "2026-08-15T09:31:34Z",
+  "generated_at": "2026-08-26T12:00:00Z",
   "scanned_scope": [
     "."
   ],
   "excluded_directories": [
+    ".agents",
     ".cache",
     ".git",
     ".hg",
     ".next",
     ".nuxt",
-    ".scratch",
+    ".obsidian",
     ".svn",
     ".turbo",
     ".venv",
+    ".vscode",
     "__pycache__",
     "build",
     "coverage",
@@ -27,55 +29,49 @@
     "vendor",
     "venv"
   ],
-  "fingerprint_algorithm": "sha256-path-content-v1",
+  "fingerprint_algorithm": "sha256-path-content-v2",
   "modules": [
     {
       "id": ".",
       "path": ".",
-      "file_count": 15,
-      "fingerprint": "59392b3fea307028cdba1d1a0d60d334e25ef9b7b53033c0d7720ea589951c3b"
+      "file_count": 16,
+      "fingerprint": "ff61db1dce8e5c77eb2be4a551dbe782d283757b8b7df1c79ea6fa9b40f36433"
     },
     {
       "id": ".github",
       "path": ".github",
-      "file_count": 6,
-      "fingerprint": "6bf47a3f514323c4b178d8b555529ebbc293317596b5ffd74ee2c9a1b5cc7808"
-    },
-    {
-      "id": ".vscode",
-      "path": ".vscode",
-      "file_count": 2,
-      "fingerprint": "3466415cfde4d0534bf46733300001e55c123ca9ae6bdf2113ef7220ccf00e5e"
+      "file_count": 7,
+      "fingerprint": "5a731f8a099e48cca29737011c2dc68be1c2f75f0c42e5f0fa2fca29e1b9888b"
     },
     {
       "id": "docs",
       "path": "docs",
-      "file_count": 28,
-      "fingerprint": "3212b5d52f0490f78f349a54f28ca615ec35d2cf46aee32301be411d49447f87"
+      "file_count": 30,
+      "fingerprint": "85450e02ed57b04395cf1d1fef959e00b05818dbe9753f4456ad4eb262335f99"
     },
     {
       "id": "examples",
       "path": "examples",
       "file_count": 6,
-      "fingerprint": "5513f4ff4db6ba6163c5a2572c17a709105f51dbed36385f82601056d0f568fc"
+      "fingerprint": "4877faefdc11ca682880a6e7c124b7691b47bfee723ca201d9cc0ee3708f054d"
     },
     {
       "id": "scripts",
       "path": "scripts",
       "file_count": 4,
-      "fingerprint": "1001c001d81af4419e03c5c8b24ca147093772b61546501b84d574725ca114fe"
+      "fingerprint": "70ce37738c7f128344c97bc3300f1e99d4a8e3add1c6fcdb5cadf0d720ccf150"
     },
     {
       "id": "src",
       "path": "src",
       "file_count": 110,
-      "fingerprint": "3c0acb28ec4bc7235d6d906bdc558151f4c073bb18c138993cc8b42587b6f0e6"
+      "fingerprint": "e370e1ea8d413c0f9439b591d4e4c6a14c0a37c420bebd3c4495506503b1c6ff"
     },
     {
       "id": "src-tauri",
       "path": "src-tauri",
       "file_count": 65,
-      "fingerprint": "75fc38f9ba69d305857f6091bb972cef7f15c92e2eee387eead0d67c02d6cc50"
+      "fingerprint": "909a09d92c73d86993fad71781e7e329ccabcaf1010d0f34be0daf3062aa7543"
     }
   ]
 }
