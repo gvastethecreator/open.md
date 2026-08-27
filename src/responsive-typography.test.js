@@ -96,4 +96,147 @@ describe('responsive typography', () => {
     root.remove();
     vi.doUnmock('@chenglou/pretext');
   });
+
+  it('refits every heading when ResizeObserver fires with entries', async () => {
+    vi.resetModules();
+    vi.doMock('@chenglou/pretext', () => ({
+      prepare: () => ({}),
+      layout: () => ({ lineCount: 1 }),
+    }));
+    const { createResponsiveTypography: createTypography } = await import('./responsive-typography.js');
+    const root = document.createElement('div');
+    root.innerHTML = '<div class="markdown-body"><h1 id="keep">Keep</h1><h1 id="edit">Edit</h1></div>';
+    document.body.append(root);
+    const keep = root.querySelector('#keep');
+    const edit = root.querySelector('#edit');
+    [keep, edit].forEach((heading) => {
+      Object.defineProperty(heading, 'clientWidth', { configurable: true, value: 320 });
+    });
+    window.getComputedStyle = () => ({
+      fontSize: '32px',
+      lineHeight: '40px',
+      fontStyle: 'normal',
+      fontVariant: 'normal',
+      fontWeight: '600',
+      fontFamily: 'Inter',
+      whiteSpace: 'normal',
+      wordBreak: 'normal',
+      letterSpacing: '0',
+    });
+    window.matchMedia = () => ({ matches: false });
+    const frames = [];
+    window.requestAnimationFrame = (callback) => {
+      frames.push(callback);
+      return frames.length;
+    };
+    window.cancelAnimationFrame = () => {};
+    const observers = [];
+    const OriginalResizeObserver = window.ResizeObserver;
+    window.ResizeObserver = class {
+      constructor(callback) {
+        this.callback = callback;
+        observers.push(this);
+      }
+
+      observe() {}
+
+      disconnect() {}
+    };
+
+    const typography = createTypography({ window, root: document });
+    let ready = false;
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      ready = typography.refresh();
+      if (ready) break;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      while (frames.length > 0) frames.shift()(16);
+    }
+    expect(ready).toBe(true);
+    expect(observers.length).toBeGreaterThan(0);
+
+    keep.style.setProperty('--pretext-font-size', '32px');
+    edit.style.setProperty('--pretext-font-size', '32px');
+    keep.dataset.pretextFitted = 'sentinel';
+    edit.dataset.pretextFitted = 'sentinel';
+    observers[0].callback(
+      [{ target: root.querySelector('.markdown-body') }],
+      observers[0],
+    );
+    while (frames.length > 0) frames.shift()(16);
+
+    expect(keep.dataset.pretextFitted).not.toBe('sentinel');
+    expect(edit.dataset.pretextFitted).not.toBe('sentinel');
+    typography.dispose();
+    root.remove();
+    window.ResizeObserver = OriginalResizeObserver;
+    vi.doUnmock('@chenglou/pretext');
+  });
+
+  it('refits every heading when fonts.ready resolves with a FontFaceSet', async () => {
+    vi.resetModules();
+    vi.doMock('@chenglou/pretext', () => ({
+      prepare: () => ({}),
+      layout: () => ({ lineCount: 1 }),
+    }));
+    const { createResponsiveTypography: createTypography } = await import('./responsive-typography.js');
+    const root = document.createElement('div');
+    root.innerHTML = '<div class="markdown-body"><h1 id="keep">Keep</h1></div>';
+    document.body.append(root);
+    const keep = root.querySelector('#keep');
+    Object.defineProperty(keep, 'clientWidth', { configurable: true, value: 320 });
+    window.getComputedStyle = () => ({
+      fontSize: '32px',
+      lineHeight: '40px',
+      fontStyle: 'normal',
+      fontVariant: 'normal',
+      fontWeight: '600',
+      fontFamily: 'Inter',
+      whiteSpace: 'normal',
+      wordBreak: 'normal',
+      letterSpacing: '0',
+    });
+    window.matchMedia = () => ({ matches: false });
+    const frames = [];
+    window.requestAnimationFrame = (callback) => {
+      frames.push(callback);
+      return frames.length;
+    };
+    window.cancelAnimationFrame = () => {};
+    let resolveFonts;
+    const fontsReady = new Promise((resolve) => {
+      resolveFonts = resolve;
+    });
+    Object.defineProperty(document, 'fonts', {
+      configurable: true,
+      value: { ready: fontsReady },
+    });
+
+    const typography = createTypography({ window, root: document });
+    let ready = false;
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      ready = typography.refresh();
+      if (ready) break;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      while (frames.length > 0) frames.shift()(16);
+    }
+    expect(ready).toBe(true);
+
+    keep.style.setProperty('--pretext-font-size', '32px');
+    keep.dataset.pretextFitted = 'sentinel';
+    const fontFaceSet = {
+      forEach(callback) {
+        callback({ family: 'Inter' });
+      },
+    };
+    resolveFonts(fontFaceSet);
+    await fontsReady;
+    await Promise.resolve();
+    while (frames.length > 0) frames.shift()(16);
+
+    expect(keep.dataset.pretextFitted).not.toBe('sentinel');
+    typography.dispose();
+    root.remove();
+    delete document.fonts;
+    vi.doUnmock('@chenglou/pretext');
+  });
 });

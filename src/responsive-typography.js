@@ -198,10 +198,13 @@ export function createResponsiveTypography({ window, root = window.document, onD
 
   const schedule = (dirty) => {
     if (disposed) return;
-    if (dirty == null) pendingDirty = null;
-    else if (pendingDirty !== null) {
-      if (!(pendingDirty instanceof Set)) pendingDirty = new Set();
-      dirty.forEach((element) => pendingDirty.add(element));
+    if (dirty instanceof Set) {
+      if (pendingDirty !== null) {
+        if (!(pendingDirty instanceof Set)) pendingDirty = new Set();
+        dirty.forEach((element) => pendingDirty.add(element));
+      }
+    } else {
+      pendingDirty = null;
     }
     if (frameId !== null) return;
     frameId = window.requestAnimationFrame(() => {
@@ -228,11 +231,11 @@ export function createResponsiveTypography({ window, root = window.document, onD
   }
 
   const resizeObserver = typeof window.ResizeObserver === 'function'
-    ? new window.ResizeObserver(schedule)
+    ? new window.ResizeObserver(() => schedule())
     : null;
   root.querySelectorAll('.markdown-body, .editor-canvas').forEach((element) => resizeObserver?.observe(element));
 
-  window.document.fonts?.ready?.then(schedule).catch(() => undefined);
+  window.document.fonts?.ready?.then(() => schedule()).catch(() => undefined);
   schedule();
 
   return Object.freeze({
