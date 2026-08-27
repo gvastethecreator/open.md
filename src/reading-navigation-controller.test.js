@@ -107,6 +107,16 @@ describe('Reading Navigation Controller', () => {
     expect(view.controller.activeView()).toBe(view.elements.readView);
     expect(view.elements.minimapDocument.textContent).toContain('Read copy');
     expect(view.elements.lineGutter.textContent).toContain('1');
+    const mermaid = view.document.createElement('div');
+    mermaid.className = 'mermaid';
+    const svg = view.document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'openmd-mermaid-svg');
+    mermaid.appendChild(svg);
+    view.elements.readView.appendChild(mermaid);
+    view.controller.markDirty();
+    view.controller.refresh();
+    expect(view.elements.minimapDocument.querySelector('svg')).toBeNull();
+    expect(view.elements.minimapDocument.querySelector('.minimap-diagram-placeholder')).not.toBeNull();
 
     view.setMode('source');
     view.elements.readerPage.scrollTop = 20;

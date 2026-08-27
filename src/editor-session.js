@@ -262,20 +262,14 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     root.hidden = false;
     root.removeAttribute('inert');
     notify();
-    queueMicrotask(() => {
-      classicSurface?.render?.({ source: source(), focusLine: 0, caret: 0 });
-      canvas.focus({ preventScroll: true });
-    });
+    canvas.focus({ preventScroll: true });
     return true;
   };
 
   const exit = ({ force = false } = {}) => {
     if (mode !== 'edit') return true;
     flushJsonProps();
-    if (dirty() && !force) {
-      const discard = window.confirm('Discard unsaved changes and return to reading?');
-      if (!discard) return false;
-    }
+    if (dirty() && !force) return false;
     if (classicSurface?.isMounted?.()) classicSurface.unmount();
     disposeJsonPropertyEditor();
     mode = 'read';
@@ -432,10 +426,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
 
   const canChangeDocument = () => {
     flushJsonProps();
-    if (!dirty()) return true;
-    const discard = window.confirm('Discard unsaved changes?');
-    if (discard) exit({ force: true });
-    return discard;
+    return !dirty();
   };
 
   const resolveReduceMotion = () => shouldReduceMotion(

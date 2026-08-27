@@ -16,6 +16,15 @@ describe('format readers', () => {
     expect(result.warning).toBeNull();
   });
 
+  it('caps large JSON trees like CSV row caps', () => {
+    const keys = Object.fromEntries(Array.from({ length: 50 }, (_, index) => [`k${index}`, index]));
+    const result = renderJsonRead(JSON.stringify(keys), { nodeCap: 8 });
+    expect(result.mode).toBe('rich');
+    expect(result.truncated).toBe(true);
+    expect(result.warning).toMatch(/first 8/i);
+    expect(result.html).toContain('json-truncated');
+  });
+
   it('degrades invalid JSON to plain with warning (F6)', () => {
     const result = renderJsonRead('{not valid');
     expect(result.mode).toBe('plain');

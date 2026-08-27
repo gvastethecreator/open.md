@@ -34,6 +34,7 @@ export function createReadingNavigationController({
   let disposed = false;
   let morphLocked = false;
   let morphOrigins = null;
+  let lineAnchorCache = null;
   const morphAnimations = new Set();
 
   const requestFrame = (callback) => (
@@ -63,6 +64,13 @@ export function createReadingNavigationController({
 
   const getRenderedLineAnchors = () => {
     if (!elements.documentStage) return [];
+    const scrollTop = activeScroller()?.scrollTop || 0;
+    if (lineAnchorCache) {
+      return lineAnchorCache.map((anchor) => ({
+        ...anchor,
+        top: anchor.documentTop - scrollTop,
+      }));
+    }
     const stageTop = elements.documentStage.getBoundingClientRect().top;
     const seenLines = new Set();
     let anchors = [];
@@ -133,13 +141,22 @@ export function createReadingNavigationController({
         });
     }
 
-    return anchors
+    const next = anchors
       .filter((anchor) => {
         if (!Number.isFinite(anchor.line) || anchor.line < 1 || seenLines.has(anchor.line)) return false;
         seenLines.add(anchor.line);
         return true;
       })
-      .sort((left, right) => left.top - right.top);
+      .sort((left, right) => left.top - right.top)
+      .map((anchor) => ({
+        ...anchor,
+        documentTop: anchor.top + scrollTop,
+      }));
+    lineAnchorCache = next;
+    return next.map((anchor) => ({
+      ...anchor,
+      top: anchor.documentTop - scrollTop,
+    }));
   };
 
   const lineTransitionName = (line) => `openmd-ln-${line}`;
@@ -414,6 +431,15 @@ export function createReadingNavigationController({
     clone.setAttribute('inert', '');
     clone.classList.remove('hidden');
     clone.querySelectorAll('.copy-code-btn').forEach((button) => button.remove());
+    clone.querySelectorAll('.mermaid svg, .openmd-mermaid-svg').forEach((svg) => {
+      const placeholder = clone.ownerDocument.createElement('span');
+      placeholder.className = 'minimap-diagram-placeholder';
+      placeholder.setAttribute('aria-hidden', 'true');
+      const width = Math.max(24, Math.round(svg.clientWidth || svg.getBoundingClientRect?.().width || 48));
+      const height = Math.max(12, Math.round(svg.clientHeight || svg.getBoundingClientRect?.().height || 24));
+      placeholder.style.cssText = `display:block;width:${width}px;height:${height}px`;
+      svg.replaceWith(placeholder);
+    });
     const descendants = [clone, ...clone.querySelectorAll('*')];
     const idMap = new Map();
     const prefix = `openmd-minimap-${++minimapCloneRevision}-`;
@@ -507,6 +533,7 @@ export function createReadingNavigationController({
   const refresh = ({ force = false } = {}) => {
     if (disposed || !adapters.getDocument?.() || !elements.readerPage || adapters.isHelpVisible?.()) return;
     if (morphLocked && !force) return;
+    if (force) lineAnchorCache = null;
     const nextProgress = getReadingProgress(
       elements.readerPage.scrollTop,
       elements.readerPage.scrollHeight,
@@ -535,6 +562,7 @@ export function createReadingNavigationController({
 
   const markDirty = ({ queue = true } = {}) => {
     minimapDirty = true;
+    lineAnchorCache = null;
     if (queue) queueUpdate();
   };
 

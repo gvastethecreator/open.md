@@ -12,7 +12,7 @@ const DESCRIPTORS = Object.freeze({
     id: 'markdown',
     family: 'markdown',
     modes: Object.freeze(['read', 'edit', 'source']),
-    editorKind: 'blocks',
+    editorKind: 'classic',
     readRenderer: 'markdown',
     highlightLanguage: 'markdown',
     productSurface: 'associated',

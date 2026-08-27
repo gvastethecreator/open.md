@@ -26,7 +26,6 @@ tauri-plugin-opener = "2.5.4"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 pulldown-cmark = "0.13.4"
-syntect = { version = "5.3.0", default-features = false, features = ["default-syntaxes", "default-themes", "html", "regex-onig"] }
 html-escape = "0.2.15"
 tauri-plugin-single-instance = "2.4.3"
 tauri-plugin-dialog = "2.7.2"

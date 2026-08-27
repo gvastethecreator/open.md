@@ -4,6 +4,7 @@
  */
 
 export const DEFAULT_CSV_ROW_CAP = 500;
+export const DEFAULT_JSON_NODE_CAP = 2000;
 
 function escapeHtml(value) {
   return String(value)
@@ -29,7 +30,12 @@ function wrapRich(inner, { format, warning = null } = {}) {
   return `${head}<div class="format-read format-read--${escapeHtml(format || 'text')}" data-format-read="${escapeHtml(format || 'text')}">${inner}</div>`;
 }
 
-function renderJsonNode(value, depth = 0) {
+function renderJsonNode(value, depth, state) {
+  state.count += 1;
+  if (state.count > state.nodeCap) {
+    state.truncated = true;
+    return '<span class="json-truncated">…</span>';
+  }
   if (value === null) return '<span class="json-null">null</span>';
   if (typeof value === 'boolean') return `<span class="json-bool">${value}</span>`;
   if (typeof value === 'number') return `<span class="json-number">${escapeHtml(String(value))}</span>`;
@@ -38,7 +44,7 @@ function renderJsonNode(value, depth = 0) {
   if (Array.isArray(value)) {
     if (value.length === 0) return '<span class="json-array">[]</span>';
     const items = value.map((item, index) => (
-      `<li class="json-item"><span class="json-index">${index}</span>${renderJsonNode(item, depth + 1)}</li>`
+      `<li class="json-item"><span class="json-index">${index}</span>${renderJsonNode(item, depth + 1, state)}</li>`
     )).join('');
     return `<details class="json-collapsible" ${depth < 2 ? 'open' : ''}><summary>Array (${value.length})</summary><ul class="json-array">${items}</ul></details>`;
   }
@@ -47,7 +53,7 @@ function renderJsonNode(value, depth = 0) {
     const keys = Object.keys(value);
     if (keys.length === 0) return '<span class="json-object">{}</span>';
     const items = keys.map((key) => (
-      `<li class="json-item"><span class="json-key">${escapeHtml(key)}</span>${renderJsonNode(value[key], depth + 1)}</li>`
+      `<li class="json-item"><span class="json-key">${escapeHtml(key)}</span>${renderJsonNode(value[key], depth + 1, state)}</li>`
     )).join('');
     return `<details class="json-collapsible" ${depth < 2 ? 'open' : ''}><summary>Object (${keys.length})</summary><ul class="json-object">${items}</ul></details>`;
   }
@@ -58,15 +64,21 @@ function renderJsonNode(value, depth = 0) {
 /**
  * @returns {{ html: string, warning: string | null, mode: 'rich' | 'plain' }}
  */
-export function renderJsonRead(source) {
+export function renderJsonRead(source, { nodeCap = DEFAULT_JSON_NODE_CAP } = {}) {
   const text = typeof source === 'string' ? source : '';
+  const cap = Math.max(1, Math.floor(Number(nodeCap) || DEFAULT_JSON_NODE_CAP));
   try {
     const value = JSON.parse(text);
-    const tree = renderJsonNode(value);
+    const state = { count: 0, nodeCap: cap, truncated: false };
+    const tree = renderJsonNode(value, 0, state);
+    const warning = state.truncated
+      ? `Showing the first ${cap} JSON values.`
+      : null;
     return {
-      html: wrapRich(tree, { format: 'json' }),
-      warning: null,
+      html: wrapRich(tree, { format: 'json', warning }),
+      warning,
       mode: 'rich',
+      truncated: state.truncated,
     };
   } catch {
     const warning = 'Invalid JSON — showing plain text. Edit mode can still fix the source.';
@@ -232,7 +244,7 @@ export function renderStructuredTextRead(source, { format = 'ini' } = {}) {
 export function buildCompanionReadHtml(source, format, options = {}) {
   switch (format) {
     case 'json':
-      return renderJsonRead(source);
+      return renderJsonRead(source, options);
     case 'csv':
       return renderCsvRead(source, options);
     case 'yaml':

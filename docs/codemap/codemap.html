@@ -401,8 +401,6 @@
     .node .node-path { fill: rgba(255, 255, 255, .88); font: 15px/1.2 var(--sans); }
     .node.dim { opacity: .14; }
 
-    .overflow-list { margin: 0; padding: 0; list-style: none; }
-    .overflow-list li { margin: 0 0 6px; color: var(--muted); font: 11px/1.4 var(--mono); overflow-wrap: anywhere; }
     .empty { color: var(--muted); }
     .detail-title { margin: 0 0 2px; font: 600 16px/1.25 var(--mono); letter-spacing: 0; overflow-wrap: anywhere; }
     .detail-path { margin: 0 0 12px; color: var(--muted); font: 11px/1.4 var(--mono); overflow-wrap: anywhere; }
@@ -530,10 +528,6 @@
         <h2 class="section-title">Saved paths</h2>
         <div id="flow-list"></div>
       </div>
-      <div class="section">
-        <h2 class="section-title">Off graph</h2>
-        <div id="overflow-list"></div>
-      </div>
     </aside>
     <section class="map-shell" aria-label="Code map canvas">
       <div class="map-head">
@@ -614,16 +608,12 @@
       <p class="empty">Select a module to read callers, callees, and tests.</p>
     </aside>
   </main>
-  <script id="codemap-data" type="application/json">{"generated_at":"2026-08-26T14:00:00Z","generated_from_commit":"e884b4a667d812fdf81f7c95902a848f4b76ae7f","scope":["."],"nodes":[{"id":"external-dependencies","path":"src-tauri/src/app_settings.rs","type":"external","boundary":"External","entrypoints":["src-tauri/src/app_settings.rs:serde"],"tests":[],"callers":[{"id":"src","type":"imports"},{"id":"src-tauri-src","type":"imports"},{"id":"vite-config","type":"imports"}],"callees":[],"evidence":{"status":"verified","locations":[{"path":"src-tauri/src/app_settings.rs","symbol":"serde","line":1}]}},{"id":"repository","path":"package.json","type":"module","boundary":"Repository","entrypoints":["package.json:name"],"tests":[],"callers":[],"callees":[{"id":"scripts","type":"calls"},{"id":"scripts-store","type":"calls"},{"id":"src","type":"calls"}],"evidence":{"status":"verified","locations":[{"path":"package.json","symbol":"name","line":2}]}},{"id":"scripts","path":"scripts","type":"service","boundary":"Scripts","entrypoints":["scripts/check-bundle.mjs:listFiles"],"tests":["src/free-port.test.js"],"callers":[{"id":"repository","type":"calls"},{"id":"src","type":"imports"},{"id":"vite-config","type":"imports"}],"callees":[],"evidence":{"status":"verified","locations":[{"path":"scripts/check-bundle.mjs","symbol":"listFiles","line":14}]}},{"id":"scripts-store","path":"scripts/store","type":"database","boundary":"Scripts","entrypoints":["scripts/store/Build-StoreInstaller.ps1:Invoke"],"tests":[],"callers":[{"id":"repository","type":"calls"}],"callees":[],"evidence":{"status":"verified","locations":[{"path":"scripts/store/Build-StoreInstaller.ps1","symbol":"Invoke","line":44}]}},{"id":"src","path":"src","type":"module","boundary":"Src","entrypoints":["src/main.js:cacheElements"],"tests":["src/app-loading-screen.test.js","src/application-composition.test.js","src/application-lifecycle.test.js","src/application-runtime-adapters.test.js","src/context-menu-controller.test.js"],"callers":[{"id":"repository","type":"calls"},{"id":"src-core","type":"imports"}],"callees":[{"id":"external-dependencies","type":"imports"},{"id":"scripts","type":"imports"},{"id":"src-core","type":"imports"}],"evidence":{"status":"verified","locations":[{"path":"src/main.js","symbol":"cacheElements","line":115}]}},{"id":"src-core","path":"src/core","type":"service","boundary":"Src","entrypoints":["src/core/reader.js:isSupportedFilePath"],"tests":["src/main.test.js"],"callers":[{"id":"src","type":"imports"}],"callees":[{"id":"src","type":"imports"}],"evidence":{"status":"verified","locations":[{"path":"src/core/reader.js","symbol":"isSupportedFilePath","line":66}]}},{"id":"src-tauri","path":"src-tauri","type":"module","boundary":"Src Tauri","entrypoints":["src-tauri/Cargo.toml:package"],"tests":[],"callers":[],"callees":[],"evidence":{"status":"verified","locations":[{"path":"src-tauri/Cargo.toml","symbol":"package","line":1}]}},{"id":"src-tauri-src","path":"src-tauri/src","type":"module","boundary":"Src Tauri","entrypoints":["src-tauri/src/lib.rs:get_file_content"],"tests":[],"callers":[],"callees":[{"id":"external-dependencies","type":"imports"}],"evidence":{"status":"verified","locations":[{"path":"src-tauri/src/lib.rs","symbol":"get_file_content","line":18}]}},{"id":"vite-config","path":"vite.config.js","type":"module","boundary":"Vite.Config","entrypoints":["vite.config.js:defineConfig"],"tests":[],"callers":[],"callees":[{"id":"external-dependencies","type":"imports"},{"id":"scripts","type":"imports"}],"evidence":{"status":"verified","locations":[{"path":"vite.config.js","symbol":"defineConfig","line":1}]}}],"edges":[{"from":"repository","to":"scripts","type":"calls","evidence":{"status":"verified","locations":[{"path":"package.json","symbol":"./scripts/check-bundle.mjs","line":23},{"path":"package.json","symbol":"./scripts/validate-pages.mjs","line":25},{"path":"package.json","symbol":"./scripts/generate-runtime-themes.mjs","line":26}]}},{"from":"repository","to":"scripts-store","type":"calls","evidence":{"status":"verified","locations":[{"path":"package.json","symbol":"./scripts/store/Test-StoreReadiness.ps1","line":36},{"path":"package.json","symbol":"./scripts/store/Build-StoreInstaller.ps1","line":37}]}},{"from":"repository","to":"src","type":"calls","evidence":{"status":"verified","locations":[{"path":"package.json","symbol":"src/reader-shell.test.js","line":30}]}},{"from":"src","to":"external-dependencies","type":"imports","evidence":{"status":"verified","locations":[{"path":"src/app-loading-screen.test.js","symbol":"vitest","line":1},{"path":"src/application-composition.test.js","symbol":"jsdom","line":4},{"path":"src/application-composition.test.js","symbol":"vitest","line":5}]}},{"from":"src","to":"scripts","type":"imports","evidence":{"status":"verified","locations":[{"path":"src/free-port.test.js","symbol":"../scripts/free-port.mjs","line":3}]}},{"from":"src","to":"src-core","type":"imports","evidence":{"status":"verified","locations":[{"path":"src/main.test.js","symbol":"./core/reader.js","line":30},{"path":"src/theme-coordinator.js","symbol":"./core/reader.js","line":5}]}},{"from":"src-core","to":"src","type":"imports","evidence":{"status":"verified","locations":[{"path":"src/core/reader.js","symbol":"../format-detect.js","line":12},{"path":"src/core/reader.js","symbol":"../status-metrics.js","line":22},{"path":"src/core/reader.js","symbol":"../document-path.js","line":30}]}},{"from":"src-tauri-src","to":"external-dependencies","type":"imports","evidence":{"status":"verified","locations":[{"path":"src-tauri/src/app_settings.rs","symbol":"serde","line":1},{"path":"src-tauri/src/document_access.rs","symbol":"pulldown_cmark","line":1},{"path":"src-tauri/src/document_access.rs","symbol":"serde","line":2}]}},{"from":"vite-config","to":"external-dependencies","type":"imports","evidence":{"status":"verified","locations":[{"path":"vite.config.js","symbol":"vite","line":1}]}},{"from":"vite-config","to":"scripts","type":"imports","evidence":{"status":"verified","locations":[{"path":"vite.config.js","symbol":"./scripts/free-port.mjs","line":2}]}}],"flows":[{"trigger":"src/main.js:cacheElements","steps":["src","external-dependencies"],"outcome":"reached external-dependencies"},{"trigger":"src/core/reader.js:isSupportedFilePath","steps":["src-core","src","external-dependencies"],"outcome":"reached external-dependencies"},{"trigger":"package.json:name","steps":["repository","scripts"],"outcome":"reached scripts"},{"trigger":"src-tauri/src/lib.rs:get_file_content","steps":["src-tauri-src","external-dependencies"],"outcome":"reached external-dependencies"},{"trigger":"vite.config.js:defineConfig","steps":["vite-config","external-dependencies"],"outcome":"reached external-dependencies"}],"overflow":[]}</script>
+  <script id="codemap-data" type="application/json">{"generated_at":"2026-08-27T06:51:09Z","generated_from_commit":"071fc113fbcef23d68f99b8ef5f11292c268a83d","scope":["."],"nodes":[{"id":"external-dependencies","path":"src-tauri/src/app_settings.rs","type":"external","boundary":"External","entrypoints":["src-tauri/src/app_settings.rs:serde"],"tests":[],"callers":[{"id":"src","type":"imports"},{"id":"src-tauri-src","type":"imports"},{"id":"vite-config","type":"imports"}],"callees":[],"evidence":{"status":"verified","locations":[{"path":"src-tauri/src/app_settings.rs","symbol":"serde"}]}},{"id":"repository","path":"package.json","type":"module","boundary":"Repository","entrypoints":["package.json:{"],"tests":[],"callers":[],"callees":[{"id":"scripts","type":"calls"},{"id":"scripts-store","type":"calls"},{"id":"src","type":"calls"}],"evidence":{"status":"verified","locations":[{"path":"package.json","symbol":"{"}]}},{"id":"scripts","path":"scripts","type":"service","boundary":"Scripts","entrypoints":["scripts/check-bundle.mjs:listFiles"],"tests":["src/free-port.test.js"],"callers":[{"id":"repository","type":"calls"},{"id":"src","type":"imports"},{"id":"vite-config","type":"imports"}],"callees":[],"evidence":{"status":"verified","locations":[{"path":"scripts/check-bundle.mjs","symbol":"listFiles"}]}},{"id":"scripts-store","path":"scripts/store","type":"database","boundary":"Scripts","entrypoints":["scripts/store/Build-StoreInstaller.ps1:Invoke"],"tests":[],"callers":[{"id":"repository","type":"calls"}],"callees":[],"evidence":{"status":"verified","locations":[{"path":"scripts/store/Build-StoreInstaller.ps1","symbol":"Invoke"}]}},{"id":"src","path":"src","type":"module","boundary":"Src","entrypoints":["src/main.js:cacheElements"],"tests":["src/app-loading-screen.test.js","src/application-composition.test.js","src/application-lifecycle.test.js","src/application-runtime-adapters.test.js","src/context-menu-controller.test.js"],"callers":[{"id":"repository","type":"calls"},{"id":"src-core","type":"imports"}],"callees":[{"id":"external-dependencies","type":"imports"},{"id":"scripts","type":"imports"},{"id":"src-core","type":"imports"}],"evidence":{"status":"verified","locations":[{"path":"src/main.js","symbol":"cacheElements"}]}},{"id":"src-core","path":"src/core","type":"service","boundary":"Src","entrypoints":["src/core/reader.js:isSupportedFilePath"],"tests":["src/main.test.js"],"callers":[{"id":"src","type":"imports"}],"callees":[{"id":"src","type":"imports"}],"evidence":{"status":"verified","locations":[{"path":"src/core/reader.js","symbol":"isSupportedFilePath"}]}},{"id":"src-tauri","path":"src-tauri","type":"module","boundary":"Src Tauri","entrypoints":["src-tauri/Cargo.toml:package"],"tests":[],"callers":[],"callees":[],"evidence":{"status":"verified","locations":[{"path":"src-tauri/Cargo.toml","symbol":"package"}]}},{"id":"src-tauri-src","path":"src-tauri/src","type":"module","boundary":"Src Tauri","entrypoints":["src-tauri/src/lib.rs:get_file_content"],"tests":[],"callers":[],"callees":[{"id":"external-dependencies","type":"imports"}],"evidence":{"status":"verified","locations":[{"path":"src-tauri/src/lib.rs","symbol":"get_file_content"}]}},{"id":"vite-config","path":"vite.config.js","type":"module","boundary":"Vite.Config","entrypoints":["vite.config.js:import { defineConfig } from \"vite\";"],"tests":[],"callers":[],"callees":[{"id":"external-dependencies","type":"imports"},{"id":"scripts","type":"imports"}],"evidence":{"status":"verified","locations":[{"path":"vite.config.js","symbol":"import { defineConfig } from \"vite\";"}]}}],"edges":[{"from":"repository","to":"scripts","type":"calls","evidence":{"status":"verified","locations":[{"path":"package.json","symbol":"./scripts/check-bundle.mjs"},{"path":"package.json","symbol":"./scripts/validate-pages.mjs"},{"path":"package.json","symbol":"./scripts/generate-runtime-themes.mjs"}]}},{"from":"repository","to":"scripts-store","type":"calls","evidence":{"status":"verified","locations":[{"path":"package.json","symbol":"./scripts/store/Test-StoreReadiness.ps1"},{"path":"package.json","symbol":"./scripts/store/Build-StoreInstaller.ps1"}]}},{"from":"repository","to":"src","type":"calls","evidence":{"status":"verified","locations":[{"path":"package.json","symbol":"src/reader-shell.test.js"}]}},{"from":"src","to":"external-dependencies","type":"imports","evidence":{"status":"verified","locations":[{"path":"src/app-loading-screen.test.js","symbol":"vitest"},{"path":"src/application-composition.test.js","symbol":"jsdom"},{"path":"src/application-composition.test.js","symbol":"vitest"}]}},{"from":"src","to":"scripts","type":"imports","evidence":{"status":"verified","locations":[{"path":"src/free-port.test.js","symbol":"../scripts/free-port.mjs"}]}},{"from":"src","to":"src-core","type":"imports","evidence":{"status":"verified","locations":[{"path":"src/main.test.js","symbol":"./core/reader.js"},{"path":"src/theme-coordinator.js","symbol":"./core/reader.js"}]}},{"from":"src-core","to":"src","type":"imports","evidence":{"status":"verified","locations":[{"path":"src/core/reader.js","symbol":"../format-detect.js"},{"path":"src/core/reader.js","symbol":"../status-metrics.js"},{"path":"src/core/reader.js","symbol":"../document-path.js"}]}},{"from":"src-tauri-src","to":"external-dependencies","type":"imports","evidence":{"status":"verified","locations":[{"path":"src-tauri/src/app_settings.rs","symbol":"serde"},{"path":"src-tauri/src/document_access.rs","symbol":"pulldown_cmark"},{"path":"src-tauri/src/document_access.rs","symbol":"serde"}]}},{"from":"vite-config","to":"external-dependencies","type":"imports","evidence":{"status":"verified","locations":[{"path":"vite.config.js","symbol":"vite"}]}},{"from":"vite-config","to":"scripts","type":"imports","evidence":{"status":"verified","locations":[{"path":"vite.config.js","symbol":"./scripts/free-port.mjs"}]}}],"flows":[]}</script>
   <script>
     (() => {
       "use strict";
 
       const data = JSON.parse(document.getElementById("codemap-data").textContent);
-      data.nodes = Array.isArray(data.nodes) ? data.nodes : [];
-      data.edges = Array.isArray(data.edges) ? data.edges : [];
-      data.flows = Array.isArray(data.flows) ? data.flows : [];
-      data.overflow = Array.isArray(data.overflow) ? data.overflow : [];
       const svg = document.getElementById("map-svg");
       const viewport = document.getElementById("viewport");
 
@@ -1620,9 +1610,7 @@
         if (node.callees?.length) blocks.push(["Callees", node.callees.map(item => `${item.id} · ${item.type}`)]);
         if (node.constraints?.length) blocks.push(["Notes", node.constraints]);
         if (node.evidence?.locations?.length) {
-          blocks.push(["Found in", node.evidence.locations.map(item => {
-            return item.line ? `${item.path}:${item.line}:${item.symbol}` : `${item.path}:${item.symbol}`;
-          })]);
+          blocks.push(["Found in", node.evidence.locations.map(item => `${item.path}:${item.symbol}`)]);
         }
         for (const [title, values] of blocks) {
           if (!values.length) continue;
@@ -1724,21 +1712,6 @@
         });
       }
 
-      function renderOverflow() {
-        const list = document.getElementById("overflow-list");
-        list.replaceChildren();
-        if (!data.overflow.length) {
-          list.append(htmlElement("p", "empty", "Nothing left off the graph."));
-          return;
-        }
-        const items = htmlElement("ul", "overflow-list");
-        for (const item of data.overflow) {
-          const row = htmlElement("li", "", `${item.path}: ${item.file_count} files, score ${item.score}`);
-          items.append(row);
-        }
-        list.append(items);
-      }
-
       function updateStatus() {
         const unknown = data.edges.filter(edge => edge.evidence.status === "unknown").length;
         const node = data.nodes.find(item => item.id === state.selectedNode);
@@ -1751,7 +1724,7 @@
           status.textContent = `${node.id}  \u2190 ${callers} callers  \u2192 ${callees} callees  \u00b7 ${tests} tests  \u00b7 ${zoom}`;
           return;
         }
-        status.textContent = `${state.counts.nodes} modules \u00b7 ${state.counts.edges} traces \u00b7 ${data.overflow.length} off graph \u00b7 ${unknown} unknown \u00b7 ${zoom}`;
+        status.textContent = `${state.counts.nodes} modules \u00b7 ${state.counts.edges} traces \u00b7 ${unknown} unknown \u00b7 ${zoom}`;
       }
 
       function setPanel(name, collapsed) {
@@ -1870,7 +1843,6 @@
 
       renderTypes();
       renderFlows();
-      renderOverflow();
       draw();
       requestAnimationFrame(() => fitMap({ overview: true }));
     })();

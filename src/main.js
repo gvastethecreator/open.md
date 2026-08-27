@@ -5,7 +5,6 @@ import {
 } from './format-registry.js';
 import { createPathThemePreferenceCoordinator } from './path-theme-memory.js';
 import { createDocumentSaveCoordinator } from './document-save-coordinator.js';
-import { createEditorSession } from './editor-session.js';
 import { mountReaderShell } from './reader-shell.js';
 import { createReaderControls } from './reader-controls.js';
 import { createApplicationRuntimeAdapters } from './application-runtime-adapters.js';
@@ -63,7 +62,7 @@ let readerKeyboard = null;
 let applicationLifecycle = null;
 let appLoadingScreen = null;
 let pendingInitialTheme = Promise.resolve();
-let pendingSavedReaderPath = null;
+
 
 const ui = {
   windowFileTitle: null,
@@ -411,9 +410,6 @@ function handleDocumentSessionState(snapshot) {
 }
 
 function commitDocumentViewState(value) {
-  // A normal session commit owns the visible reader DOM, so any deferred
-  // post-save refresh for the previous projection is no longer needed.
-  pendingSavedReaderPath = null;
   documentViewState?.commitDocument(value);
 }
 
@@ -425,12 +421,11 @@ async function exitEditMode() {
   const exited = editorSession
     ? (editorSession.isEditing() ? editorSession.exit({ force: true }) : true)
     : false;
-  if (!exited || !path || pendingSavedReaderPath !== path) return exited;
+  const refreshPath = documentViewState?.takePendingQuietRefresh?.();
+  if (!exited || !path || refreshPath !== path) return exited;
 
   const refreshed = await readerShell?.reload({ quiet: true });
-  if (getCurrentFilePath() === path && refreshed?.status === 'ready') {
-    pendingSavedReaderPath = null;
-  } else if (getCurrentFilePath() === path) {
+  if (getCurrentFilePath() === path && refreshed?.status !== 'ready') {
     showToast('Saved, but the reading view could not refresh');
   }
   return exited;
@@ -610,6 +605,7 @@ function mountReaderControls(own) {
 }
 
 function mountApplicationEditor(own) {
+  return import('./editor-session.js').then(({ createEditorSession }) => {
   editorFeedback = own(createEditorFeedbackPresenter({
     window,
     document,
@@ -642,7 +638,6 @@ function mountApplicationEditor(own) {
       onSaved: async ({ path, result }) => {
         if (result && typeof result.source === 'string') {
           documentViewState?.applySavedDocument({ path, document: result });
-          pendingSavedReaderPath = path;
           return;
         }
         await readerShell?.reload();
@@ -653,6 +648,7 @@ function mountApplicationEditor(own) {
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
   }));
+  });
 }
 
 function mountEditorStateCoordinator(own) {
@@ -671,7 +667,7 @@ function mountEditorStateCoordinator(own) {
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
   }));
-  editorStateCoordinator.apply(editorSession.current());
+  if (editorSession) editorStateCoordinator.apply(editorSession.current());
 }
 
 function mountDocumentSaveCoordinator(own) {
@@ -690,7 +686,7 @@ function mountDocumentSaveCoordinator(own) {
       onDiagnostic: (message, error) => console.error(`${message}:`, error),
     },
   }));
-  documentSaveCoordinator.setAutoSaveEnabled(readerControls?.current().autoSave !== false, editorSession.current());
+  documentSaveCoordinator.setAutoSaveEnabled(readerControls?.current()?.autoSave !== false, editorSession?.current());
 }
 
 function mountDocumentModeCoordinator(own) {
@@ -1016,7 +1012,7 @@ export async function startOpenMdApplication() {
     mountReaderZoom(own);
     mountReaderViewport(own);
     mountReaderControls(own);
-    mountApplicationEditor(own);
+    const editorReady = mountApplicationEditor(own);
     mountDocumentSaveCoordinator(own);
     mountDocumentViewState(own);
     mountDocumentModeCoordinator(own);
@@ -1032,6 +1028,8 @@ export async function startOpenMdApplication() {
       listen(binding.target, binding.type, binding.listener, binding.options);
     }
     await startApplication(own);
+    await editorReady;
+    if (editorSession) editorStateCoordinator?.apply(editorSession.current());
     await pendingInitialTheme;
     const emptyLogoShell = document.getElementById('empty-logo-shell');
     if (emptyLogoShell) {

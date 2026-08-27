@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
   detectImageFormatFromMagic,
+  FORMAT_BY_EXTENSION,
+  IMAGE_EXTENSIONS,
   looksLikeJson,
   looksLikeNfoXml,
+  MARKDOWN_EXTENSIONS,
+  NFO_XML_PREFIXES,
+  PLAIN_TEXT_EXTENSIONS,
   resolveDocumentFormat,
 } from './format-detect.js';
+import formatParity from './format-parity.json';
 
 const PNG_SIG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 const JPEG_SIG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10]);
@@ -18,6 +24,21 @@ const AVIF_SIG = new Uint8Array([
 ]);
 
 describe('format detect', () => {
+  it('shares JS/native format tables with the parity fixture', () => {
+    expect([...MARKDOWN_EXTENSIONS].sort()).toEqual([...formatParity.markdownExtensions].sort());
+    expect([...PLAIN_TEXT_EXTENSIONS].sort()).toEqual([...formatParity.plainTextExtensions].sort());
+    expect([...IMAGE_EXTENSIONS].sort()).toEqual([...formatParity.imageExtensions].sort());
+    expect(NFO_XML_PREFIXES).toEqual(formatParity.nfoXmlPrefixes);
+    for (const sample of formatParity.imageMagic) {
+      expect(detectImageFormatFromMagic(Uint8Array.from(sample.bytes))).toBe(sample.format);
+    }
+    for (const prefix of formatParity.nfoXmlPrefixes) {
+      expect(looksLikeNfoXml(prefix)).toBe(true);
+    }
+    expect(FORMAT_BY_EXTENSION.md).toBe('markdown');
+    expect(FORMAT_BY_EXTENSION.png).toBe('png');
+  });
+
   it('detects image magic signatures', () => {
     expect(detectImageFormatFromMagic(PNG_SIG)).toBe('png');
     expect(detectImageFormatFromMagic(JPEG_SIG)).toBe('jpeg');

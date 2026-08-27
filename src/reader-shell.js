@@ -8,7 +8,18 @@ import {
 export function mountReaderShell({ window, adapters, hooks = {} }) {
   if (!window?.document) throw new Error('Reader shell requires a window with a document');
 
-  const documentSession = createDocumentSession({ window, adapters, hooks });
+  const { document } = window;
+  const documentSession = createDocumentSession({
+    window,
+    adapters,
+    hooks,
+    elements: {
+      content: document.getElementById('content'),
+      sourceContent: document.getElementById('source-content'),
+      sourceView: document.getElementById('source-view'),
+      readerPage: document.getElementById('reader-page'),
+    },
+  });
   const openIntents = createOpenIntentController({
     session: documentSession,
     openWindow: adapters.windows?.openDocument,

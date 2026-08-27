@@ -24,6 +24,13 @@ stable release is cut.
 
 ### Changed
 
+- Frontend packages: `vite` 8.2.2, `vitest` 4.1.11, and `mermaid` 11.17.2.
+  CI and docs now match `pnpm@11.24.0`.
+- Markdown fences are language-tagged escaped HTML. JS highlight.js is the
+  display highlighter; native Syntect HTML is gone. Editor and Mermaid
+  adapter chunks stay off the empty-window boot graph. Theme option nodes
+  fill when the theme control is opened. JSON Read trees cap at 2,000
+  values. Minimap uses diagram placeholders instead of cloning Mermaid SVG.
 - Markdown Edit is Classic only (Obsidian-style source-line live preview).
   The Block surface, Block editor preference, slash menu, floating block
   toolbar, and inline format toolbar are removed. JSON properties stay a

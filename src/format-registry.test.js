@@ -42,7 +42,7 @@ describe('format registry', () => {
       expect(getEditorKind(format)).toBe('plain');
     }
     expect(getEditorKind('json')).toBe('json-props');
-    expect(getEditorKind('markdown')).toBe('blocks');
+    expect(getEditorKind('markdown')).toBe('classic');
   });
 
   it('owns status profiles per format family', () => {

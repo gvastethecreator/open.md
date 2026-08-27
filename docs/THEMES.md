@@ -1,7 +1,7 @@
 # Bundled themes
 
 The catalogue shipped in [`src/themes.json`](../src/themes.json) contains 364
-terminal colour schemes used by the `open.md` theme picker. The file is not an
+terminal color schemes used by the `open.md` theme picker. The file is not an
 original `open.md` work and is not licensed by the `author` values embedded in
 the JSON.
 

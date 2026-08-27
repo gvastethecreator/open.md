@@ -170,7 +170,14 @@ export function createResponsiveTypography({ window, root = window.document, onD
   const mutationObserver = typeof window.MutationObserver === 'function'
     ? new window.MutationObserver(schedule)
     : null;
-  mutationObserver?.observe(root, { childList: true, characterData: true, subtree: true });
+  const mutationTargets = [...(root.querySelectorAll?.('#content, #editor-canvas, .markdown-body, .editor-canvas') || [])];
+  if (mutationTargets.length === 0) {
+    mutationObserver?.observe(root, { childList: true, characterData: true, subtree: true });
+  } else {
+    mutationTargets.forEach((target) => {
+      mutationObserver?.observe(target, { childList: true, characterData: true, subtree: true });
+    });
+  }
 
   const resizeObserver = typeof window.ResizeObserver === 'function'
     ? new window.ResizeObserver(schedule)

@@ -9,7 +9,7 @@ the [Security policy](SECURITY.md) before sharing vulnerability details.
 Install:
 
 - [Rust](https://www.rust-lang.org/) stable (edition 2021)
-- [Node.js](https://nodejs.org/) 24 and [pnpm](https://pnpm.io/) 11.20 (matches `packageManager` and CI)
+- [Node.js](https://nodejs.org/) 24.19.0 and [pnpm](https://pnpm.io/) 11.24.0 (matches `packageManager` and CI)
 - The platform dependencies required by
   [Tauri v2](https://v2.tauri.app/start/prerequisites/)
 
@@ -26,8 +26,8 @@ layout are in the [development guide](docs/DEVELOPMENT.md).
 
 ## Before opening a pull request
 
-- Keep the change focused and explain user-visible behaviour.
-- Add or update tests when behaviour changes.
+- Keep the change focused and explain user-visible behavior.
+- Add or update tests when behavior changes.
 - Run the relevant checks from `docs/DEVELOPMENT.md`; CI runs the full matrix.
 - Run `pnpm run verify` before submitting a broad runtime or dependency change.
 - Update `README.md` and the `Unreleased` section of `CHANGELOG.md` for
@@ -42,13 +42,13 @@ layout are in the [development guide](docs/DEVELOPMENT.md).
 ## Pull requests
 
 Use a clear title, describe the motivation and verification, and call out any
-platform-specific behaviour. Keep unrelated formatting or generated-file
+platform-specific behavior. Keep unrelated formatting or generated-file
 changes out of the PR. Maintainers may ask for a focused follow-up when a
 change spans multiple concerns.
 
 ## Bug reports and feature requests
 
 Use the repository's issue templates. Include the app version, operating
-system, reproduction steps, expected behaviour, and actual behaviour when
+system, reproduction steps, expected behavior, and actual behavior when
 reporting a bug. Feature requests should explain the user problem and a
 proposed outcome rather than prescribing an implementation.

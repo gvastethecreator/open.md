@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import allThemes from './themes.runtime.json';
 import {
-  isColorDark,
-  calculateNewZoom,
   getContrastRatio,
   getPreferredThemeIndex,
   getThemeTokens,
+  isColorDark,
+} from './theme-coordinator.js';
+import {
+  calculateNewZoom,
   getDisplayName,
   getFileKind,
   getCurrentLineFromAnchors,

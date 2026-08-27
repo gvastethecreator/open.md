@@ -115,7 +115,7 @@ describe('Status Presenter', () => {
       editMode: true,
       editorSnapshot: {
         cursor: { line: 2, column: 4 },
-        stats: { blocks: 3, words: 9, characters: 20 },
+        stats: { lines: 3, words: 9, characters: 20 },
       },
       zoomPercent: 125,
     });
@@ -207,7 +207,7 @@ describe('Status Presenter', () => {
       editMode: true,
       editorSnapshot: {
         cursor: { line: 1, column: 2 },
-        stats: { blocks: 1, words: 2, characters: 5 },
+        stats: { lines: 1, words: 2, characters: 5 },
       },
       zoomPercent: 100,
     });

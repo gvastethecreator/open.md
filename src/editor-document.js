@@ -356,14 +356,12 @@ export function editableHtmlToMarkdown(element) {
     .replace(/\n+$/g, '');
 }
 
-export function getEditorDocumentStats(blocks) {
-  const plainText = (Array.isArray(blocks) ? blocks : [])
-    .filter((block) => block.type !== 'divider')
-    .map((block) => block.text)
-    .join('\n');
+export function getEditorDocumentStats(source) {
+  const plainText = String(source ?? '').replace(/\r\n?/g, '\n');
+  const lines = plainText.length === 0 ? 1 : plainText.split('\n').length;
   const words = plainText.trim() ? plainText.trim().split(/\s+/u).length : 0;
   return {
-    blocks: Array.isArray(blocks) ? blocks.length : 0,
+    lines,
     words,
     characters: [...plainText].length,
   };
@@ -395,7 +393,7 @@ export function createEditorDocumentModel({
       projection = Object.freeze({
         source: serializeCurrent(),
         blocks: Object.freeze(blocks.map(publicBlock)),
-        stats: Object.freeze(getEditorDocumentStats(blocks)),
+        stats: Object.freeze(getEditorDocumentStats(serializeCurrent())),
       });
     }
     currentSnapshot = Object.freeze({
@@ -676,21 +674,9 @@ export function createEditorDocumentModel({
   return Object.freeze({
     snapshot,
     source,
-    block,
     subscribe,
     load,
     applySource,
-    updateBlock,
-    changeType,
-    addAfter,
-    remove,
-    move,
-    moveTo,
-    moveRelative,
-    duplicate,
-    split,
-    mergeWithPrevious,
-    indent,
     undo,
     redo,
     setCursor,

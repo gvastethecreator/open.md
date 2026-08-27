@@ -275,7 +275,7 @@ export function createStatusPresenter({ window, document, elements = {} }) {
 
   function renderEditorMetrics({ cursor, stats, zoomPercent } = {}) {
     const zoom = getZoomStatusMetric(zoomPercent);
-    const blocks = Number(stats?.blocks) || 0;
+    const lines = Number(stats?.lines ?? stats?.blocks) || 0;
     const words = Number(stats?.words) || 0;
     const characters = Number(stats?.characters) || 0;
     const items = cursor
@@ -285,13 +285,13 @@ export function createStatusPresenter({ window, document, elements = {} }) {
           { kind: 'column', visible: `Col ${cursor.column}` },
         ]
       : [
-          { kind: 'blocks', visible: `${blocks} ${blocks === 1 ? 'block' : 'blocks'}` },
+          { kind: 'lines', visible: `${lines} ${lines === 1 ? 'line' : 'lines'}` },
           { kind: 'words', visible: `${words} ${words === 1 ? 'word' : 'words'}` },
           ...(zoom ? [zoom] : []),
         ];
     const accessibleLabel = cursor
-      ? `Line ${cursor.line}. Column ${cursor.column}. ${blocks} blocks. ${words} words. ${characters} characters.${zoom ? ` ${zoom.accessible}.` : ''}`
-      : `${blocks} blocks. ${words} words. ${characters} characters.${zoom ? ` ${zoom.accessible}.` : ''}`;
+      ? `Line ${cursor.line}. Column ${cursor.column}. ${lines} lines. ${words} words. ${characters} characters.${zoom ? ` ${zoom.accessible}.` : ''}`
+      : `${lines} lines. ${words} words. ${characters} characters.${zoom ? ` ${zoom.accessible}.` : ''}`;
     renderMetrics(items, accessibleLabel);
     return { items, accessibleLabel };
   }

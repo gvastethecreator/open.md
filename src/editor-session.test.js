@@ -418,18 +418,21 @@ describe('editor session', () => {
     session.dispose();
   });
 
-  it('asks before discarding dirty work and keeps editing when declined', () => {
+  it('refuses a dirty exit unless force is set, without window.confirm', () => {
     const { session } = mount();
     session.setDocument({ path: 'sample.md', source: 'Before', markdown: true });
     session.enter();
     const content = activeSource();
     content.textContent = 'Changed';
     content.dispatchEvent(new InputEvent('input', { bubbles: true }));
-    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const confirm = vi.spyOn(window, 'confirm');
 
     expect(session.exit()).toBe(false);
     expect(session.current().mode).toBe('edit');
-    expect(confirm).toHaveBeenCalledOnce();
+    expect(session.canChangeDocument()).toBe(false);
+    expect(confirm).not.toHaveBeenCalled();
+    expect(session.exit({ force: true })).toBe(true);
+    expect(session.current().mode).toBe('read');
     session.dispose();
     confirm.mockRestore();
   });

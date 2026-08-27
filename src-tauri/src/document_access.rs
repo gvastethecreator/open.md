@@ -4,17 +4,11 @@ use std::fs;
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::OnceLock;
-use syntect::highlighting::ThemeSet;
-use syntect::html::highlighted_html_for_string;
-use syntect::parsing::SyntaxSet;
 
 const MAX_RENDERABLE_FILE_SIZE_BYTES: u64 = 20 * 1024 * 1024;
 const MAX_LOCAL_IMAGE_SIZE_BYTES: u64 = 12 * 1024 * 1024;
 const READING_WORDS_PER_MINUTE: usize = 220;
 
-static SYNTAX_SET: OnceLock<SyntaxSet> = OnceLock::new();
-static THEME_SET: OnceLock<ThemeSet> = OnceLock::new();
 static SAVE_COUNTER: AtomicU64 = AtomicU64::new(1);
 
 #[derive(Debug, Serialize)]
@@ -738,14 +732,6 @@ fn user_friendly_write_error(error: std::io::Error) -> String {
     }
 }
 
-fn syntax_set() -> &'static SyntaxSet {
-    SYNTAX_SET.get_or_init(SyntaxSet::load_defaults_newlines)
-}
-
-fn theme_set() -> &'static ThemeSet {
-    THEME_SET.get_or_init(ThemeSet::load_defaults)
-}
-
 fn build_document_payload(
     content: &str,
     is_markdown: bool,
@@ -819,19 +805,6 @@ fn tag_has_source_line(tag: &Tag<'_>) -> bool {
 }
 
 fn render_markdown(content: &str) -> String {
-    let syntax_set = syntax_set();
-    let theme_set = theme_set();
-    let theme = theme_set
-        .themes
-        .get("base16-ocean.dark")
-        .unwrap_or_else(|| {
-            theme_set
-                .themes
-                .values()
-                .next()
-                .expect("theme set should not be empty")
-        });
-
     let mut options = Options::empty();
     options.insert(Options::ENABLE_TABLES);
     options.insert(Options::ENABLE_FOOTNOTES);
@@ -882,27 +855,18 @@ fn render_markdown(content: &str) -> String {
                         );
                         output.push(Event::Html(html.into()));
                     } else {
-                        let syntax = if !code_block_lang.is_empty() {
-                            syntax_set
-                                .find_syntax_by_token(&code_block_lang)
-                                .unwrap_or_else(|| syntax_set.find_syntax_plain_text())
+                        let language_class = if code_block_lang.is_empty() {
+                            String::new()
                         } else {
-                            syntax_set.find_syntax_plain_text()
-                        };
-
-                        let html = highlighted_html_for_string(
-                            &code_block_content,
-                            syntax_set,
-                            syntax,
-                            theme,
-                        )
-                        .unwrap_or_else(|_| {
                             format!(
-                                "<pre><code>{}</code></pre>",
-                                html_escape::encode_text(&code_block_content)
+                                " class=\"language-{}\"",
+                                html_escape::encode_double_quoted_attribute(&code_block_lang)
                             )
-                        });
-
+                        };
+                        let html = format!(
+                            "<pre><code{language_class}>{}</code></pre>",
+                            html_escape::encode_text(&code_block_content)
+                        );
                         output.push(Event::Html(html.into()));
                     }
                 }
@@ -939,9 +903,9 @@ fn render_markdown(content: &str) -> String {
 mod tests {
     use super::{
         build_document_payload, detect_image_format_from_magic, file_size_label, image_mime_type,
-        is_supported_document, open_document, read_document_image, render_markdown,
-        safe_relative_image_path, save_bytes, save_document, MAX_LOCAL_IMAGE_SIZE_BYTES,
-        MAX_RENDERABLE_FILE_SIZE_BYTES,
+        is_plain_text_document, is_supported_document, looks_like_nfo_xml, open_document,
+        read_document_image, render_markdown, safe_relative_image_path, save_bytes, save_document,
+        MAX_LOCAL_IMAGE_SIZE_BYTES, MAX_RENDERABLE_FILE_SIZE_BYTES,
     };
     use std::fs::{self, File};
     use std::path::{Path, PathBuf};
@@ -969,6 +933,36 @@ mod tests {
     impl Drop for FixtureDirectory {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn shares_format_tables_with_js_parity_fixture() {
+        let parity: serde_json::Value =
+            serde_json::from_str(include_str!("../../src/format-parity.json"))
+                .expect("parity fixture should parse");
+        for prefix in parity["nfoXmlPrefixes"].as_array().expect("prefixes") {
+            let bytes = prefix.as_str().expect("prefix").as_bytes();
+            assert!(looks_like_nfo_xml(bytes), "{prefix}");
+        }
+        for sample in parity["imageMagic"].as_array().expect("magic") {
+            let format = sample["format"].as_str().expect("format");
+            let bytes: Vec<u8> = sample["bytes"]
+                .as_array()
+                .expect("bytes")
+                .iter()
+                .map(|value| value.as_u64().expect("byte") as u8)
+                .collect();
+            assert_eq!(detect_image_format_from_magic(&bytes), Some(format));
+        }
+        for extension in parity["plainTextExtensions"].as_array().expect("text") {
+            let path = PathBuf::from(format!("sample.{}", extension.as_str().expect("ext")));
+            assert!(is_plain_text_document(&path), "{extension}");
+        }
+        for extension in parity["markdownExtensions"].as_array().expect("markdown") {
+            let path = PathBuf::from(format!("sample.{}", extension.as_str().expect("ext")));
+            assert!(is_supported_document(&path), "{extension}");
+            assert!(!is_plain_text_document(&path), "{extension}");
         }
     }
 
@@ -1220,6 +1214,12 @@ mod tests {
         let mermaid = render_markdown("```mermaid\ngraph TD\nA-->B\n```");
         assert!(mermaid.contains("<div class=\"mermaid\">"));
         assert!(mermaid.contains("graph TD"));
+
+        let fenced = render_markdown("```js\nconst x = 1;\n```");
+        assert!(fenced.contains("<pre><code class=\"language-js\">"));
+        assert!(fenced.contains("const x = 1;"));
+        assert!(!fenced.contains("class=\"source\""));
+        assert!(!fenced.contains("syntect"));
 
         let tasks = render_markdown("- [ ] First\n- [x] Second");
         assert!(tasks.contains(

@@ -74,6 +74,8 @@ describe('Theme Coordinator', () => {
     });
 
     await coordinator.start('Light');
+    expect(elements.select.querySelectorAll('option')).toHaveLength(0);
+    coordinator.ensureCatalog();
     expect(elements.select.querySelector(':scope > button selectedcontent')).not.toBeNull();
     const options = [...elements.select.querySelectorAll('option')];
     expect(options).toHaveLength(2);
@@ -224,6 +226,7 @@ describe('Theme Coordinator', () => {
     });
 
     await coordinator.start('Light');
+    coordinator.ensureCatalog();
     expect(coordinator.current().name).toBe('Light');
     expect(dom.window.document.documentElement.dataset.themeName).toBe('Light');
 

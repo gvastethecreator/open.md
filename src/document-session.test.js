@@ -25,9 +25,19 @@ function createResources() {
   };
 }
 
+function sessionElements() {
+  return {
+    content: document.getElementById('content'),
+    sourceContent: document.getElementById('source-content'),
+    sourceView: document.getElementById('source-view'),
+    readerPage: document.getElementById('reader-page'),
+  };
+}
+
 function createSession({ open, readImage, readImageFile, prepare, render, highlight, resources, hooks } = {}) {
   return createDocumentSession({
     window,
+    elements: sessionElements(),
     adapters: {
       documents: {
         open: open || vi.fn(async () => payload()),
@@ -54,6 +64,13 @@ beforeEach(() => {
 });
 
 describe('document session', () => {
+  it('requires an injected content element instead of looking up #content', () => {
+    expect(() => createDocumentSession({
+      window,
+      adapters: { documents: { open: vi.fn() } },
+    })).toThrow('Reader shell requires #content');
+  });
+
   it('owns rendered/source enrichment and focus for a successful document', async () => {
     const session = createSession({
       open: vi.fn(async () => payload({
@@ -115,6 +132,23 @@ describe('document session', () => {
     expect(onStateChange).not.toHaveBeenCalled();
     expect(onDocumentCommitted).not.toHaveBeenCalled();
     expect(session.current()).toMatchObject({ state: 'ready', path: 'guide.md', document: current });
+  });
+
+  it('settles Read paint before image bytes resolve', async () => {
+    let resolveImage;
+    const readImage = vi.fn(() => new Promise((resolve) => { resolveImage = resolve; }));
+    const onSettled = vi.fn();
+    const session = createSession({
+      open: vi.fn(async () => payload({ html: '<p>Hello</p><img src="assets/photo.png" alt="Photo">' })),
+      readImage,
+      hooks: { onSettled },
+    });
+    const opening = session.open({ path: 'guide.md' });
+    await Promise.resolve();
+    expect(onSettled).toHaveBeenCalled();
+    expect(document.querySelector('#content p')?.textContent).toBe('Hello');
+    resolveImage(new Uint8Array([1, 2, 3]));
+    await opening;
   });
 
   it('hydrates a relative image through native bytes and Blob resource adapters', async () => {
@@ -204,6 +238,7 @@ describe('document session', () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     const session = createDocumentSession({
       window,
+      elements: sessionElements(),
       adapters: {
         documents: {
           open: vi.fn(async () => payload({

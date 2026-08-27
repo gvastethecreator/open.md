@@ -1,10 +1,10 @@
 # Code map · open.md
 
-generated: 2026-08-26T14:00:00Z
-commit: e884b4a667d8
+generated: 2026-08-27T06:51:09Z
+commit: 071fc113fbce
 scope: .
 
-counts: 9 nodes · 10 edges · 5 flows · 0 overflow · 0 unknown
+counts: 9 nodes · 10 edges · 0 flows · 0 unknown
 
 ## Modules
 
@@ -18,7 +18,7 @@ counts: 9 nodes · 10 edges · 5 flows · 0 overflow · 0 unknown
   callers: (none)
   callees: scripts (calls), scripts-store (calls), src (calls)
   tests: (none)
-  entry: package.json:name
+  entry: package.json:{
 
 - `scripts` · `scripts` · service · Scripts
   callers: repository (calls), src (imports), vite-config (imports)
@@ -60,11 +60,7 @@ counts: 9 nodes · 10 edges · 5 flows · 0 overflow · 0 unknown
   callers: (none)
   callees: external-dependencies (imports), scripts (imports)
   tests: (none)
-  entry: vite.config.js:defineConfig
-
-## Overflow
-
-- none
+  entry: vite.config.js:import { defineConfig } from "vite";
 
 ## Edges
 
@@ -85,18 +81,4 @@ counts: 9 nodes · 10 edges · 5 flows · 0 overflow · 0 unknown
 
 ## Flows
 
-- src/main.js:cacheElements
-  src -> external-dependencies
-  reached external-dependencies
-- src/core/reader.js:isSupportedFilePath
-  src-core -> src -> external-dependencies
-  reached external-dependencies
-- package.json:name
-  repository -> scripts
-  reached scripts
-- src-tauri/src/lib.rs:get_file_content
-  src-tauri-src -> external-dependencies
-  reached external-dependencies
-- vite.config.js:defineConfig
-  vite-config -> external-dependencies
-  reached external-dependencies
+- none

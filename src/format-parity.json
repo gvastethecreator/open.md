@@ -1,0 +1,13 @@
+{
+  "markdownExtensions": ["md", "markdown"],
+  "plainTextExtensions": ["txt", "nfo", "json", "ini", "yml", "yaml", "toml", "cfg", "conf", "log", "csv", "env"],
+  "imageExtensions": ["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif"],
+  "nfoXmlPrefixes": ["<?xml", "<movie", "<tvshow", "<episodedetails", "<musicvideo", "<album", "<artist", "<nfo"],
+  "imageMagic": [
+    { "format": "png", "bytes": [137, 80, 78, 71, 13, 10, 26, 10] },
+    { "format": "jpeg", "bytes": [255, 216, 255] },
+    { "format": "gif", "bytes": [71, 73, 70, 56, 57, 97] },
+    { "format": "webp", "bytes": [82, 73, 70, 70, 0, 0, 0, 12, 87, 69, 66, 80] },
+    { "format": "bmp", "bytes": [66, 77] }
+  ]
+}

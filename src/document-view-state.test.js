@@ -234,4 +234,19 @@ describe('Document View State', () => {
     controller.applySavedDocument({ path: 'other.md', document: payload('Other') });
     expect(controller.current().path).toBe('notes.md');
   });
+
+  it('owns the pending quiet Read refresh path after a same-path save', () => {
+    const view = fixture();
+    view.controller.handle({ state: 'loading', path: 'notes.md' });
+    view.controller.handle({ state: 'ready', path: 'notes.md', document: payload('Notes') });
+    expect(view.controller.takePendingQuietRefresh()).toBeNull();
+
+    view.controller.applySavedDocument({ path: 'notes.md', document: payload('Saved') });
+    expect(view.controller.takePendingQuietRefresh()).toBe('notes.md');
+    expect(view.controller.takePendingQuietRefresh()).toBeNull();
+
+    view.controller.applySavedDocument({ path: 'notes.md', document: payload('Again') });
+    view.controller.commitDocument({ path: 'notes.md', document: payload('Again') });
+    expect(view.controller.takePendingQuietRefresh()).toBeNull();
+  });
 });

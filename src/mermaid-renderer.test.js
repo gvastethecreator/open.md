@@ -93,6 +93,20 @@ describe('mermaid renderer boundary', () => {
     expect(diagram.innerHTML).toContain('<svg');
   });
 
+  it('keeps the serial queue but skips mermaid.render for off-viewport diagrams', async () => {
+    const visible = createDiagram('graph TD; A-->B');
+    const offscreen = createDiagram('graph TD; C-->D');
+    offscreen.getBoundingClientRect = () => ({ top: 4000, bottom: 4200, left: 0, right: 100 });
+    offscreen.ownerDocument = { defaultView: { innerHeight: 800 } };
+    visible.getBoundingClientRect = () => ({ top: 10, bottom: 80, left: 0, right: 100 });
+    visible.ownerDocument = { defaultView: { innerHeight: 800 } };
+
+    await expect(renderMermaidDiagrams(createContainer([visible, offscreen]))).resolves.toBe(true);
+    expect(testState.mermaid.render).toHaveBeenCalledTimes(1);
+    expect(visible.innerHTML).toContain('<svg');
+    expect(offscreen.innerHTML).toBe('graph TD; C-->D');
+  });
+
   it('maps semantic document tokens into Mermaid without weakening strict mode', () => {
     const config = getMermaidConfig('default', {
       background: '#fafafa',

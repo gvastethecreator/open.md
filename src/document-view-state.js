@@ -24,6 +24,7 @@ export function createDocumentViewStateController({
 
   let state = freezeState({ state: 'idle', path: null, document: null });
   let disposed = false;
+  let pendingQuietRefreshPath = null;
 
   const current = () => state;
   const isCurrentPath = (path) => !state.path || state.path === path;
@@ -53,7 +54,7 @@ export function createDocumentViewStateController({
     adapters.getEditorSession?.()?.setDocument({
       path,
       source: document.source,
-      markdown: editorKind === 'blocks' || isMarkdownFormat(format, { kind: document?.kind }),
+      markdown: isMarkdownFormat(format, { kind: document?.kind }),
       presentation: editorKind === 'json-props' ? 'json-props' : 'default',
     });
   };
@@ -61,6 +62,7 @@ export function createDocumentViewStateController({
   const handle = (snapshot = {}) => {
     if (disposed) return state;
     if (snapshot.state === 'loading') {
+      pendingQuietRefreshPath = null;
       const editorSession = adapters.getEditorSession?.();
       if (editorSession?.current().path && editorSession.current().path !== snapshot.path) {
         editorSession.clearDocument();
@@ -104,6 +106,7 @@ export function createDocumentViewStateController({
       return state;
     }
 
+    pendingQuietRefreshPath = null;
     setDocumentChrome(null, null);
     publish({ state: 'idle', path: null, document: null });
     hooks.replaceDocument?.();
@@ -119,6 +122,7 @@ export function createDocumentViewStateController({
 
   const commitDocument = ({ path, document } = {}) => {
     if (disposed || !path || !document || !isCurrentPath(path)) return state;
+    pendingQuietRefreshPath = null;
     state = freezeState({ ...state, path, document });
     hooks.updateTitle?.(path);
     hooks.updateUrl?.(path);
@@ -137,11 +141,18 @@ export function createDocumentViewStateController({
    */
   const applySavedDocument = ({ path, document } = {}) => {
     if (disposed || !path || !document || !isCurrentPath(path)) return state;
+    pendingQuietRefreshPath = path;
     setDocumentChrome(path, document);
     publish({ state: 'ready', path, document });
     setEditorDocument(path, document);
     hooks.onSavedDocument?.({ path, document });
     return state;
+  };
+
+  const takePendingQuietRefresh = () => {
+    const path = pendingQuietRefreshPath;
+    pendingQuietRefreshPath = null;
+    return path;
   };
 
   /**
@@ -166,6 +177,7 @@ export function createDocumentViewStateController({
     commitDocument,
     updateDocument,
     applySavedDocument,
+    takePendingQuietRefresh,
     requestClose,
     dispose() {
       disposed = true;

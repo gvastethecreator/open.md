@@ -27,7 +27,7 @@ Opening a file never writes to it; **Edit** and save change only the document
 you choose to modify.
 
 > Status: early development (`0.1.0` development milestone). The reading and
-> editing paths are usable, but behaviour may still change before a tagged
+> editing paths are usable, but behavior may still change before a tagged
 > release.
 
 ## Product tour

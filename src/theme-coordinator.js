@@ -2,8 +2,15 @@ import {
   getPreferredThemeIndex,
   getThemeTokens,
   isColorDark,
-} from './core/reader.js';
+} from './theme-tokens.js';
 import { shouldReduceMotion } from './reader-motion.js';
+
+export {
+  getContrastRatio,
+  getPreferredThemeIndex,
+  getThemeTokens,
+  isColorDark,
+} from './theme-tokens.js';
 
 const DEFAULT_CURATED_NAMES = ['Paper', 'Github Light', 'Github Dark', 'Ayu Light', 'Ayu Dark'];
 
@@ -108,6 +115,7 @@ export function createThemeCoordinator({
   let drainPromise = null;
   let activeTransition = null;
   let disposed = false;
+  let catalogReady = false;
 
   const updateCopy = () => {
     const theme = themes[currentIndex];
@@ -128,7 +136,8 @@ export function createThemeCoordinator({
   };
 
   const populate = () => {
-    if (!elements.select) return;
+    if (!elements.select || catalogReady) return;
+    catalogReady = true;
     const selectButton = elements.select.querySelector(':scope > button');
     elements.select.replaceChildren(...(selectButton ? [selectButton] : []));
     const curated = new Set(curatedNames.map((name) => name.toLowerCase()));
@@ -303,6 +312,10 @@ export function createThemeCoordinator({
     return applyIndex(index, options);
   };
 
+  const ensureCatalog = () => {
+    populate();
+  };
+
   const start = (savedThemeName = null, { random = false } = {}) => {
     let initialIndex = -1;
     if (random && themes.length > 0) {
@@ -310,7 +323,11 @@ export function createThemeCoordinator({
     } else {
       initialIndex = getPreferredThemeIndex(themes, savedThemeName);
     }
-    populate();
+    if (elements.select) {
+      const fillCatalog = () => ensureCatalog();
+      elements.select.addEventListener('pointerdown', fillCatalog, { once: true });
+      elements.select.addEventListener('focus', fillCatalog, { once: true });
+    }
     return initialIndex >= 0
       ? applyIndex(initialIndex, { silent: true, persist: false })
       : Promise.resolve(false);
@@ -350,6 +367,7 @@ export function createThemeCoordinator({
 
   return Object.freeze({
     start,
+    ensureCatalog,
     applyIndex,
     applyName,
     cycle,

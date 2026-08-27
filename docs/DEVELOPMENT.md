@@ -13,13 +13,11 @@ It describes the repository layout, the local checks, and the CI gates for
   file-association modules, thin Tauri adapters, configuration, and
   capabilities.
 - `scripts/` — focused static validation used by the frontend check.
-- `docs/` — developer and provenance documentation; private audit notes belong
-  under the ignored `.local/` directory. Architecture ARC-01..45 are closed in
-  [architecture/WORKPLAN.md](architecture/WORKPLAN.md); reviews there are
-  historical completion records, not an open ticket queue. The current runtime
-  boundary is summarized in [architecture/CURRENT.md](architecture/CURRENT.md),
-  and dependency/security evidence lives in [DEPENDENCY_UPDATES.md](DEPENDENCY_UPDATES.md)
-  and [QUALITY_AUDIT.md](QUALITY_AUDIT.md).
+- `docs/` — developer and provenance documentation. Private audit notes belong
+  under the ignored `.local/` directory. The current runtime boundary is
+  [architecture/CURRENT.md](architecture/CURRENT.md). Dependency and security
+  evidence lives in [DEPENDENCY_UPDATES.md](DEPENDENCY_UPDATES.md) and
+  [QUALITY_AUDIT.md](QUALITY_AUDIT.md).
 
 The frontend and native layers communicate through the Tauri command/event
 bridge. Opening a document is read-only until the user enters **Edit** and
@@ -30,10 +28,10 @@ role; in-app edit does not change that bundle policy. See
 
 ## Local setup
 
-Install Rust stable, **Node.js 24.19.0 and pnpm 11.21** (see `.node-version`, `packageManager` in
-`package.json` and CI), plus the platform prerequisites listed by
-[Tauri](https://v2.tauri.app/start/prerequisites/). pnpm is required by the
-repository's Tauri development and build configuration.
+Install Rust stable, **Node.js 24.19.0 and pnpm 11.24.0** (see `.node-version`,
+`packageManager` in `package.json`, and CI), plus the platform prerequisites
+listed by [Tauri](https://v2.tauri.app/start/prerequisites/). pnpm is required
+by the repository's Tauri development and build configuration.
 
 ```bash
 pnpm install
@@ -132,8 +130,8 @@ default-app policy.
   IDs, in-process pending replay, acknowledgment, and live coordinator-window
   handoff.
 
-See [Architecture context](../CONTEXT.md), the
-[architecture workplan](architecture/WORKPLAN.md), and
+See [Architecture context](../CONTEXT.md),
+[Current architecture](architecture/CURRENT.md), and
 [ADR 0001](adr/0001-open-intent-delivery.md) for invariants and accepted
 trade-offs.
 

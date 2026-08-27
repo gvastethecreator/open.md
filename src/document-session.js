@@ -200,12 +200,36 @@ function focusContent({ content, readerPage, sourceView, fragment, sourceActive 
   content.focus?.({ preventScroll: true });
 }
 
-export function createDocumentSession({ window, adapters, hooks = {} }) {
+export function enhanceReadSurface({
+  window,
+  document,
+  content,
+  sourceContent,
+  source,
+  isMarkdown,
+  clipboard,
+  onToast,
+  onDiagnostic,
+}) {
+  if (!content) return;
+  renderSource(document, sourceContent, source, isMarkdown);
+  enhanceTables(document, content);
+  enhanceCodeBlocks({
+    window,
+    document,
+    content,
+    clipboard,
+    onToast,
+    onDiagnostic,
+  });
+}
+
+export function createDocumentSession({ window, adapters, hooks = {}, elements = {} } = {}) {
   const { document } = window;
-  const content = document.getElementById('content');
-  const sourceContent = document.getElementById('source-content');
-  const sourceView = document.getElementById('source-view');
-  const readerPage = document.getElementById('reader-page');
+  const content = elements.content;
+  const sourceContent = elements.sourceContent;
+  const sourceView = elements.sourceView;
+  const readerPage = elements.readerPage;
 
   if (!content) {
     throw new Error('Reader shell requires #content');
@@ -441,34 +465,36 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
         image.setAttribute('loading', 'lazy');
         image.dataset.documentSource = image.getAttribute('src') || '';
       });
-      renderSource(
-        document,
-        sourceContent,
-        openedDocument.source,
-        isMarkdown
-      );
-
-      // Full-document companion source highlight (non-markdown).
-      if (!isMarkdown && sourceContent && adapters.syntax?.highlightDocument) {
-        try {
-          await adapters.syntax.highlightDocument(sourceContent, getHighlightLanguage(format));
-        } catch (error) {
-          hooks.onDiagnostic?.('Source highlight error', error);
-        }
-      }
-
-      await hydrateImages(path, candidate);
       if (!isCurrent(candidate)) return { status: 'superseded', path };
-
-      enhanceTables(document, content);
-      enhanceCodeBlocks({
+      enhanceReadSurface({
         window,
         document,
         content,
+        sourceContent,
+        source: openedDocument.source,
+        isMarkdown,
         clipboard: adapters.clipboard || window.navigator?.clipboard,
         onToast: hooks.onToast,
         onDiagnostic: hooks.onDiagnostic,
       });
+
+      content.removeAttribute('aria-busy');
+      const readyState = { state: 'ready', path, document: openedDocument };
+      if (quiet) state = Object.freeze(readyState);
+      else {
+        notify(readyState);
+        focusContent({
+          content,
+          readerPage,
+          sourceView,
+          fragment,
+          sourceActive: Boolean(hooks.isSourceActive?.()),
+        });
+        hooks.onSettled?.(state);
+      }
+
+      await hydrateImages(path, candidate);
+      if (!isCurrent(candidate)) return { status: 'superseded', path };
 
       try {
         await adapters.syntax?.highlight?.(content);
@@ -495,20 +521,6 @@ export function createDocumentSession({ window, adapters, hooks = {} }) {
       }
       if (!isCurrent(candidate)) return { status: 'superseded', path };
 
-      content.removeAttribute('aria-busy');
-      const readyState = { state: 'ready', path, document: openedDocument };
-      if (quiet) state = Object.freeze(readyState);
-      else {
-        notify(readyState);
-        focusContent({
-          content,
-          readerPage,
-          sourceView,
-          fragment,
-          sourceActive: Boolean(hooks.isSourceActive?.()),
-        });
-        hooks.onSettled?.(state);
-      }
       return { status: 'ready', path, document: openedDocument };
     } catch (error) {
       if (!isCurrent(candidate)) return { status: 'superseded', path };

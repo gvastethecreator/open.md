@@ -250,6 +250,15 @@ function captureDiagramSource(diagram) {
   return diagram.dataset.mermaidSource;
 }
 
+function isDiagramInViewport(diagram) {
+  if (typeof diagram.getBoundingClientRect !== 'function') return true;
+  const view = diagram.ownerDocument?.defaultView;
+  const viewHeight = Number(view?.innerHeight) || 0;
+  if (viewHeight <= 0) return true;
+  const rect = diagram.getBoundingClientRect();
+  return rect.bottom >= -40 && rect.top <= viewHeight + 240;
+}
+
 function isCurrentTarget(container, diagram) {
   if (diagram.isConnected === false) return false;
   return typeof container?.contains !== 'function' || container.contains(diagram);
@@ -321,6 +330,10 @@ export async function prepareMermaidDiagrams(
 
     const renderResults = [];
     for (let index = 0; index < diagrams.length; index += 1) {
+      if (!isDiagramInViewport(diagrams[index])) {
+        renderResults.push(null);
+        continue;
+      }
       const result = await mermaid.render(
         `openmd-mermaid-${requestRevision}-${index}`,
         sources[index]
@@ -338,6 +351,7 @@ export async function prepareMermaidDiagrams(
         if (!diagrams.every((diagram) => isCurrentTarget(container, diagram))) return false;
 
         diagrams.forEach((diagram, index) => {
+          if (!renderResults[index]) return;
           diagram.innerHTML = renderResults[index].svg;
           diagram.dataset.processed = 'true';
           diagram.dataset.mermaidTheme = resolvedTheme;
@@ -349,7 +363,7 @@ export async function prepareMermaidDiagrams(
         });
         diagrams.forEach((diagram, index) => {
           try {
-            renderResults[index].bindFunctions?.(diagram);
+            renderResults[index]?.bindFunctions?.(diagram);
           } catch (error) {
             console.warn('Could not bind Mermaid diagram interactions:', error);
           }

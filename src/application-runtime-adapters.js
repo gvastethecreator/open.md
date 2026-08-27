@@ -11,8 +11,11 @@ import {
   createMemoryPreferenceStore,
   createOptionalWebPreferenceStore,
 } from './reader-preferences.js';
-import { prepareMermaidDiagrams, renderMermaidDiagrams } from './mermaid-renderer.js';
 import { toUint8Array } from './image-resources.js';
+
+function loadMermaidRenderer() {
+  return import('./mermaid-renderer.js');
+}
 
 const NATIVE_ACCESS_ERROR = 'Native file access is unavailable in this browser preview.';
 
@@ -65,7 +68,10 @@ export function createApplicationRuntimeAdapters({
   saveFileDialog = defaultSaveFileDialog,
   openUrl = null,
   syntaxLoader = () => import('./syntax-highlighter.js'),
-  diagrams = { prepare: prepareMermaidDiagrams, render: renderMermaidDiagrams },
+  diagrams = {
+    prepare: (...args) => loadMermaidRenderer().then((module) => module.prepareMermaidDiagrams(...args)),
+    render: (...args) => loadMermaidRenderer().then((module) => module.renderMermaidDiagrams(...args)),
+  },
   storage,
 } = {}) {
   if (!window?.document) throw new Error('Application runtime adapters require a window');

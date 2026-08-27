@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-08-26T14:00:00Z",
-  "generated_from_commit": "e884b4a667d812fdf81f7c95902a848f4b76ae7f",
+  "generated_at": "2026-08-27T06:51:09Z",
+  "generated_from_commit": "071fc113fbcef23d68f99b8ef5f11292c268a83d",
   "scope": [
     "."
   ],
@@ -34,8 +34,7 @@
         "locations": [
           {
             "path": "src-tauri/src/app_settings.rs",
-            "symbol": "serde",
-            "line": 1
+            "symbol": "serde"
           }
         ]
       }
@@ -46,7 +45,7 @@
       "type": "module",
       "boundary": "Repository",
       "entrypoints": [
-        "package.json:name"
+        "package.json:{"
       ],
       "tests": [],
       "callers": [],
@@ -69,8 +68,7 @@
         "locations": [
           {
             "path": "package.json",
-            "symbol": "name",
-            "line": 2
+            "symbol": "{"
           }
         ]
       }
@@ -106,8 +104,7 @@
         "locations": [
           {
             "path": "scripts/check-bundle.mjs",
-            "symbol": "listFiles",
-            "line": 14
+            "symbol": "listFiles"
           }
         ]
       }
@@ -133,8 +130,7 @@
         "locations": [
           {
             "path": "scripts/store/Build-StoreInstaller.ps1",
-            "symbol": "Invoke",
-            "line": 44
+            "symbol": "Invoke"
           }
         ]
       }
@@ -183,8 +179,7 @@
         "locations": [
           {
             "path": "src/main.js",
-            "symbol": "cacheElements",
-            "line": 115
+            "symbol": "cacheElements"
           }
         ]
       }
@@ -217,8 +212,7 @@
         "locations": [
           {
             "path": "src/core/reader.js",
-            "symbol": "isSupportedFilePath",
-            "line": 66
+            "symbol": "isSupportedFilePath"
           }
         ]
       }
@@ -239,8 +233,7 @@
         "locations": [
           {
             "path": "src-tauri/Cargo.toml",
-            "symbol": "package",
-            "line": 1
+            "symbol": "package"
           }
         ]
       }
@@ -266,8 +259,7 @@
         "locations": [
           {
             "path": "src-tauri/src/lib.rs",
-            "symbol": "get_file_content",
-            "line": 18
+            "symbol": "get_file_content"
           }
         ]
       }
@@ -278,7 +270,7 @@
       "type": "module",
       "boundary": "Vite.Config",
       "entrypoints": [
-        "vite.config.js:defineConfig"
+        "vite.config.js:import { defineConfig } from \"vite\";"
       ],
       "tests": [],
       "callers": [],
@@ -297,8 +289,7 @@
         "locations": [
           {
             "path": "vite.config.js",
-            "symbol": "defineConfig",
-            "line": 1
+            "symbol": "import { defineConfig } from \"vite\";"
           }
         ]
       }
@@ -314,18 +305,15 @@
         "locations": [
           {
             "path": "package.json",
-            "symbol": "./scripts/check-bundle.mjs",
-            "line": 23
+            "symbol": "./scripts/check-bundle.mjs"
           },
           {
             "path": "package.json",
-            "symbol": "./scripts/validate-pages.mjs",
-            "line": 25
+            "symbol": "./scripts/validate-pages.mjs"
           },
           {
             "path": "package.json",
-            "symbol": "./scripts/generate-runtime-themes.mjs",
-            "line": 26
+            "symbol": "./scripts/generate-runtime-themes.mjs"
           }
         ]
       }
@@ -339,13 +327,11 @@
         "locations": [
           {
             "path": "package.json",
-            "symbol": "./scripts/store/Test-StoreReadiness.ps1",
-            "line": 36
+            "symbol": "./scripts/store/Test-StoreReadiness.ps1"
           },
           {
             "path": "package.json",
-            "symbol": "./scripts/store/Build-StoreInstaller.ps1",
-            "line": 37
+            "symbol": "./scripts/store/Build-StoreInstaller.ps1"
           }
         ]
       }
@@ -359,8 +345,7 @@
         "locations": [
           {
             "path": "package.json",
-            "symbol": "src/reader-shell.test.js",
-            "line": 30
+            "symbol": "src/reader-shell.test.js"
           }
         ]
       }
@@ -374,18 +359,15 @@
         "locations": [
           {
             "path": "src/app-loading-screen.test.js",
-            "symbol": "vitest",
-            "line": 1
+            "symbol": "vitest"
           },
           {
             "path": "src/application-composition.test.js",
-            "symbol": "jsdom",
-            "line": 4
+            "symbol": "jsdom"
           },
           {
             "path": "src/application-composition.test.js",
-            "symbol": "vitest",
-            "line": 5
+            "symbol": "vitest"
           }
         ]
       }
@@ -399,8 +381,7 @@
         "locations": [
           {
             "path": "src/free-port.test.js",
-            "symbol": "../scripts/free-port.mjs",
-            "line": 3
+            "symbol": "../scripts/free-port.mjs"
           }
         ]
       }
@@ -414,13 +395,11 @@
         "locations": [
           {
             "path": "src/main.test.js",
-            "symbol": "./core/reader.js",
-            "line": 30
+            "symbol": "./core/reader.js"
           },
           {
             "path": "src/theme-coordinator.js",
-            "symbol": "./core/reader.js",
-            "line": 5
+            "symbol": "./core/reader.js"
           }
         ]
       }
@@ -434,18 +413,15 @@
         "locations": [
           {
             "path": "src/core/reader.js",
-            "symbol": "../format-detect.js",
-            "line": 12
+            "symbol": "../format-detect.js"
           },
           {
             "path": "src/core/reader.js",
-            "symbol": "../status-metrics.js",
-            "line": 22
+            "symbol": "../status-metrics.js"
           },
           {
             "path": "src/core/reader.js",
-            "symbol": "../document-path.js",
-            "line": 30
+            "symbol": "../document-path.js"
           }
         ]
       }
@@ -459,18 +435,15 @@
         "locations": [
           {
             "path": "src-tauri/src/app_settings.rs",
-            "symbol": "serde",
-            "line": 1
+            "symbol": "serde"
           },
           {
             "path": "src-tauri/src/document_access.rs",
-            "symbol": "pulldown_cmark",
-            "line": 1
+            "symbol": "pulldown_cmark"
           },
           {
             "path": "src-tauri/src/document_access.rs",
-            "symbol": "serde",
-            "line": 2
+            "symbol": "serde"
           }
         ]
       }
@@ -484,8 +457,7 @@
         "locations": [
           {
             "path": "vite.config.js",
-            "symbol": "vite",
-            "line": 1
+            "symbol": "vite"
           }
         ]
       }
@@ -499,55 +471,11 @@
         "locations": [
           {
             "path": "vite.config.js",
-            "symbol": "./scripts/free-port.mjs",
-            "line": 2
+            "symbol": "./scripts/free-port.mjs"
           }
         ]
       }
     }
   ],
-  "flows": [
-    {
-      "trigger": "src/main.js:cacheElements",
-      "steps": [
-        "src",
-        "external-dependencies"
-      ],
-      "outcome": "reached external-dependencies"
-    },
-    {
-      "trigger": "src/core/reader.js:isSupportedFilePath",
-      "steps": [
-        "src-core",
-        "src",
-        "external-dependencies"
-      ],
-      "outcome": "reached external-dependencies"
-    },
-    {
-      "trigger": "package.json:name",
-      "steps": [
-        "repository",
-        "scripts"
-      ],
-      "outcome": "reached scripts"
-    },
-    {
-      "trigger": "src-tauri/src/lib.rs:get_file_content",
-      "steps": [
-        "src-tauri-src",
-        "external-dependencies"
-      ],
-      "outcome": "reached external-dependencies"
-    },
-    {
-      "trigger": "vite.config.js:defineConfig",
-      "steps": [
-        "vite-config",
-        "external-dependencies"
-      ],
-      "outcome": "reached external-dependencies"
-    }
-  ],
-  "overflow": []
+  "flows": []
 }
