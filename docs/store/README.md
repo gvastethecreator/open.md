@@ -2,7 +2,7 @@
 
 Status: **implementation prepared; submission blocked**
 
-This directory contains the repository-side contracts for publishing open.md through Microsoft Partner Center. It does not claim that the product has already passed certification.
+This directory holds repository-side contracts for publishing open.md through Microsoft Partner Center. It does not claim that the product has passed certification.
 
 ## Chosen distribution path
 
@@ -24,7 +24,7 @@ immutable versioned HTTPS hosting
 Partner Center EXE submission
 ```
 
-The Store package is not an MSIX and Microsoft does not manage its updates. See [ADR 0002](../adr/0002-microsoft-store-exe-submission.md).
+The Store package is not an MSIX. Microsoft does not manage its updates. See [ADR 0002](../adr/0002-microsoft-store-exe-submission.md).
 
 ## Current hard gates
 
@@ -43,8 +43,6 @@ A public submission must not proceed until all of these are complete:
 - [ ] Complete the age-rating questionnaire.
 - [ ] Submit with a publishing hold for the first certification.
 
-Run the structural gate at any time:
-
 ```powershell
 pnpm run store:validate
 ```
@@ -57,15 +55,9 @@ powershell -NoProfile -ExecutionPolicy Bypass `
   -RequireSubmissionReady
 ```
 
-## 1. Product reservation
+## Product reservation
 
-In Partner Center create a new product using:
-
-```text
-EXE or MSI app
-```
-
-Do not reserve it as an MSIX product unless the packaging strategy is deliberately changed and requalified.
+In Partner Center create a new product using `EXE or MSI app`. Do not reserve it as an MSIX product unless the packaging strategy is deliberately changed and requalified.
 
 After reservation, record the exact values without surrounding spaces:
 
@@ -81,54 +73,36 @@ After reservation, record the exact values without surrounding spaces:
 
 This command stores public release metadata only. It never stores a certificate, private key, password, or updater signing key.
 
-## 2. Pricing and availability
+## Listing defaults
 
-Recommended first submission:
+Recommended first submission: free; all acceptable markets; Store search on; first release held for manual publish. Record actual choices in release evidence.
 
-- Price: Free.
-- Markets: all markets where the listing and support policy are acceptable.
-- Discoverability: available in Store search.
-- Organizational licensing: decide explicitly in Partner Center.
-- Release timing: use **publish manually** or a hold after certification for the first submission.
-- Trial: not applicable for the free edition.
-
-Record the actual choices in release evidence.
-
-## 3. Properties
-
-Recommended values:
+Recommended properties:
 
 - Category: Productivity.
-- Subcategory: choose the closest current document/editor category shown by Partner Center.
 - Privacy policy: `https://gvastethecreator.github.io/open.md/privacy.html`
 - Support: `https://github.com/gvastethecreator/open.md/issues`
 - Website: `https://gvastethecreator.github.io/open.md/`
-- System requirements: Windows x64; WebView2 is included through the offline installer mode.
+- System requirements: Windows x64. WebView2 is included through the offline installer mode.
 - Account requirement: none.
 
 Do not claim cloud synchronization, remote collaboration, AI features, or Store-managed updates.
 
-## 4. Age ratings
+open.md is a general-purpose local document utility. The app itself contains no violence, sexual content, gambling, social networking, unrestricted web browser, or user-generated-content service. Complete the Partner Center questionnaire and save the rating with release evidence.
 
-open.md is a general-purpose local document utility. The app itself contains no violence, sexual content, gambling, social networking, unrestricted web browser, or user-generated-content service.
+Listing copy, screenshots, hosting, updater, certification answers, and the evidence template live in:
 
-The rating questionnaire must still be completed in Partner Center. Documents opened by a user are local user-selected files; the application does not provide or distribute that content.
+- [LISTING.md](LISTING.md)
+- [HOSTING.md](HOSTING.md)
+- [UPDATE-STRATEGY.md](UPDATE-STRATEGY.md)
+- [CERTIFICATION-NOTES.md](CERTIFICATION-NOTES.md)
+- [RELEASE-EVIDENCE-TEMPLATE.md](RELEASE-EVIDENCE-TEMPLATE.md)
 
-Save the final rating result with the release evidence.
+Screenshots must show real application surfaces without private documents, usernames, project paths, tokens, or third-party content without permission.
 
-## 5. Package preparation
+## Package preparation
 
-### Store-specific Tauri config
-
-`src-tauri/tauri.microsoftstore.conf.json` limits the bundle to NSIS and requires:
-
-- current-user installation;
-- offline WebView2 installer;
-- publisher display metadata;
-- downgrade blocking;
-- no web downloader.
-
-### Signing inputs
+`src-tauri/tauri.microsoftstore.conf.json` limits the bundle to NSIS and requires current-user installation, an offline WebView2 installer, publisher display metadata, downgrade blocking, and no web downloader.
 
 Set these locally or as protected GitHub Actions secrets:
 
@@ -138,38 +112,16 @@ $env:OPENMD_WINDOWS_CERTIFICATE_PASSWORD = '<secret>'
 $env:OPENMD_WINDOWS_TIMESTAMP_URL = 'https://<rfc3161-service>'
 ```
 
-In GitHub Actions use:
+In GitHub Actions use `OPENMD_WINDOWS_CERTIFICATE_BASE64`, `OPENMD_WINDOWS_CERTIFICATE_PASSWORD`, and `OPENMD_WINDOWS_TIMESTAMP_URL`. Never commit private signing material.
 
-```text
-OPENMD_WINDOWS_CERTIFICATE_BASE64
-OPENMD_WINDOWS_CERTIFICATE_PASSWORD
-OPENMD_WINDOWS_TIMESTAMP_URL
-```
-
-Never commit private signing material.
-
-The included helper supports a PFX that can be imported into the current user's certificate store. Modern hardware-backed or cloud signing services may expose the private key differently. In that case, keep the same package/evidence gates but adapt the workflow to Tauri's `signCommand` or a certificate already available by thumbprint; do not export a protected key merely to satisfy this helper.
-
-### Build
+The included helper supports a PFX that can be imported into the current user's certificate store. Hardware-backed or cloud signing may expose the private key differently. In that case keep the same package and evidence gates, but adapt the workflow to Tauri's `signCommand` or a certificate already available by thumbprint. Do not export a protected key merely to satisfy this helper.
 
 ```powershell
 .\scripts\store\Build-StoreInstaller.ps1 `
   -RequireSubmissionReady
 ```
 
-The build:
-
-1. runs the readiness gate;
-2. verifies the repository;
-3. imports the signing identity temporarily;
-4. gives Tauri the certificate thumbprint, SHA-256 digest and RFC 3161 timestamp configuration;
-5. builds and signs the application and offline NSIS payload through Tauri;
-6. verifies Authenticode on the application and final installer;
-7. writes SHA-256 and provenance evidence;
-8. removes temporary signing configuration and imported certificate material;
-9. rejects private-key files in the output directory.
-
-Output:
+The build runs the readiness gate, signs through Tauri, verifies Authenticode, writes SHA-256 evidence, and rejects private-key files in the output directory.
 
 ```text
 artifacts/store/<version>/
@@ -179,25 +131,7 @@ artifacts/store/<version>/
   store-build-manifest.json
 ```
 
-### Partner Center package fields
-
-Use the generated `partner-center-package.json` as a transcription aid:
-
-- Package URL: immutable versioned HTTPS URL.
-- Architecture: x64.
-- Installer type: EXE.
-- Silent install parameter: `/S`.
-- Language: English (United States).
-- Package version: the exact application version.
-- Support URL and privacy URL: as documented above.
-
-Do not use a URL containing `/latest/`, a mutable object key, authentication, an expiring signature, or a landing page.
-
-## 6. Hosting
-
-Read [HOSTING.md](HOSTING.md).
-
-The certified URL must continue serving exactly the certified bytes. A new release uses a new URL. Retain old certified objects for rollback, reinstall, and certification traceability.
+Use `partner-center-package.json` as a transcription aid. Package URL must be an immutable versioned HTTPS URL. Architecture: x64. Installer type: EXE. Silent install parameter: `/S`. Language: English (United States). Do not use a URL containing `/latest/`, a mutable object key, authentication, an expiring signature, or a landing page.
 
 Before entering the URL:
 
@@ -208,49 +142,9 @@ Get-FileHash .\installer.exe -Algorithm SHA256
 Get-AuthenticodeSignature .\installer.exe
 ```
 
-The downloaded hash must match the build evidence.
+The downloaded hash must match the build evidence. The certified URL must keep serving exactly the certified bytes. A new release uses a new URL.
 
-## 7. Updates
-
-Read [UPDATE-STRATEGY.md](UPDATE-STRATEGY.md).
-
-Because this is an EXE submission, Microsoft Store does not update the installed app. Public submission remains blocked until the signed updater is implemented and tested.
-
-The updater must:
-
-- verify Tauri update signatures;
-- use HTTPS;
-- present release/version information;
-- preserve unsaved-work safety;
-- never upload documents or paths;
-- support a rollback/recovery procedure;
-- have its endpoint and public-key fingerprint recorded in `store-product.json`.
-
-## 8. Store listing
-
-Use [LISTING.md](LISTING.md) as the source of truth. The first listing is `en-US`.
-
-Screenshots must show real application surfaces without private documents, usernames, project paths, tokens, or third-party content without permission.
-
-## 9. Certification notes
-
-Use [CERTIFICATION-NOTES.md](CERTIFICATION-NOTES.md). Update version numbers and updater details before submission.
-
-The notes explain:
-
-- no account or login;
-- local file access;
-- read versus edit behavior;
-- file associations;
-- silent install;
-- offline installation;
-- how to create a safe sample document;
-- where settings are stored;
-- how updates work.
-
-## 10. Lifecycle qualification
-
-Use:
+## Lifecycle qualification
 
 ```powershell
 .\scripts\store\Test-StoreInstallerLifecycle.ps1 `
@@ -261,7 +155,9 @@ Run the full matrix from [RELEASE-EVIDENCE-TEMPLATE.md](RELEASE-EVIDENCE-TEMPLAT
 
 The lifecycle test changes the current user's installed applications and file-association registration. Use a disposable VM or dedicated test profile.
 
-## 11. First submission sequence
+Because this is an EXE submission, Microsoft Store does not update the installed app. Public submission remains blocked until the signed updater is implemented and tested.
+
+## First submission sequence
 
 ```text
 merge reviewed Store PR
@@ -291,18 +187,7 @@ publish manually
 
 ## What this repository cannot automate
 
-The repository cannot truthfully complete:
-
-- identity verification by the certificate authority;
-- purchase or custody of the signing certificate;
-- Partner Center commercial selections;
-- age-rating answers on behalf of the publisher;
-- final screenshot approval;
-- hosting ownership and retention guarantees;
-- clean-machine interactive evidence;
-- final submission or publication approval.
-
-Those remain release-owner responsibilities and must be recorded rather than inferred.
+The repository cannot complete identity verification by the certificate authority, purchase or custody of the signing certificate, Partner Center commercial selections, age-rating answers, final screenshot approval, hosting ownership and retention guarantees, clean-machine interactive evidence, or final submission approval. Those remain release-owner responsibilities.
 
 ## Primary references
 
