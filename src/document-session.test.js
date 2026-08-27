@@ -134,6 +134,25 @@ describe('document session', () => {
     expect(session.current()).toMatchObject({ state: 'ready', path: 'guide.md', document: current });
   });
 
+  it('settles Read paint before hidden Source token DOM is built', async () => {
+    const onSettled = vi.fn(() => {
+      expect(document.querySelector('#source-content .source-markup-token')).toBeNull();
+    });
+    const session = createSession({
+      open: vi.fn(async () => payload({
+        html: '<h1>Title</h1>',
+        source: '# Title\n`code`',
+      })),
+      hooks: { onSettled },
+    });
+
+    await session.open({ path: 'guide.md' });
+
+    expect(onSettled).toHaveBeenCalledOnce();
+    expect(document.querySelector('#content h1')?.textContent).toBe('Title');
+    expect(document.querySelector('#source-content .source-markup-token')?.textContent).toBe('#');
+  });
+
   it('settles Read paint before image bytes resolve', async () => {
     let resolveImage;
     const readImage = vi.fn(() => new Promise((resolve) => { resolveImage = resolve; }));

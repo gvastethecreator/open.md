@@ -113,8 +113,14 @@ describe('Reading Navigation Controller', () => {
     svg.setAttribute('class', 'openmd-mermaid-svg');
     mermaid.appendChild(svg);
     view.elements.readView.appendChild(mermaid);
+    const viewClone = vi.spyOn(view.elements.readView, 'cloneNode');
+    const mermaidClone = vi.spyOn(mermaid, 'cloneNode');
+    const svgClone = vi.spyOn(svg, 'cloneNode');
     view.controller.markDirty();
     view.controller.refresh();
+    expect(viewClone).not.toHaveBeenCalled();
+    expect(mermaidClone).not.toHaveBeenCalled();
+    expect(svgClone).not.toHaveBeenCalled();
     expect(view.elements.minimapDocument.querySelector('svg')).toBeNull();
     expect(view.elements.minimapDocument.querySelector('.minimap-diagram-placeholder')).not.toBeNull();
 

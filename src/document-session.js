@@ -466,17 +466,6 @@ export function createDocumentSession({ window, adapters, hooks = {}, elements =
         image.dataset.documentSource = image.getAttribute('src') || '';
       });
       if (!isCurrent(candidate)) return { status: 'superseded', path };
-      enhanceReadSurface({
-        window,
-        document,
-        content,
-        sourceContent,
-        source: openedDocument.source,
-        isMarkdown,
-        clipboard: adapters.clipboard || window.navigator?.clipboard,
-        onToast: hooks.onToast,
-        onDiagnostic: hooks.onDiagnostic,
-      });
 
       content.removeAttribute('aria-busy');
       const readyState = { state: 'ready', path, document: openedDocument };
@@ -492,6 +481,18 @@ export function createDocumentSession({ window, adapters, hooks = {}, elements =
         });
         hooks.onSettled?.(state);
       }
+
+      enhanceReadSurface({
+        window,
+        document,
+        content,
+        sourceContent,
+        source: openedDocument.source,
+        isMarkdown,
+        clipboard: adapters.clipboard || window.navigator?.clipboard,
+        onToast: hooks.onToast,
+        onDiagnostic: hooks.onDiagnostic,
+      });
 
       await hydrateImages(path, candidate);
       if (!isCurrent(candidate)) return { status: 'superseded', path };

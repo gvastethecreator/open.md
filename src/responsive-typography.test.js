@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import { findFittedFontSize } from './responsive-typography.js';
+// @vitest-environment jsdom
+
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createResponsiveTypography, findFittedFontSize } from './responsive-typography.js';
 
 describe('responsive typography', () => {
   it('keeps the base size when the heading already meets its line budget', () => {
@@ -32,5 +34,66 @@ describe('responsive typography', () => {
       maxLines: 2,
       measure: () => 4,
     })).toEqual({ fontSize: 24, lineCount: 4, fitted: true });
+  });
+
+  it('does not clear --pretext-font-size on an untouched heading', async () => {
+    vi.resetModules();
+    vi.doMock('@chenglou/pretext', () => ({
+      prepare: () => ({}),
+      layout: () => ({ lineCount: 1 }),
+    }));
+    const { createResponsiveTypography: createTypography } = await import('./responsive-typography.js');
+    const root = document.createElement('div');
+    root.innerHTML = '<div class="markdown-body"><h1 id="keep">Keep</h1><h1 id="edit">Edit</h1></div>';
+    document.body.append(root);
+    const keep = root.querySelector('#keep');
+    const edit = root.querySelector('#edit');
+    [keep, edit].forEach((heading) => {
+      Object.defineProperty(heading, 'clientWidth', { configurable: true, value: 320 });
+    });
+    window.getComputedStyle = () => ({
+      fontSize: '32px',
+      lineHeight: '40px',
+      fontStyle: 'normal',
+      fontVariant: 'normal',
+      fontWeight: '600',
+      fontFamily: 'Inter',
+      whiteSpace: 'normal',
+      wordBreak: 'normal',
+      letterSpacing: '0',
+    });
+    window.matchMedia = () => ({ matches: false });
+    const frames = [];
+    window.requestAnimationFrame = (callback) => {
+      frames.push(callback);
+      return frames.length;
+    };
+    window.cancelAnimationFrame = () => {};
+
+    const typography = createTypography({ window, root: document });
+    let ready = false;
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      ready = typography.refresh();
+      if (ready) break;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      while (frames.length > 0) frames.shift()(16);
+    }
+    expect(ready).toBe(true);
+
+    keep.style.setProperty('--pretext-font-size', '32px');
+    edit.style.setProperty('--pretext-font-size', '32px');
+    keep.dataset.pretextFitted = 'sentinel';
+    edit.dataset.pretextFitted = 'sentinel';
+    edit.textContent = 'Changed heading';
+    await Promise.resolve();
+    await Promise.resolve();
+    while (frames.length > 0) frames.shift()(16);
+
+    expect(keep.style.getPropertyValue('--pretext-font-size')).toBe('32px');
+    expect(keep.dataset.pretextFitted).toBe('sentinel');
+    expect(edit.dataset.pretextFitted).not.toBe('sentinel');
+    typography.dispose();
+    root.remove();
+    vi.doUnmock('@chenglou/pretext');
   });
 });

@@ -129,15 +129,52 @@ export function createResponsiveTypography({ window, root = window.document, onD
     return pretextPromise;
   };
 
-  const refresh = () => {
+  let pendingDirty = undefined;
+
+  const fitHeadings = () => new Set(
+    [...root.querySelectorAll(FIT_SELECTORS)].filter((element) => !element.closest('.minimap-document')),
+  );
+
+  const collectDirtyHeadings = (records) => {
+    const dirty = new Set();
+    const fit = fitHeadings();
+    const consider = (node) => {
+      if (!node) return;
+      if (node.nodeType === 3) {
+        consider(node.parentElement);
+        return;
+      }
+      if (node.nodeType !== 1) return;
+      let current = node;
+      while (current) {
+        if (fit.has(current)) {
+          dirty.add(current);
+          break;
+        }
+        current = current.parentElement;
+      }
+      node.querySelectorAll?.(FIT_SELECTORS).forEach((element) => {
+        if (fit.has(element)) dirty.add(element);
+      });
+    };
+    records.forEach((record) => {
+      consider(record.target);
+      record.addedNodes.forEach(consider);
+    });
+    return dirty;
+  };
+
+  const refresh = (dirty) => {
     if (disposed || !available) return false;
     if (!pretext) {
       void loadPretext();
       return false;
     }
     try {
-      const elements = [...root.querySelectorAll(FIT_SELECTORS)]
-        .filter((element) => !element.closest('.minimap-document'));
+      const fit = fitHeadings();
+      const elements = (dirty instanceof Set
+        ? [...dirty].filter((element) => element.isConnected && fit.has(element))
+        : [...fit]);
       elements.forEach(resetElement);
       const measurements = elements.map((element) => measureElement(window, element, pretext));
       elements.forEach((element, index) => {
@@ -159,16 +196,27 @@ export function createResponsiveTypography({ window, root = window.document, onD
     }
   };
 
-  const schedule = () => {
-    if (disposed || frameId !== null) return;
+  const schedule = (dirty) => {
+    if (disposed) return;
+    if (dirty == null) pendingDirty = null;
+    else if (pendingDirty !== null) {
+      if (!(pendingDirty instanceof Set)) pendingDirty = new Set();
+      dirty.forEach((element) => pendingDirty.add(element));
+    }
+    if (frameId !== null) return;
     frameId = window.requestAnimationFrame(() => {
       frameId = null;
-      refresh();
+      const batch = pendingDirty;
+      pendingDirty = undefined;
+      refresh(batch === null ? undefined : batch);
     });
   };
 
   const mutationObserver = typeof window.MutationObserver === 'function'
-    ? new window.MutationObserver(schedule)
+    ? new window.MutationObserver((records) => {
+      const dirty = collectDirtyHeadings(records);
+      if (dirty.size > 0) schedule(dirty);
+    })
     : null;
   const mutationTargets = [...(root.querySelectorAll?.('#content, #editor-canvas, .markdown-body, .editor-canvas') || [])];
   if (mutationTargets.length === 0) {

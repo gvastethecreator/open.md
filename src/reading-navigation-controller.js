@@ -426,20 +426,42 @@ export function createReadingNavigationController({
     }
   };
 
+  const copyAttributes = (source, target) => {
+    [...(source.attributes || [])].forEach((attribute) => {
+      target.setAttribute(attribute.name, attribute.value);
+    });
+  };
+
+  const buildMinimapSnapshot = (source) => {
+    if (source.nodeType === 3) return source.ownerDocument.createTextNode(source.textContent);
+    if (source.nodeType !== 1) return null;
+    if (source.matches?.('.copy-code-btn')) return null;
+    if (
+      source.matches?.('.mermaid, .openmd-mermaid-svg, svg.openmd-mermaid-svg')
+      || (source.matches?.('svg') && source.closest?.('.mermaid'))
+    ) {
+      const placeholder = source.ownerDocument.createElement('span');
+      placeholder.className = 'minimap-diagram-placeholder';
+      placeholder.setAttribute('aria-hidden', 'true');
+      const box = source.getBoundingClientRect?.() || {};
+      const width = Math.max(24, Math.round(source.clientWidth || box.width || 48));
+      const height = Math.max(12, Math.round(source.clientHeight || box.height || 24));
+      placeholder.style.cssText = `display:block;width:${width}px;height:${height}px`;
+      return placeholder;
+    }
+    const copy = source.ownerDocument.createElement(source.tagName);
+    copyAttributes(source, copy);
+    [...source.childNodes].forEach((child) => {
+      const snapped = buildMinimapSnapshot(child);
+      if (snapped) copy.appendChild(snapped);
+    });
+    return copy;
+  };
+
   const sanitizeMinimapClone = (clone) => {
     clone.setAttribute('aria-hidden', 'true');
     clone.setAttribute('inert', '');
     clone.classList.remove('hidden');
-    clone.querySelectorAll('.copy-code-btn').forEach((button) => button.remove());
-    clone.querySelectorAll('.mermaid svg, .openmd-mermaid-svg').forEach((svg) => {
-      const placeholder = clone.ownerDocument.createElement('span');
-      placeholder.className = 'minimap-diagram-placeholder';
-      placeholder.setAttribute('aria-hidden', 'true');
-      const width = Math.max(24, Math.round(svg.clientWidth || svg.getBoundingClientRect?.().width || 48));
-      const height = Math.max(12, Math.round(svg.clientHeight || svg.getBoundingClientRect?.().height || 24));
-      placeholder.style.cssText = `display:block;width:${width}px;height:${height}px`;
-      svg.replaceWith(placeholder);
-    });
     const descendants = [clone, ...clone.querySelectorAll('*')];
     const idMap = new Map();
     const prefix = `openmd-minimap-${++minimapCloneRevision}-`;
@@ -489,7 +511,8 @@ export function createReadingNavigationController({
     if (trackWidth <= 0 || trackHeight <= 0 || viewRect.width <= 0) return;
 
     const documentWidth = Math.max(1, viewRect.width);
-    const clone = view.cloneNode(true);
+    const clone = buildMinimapSnapshot(view);
+    if (!clone) return;
     sanitizeMinimapClone(clone);
     clone.style.width = `${documentWidth}px`;
     clone.style.maxWidth = 'none';
