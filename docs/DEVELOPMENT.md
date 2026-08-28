@@ -13,7 +13,7 @@ The frontend and native layers talk through the Tauri command and event bridge. 
 
 ## Local setup
 
-Install Rust stable, **Node.js 24.19.0 and pnpm 11.24.0** (see `.node-version`, `packageManager` in `package.json`, and CI), plus the [Tauri](https://v2.tauri.app/start/prerequisites/) platform prerequisites. pnpm is required.
+Install Rust stable, **Node.js 24.19.0 and pnpm 12.0.0** (see `.node-version`, `packageManager` in `package.json`, and CI), plus the [Tauri](https://v2.tauri.app/start/prerequisites/) platform prerequisites. pnpm is required.
 
 ```bash
 pnpm install

@@ -1,6 +1,6 @@
 # Dependency updates
 
-JavaScript uses pnpm 11.24.0 and `pnpm-lock.yaml`. Rust uses Cargo and `src-tauri/Cargo.lock`. Bun is not part of this repository.
+JavaScript uses pnpm 12.0.0 and `pnpm-lock.yaml`. The lockfile also records `pnpm@12.0.0` under `packageManagerDependencies`. Rust uses Cargo and `src-tauri/Cargo.lock`. Bun is not part of this repository.
 
 Resolved versions live in those lockfiles, not in this page.
 

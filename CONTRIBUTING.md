@@ -9,7 +9,7 @@ Contributions are welcome through focused issues and pull requests. Read the
 Install:
 
 - [Rust](https://www.rust-lang.org/) stable (edition 2021)
-- [Node.js](https://nodejs.org/) 24.19.0 and [pnpm](https://pnpm.io/) 11.24.0 (matches `packageManager` and CI)
+- [Node.js](https://nodejs.org/) 24.19.0 and [pnpm](https://pnpm.io/) 12.0.0 (matches `packageManager` and CI)
 - The platform dependencies required by [Tauri v2](https://v2.tauri.app/start/prerequisites/)
 
 ```bash

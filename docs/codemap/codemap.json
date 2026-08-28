@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-08-27T06:51:09Z",
-  "generated_from_commit": "071fc113fbcef23d68f99b8ef5f11292c268a83d",
+  "generated_at": "2026-08-28T18:47:39Z",
+  "generated_from_commit": "26163df1062b4702e18c8dd374a90ed8916818c1",
   "scope": [
     "."
   ],
@@ -395,10 +395,6 @@
         "locations": [
           {
             "path": "src/main.test.js",
-            "symbol": "./core/reader.js"
-          },
-          {
-            "path": "src/theme-coordinator.js",
             "symbol": "./core/reader.js"
           }
         ]

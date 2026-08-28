@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "⚡ web",
+      "label": "▶️ Dev",
       "type": "shell",
       "command": "pnpm",
       "args": ["run", "dev"],
@@ -10,7 +10,7 @@
       "problemMatcher": []
     },
     {
-      "label": "🚀 tauri",
+      "label": "🚀 Tauri Dev",
       "type": "shell",
       "command": "pnpm",
       "args": ["run", "tauri", "dev"],
@@ -18,7 +18,7 @@
       "problemMatcher": []
     },
     {
-      "label": "🧪 front",
+      "label": "🧪 Test",
       "type": "shell",
       "command": "pnpm",
       "args": ["run", "test:frontend"],
@@ -26,39 +26,7 @@
       "problemMatcher": []
     },
     {
-      "label": "🔍 check",
-      "type": "shell",
-      "command": "pnpm",
-      "args": ["run", "check:frontend"],
-      "group": "test",
-      "problemMatcher": []
-    },
-    {
-      "label": "🧹 static",
-      "type": "shell",
-      "command": "pnpm",
-      "args": ["run", "check:static"],
-      "group": "test",
-      "problemMatcher": []
-    },
-    {
-      "label": "📄 pages",
-      "type": "shell",
-      "command": "pnpm",
-      "args": ["run", "check:pages"],
-      "group": "test",
-      "problemMatcher": []
-    },
-    {
-      "label": "🎨 Rust fmt",
-      "type": "shell",
-      "command": "pnpm",
-      "args": ["run", "fmt:rust"],
-      "group": "test",
-      "problemMatcher": []
-    },
-    {
-      "label": "🦀 Rust test",
+      "label": "🦀 Rust Test",
       "type": "shell",
       "command": "pnpm",
       "args": ["run", "test:rust"],
@@ -66,7 +34,47 @@
       "problemMatcher": ["$rustc"]
     },
     {
-      "label": "✅ verify",
+      "label": "🔍 Check",
+      "type": "shell",
+      "command": "pnpm",
+      "args": ["run", "check:frontend"],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "🧹 Static",
+      "type": "shell",
+      "command": "pnpm",
+      "args": ["run", "check:static"],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "📄 Pages",
+      "type": "shell",
+      "command": "pnpm",
+      "args": ["run", "check:pages"],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "🎨 Rust Fmt",
+      "type": "shell",
+      "command": "pnpm",
+      "args": ["run", "fmt:rust"],
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "🦀 Rust Check",
+      "type": "shell",
+      "command": "pnpm",
+      "args": ["run", "check:rust"],
+      "group": "test",
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "✅ Verify",
       "type": "shell",
       "command": "pnpm",
       "args": ["run", "verify"],
@@ -74,24 +82,38 @@
       "problemMatcher": []
     },
     {
-      "label": "🏗️ build",
+      "label": "🏗️ Build",
       "type": "shell",
       "command": "pnpm",
       "args": ["run", "tauri", "build"],
-      "dependsOn": ["✅ verify"],
+      "dependsOn": ["✅ Verify"],
       "dependsOrder": "sequence",
       "group": {"kind": "build", "isDefault": true},
       "problemMatcher": []
     },
     {
-      "label": "📦 deps",
+      "label": "📦 Store Validate",
+      "type": "shell",
+      "command": "pnpm",
+      "args": ["run", "store:validate"],
+      "problemMatcher": []
+    },
+    {
+      "label": "🎨 Themes",
+      "type": "shell",
+      "command": "pnpm",
+      "args": ["run", "generate:themes"],
+      "problemMatcher": []
+    },
+    {
+      "label": "📦 Install",
       "type": "shell",
       "command": "pnpm",
       "args": ["install"],
       "problemMatcher": []
     },
     {
-      "label": "📊 outdated",
+      "label": "📊 Outdated",
       "type": "shell",
       "command": "pnpm",
       "args": ["outdated"],

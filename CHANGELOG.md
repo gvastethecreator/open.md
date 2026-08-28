@@ -25,7 +25,7 @@ stable release is cut.
 ### Changed
 
 - Frontend packages: `vite` 8.2.2, `vitest` 4.1.11, and `mermaid` 11.17.2.
-  CI and docs now match `pnpm@11.24.0`.
+  CI and docs now match `pnpm@12.0.0`.
 - Markdown fences are language-tagged escaped HTML. JS highlight.js is the
   display highlighter; native Syntect HTML is gone. Editor and Mermaid
   adapter chunks stay off the empty-window boot graph. Theme option nodes

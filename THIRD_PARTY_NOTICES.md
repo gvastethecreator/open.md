@@ -70,5 +70,5 @@ SOFTWARE.
 
 The `author` fields inside the JSON are upstream attribution metadata. They do
 not replace this notice, grant additional rights, or establish ownership of
-any individual colour scheme. Consult the upstream project when a theme's
+any individual color scheme. Consult the upstream project when a theme's
 provenance or license is disputed.

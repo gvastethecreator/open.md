@@ -1,7 +1,7 @@
 # Code map · open.md
 
-generated: 2026-08-27T06:51:09Z
-commit: 071fc113fbce
+generated: 2026-08-28T18:47:39Z
+commit: 26163df1062b
 scope: .
 
 counts: 9 nodes · 10 edges · 0 flows · 0 unknown
