@@ -91,7 +91,6 @@ Privacy: [PRIVACY.md](PRIVACY.md). The Store-facing page is `docs/privacy.html`.
 
 - [Development](docs/DEVELOPMENT.md) — layout, commands, and CI.
 - [Dependency updates](docs/DEPENDENCY_UPDATES.md) — pnpm, Cargo, and audits.
-- [Current architecture](docs/architecture/CURRENT.md) — runtime owners and lazy-load boundaries.
 - [Editing](docs/EDITING.md) — the four mode combinations and save.
 - [GitHub Pages](docs/PAGES.md) — local preview, deploy, and media provenance.
 - [File associations](docs/FILE_ASSOCIATIONS.md) — packaged **Open with** behavior.

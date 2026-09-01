@@ -41,7 +41,7 @@ Association metadata lives in `src-tauri/tauri.conf.json`. Platform adapters liv
 
 Exactly one live webview coordinates requests **inside a process**: `main` when present, otherwise an existing reader window. Closing that coordinator re-emits unacknowledged in-process requests to the next window. The queue is not persisted across a process crash. Separate processes do not share that queue.
 
-An event and pending-list replay can expose the same native request. Its stable ID makes that delivery one frontend operation and one acknowledgment. See [ADR 0001](adr/0001-open-intent-delivery.md).
+An event and pending-list replay can expose the same native request. Its stable ID makes that delivery one frontend operation and one acknowledgment.
 
 ## Choosing open.md as the default
 

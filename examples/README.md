@@ -27,7 +27,7 @@ keeps going.
 | [tide-log.csv](tide-log.csv) | CSV | Quoted cells, unicode, a table wide enough to scroll |
 | [overnight.log](overnight.log) | Log | Levels, stack-shaped noise, Read/Source only |
 | [lumen-station.nfo](lumen-station.nfo) | NFO | UTF-8 program readme with decoration. Not XML. Not CP437. |
-| [kodi-the-quiet-place.nfo](kodi-the-quiet-place.nfo) | Text (Kodi XML) | Movie metadata a media centre would write |
+| [kodi-the-quiet-place.nfo](kodi-the-quiet-place.nfo) | Text (Kodi XML) | Movie metadata a media center would write |
 | [kodi-harbor-nights.nfo](kodi-harbor-nights.nfo) | Text (Kodi XML) | Tvshow metadata |
 | [windows-msinfo.nfo](windows-msinfo.nfo) | Text (MsInfo XML) | System Information export |
 

@@ -1,6 +1,6 @@
 # Development guide
 
-Maintainer path behind the short [README](../README.md). Domain vocabulary lives in [CONTEXT.md](../CONTEXT.md). Runtime owners live in [architecture/CURRENT.md](architecture/CURRENT.md).
+Layout, commands, and CI for working in this repository. Start from the [README](../README.md) for a shorter path.
 
 ## Repository layout
 

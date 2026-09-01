@@ -24,7 +24,7 @@ immutable versioned HTTPS hosting
 Partner Center EXE submission
 ```
 
-The Store package is not an MSIX. Microsoft does not manage its updates. See [ADR 0002](../adr/0002-microsoft-store-exe-submission.md).
+The Store package is not an MSIX. Microsoft does not manage its updates.
 
 ## Current hard gates
 
@@ -90,13 +90,7 @@ Do not claim cloud synchronization, remote collaboration, AI features, or Store-
 
 open.md is a general-purpose local document utility. The app itself contains no violence, sexual content, gambling, social networking, unrestricted web browser, or user-generated-content service. Complete the Partner Center questionnaire and save the rating with release evidence.
 
-Listing copy, screenshots, hosting, updater, certification answers, and the evidence template live in:
-
-- [LISTING.md](LISTING.md)
-- [HOSTING.md](HOSTING.md)
-- [UPDATE-STRATEGY.md](UPDATE-STRATEGY.md)
-- [CERTIFICATION-NOTES.md](CERTIFICATION-NOTES.md)
-- [RELEASE-EVIDENCE-TEMPLATE.md](RELEASE-EVIDENCE-TEMPLATE.md)
+Listing copy lives in [LISTING.md](LISTING.md).
 
 Screenshots must show real application surfaces without private documents, usernames, project paths, tokens, or third-party content without permission.
 
@@ -151,7 +145,7 @@ The downloaded hash must match the build evidence. The certified URL must keep s
   -InstallerPath .\artifacts\store\<version>\open-md-<version>-windows-x64-store.exe
 ```
 
-Run the full matrix from [RELEASE-EVIDENCE-TEMPLATE.md](RELEASE-EVIDENCE-TEMPLATE.md) on a clean Windows 11 x64 VM and, before broad release, a supported Windows 10 x64 machine if Windows 10 remains advertised.
+Run silent install, launch, upgrade, uninstall, and file-association qualification on a clean Windows 11 x64 VM and, before broad release, a supported Windows 10 x64 machine if Windows 10 remains advertised.
 
 The lifecycle test changes the current user's installed applications and file-association registration. Use a disposable VM or dedicated test profile.
 
