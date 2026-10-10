@@ -5326,7 +5326,8 @@ label.appearance-theme-field.reading-tool-toggle .theme-select {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    /* Nonzero transitions distort SVG measurements during Mermaid layout. */
+    transition-duration: 0s !important;
     transition-delay: 0s !important;
   }
 
@@ -5430,7 +5431,7 @@ body.is-app-reduce-motion *::after {
   scroll-behavior: auto !important;
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
-  transition-duration: 0.01ms !important;
+  transition-duration: 0s !important;
   transition-delay: 0s !important;
 }
 

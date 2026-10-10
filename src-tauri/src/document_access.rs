@@ -72,7 +72,7 @@ pub(crate) fn open_document(file_path: &Path) -> Result<DocumentPayload, String>
     ))
 }
 
-/// Write arbitrary bytes to a user-chosen path (image download / export).
+/// Write bounded bytes through a unique same-directory temporary file.
 /// Size-capped to the local image budget. Does not open or re-read the document.
 pub(crate) fn save_bytes(file_path: &Path, bytes: &[u8]) -> Result<(), String> {
     let content_size = bytes.len() as u64;
@@ -116,11 +116,7 @@ pub(crate) fn save_bytes(file_path: &Path, bytes: &[u8]) -> Result<(), String> {
             .write_all(bytes)
             .and_then(|_| temporary.sync_all())
             .map_err(user_friendly_write_error)?;
-        if destination.exists() {
-            replace_document_file(&temporary_path, &destination, nonce)?;
-        } else {
-            fs::rename(&temporary_path, &destination).map_err(user_friendly_write_error)?;
-        }
+        fs::rename(&temporary_path, &destination).map_err(user_friendly_write_error)?;
         Ok(())
     })();
 
@@ -184,7 +180,7 @@ pub(crate) fn save_document(file_path: &Path, content: &str) -> Result<DocumentP
                 .map_err(user_friendly_write_error)?;
         }
 
-        replace_document_file(&temporary_path, &canonical_path, nonce)?;
+        fs::rename(&temporary_path, &canonical_path).map_err(user_friendly_write_error)?;
         Ok(())
     })();
 
@@ -209,47 +205,13 @@ pub(crate) fn save_document(file_path: &Path, content: &str) -> Result<DocumentP
 }
 
 #[cfg(not(target_os = "windows"))]
-fn replace_document_file(
-    temporary_path: &Path,
-    destination: &Path,
-    _nonce: u64,
-) -> Result<(), String> {
-    fs::rename(temporary_path, destination).map_err(user_friendly_write_error)
-}
-
-#[cfg(target_os = "windows")]
-fn replace_document_file(
-    temporary_path: &Path,
-    destination: &Path,
-    nonce: u64,
-) -> Result<(), String> {
-    let parent = destination
-        .parent()
-        .ok_or_else(|| "The document folder is unavailable.".to_string())?;
-    let file_name = destination
-        .file_name()
-        .and_then(|name| name.to_str())
-        .ok_or_else(|| "The document name is invalid.".to_string())?;
-    let backup_path = parent.join(format!(
-        ".{file_name}.openmd-{}-{nonce}.backup",
-        std::process::id()
-    ));
-
-    fs::rename(destination, &backup_path).map_err(user_friendly_write_error)?;
-    if let Err(error) = fs::rename(temporary_path, destination) {
-        let _ = fs::rename(&backup_path, destination);
-        return Err(user_friendly_write_error(error));
-    }
-    fs::remove_file(backup_path).map_err(user_friendly_write_error)
-}
-
-#[cfg(not(target_os = "windows"))]
 fn recover_interrupted_save(_destination: &Path) -> Result<(), String> {
     Ok(())
 }
 
 #[cfg(target_os = "windows")]
 fn recover_interrupted_save(destination: &Path) -> Result<(), String> {
+    // Earlier versions could leave the original file in a .backup during replacement.
     if destination.exists() {
         return Ok(());
     }
@@ -1154,7 +1116,6 @@ mod tests {
             payload
         );
 
-        // Overwrite path uses the same atomic replace helper as document saves.
         let next = [1_u8, 2, 3, 4];
         save_bytes(&destination, &next).expect("overwrite should write");
         assert_eq!(fs::read(&destination).expect("export should update"), next);
@@ -1167,6 +1128,20 @@ mod tests {
             fs::read(&destination).expect("failed export keeps prior bytes"),
             next
         );
+
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            let locked = fs::OpenOptions::new()
+                .read(true)
+                .share_mode(0)
+                .open(&destination)
+                .unwrap();
+            assert!(save_bytes(&destination, &payload).is_err());
+            drop(locked);
+            assert_eq!(fs::read(&destination).unwrap(), next);
+        }
+        assert_eq!(fixture.path().read_dir().unwrap().count(), 1);
     }
 
     #[cfg(target_os = "windows")]

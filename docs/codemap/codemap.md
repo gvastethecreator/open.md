@@ -1,15 +1,15 @@
 # Code map: open.md
 
-Generated: 2026-09-09T07:38:07Z | Commit: `974d6b7499b8` | Schema: 2
-Generation: `e0801ca4f86ba699bc717bdd36ae8ce797208719fa9db5449abd823e8e6aee9e`
+Generated: 2026-10-10T23:17:16Z | Commit: `9c1a9c87a1bc` | Schema: 2
+Generation: `85c7679d384f778ce73fc006ba47a967064df33f9636a278f4a567ec3a45a0ee`
 Scope: . | Inventory: working-tree
-Nodes: 144 | Edges: 455 | Flows: 1
+Nodes: 140 | Edges: 468 | Flows: 1
 
 ## Coverage
 
-- Analysis: **partial**; 117 analyzed of 122 included files.
+- Analysis: **partial**; 115 analyzed of 122 included files.
 - Configuration files: 1; omitted untracked files: 0.
-- Unresolved references and analysis limits: 583.
+- Unresolved references and analysis limits: 540.
 - Static references and call paths do not prove runtime execution or test coverage.
 
 ## Modules
@@ -24,17 +24,17 @@ Nodes: 144 | Edges: 455 | Flows: 1
 - `external:javascript:highlight.js` | external | External | callers: src/syntax-highlighter.js | callees: none | tests: 0 | entry: none
 - `external:javascript:jsdom` | external | External | callers: src/application-composition.test.js, src/application-runtime-adapters.test.js, src/context-menu-controller.test.js, src/document-content-actions.test.js | callees: none | tests: 16 | entry: none
 - `external:javascript:mermaid` | external | External | callers: src/mermaid-renderer.js | callees: none | tests: 0 | entry: none
-- `external:javascript:node:child_process` | external | External | callers: scripts/free-port.mjs, scripts/free-port.mjs | callees: none | tests: 0 | entry: none
 - `external:javascript:node:fs` | external | External | callers: scripts/check-bundle.mjs, scripts/check-bundle.mjs, scripts/generate-runtime-themes.mjs, scripts/generate-runtime-themes.mjs | callees: none | tests: 4 | entry: none
-- `external:javascript:node:net` | external | External | callers: scripts/free-port.mjs, src/free-port.test.js | callees: none | tests: 1 | entry: none
-- `external:javascript:node:path` | external | External | callers: scripts/check-bundle.mjs, scripts/free-port.mjs, scripts/generate-runtime-themes.mjs, scripts/validate-frontend.mjs | callees: none | tests: 1 | entry: none
-- `external:javascript:node:url` | external | External | callers: scripts/free-port.mjs, scripts/free-port.mjs, scripts/generate-runtime-themes.mjs, scripts/generate-runtime-themes.mjs | callees: none | tests: 1 | entry: none
+- `external:javascript:node:path` | external | External | callers: scripts/check-bundle.mjs, scripts/generate-runtime-themes.mjs, scripts/validate-frontend.mjs, scripts/validate-pages.mjs | callees: none | tests: 1 | entry: none
+- `external:javascript:node:url` | external | External | callers: scripts/generate-runtime-themes.mjs, scripts/generate-runtime-themes.mjs, src/application-composition.test.js, src/application-composition.test.js | callees: none | tests: 1 | entry: none
 - `external:javascript:node:zlib` | external | External | callers: scripts/check-bundle.mjs, scripts/check-bundle.mjs | callees: none | tests: 0 | entry: none
 - `external:javascript:vite` | external | External | callers: vite.config.js, vite.config.js | callees: none | tests: 0 | entry: none
-- `external:javascript:vitest` | external | External | callers: src/app-loading-screen.test.js, src/app-loading-screen.test.js, src/application-composition.test.js, src/application-composition.test.js | callees: none | tests: 47 | entry: none
+- `external:javascript:vitest` | external | External | callers: src/app-loading-screen.test.js, src/app-loading-screen.test.js, src/application-composition.test.js, src/application-composition.test.js | callees: none | tests: 46 | entry: none
 - `external:python:datetime` | external | External | callers: examples/write_bulk.py, examples/write_bulk.py | callees: none | tests: 0 | entry: none
 - `external:python:pathlib` | external | External | callers: examples/fixtures/write-nfo-fixtures.py, examples/fixtures/write-nfo-fixtures.py, examples/write_bulk.py, examples/write_bulk.py | callees: none | tests: 0 | entry: none
-- Showing 20 of 144 nodes. Query `impact --module <path>` or open the HTML hierarchy for the rest.
+- `external:python:xml` | external | External | callers: examples/write_bulk.py | callees: none | tests: 0 | entry: none
+- `external:rust:pulldown_cmark` | external | External | callers: src-tauri/src/document_access.rs, src-tauri/src/document_access.rs | callees: none | tests: 0 | entry: none
+- Showing 20 of 140 nodes. Query `impact --module <path>` or open the HTML hierarchy for the rest.
 
 ## Edges
 
@@ -50,12 +50,6 @@ Nodes: 144 | Edges: 455 | Flows: 1
 - `scripts/check-bundle.mjs` -> `external:javascript:node:path` | imports
 - `scripts/check-bundle.mjs` -> `external:javascript:node:zlib` | calls
 - `scripts/check-bundle.mjs` -> `external:javascript:node:zlib` | imports
-- `scripts/free-port.mjs` -> `external:javascript:node:child_process` | calls
-- `scripts/free-port.mjs` -> `external:javascript:node:child_process` | imports
-- `scripts/free-port.mjs` -> `external:javascript:node:net` | imports
-- `scripts/free-port.mjs` -> `external:javascript:node:path` | imports
-- `scripts/free-port.mjs` -> `external:javascript:node:url` | calls
-- `scripts/free-port.mjs` -> `external:javascript:node:url` | imports
 - `scripts/generate-runtime-themes.mjs` -> `external:javascript:node:fs` | calls
 - `scripts/generate-runtime-themes.mjs` -> `external:javascript:node:fs` | imports
 - `scripts/generate-runtime-themes.mjs` -> `external:javascript:node:path` | imports
@@ -67,28 +61,34 @@ Nodes: 144 | Edges: 455 | Flows: 1
 - `scripts/validate-pages.mjs` -> `external:javascript:node:fs` | calls
 - `scripts/validate-pages.mjs` -> `external:javascript:node:fs` | imports
 - `scripts/validate-pages.mjs` -> `external:javascript:node:path` | imports
+- `src-tauri/src/app_settings.rs` -> `external:rust:serde` | imports
+- `src-tauri/src/app_settings.rs` -> `external:rust:std` | calls
 - `src-tauri/src/app_settings.rs` -> `external:rust:std` | imports
-- `src-tauri/src/app_settings.rs` -> `external:rust:tests` | imports
-- `src-tauri/src/cp437.rs` -> `external:rust:tests` | imports
+- `src-tauri/src/app_settings.rs` -> `src-tauri/src/document_access.rs` | calls
+- `src-tauri/src/document_access.rs` -> `external:rust:pulldown_cmark` | calls
+- `src-tauri/src/document_access.rs` -> `external:rust:pulldown_cmark` | imports
 - `src-tauri/src/document_access.rs` -> `external:rust:serde` | imports
+- `src-tauri/src/document_access.rs` -> `external:rust:std` | calls
 - `src-tauri/src/document_access.rs` -> `external:rust:std` | imports
-- `src-tauri/src/document_access.rs` -> `external:rust:tests` | imports
+- `src-tauri/src/document_access.rs` -> `src-tauri/src/cp437.rs` | calls
 - `src-tauri/src/file_associations.rs` -> `external:rust:serde` | imports
+- `src-tauri/src/file_associations.rs` -> `external:rust:std` | calls
 - `src-tauri/src/file_associations.rs` -> `external:rust:std` | imports
-- `src-tauri/src/file_associations.rs` -> `external:rust:tests` | imports
+- `src-tauri/src/file_associations.rs` -> `src-tauri/src/app_settings.rs` | imports
+- `src-tauri/src/images.rs` -> `external:rust:std` | calls
 - `src-tauri/src/images.rs` -> `external:rust:std` | imports
+- `src-tauri/src/images.rs` -> `external:rust:tauri` | calls
 - `src-tauri/src/images.rs` -> `external:rust:tauri` | imports
+- `src-tauri/src/images.rs` -> `src-tauri/src/document_access.rs` | calls
+- `src-tauri/src/images.rs` -> `src-tauri/src/document_access.rs` | imports
+- `src-tauri/src/lib.rs` -> `external:rust:std` | calls
 - `src-tauri/src/lib.rs` -> `external:rust:std` | imports
 - `src-tauri/src/lib.rs` -> `external:rust:tauri` | imports
-- `src-tauri/src/lib.rs` -> `external:rust:tests` | imports
+- `src-tauri/src/lib.rs` -> `src-tauri/src/app_settings.rs` | calls
 - `src-tauri/src/lib.rs` -> `src-tauri/src/app_settings.rs` | imports
 - `src-tauri/src/lib.rs` -> `src-tauri/src/cp437.rs` | imports
-- `src-tauri/src/lib.rs` -> `src-tauri/src/document_access.rs` | imports
-- `src-tauri/src/lib.rs` -> `src-tauri/src/file_associations.rs` | imports
-- `src-tauri/src/lib.rs` -> `src-tauri/src/images.rs` | imports
-- `src-tauri/src/lib.rs` -> `src-tauri/src/open_requests.rs` | imports
-- `src-tauri/src/open_requests.rs` -> `external:rust:serde` | imports
-- Showing 50 of 455 edges; JSON contains every edge and its evidence.
+- `src-tauri/src/lib.rs` -> `src-tauri/src/document_access.rs` | calls
+- Showing 50 of 468 edges; JSON contains every edge and its evidence.
 
 ## Unknown
 
@@ -97,13 +97,13 @@ Nodes: 144 | Edges: 455 | Flows: 1
 - `scripts/check-bundle.mjs:14`: object-member-call-not-resolved (path)
 - `scripts/check-bundle.mjs:21`: object-member-call-not-resolved (path)
 - `scripts/check-bundle.mjs:69`: object-member-call-not-resolved (path)
-- `scripts/free-port.mjs:14`: object-member-call-not-resolved (net)
-- `scripts/free-port.mjs:190`: object-member-call-not-resolved (path)
 - `scripts/generate-runtime-themes.mjs:5`: object-member-call-not-resolved (path)
 - `scripts/generate-runtime-themes.mjs:6`: object-member-call-not-resolved (path)
 - `scripts/generate-runtime-themes.mjs:7`: object-member-call-not-resolved (path)
 - `scripts/generate-runtime-themes.mjs:8`: object-member-call-not-resolved (path)
 - `scripts/generate-runtime-themes.mjs:53`: object-member-call-not-resolved (path)
+- `scripts/store/Build-StoreInstaller.ps1:1`: unsupported-language (.ps1)
+- `scripts/store/Set-StoreProduct.ps1:1`: unsupported-language (.ps1)
 
 ## Flows
 
@@ -111,7 +111,7 @@ Nodes: 144 | Edges: 455 | Flows: 1
 
 ## Architecture changes
 
-- Nodes: +0 / -0; edges: +0 / -2.
+- Nodes: +0 / -0; edges: +0 / -0.
 - Boundary changes: 0; new cycles: 0.
 
 ## Read next

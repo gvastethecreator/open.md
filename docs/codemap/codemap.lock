@@ -1,12 +1,12 @@
 {
   "schema_version": 2,
-  "source_commit": "974d6b7499b8adfeaa66d230e4b6bf83eef8dfdd",
+  "source_commit": "9c1a9c87a1bcd5e20d1708f5c835e72847ced0a4",
   "working_tree_dirty": true,
-  "generated_at": "2026-09-09T07:38:07Z",
-  "generation_id": "e0801ca4f86ba699bc717bdd36ae8ce797208719fa9db5449abd823e8e6aee9e",
+  "generated_at": "2026-10-10T23:17:16Z",
+  "generation_id": "85c7679d384f778ce73fc006ba47a967064df33f9636a278f4a567ec3a45a0ee",
   "analysis": {
     "version": "syntax-1",
-    "digest": "f0425aaa701d9cbf50227a799d98d8e4b00b9fabff9ce823c4d70414555dc774"
+    "digest": "96e36f012ebfed8f88e81298e738e1c64801c7245f18e598ae77c684b0b22329"
   },
   "inventory": {
     "policy": {
@@ -67,8 +67,8 @@
         "path": "package.json",
         "origin": "tracked",
         "state": "present",
-        "digest": "551e190adba3c4cbec8050925f084ac359cd64f206db22b694f088c3cb62bdd2",
-        "size": 2198
+        "digest": "be69bd6f375f4fd55a93c19d623aacda8dc939995ab8f64595ee3a9261855596",
+        "size": 2175
       },
       {
         "path": "scripts/check-bundle.mjs",
@@ -80,9 +80,9 @@
       {
         "path": "scripts/free-port.mjs",
         "origin": "tracked",
-        "state": "present",
-        "digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-        "size": 5792
+        "state": "missing",
+        "digest": null,
+        "size": 0
       },
       {
         "path": "scripts/generate-runtime-themes.mjs",
@@ -151,8 +151,8 @@
         "path": "src-tauri/src/app_settings.rs",
         "origin": "tracked",
         "state": "present",
-        "digest": "b5656628e64f34ebb6a0b01a61000bfe741c6234d1667ba447ddf414277485f1",
-        "size": 6164
+        "digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
+        "size": 6339
       },
       {
         "path": "src-tauri/src/cp437.rs",
@@ -165,8 +165,8 @@
         "path": "src-tauri/src/document_access.rs",
         "origin": "tracked",
         "state": "present",
-        "digest": "a3aee340beb5ab12b4868f71e78131a7bc8350f9b4461ee7874a39571075ac92",
-        "size": 52603
+        "digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
+        "size": 51858
       },
       {
         "path": "src-tauri/src/file_associations.rs",
@@ -521,9 +521,9 @@
       {
         "path": "src/free-port.test.js",
         "origin": "tracked",
-        "state": "present",
-        "digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-        "size": 1059
+        "state": "missing",
+        "digest": null,
+        "size": 0
       },
       {
         "path": "src/image-document-viewer.js",
@@ -897,12 +897,12 @@
         "size": 297
       }
     ],
-    "digest": "0c8210aa39ae9f11a01e1bc1458f8c95903199405ff9e938179bef60d99a5cf0"
+    "digest": "0162b57538d155ca7c5b4f8d8f18ab190100d6e62f1f9961fe3e6f059c6c3392"
   },
-  "source_digest": "42db14cfb1639fe1f3df8c3f52c68e0b33626e42548464cac5c3ee7a7a92f38c",
+  "source_digest": "74b526248084556f1923ce8717340ca31234bbc5c8e976f506671b29d53164fc",
   "artifact_hashes": {
-    "codemap.json": "17b6d19d431e3da7812817dbc6f5e21b94ff253e2040b31c93fcb6a162b9a402",
-    "codemap.md": "6bf01aabb0a8ff0eef02f63d3717c414b097d7b0fe4fcc014bb764feb238ac81",
-    "codemap.html": "8238493098cabf7e044a2a02c86a8691c34325e2f7a9ab75824fde01ce7bb8fe"
+    "codemap.json": "f309ba4a24fbcd388ab7cc450117bea646db4b9e85c6991967c5ca99f3c2d914",
+    "codemap.md": "bb338134afdd870de5d221530dad715fc009adb6cb86d0170d57422e4dd3e8a3",
+    "codemap.html": "a8ffde0da0d19c5187695de3fd327d90b318e4c1ef330eb74726631feb70c87f"
   }
 }

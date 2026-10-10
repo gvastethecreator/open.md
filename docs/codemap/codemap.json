@@ -1,13 +1,13 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-09-09T07:38:07Z",
-  "generated_from_commit": "974d6b7499b8adfeaa66d230e4b6bf83eef8dfdd",
+  "generated_at": "2026-10-10T23:17:16Z",
+  "generated_from_commit": "9c1a9c87a1bcd5e20d1708f5c835e72847ced0a4",
   "scope": [
     "."
   ],
   "analysis": {
     "version": "syntax-1",
-    "digest": "f0425aaa701d9cbf50227a799d98d8e4b00b9fabff9ce823c4d70414555dc774"
+    "digest": "96e36f012ebfed8f88e81298e738e1c64801c7245f18e598ae77c684b0b22329"
   },
   "inventory": {
     "policy": {
@@ -68,8 +68,8 @@
         "path": "package.json",
         "origin": "tracked",
         "state": "present",
-        "digest": "551e190adba3c4cbec8050925f084ac359cd64f206db22b694f088c3cb62bdd2",
-        "size": 2198
+        "digest": "be69bd6f375f4fd55a93c19d623aacda8dc939995ab8f64595ee3a9261855596",
+        "size": 2175
       },
       {
         "path": "scripts/check-bundle.mjs",
@@ -81,9 +81,9 @@
       {
         "path": "scripts/free-port.mjs",
         "origin": "tracked",
-        "state": "present",
-        "digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-        "size": 5792
+        "state": "missing",
+        "digest": null,
+        "size": 0
       },
       {
         "path": "scripts/generate-runtime-themes.mjs",
@@ -152,8 +152,8 @@
         "path": "src-tauri/src/app_settings.rs",
         "origin": "tracked",
         "state": "present",
-        "digest": "b5656628e64f34ebb6a0b01a61000bfe741c6234d1667ba447ddf414277485f1",
-        "size": 6164
+        "digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
+        "size": 6339
       },
       {
         "path": "src-tauri/src/cp437.rs",
@@ -166,8 +166,8 @@
         "path": "src-tauri/src/document_access.rs",
         "origin": "tracked",
         "state": "present",
-        "digest": "a3aee340beb5ab12b4868f71e78131a7bc8350f9b4461ee7874a39571075ac92",
-        "size": 52603
+        "digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
+        "size": 51858
       },
       {
         "path": "src-tauri/src/file_associations.rs",
@@ -522,9 +522,9 @@
       {
         "path": "src/free-port.test.js",
         "origin": "tracked",
-        "state": "present",
-        "digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-        "size": 1059
+        "state": "missing",
+        "digest": null,
+        "size": 0
       },
       {
         "path": "src/image-document-viewer.js",
@@ -898,12 +898,12 @@
         "size": 297
       }
     ],
-    "digest": "0c8210aa39ae9f11a01e1bc1458f8c95903199405ff9e938179bef60d99a5cf0"
+    "digest": "0162b57538d155ca7c5b4f8d8f18ab190100d6e62f1f9961fe3e6f059c6c3392"
   },
   "coverage": {
     "discovered_files": 269,
     "included_files": 122,
-    "analyzed_files": 117,
+    "analyzed_files": 115,
     "configuration_files": 1,
     "file_statuses": [
       {
@@ -928,7 +928,7 @@
       },
       {
         "path": "scripts/free-port.mjs",
-        "status": "analyzed"
+        "status": "missing"
       },
       {
         "path": "scripts/generate-runtime-themes.mjs",
@@ -1180,7 +1180,7 @@
       },
       {
         "path": "src/free-port.test.js",
-        "status": "analyzed"
+        "status": "missing"
       },
       {
         "path": "src/image-document-viewer.js",
@@ -2018,18 +2018,6 @@
         "reason": "object-member-call-not-resolved"
       },
       {
-        "path": "scripts/free-port.mjs",
-        "line": 14,
-        "reference": "net",
-        "reason": "object-member-call-not-resolved"
-      },
-      {
-        "path": "scripts/free-port.mjs",
-        "line": 190,
-        "reference": "path",
-        "reason": "object-member-call-not-resolved"
-      },
-      {
         "path": "scripts/generate-runtime-themes.mjs",
         "line": 5,
         "reference": "path",
@@ -2238,174 +2226,6 @@
         "line": 93,
         "reference": "path",
         "reason": "object-member-call-not-resolved"
-      },
-      {
-        "path": "src-tauri/build.rs",
-        "line": 1,
-        "reference": "rust",
-        "reason": "call-resolution-not-supported"
-      },
-      {
-        "path": "src-tauri/src/app_settings.rs",
-        "line": 1,
-        "reference": "rust",
-        "reason": "call-resolution-not-supported"
-      },
-      {
-        "path": "src-tauri/src/app_settings.rs",
-        "line": 1,
-        "reference": "serde::{Deserialize, Serialize}",
-        "reason": "rust-grouped-import-not-resolved"
-      },
-      {
-        "path": "src-tauri/src/app_settings.rs",
-        "line": 3,
-        "reference": "std::path::{Path, PathBuf}",
-        "reason": "rust-grouped-import-not-resolved"
-      },
-      {
-        "path": "src-tauri/src/app_settings.rs",
-        "line": 137,
-        "reference": "super::*",
-        "reason": "rust-grouped-import-not-resolved"
-      },
-      {
-        "path": "src-tauri/src/app_settings.rs",
-        "line": 138,
-        "reference": "std::time::{SystemTime, UNIX_EPOCH}",
-        "reason": "rust-grouped-import-not-resolved"
-      },
-      {
-        "path": "src-tauri/src/cp437.rs",
-        "line": 1,
-        "reference": "rust",
-        "reason": "call-resolution-not-supported"
-      },
-      {
-        "path": "src-tauri/src/cp437.rs",
-        "line": 83,
-        "reference": "super::{decode, decode_byte, HIGH}",
-        "reason": "rust-grouped-import-not-resolved"
-      },
-      {
-        "path": "src-tauri/src/document_access.rs",
-        "line": 1,
-        "reference": "rust",
-        "reason": "call-resolution-not-supported"
-      },
-      {
-        "path": "src-tauri/src/document_access.rs",
-        "line": 1,
-        "reference": "pulldown_cmark::{html, CodeBlockKind, Event, Options, Parser, Tag, TagEnd}",
-        "reason": "rust-grouped-import-not-resolved"
-      },
-      {
-        "path": "src-tauri/src/document_access.rs",
-        "line": 5,
-        "reference": "std::path::{Component, Path, PathBuf}",
-        "reason": "rust-grouped-import-not-resolved"
-      },
-      {
-        "path": "src-tauri/src/document_access.rs",
-        "line": 6,
-        "reference": "std::sync::atomic::{AtomicU64, Ordering}",
-        "reason": "rust-grouped-import-not-resolved"
-      },
-      {
-        "path": "src-tauri/src/document_access.rs",
-        "line": 904,
-        "reference": "super::{\n        build_document_payload, detect_image_format_from_magic, file_size_label, image_mime_type,\n        is_plain_text_document, is_supported_document, looks_like_nfo_xml, open_document,\n        read_document_image, render_markdown, safe_relative_image_path, save_bytes, save_document,\n        MAX_LOCAL_IMAGE_SIZE_BYTES, MAX_RENDERABLE_FILE_SIZE_BYTES,\n    }",
-        "reason": "rust-grouped-import-not-resolved"
-      },
-      {
-        "path": "src-tauri/src/document_access.rs",
-        "line": 910,
-        "reference": "std::fs::{self, File}",
-        "reason": "rust-grouped-import-not-resolved"
-      },
-      {
-        "path": "src-tauri/src/document_access.rs",
-        "line": 911,
-        "reference": "std::path::{Path, PathBuf}",
-        "reason": "rust-grouped-import-not-resolved"
-      },
-      {
-        "path": "src-tauri/src/document_access.rs",
-        "line": 912,
-        "reference": "std::time::{SystemTime, UNIX_EPOCH}",
-        "reason": "rust-grouped-import-not-resolved"
-      },
-      {
-        "path": "src-tauri/src/file_associations.rs",
-        "line": 1,
-        "reference": "rust",
-        "reason": "call-resolution-not-supported"
-      },
-      {
-        "path": "src-tauri/src/file_associations.rs",
-        "line": 309,
-        "reference": "super::*",
-        "reason": "rust-grouped-import-not-resolved"
-      },
-      {
-        "path": "src-tauri/src/images.rs",
-        "line": 1,
-        "reference": "rust",
-        "reason": "call-resolution-not-supported"
-      },
-      {
-        "path": "src-tauri/src/images.rs",
-        "line": 5,
-        "reference": "crate::document_access::{read_document_image, read_standalone_image}",
-        "reason": "rust-grouped-import-not-resolved"
-      },
-      {
-        "path": "src-tauri/src/lib.rs",
-        "line": 1,
-        "reference": "rust",
-        "reason": "call-resolution-not-supported"
-      },
-      {
-        "path": "src-tauri/src/lib.rs",
-        "line": 3,
-        "reference": "std::sync::atomic::{AtomicBool, AtomicUsize, Ordering}",
-        "reason": "rust-grouped-import-not-resolved"
-      },
-      {
-        "path": "src-tauri/src/lib.rs",
-        "line": 171,
-        "reference": "super::initial_file_paths",
-        "reason": "unresolved-local-import"
-      },
-      {
-        "path": "src-tauri/src/main.rs",
-        "line": 1,
-        "reference": "rust",
-        "reason": "call-resolution-not-supported"
-      },
-      {
-        "path": "src-tauri/src/open_requests.rs",
-        "line": 1,
-        "reference": "rust",
-        "reason": "call-resolution-not-supported"
-      },
-      {
-        "path": "src-tauri/src/open_requests.rs",
-        "line": 2,
-        "reference": "std::sync::atomic::{AtomicUsize, Ordering}",
-        "reason": "rust-grouped-import-not-resolved"
-      },
-      {
-        "path": "src-tauri/src/open_requests.rs",
-        "line": 4,
-        "reference": "tauri::{AppHandle, Emitter, Manager, State}",
-        "reason": "rust-grouped-import-not-resolved"
-      },
-      {
-        "path": "src-tauri/src/open_requests.rs",
-        "line": 143,
-        "reference": "super::{select_coordinator_label, OpenRequestQueue}",
-        "reason": "rust-grouped-import-not-resolved"
       },
       {
         "path": "src/app-loading-screen.test.js",
@@ -2666,12 +2486,6 @@
         "reason": "object-member-call-not-resolved"
       },
       {
-        "path": "src/context-menu-controller.js",
-        "line": 16,
-        "reference": "shouldReduceMotion",
-        "reason": "call-target-symbol-not-resolved"
-      },
-      {
         "path": "src/context-menu-controller.test.js",
         "line": 11,
         "reference": "vi",
@@ -2918,12 +2732,6 @@
         "reason": "object-member-call-not-resolved"
       },
       {
-        "path": "src/document-mode-coordinator.js",
-        "line": 148,
-        "reference": "shouldReduceMotion",
-        "reason": "call-target-symbol-not-resolved"
-      },
-      {
         "path": "src/document-mode-coordinator.test.js",
         "line": 24,
         "reference": "vi",
@@ -3084,12 +2892,6 @@
         "line": 159,
         "reference": "vi",
         "reason": "object-member-call-not-resolved"
-      },
-      {
-        "path": "src/document-session.js",
-        "line": 368,
-        "reference": "imageMimeForFormat",
-        "reason": "call-target-symbol-not-resolved"
       },
       {
         "path": "src/document-session.test.js",
@@ -4076,36 +3878,6 @@
         "reason": "object-member-call-not-resolved"
       },
       {
-        "path": "src/format-registry.test.js",
-        "line": 73,
-        "reference": "imageMimeForFormat",
-        "reason": "call-target-symbol-not-resolved"
-      },
-      {
-        "path": "src/format-registry.test.js",
-        "line": 74,
-        "reference": "imageMimeForFormat",
-        "reason": "call-target-symbol-not-resolved"
-      },
-      {
-        "path": "src/free-port.test.js",
-        "line": 7,
-        "reference": "net",
-        "reason": "object-member-call-not-resolved"
-      },
-      {
-        "path": "src/image-document-viewer.js",
-        "line": 33,
-        "reference": "shouldReduceMotion",
-        "reason": "call-target-symbol-not-resolved"
-      },
-      {
-        "path": "src/image-document-viewer.js",
-        "line": 251,
-        "reference": "shouldReduceMotion",
-        "reason": "call-target-symbol-not-resolved"
-      },
-      {
         "path": "src/image-document-viewer.test.js",
         "line": 27,
         "reference": "vi",
@@ -4748,12 +4520,6 @@
         "reason": "object-member-call-not-resolved"
       },
       {
-        "path": "src/reading-navigation-controller.js",
-        "line": 164,
-        "reference": "shouldReduceMotion",
-        "reason": "call-target-symbol-not-resolved"
-      },
-      {
         "path": "src/reading-navigation-controller.test.js",
         "line": 49,
         "reference": "vi",
@@ -4952,12 +4718,6 @@
         "reason": "object-member-call-not-resolved"
       },
       {
-        "path": "src/status-presenter.js",
-        "line": 112,
-        "reference": "shouldReduceMotion",
-        "reason": "call-target-symbol-not-resolved"
-      },
-      {
         "path": "src/status-presenter.test.js",
         "line": 11,
         "reference": "vi",
@@ -4998,12 +4758,6 @@
         "line": 108,
         "reference": "hljs",
         "reason": "object-member-call-not-resolved"
-      },
-      {
-        "path": "src/theme-coordinator.js",
-        "line": 217,
-        "reference": "shouldReduceMotion",
-        "reason": "call-target-symbol-not-resolved"
       },
       {
         "path": "src/theme-coordinator.test.js",
@@ -5132,12 +4886,6 @@
         "reason": "unresolved-local-import"
       },
       {
-        "path": "src/toast-presenter.js",
-        "line": 81,
-        "reference": "shouldReduceMotion",
-        "reason": "call-target-symbol-not-resolved"
-      },
-      {
         "path": "src/toast-presenter.test.js",
         "line": 24,
         "reference": "vi",
@@ -5184,12 +4932,6 @@
         "line": 221,
         "reference": "vi",
         "reason": "object-member-call-not-resolved"
-      },
-      {
-        "path": "src/tooltip-controller.js",
-        "line": 23,
-        "reference": "shouldReduceMotion",
-        "reason": "call-target-symbol-not-resolved"
       },
       {
         "path": "src/tooltip-controller.test.js",
@@ -5488,7 +5230,7 @@
     ],
     "document_only": false,
     "status": "partial",
-    "recognized_triggers": 2,
+    "recognized_triggers": 3,
     "represented_flows": 1
   },
   "nodes": [
@@ -6343,70 +6085,6 @@
       "parent": "External"
     },
     {
-      "id": "external:javascript:node:child_process",
-      "path": "external:javascript:node:child_process",
-      "label": "node:child_process",
-      "type": "external",
-      "boundary": "External",
-      "entrypoints": [],
-      "tests": [],
-      "test_evidence": [],
-      "analysis": "reference-only",
-      "is_test": false,
-      "symbols": [],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "scripts/free-port.mjs",
-            "symbol": "import { execSync } from 'node:child_process';",
-            "start_line": 3,
-            "end_line": 3,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-            "kind": "import",
-            "resolved_target": "external:javascript:node:child_process"
-          },
-          {
-            "path": "scripts/free-port.mjs",
-            "symbol": "execSync('netstat -ano -p tcp', {\n        encoding: 'utf8',\n        stdio: ['ignore', 'pipe', 'ignore'],\n      })",
-            "start_line": 40,
-            "end_line": 43,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-            "kind": "call",
-            "resolved_target": "external:javascript:node:child_process",
-            "target_symbol": "execSync"
-          },
-          {
-            "path": "scripts/free-port.mjs",
-            "symbol": "execSync(psCmd, {\n          encoding: 'utf8',\n          stdio: ['ignore', 'pipe', 'ignore'],\n        })",
-            "start_line": 59,
-            "end_line": 62,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-            "kind": "call",
-            "resolved_target": "external:javascript:node:child_process",
-            "target_symbol": "execSync"
-          }
-        ]
-      },
-      "callers": [
-        {
-          "id": "scripts/free-port.mjs",
-          "type": "calls",
-          "type_only": false
-        },
-        {
-          "id": "scripts/free-port.mjs",
-          "type": "imports",
-          "type_only": false
-        }
-      ],
-      "callees": [],
-      "parent": "External"
-    },
-    {
       "id": "external:javascript:node:fs",
       "path": "external:javascript:node:fs",
       "label": "node:fs",
@@ -6706,75 +6384,6 @@
       "parent": "External"
     },
     {
-      "id": "external:javascript:node:net",
-      "path": "external:javascript:node:net",
-      "label": "node:net",
-      "type": "external",
-      "boundary": "External",
-      "entrypoints": [],
-      "tests": [
-        "src/free-port.test.js"
-      ],
-      "test_evidence": [
-        {
-          "test": "src/free-port.test.js",
-          "type": "imports",
-          "location": {
-            "path": "src/free-port.test.js",
-            "symbol": "import net from 'node:net';",
-            "start_line": 2,
-            "end_line": 2,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "import",
-            "resolved_target": "external:javascript:node:net"
-          }
-        }
-      ],
-      "analysis": "reference-only",
-      "is_test": false,
-      "symbols": [],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "scripts/free-port.mjs",
-            "symbol": "import net from 'node:net';",
-            "start_line": 1,
-            "end_line": 1,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-            "kind": "import",
-            "resolved_target": "external:javascript:node:net"
-          },
-          {
-            "path": "src/free-port.test.js",
-            "symbol": "import net from 'node:net';",
-            "start_line": 2,
-            "end_line": 2,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "import",
-            "resolved_target": "external:javascript:node:net"
-          }
-        ]
-      },
-      "callers": [
-        {
-          "id": "scripts/free-port.mjs",
-          "type": "imports",
-          "type_only": false
-        },
-        {
-          "id": "src/free-port.test.js",
-          "type": "imports",
-          "type_only": false
-        }
-      ],
-      "callees": [],
-      "parent": "External"
-    },
-    {
       "id": "external:javascript:node:path",
       "path": "external:javascript:node:path",
       "label": "node:path",
@@ -6907,16 +6516,6 @@
             "resolved_target": "external:javascript:node:path"
           },
           {
-            "path": "scripts/free-port.mjs",
-            "symbol": "import path from 'node:path';",
-            "start_line": 2,
-            "end_line": 2,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-            "kind": "import",
-            "resolved_target": "external:javascript:node:path"
-          },
-          {
             "path": "scripts/generate-runtime-themes.mjs",
             "symbol": "import path from 'node:path';",
             "start_line": 2,
@@ -6925,17 +6524,22 @@
             "source_digest": "e86d811848fc47b4d80d3150bb92472229ada420d0754dbaef92c38a5471669f",
             "kind": "import",
             "resolved_target": "external:javascript:node:path"
+          },
+          {
+            "path": "scripts/validate-frontend.mjs",
+            "symbol": "import path from 'node:path';",
+            "start_line": 2,
+            "end_line": 2,
+            "extractor": "tree-sitter-javascript",
+            "source_digest": "8ee44d763f4dbb4aae2a0ac51c32d426c1ff6b1ebdd6b5ecded77288a76d8d70",
+            "kind": "import",
+            "resolved_target": "external:javascript:node:path"
           }
         ]
       },
       "callers": [
         {
           "id": "scripts/check-bundle.mjs",
-          "type": "imports",
-          "type_only": false
-        },
-        {
-          "id": "scripts/free-port.mjs",
           "type": "imports",
           "type_only": false
         },
@@ -7016,16 +6620,6 @@
         "status": "verified",
         "locations": [
           {
-            "path": "scripts/free-port.mjs",
-            "symbol": "import { fileURLToPath } from 'node:url';",
-            "start_line": 4,
-            "end_line": 4,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-            "kind": "import",
-            "resolved_target": "external:javascript:node:url"
-          },
-          {
             "path": "scripts/generate-runtime-themes.mjs",
             "symbol": "import { fileURLToPath } from 'node:url';",
             "start_line": 3,
@@ -7044,20 +6638,21 @@
             "source_digest": "a6d64c7e93bb7b2b23fa105c2bca1fec9b89e7dafbcdcc0ffc31504487995f4e",
             "kind": "import",
             "resolved_target": "external:javascript:node:url"
+          },
+          {
+            "path": "scripts/generate-runtime-themes.mjs",
+            "symbol": "fileURLToPath(import.meta.url)",
+            "start_line": 5,
+            "end_line": 5,
+            "extractor": "tree-sitter-javascript",
+            "source_digest": "e86d811848fc47b4d80d3150bb92472229ada420d0754dbaef92c38a5471669f",
+            "kind": "call",
+            "resolved_target": "external:javascript:node:url",
+            "target_symbol": "fileURLToPath"
           }
         ]
       },
       "callers": [
-        {
-          "id": "scripts/free-port.mjs",
-          "type": "calls",
-          "type_only": false
-        },
-        {
-          "id": "scripts/free-port.mjs",
-          "type": "imports",
-          "type_only": false
-        },
         {
           "id": "scripts/generate-runtime-themes.mjs",
           "type": "calls",
@@ -7229,7 +6824,6 @@
         "src/format-detect.test.js",
         "src/format-readers.test.js",
         "src/format-registry.test.js",
-        "src/free-port.test.js",
         "src/image-document-viewer.test.js",
         "src/image-resources.test.js",
         "src/json-property-model.test.js",
@@ -7560,20 +7154,6 @@
             "end_line": 1,
             "extractor": "tree-sitter-javascript",
             "source_digest": "9ce050abfa670cfa2907abccd9cbb117c929642056e701d87aed027fa6dd05c2",
-            "kind": "import",
-            "resolved_target": "external:javascript:vitest"
-          }
-        },
-        {
-          "test": "src/free-port.test.js",
-          "type": "imports",
-          "location": {
-            "path": "src/free-port.test.js",
-            "symbol": "import { describe, expect, it } from 'vitest';",
-            "start_line": 1,
-            "end_line": 1,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
             "kind": "import",
             "resolved_target": "external:javascript:vitest"
           }
@@ -25285,126 +24865,6 @@
           }
         },
         {
-          "test": "src/free-port.test.js",
-          "type": "calls",
-          "location": {
-            "path": "src/free-port.test.js",
-            "symbol": "describe('free-port utility', () => {\n  it('detects when a port is bound and in use', async () => {\n    const server = net.createServer();\n\n    await new Promise((resolve, reject) => {\n      server.once('error', reject);\n      server.listen(0, '127.0.0.1', resolve);\n    });\n    const testPort = server.address().port;\n\n    try {\n      const isFree = await canBindPort(testPort);\n      expect(isFree).toBe(false);\n    } finally {\n      await new Promise((resolve) => server.close(resolve));\n    }\n\n    const isFreeAfterClose = await canBindPort(testPort);\n    expect(isFreeAfterClose).toBe(true);\n    const result = await freePort(testPort, { verbose: false });\n    expect(result.freed).toBe(false);\n    expect(result.pids).toEqual([]);\n  });\n\n  it('ignores current process PID and invalid PIDs during kill', () => {\n    expect(() => {\n      killPids([0, process.pid, -1]);\n    }).not.toThrow();\n  });\n\n})",
-            "start_line": 5,
-            "end_line": 35,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "external:javascript:vitest",
-            "target_symbol": "describe"
-          }
-        },
-        {
-          "test": "src/free-port.test.js",
-          "type": "calls",
-          "location": {
-            "path": "src/free-port.test.js",
-            "symbol": "it('detects when a port is bound and in use', async () => {\n    const server = net.createServer();\n\n    await new Promise((resolve, reject) => {\n      server.once('error', reject);\n      server.listen(0, '127.0.0.1', resolve);\n    });\n    const testPort = server.address().port;\n\n    try {\n      const isFree = await canBindPort(testPort);\n      expect(isFree).toBe(false);\n    } finally {\n      await new Promise((resolve) => server.close(resolve));\n    }\n\n    const isFreeAfterClose = await canBindPort(testPort);\n    expect(isFreeAfterClose).toBe(true);\n    const result = await freePort(testPort, { verbose: false });\n    expect(result.freed).toBe(false);\n    expect(result.pids).toEqual([]);\n  })",
-            "start_line": 6,
-            "end_line": 27,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "external:javascript:vitest",
-            "target_symbol": "it"
-          }
-        },
-        {
-          "test": "src/free-port.test.js",
-          "type": "calls",
-          "location": {
-            "path": "src/free-port.test.js",
-            "symbol": "expect(isFree)",
-            "start_line": 17,
-            "end_line": 17,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "external:javascript:vitest",
-            "target_symbol": "expect"
-          }
-        },
-        {
-          "test": "src/free-port.test.js",
-          "type": "calls",
-          "location": {
-            "path": "src/free-port.test.js",
-            "symbol": "expect(isFreeAfterClose)",
-            "start_line": 23,
-            "end_line": 23,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "external:javascript:vitest",
-            "target_symbol": "expect"
-          }
-        },
-        {
-          "test": "src/free-port.test.js",
-          "type": "calls",
-          "location": {
-            "path": "src/free-port.test.js",
-            "symbol": "expect(result.freed)",
-            "start_line": 25,
-            "end_line": 25,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "external:javascript:vitest",
-            "target_symbol": "expect"
-          }
-        },
-        {
-          "test": "src/free-port.test.js",
-          "type": "calls",
-          "location": {
-            "path": "src/free-port.test.js",
-            "symbol": "expect(result.pids)",
-            "start_line": 26,
-            "end_line": 26,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "external:javascript:vitest",
-            "target_symbol": "expect"
-          }
-        },
-        {
-          "test": "src/free-port.test.js",
-          "type": "calls",
-          "location": {
-            "path": "src/free-port.test.js",
-            "symbol": "it('ignores current process PID and invalid PIDs during kill', () => {\n    expect(() => {\n      killPids([0, process.pid, -1]);\n    }).not.toThrow();\n  })",
-            "start_line": 29,
-            "end_line": 33,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "external:javascript:vitest",
-            "target_symbol": "it"
-          }
-        },
-        {
-          "test": "src/free-port.test.js",
-          "type": "calls",
-          "location": {
-            "path": "src/free-port.test.js",
-            "symbol": "expect(() => {\n      killPids([0, process.pid, -1]);\n    })",
-            "start_line": 30,
-            "end_line": 32,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "external:javascript:vitest",
-            "target_symbol": "expect"
-          }
-        },
-        {
           "test": "src/image-document-viewer.test.js",
           "type": "calls",
           "location": {
@@ -40650,16 +40110,6 @@
           "type_only": false
         },
         {
-          "id": "src/free-port.test.js",
-          "type": "calls",
-          "type_only": false
-        },
-        {
-          "id": "src/free-port.test.js",
-          "type": "imports",
-          "type_only": false
-        },
-        {
           "id": "src/image-document-viewer.test.js",
           "type": "calls",
           "type_only": false
@@ -41076,6 +40526,68 @@
       "parent": "External"
     },
     {
+      "id": "external:rust:pulldown_cmark",
+      "path": "external:rust:pulldown_cmark",
+      "label": "pulldown_cmark",
+      "type": "external",
+      "boundary": "External",
+      "entrypoints": [],
+      "tests": [],
+      "test_evidence": [],
+      "analysis": "reference-only",
+      "is_test": false,
+      "symbols": [],
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/document_access.rs",
+            "symbol": "use pulldown_cmark::{html, CodeBlockKind, Event, Options, Parser, Tag, TagEnd};",
+            "start_line": 1,
+            "end_line": 1,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
+            "kind": "import",
+            "resolved_target": "external:rust:pulldown_cmark"
+          },
+          {
+            "path": "src-tauri/src/document_access.rs",
+            "symbol": "use pulldown_cmark::{html, CodeBlockKind, Event, Options, Parser, Tag, TagEnd};",
+            "start_line": 1,
+            "end_line": 1,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
+            "kind": "import",
+            "resolved_target": "external:rust:pulldown_cmark"
+          },
+          {
+            "path": "src-tauri/src/document_access.rs",
+            "symbol": "use pulldown_cmark::{html, CodeBlockKind, Event, Options, Parser, Tag, TagEnd};",
+            "start_line": 1,
+            "end_line": 1,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
+            "kind": "import",
+            "resolved_target": "external:rust:pulldown_cmark"
+          }
+        ]
+      },
+      "callers": [
+        {
+          "id": "src-tauri/src/document_access.rs",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/document_access.rs",
+          "type": "imports",
+          "type_only": false
+        }
+      ],
+      "callees": [],
+      "parent": "External"
+    },
+    {
       "id": "external:rust:serde",
       "path": "external:rust:serde",
       "label": "serde",
@@ -41091,38 +40603,43 @@
         "status": "verified",
         "locations": [
           {
+            "path": "src-tauri/src/app_settings.rs",
+            "symbol": "use serde::{Deserialize, Serialize};",
+            "start_line": 1,
+            "end_line": 1,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
+            "kind": "import",
+            "resolved_target": "external:rust:serde"
+          },
+          {
+            "path": "src-tauri/src/app_settings.rs",
+            "symbol": "use serde::{Deserialize, Serialize};",
+            "start_line": 1,
+            "end_line": 1,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
+            "kind": "import",
+            "resolved_target": "external:rust:serde"
+          },
+          {
             "path": "src-tauri/src/document_access.rs",
             "symbol": "use serde::Serialize;",
             "start_line": 2,
             "end_line": 2,
             "extractor": "tree-sitter-rust",
-            "source_digest": "a3aee340beb5ab12b4868f71e78131a7bc8350f9b4461ee7874a39571075ac92",
-            "kind": "import",
-            "resolved_target": "external:rust:serde"
-          },
-          {
-            "path": "src-tauri/src/file_associations.rs",
-            "symbol": "use serde::Serialize;",
-            "start_line": 1,
-            "end_line": 1,
-            "extractor": "tree-sitter-rust",
-            "source_digest": "7aa6160aeb68e1f51eaef15271b916734b24b3809401488abab7ca2c7bbac077",
-            "kind": "import",
-            "resolved_target": "external:rust:serde"
-          },
-          {
-            "path": "src-tauri/src/open_requests.rs",
-            "symbol": "use serde::Serialize;",
-            "start_line": 1,
-            "end_line": 1,
-            "extractor": "tree-sitter-rust",
-            "source_digest": "c58e043e79ef35cb2f3127fc2a86103c41dae702580bb2736f65bce10e6b80a3",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
             "kind": "import",
             "resolved_target": "external:rust:serde"
           }
         ]
       },
       "callers": [
+        {
+          "id": "src-tauri/src/app_settings.rs",
+          "type": "imports",
+          "type_only": false
+        },
         {
           "id": "src-tauri/src/document_access.rs",
           "type": "imports",
@@ -41163,27 +40680,27 @@
             "start_line": 2,
             "end_line": 2,
             "extractor": "tree-sitter-rust",
-            "source_digest": "b5656628e64f34ebb6a0b01a61000bfe741c6234d1667ba447ddf414277485f1",
+            "source_digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
             "kind": "import",
             "resolved_target": "external:rust:std"
           },
           {
-            "path": "src-tauri/src/document_access.rs",
-            "symbol": "use std::fs;",
+            "path": "src-tauri/src/app_settings.rs",
+            "symbol": "use std::path::{Path, PathBuf};",
             "start_line": 3,
             "end_line": 3,
             "extractor": "tree-sitter-rust",
-            "source_digest": "a3aee340beb5ab12b4868f71e78131a7bc8350f9b4461ee7874a39571075ac92",
+            "source_digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
             "kind": "import",
             "resolved_target": "external:rust:std"
           },
           {
-            "path": "src-tauri/src/document_access.rs",
-            "symbol": "use std::io::Write;",
-            "start_line": 4,
-            "end_line": 4,
+            "path": "src-tauri/src/app_settings.rs",
+            "symbol": "use std::path::{Path, PathBuf};",
+            "start_line": 3,
+            "end_line": 3,
             "extractor": "tree-sitter-rust",
-            "source_digest": "a3aee340beb5ab12b4868f71e78131a7bc8350f9b4461ee7874a39571075ac92",
+            "source_digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
             "kind": "import",
             "resolved_target": "external:rust:std"
           }
@@ -41192,7 +40709,17 @@
       "callers": [
         {
           "id": "src-tauri/src/app_settings.rs",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/app_settings.rs",
           "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/document_access.rs",
+          "type": "calls",
           "type_only": false
         },
         {
@@ -41202,7 +40729,17 @@
         },
         {
           "id": "src-tauri/src/file_associations.rs",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/file_associations.rs",
           "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/images.rs",
+          "type": "calls",
           "type_only": false
         },
         {
@@ -41212,7 +40749,17 @@
         },
         {
           "id": "src-tauri/src/lib.rs",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/lib.rs",
           "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/open_requests.rs",
+          "type": "calls",
           "type_only": false
         },
         {
@@ -41258,89 +40805,27 @@
             "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
             "kind": "import",
             "resolved_target": "external:rust:tauri"
+          },
+          {
+            "path": "src-tauri/src/open_requests.rs",
+            "symbol": "use tauri::{AppHandle, Emitter, Manager, State};",
+            "start_line": 4,
+            "end_line": 4,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "c58e043e79ef35cb2f3127fc2a86103c41dae702580bb2736f65bce10e6b80a3",
+            "kind": "import",
+            "resolved_target": "external:rust:tauri"
           }
         ]
       },
       "callers": [
         {
           "id": "src-tauri/src/images.rs",
-          "type": "imports",
+          "type": "calls",
           "type_only": false
         },
         {
-          "id": "src-tauri/src/lib.rs",
-          "type": "imports",
-          "type_only": false
-        }
-      ],
-      "callees": [],
-      "parent": "External"
-    },
-    {
-      "id": "external:rust:tests",
-      "path": "external:rust:tests",
-      "label": "tests",
-      "type": "external",
-      "boundary": "External",
-      "entrypoints": [],
-      "tests": [],
-      "test_evidence": [],
-      "analysis": "reference-only",
-      "is_test": false,
-      "symbols": [],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src-tauri/src/app_settings.rs",
-            "symbol": "mod tests {\r\n    use super::*;\r\n    use std::time::{SystemTime, UNIX_EPOCH};\r\n\r\n    fn temp_settings_path(label: &str) -> PathBuf {\r\n        let nanos = SystemTime::now()\r\n            .duration_since(UNIX_EPOCH)\r\n            .map(|d| d.as_nanos())\r\n            .unwrap_or(0);\r\n        std::env::temp_dir().join(format!(\"openmd-settings-{label}-{nanos}.json\"))\r\n    }\r\n\r\n    #[test]\r\n    fn defaults_allow_multiple_instances() {\r\n        assert!(AppSettings::default().allow_multiple_instances);\r\n        assert!(parse_settings(\"{}\").allow_multiple_instances);\r\n        assert!(parse_settings(\"not-json\").allow_multiple_instances);\r\n        assert!(\r\n            load_from_path(Path::new(\"/no/such/openmd-settings.json\")).allow_multiple_instances\r\n        );\r\n    }\r\n\r\n    #[test]\r\n    fn parses_explicit_false() {\r\n        let settings = parse_settings(r#\"{\"allowMultipleInstances\":false}\"#);\r\n        assert!(!settings.allow_multiple_instances);\r\n    }\r\n\r\n    #[test]\r\n    fn round_trips_settings_file() {\r\n        let path = temp_settings_path(\"roundtrip\");\r\n        let settings = AppSettings {\r\n            allow_multiple_instances: false,\r\n        };\r\n        save_to_path(&path, &settings).expect(\"write\");\r\n        let loaded = load_from_path(&path);\r\n        assert_eq!(loaded, settings);\r\n        assert!(!path.with_extension(\"json.tmp\").exists());\r\n        let _ = fs::remove_file(&path);\r\n    }\r\n\r\n    #[test]\r\n    fn overwrite_existing_settings_atomically() {\r\n        let path = temp_settings_path(\"overwrite\");\r\n        save_to_path(\r\n            &path,\r\n            &AppSettings {\r\n                allow_multiple_instances: true,\r\n            },\r\n        )\r\n        .expect(\"first write\");\r\n        save_to_path(\r\n            &path,\r\n            &AppSettings {\r\n                allow_multiple_instances: false,\r\n            },\r\n        )\r\n        .expect(\"second write\");\r\n        assert!(!load_from_path(&path).allow_multiple_instances);\r\n        let _ = fs::remove_file(&path);\r\n    }\r\n}",
-            "start_line": 136,
-            "end_line": 197,
-            "extractor": "tree-sitter-rust",
-            "source_digest": "b5656628e64f34ebb6a0b01a61000bfe741c6234d1667ba447ddf414277485f1",
-            "kind": "import",
-            "resolved_target": "external:rust:tests"
-          },
-          {
-            "path": "src-tauri/src/cp437.rs",
-            "symbol": "mod tests {\n    use super::{decode, decode_byte, HIGH};\n\n    #[test]\n    fn high_page_has_one_char_per_byte() {\n        assert_eq!(HIGH.len(), 128);\n    }\n\n    #[test]\n    fn maps_shade_and_structural_bytes() {\n        assert_eq!(decode_byte(0xB0), '\\u{2591}');\n        assert_eq!(decode_byte(0x09), '\\t');\n        assert_eq!(decode_byte(0x0A), '\\n');\n        assert_eq!(decode_byte(0x0D), '\\r');\n        assert_eq!(decode_byte(0x00), ' ');\n        assert_eq!(decode_byte(0x01), '\\u{263A}');\n        assert_eq!(decode_byte(0x1A), '\\u{2192}');\n        assert_eq!(decode_byte(0x7F), '\\u{2302}');\n    }\n\n    #[test]\n    fn strips_trailing_eof_and_keeps_interior_arrow() {\n        assert_eq!(decode(&[0x41, 0x1A, 0x42, 0x1A]), \"A→B\");\n        assert_eq!(decode(&[0x41, 0x0D, 0x0A, 0x1A]), \"A\\r\\n\");\n    }\n}",
-            "start_line": 82,
-            "end_line": 107,
-            "extractor": "tree-sitter-rust",
-            "source_digest": "048c8d7691332e23aa22cb4edbf3e05a0da92d579a533908575f86fbf4a6a966",
-            "kind": "import",
-            "resolved_target": "external:rust:tests"
-          },
-          {
-            "path": "src-tauri/src/document_access.rs",
-            "symbol": "mod tests {\n    use super::{\n        build_document_payload, detect_image_format_from_magic, file_size_label, image_mime_type,\n        is_plain_text_document, is_supported_document, looks_like_nfo_xml, open_document,\n        read_document_image, render_markdown, safe_relative_image_path, save_bytes, save_document,\n        MAX_LOCAL_IMAGE_SIZE_BYTES, MAX_RENDERABLE_FILE_SIZE_BYTES,\n    };\n    use std::fs::{self, File};\n    use std::path::{Path, PathBuf};\n    use std::time::{SystemTime, UNIX_EPOCH};\n\n    struct FixtureDirectory(PathBuf);\n\n    impl FixtureDirectory {\n        fn new(label: &str) -> Self {\n            let unique = SystemTime::now()\n                .duration_since(UNIX_EPOCH)\n                .expect(\"clock should be available\")\n                .as_nanos();\n            let path = std::env::temp_dir()\n                .join(format!(\"openmd-{label}-{}-{unique}\", std::process::id()));\n            fs::create_dir_all(&path).expect(\"fixture directory should be created\");\n            Self(path)\n        }\n\n        fn path(&self) -> &Path {\n            &self.0\n        }\n    }\n\n    impl Drop for FixtureDirectory {\n        fn drop(&mut self) {\n            let _ = fs::remove_dir_all(&self.0);\n        }\n    }\n\n    #[test]\n    fn shares_format_tables_with_js_parity_fixture() {\n        let parity: serde_json::Value =\n            serde_json::from_str(include_str!(\"../../src/format-parity.json\"))\n                .expect(\"parity fixture should parse\");\n        for prefix in parity[\"nfoXmlPrefixes\"].as_array().expect(\"prefixes\") {\n            let bytes = prefix.as_str().expect(\"prefix\").as_bytes();\n            assert!(looks_like_nfo_xml(bytes), \"{prefix}\");\n        }\n        for sample in parity[\"imageMagic\"].as_array().expect(\"magic\") {\n            let format = sample[\"format\"].as_str().expect(\"format\");\n            let bytes: Vec<u8> = sample[\"bytes\"]\n                .as_array()\n                .expect(\"bytes\")\n                .iter()\n                .map(|value| value.as_u64().expect(\"byte\") as u8)\n                .collect();\n            assert_eq!(detect_image_format_from_magic(&bytes), Some(format));\n        }\n        for extension in parity[\"plainTextExtensions\"].as_array().expect(\"text\") {\n            let path = PathBuf::from(format!(\"sample.{}\", extension.as_str().expect(\"ext\")));\n            assert!(is_plain_text_document(&path), \"{extension}\");\n        }\n        for extension in parity[\"markdownExtensions\"].as_array().expect(\"markdown\") {\n            let path = PathBuf::from(format!(\"sample.{}\", extension.as_str().expect(\"ext\")));\n            assert!(is_supported_document(&path), \"{extension}\");\n            assert!(!is_plain_text_document(&path), \"{extension}\");\n        }\n    }\n\n    #[test]\n    fn opens_markdown_and_text_documents_with_stable_metadata() {\n        let fixture = FixtureDirectory::new(\"documents\");\n        let markdown_path = fixture.path().join(\"guide.md\");\n        let text_path = fixture.path().join(\"notes.txt\");\n        let json_path = fixture.path().join(\"config.json\");\n        fs::write(&markdown_path, \"# Guide\\n\\nOne two\").expect(\"markdown should be written\");\n        fs::write(&text_path, \"<script>alert(1)</script>\").expect(\"text should be written\");\n        fs::write(&json_path, \"{\\n  \\\"ok\\\": true\\n}\").expect(\"json should be written\");\n\n        let markdown = open_document(&markdown_path).expect(\"markdown should open\");\n        assert!(markdown.html.contains(\"<h1>Guide</h1>\"));\n        assert_eq!(markdown.source, \"# Guide\\n\\nOne two\");\n        assert_eq!(markdown.line_count, 3);\n        assert_eq!(markdown.word_count, 4);\n        assert_eq!(markdown.reading_time_minutes, 1);\n\n        let text = open_document(&text_path).expect(\"text should open\");\n        assert!(text.html.contains(\"&lt;script&gt;alert(1)&lt;/script&gt;\"));\n        assert!(!text.html.contains(\"<script>\"));\n\n        let companion =\n            open_document(&json_path).expect(\"companion json should open as plain text\");\n        assert!(companion.html.contains(\"data-plain-text=\\\"true\\\"\"));\n        assert!(companion.html.contains(\"{\"));\n        assert!(!companion.html.contains(\"<h1>\"));\n        assert_eq!(companion.source, \"{\\n  \\\"ok\\\": true\\n}\");\n    }\n\n    fn sample_png() -> Vec<u8> {\n        vec![\n            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48,\n            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00,\n            0x00, 0x90, 0x77, 0x53, 0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, 0x54, 0x08,\n            0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0x00, 0x00, 0x00, 0x03, 0x00, 0x01, 0x00, 0x05, 0xfe,\n            0xd4, 0xef, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,\n        ]\n    }\n\n    #[test]\n    fn opens_image_companions_as_image_kind_without_utf8_decode() {\n        let fixture = FixtureDirectory::new(\"image-documents\");\n        let image_path = fixture.path().join(\"pixel.png\");\n        let png = sample_png();\n        fs::write(&image_path, &png).expect(\"png should be written\");\n\n        let opened = open_document(&image_path).expect(\"image companion should open\");\n        assert_eq!(opened.kind, Some(\"image\"));\n        assert_eq!(opened.format, Some(\"png\"));\n        assert!(opened.html.contains(\"data-image-document=\\\"true\\\"\"));\n        assert!(opened.html.contains(\"image/png\"));\n        assert_eq!(opened.source, \"\");\n\n        let bytes = super::read_standalone_image(&image_path).expect(\"bytes should load\");\n        assert_eq!(bytes, png);\n\n        assert!(save_document(&image_path, \"nope\")\n            .unwrap_err()\n            .contains(\"Unsupported\"));\n    }\n\n    #[test]\n    fn reclassifies_text_companion_with_png_magic_to_image() {\n        let fixture = FixtureDirectory::new(\"reclassify-image\");\n        let path = fixture.path().join(\"notes.txt\");\n        let png = sample_png();\n        fs::write(&path, &png).expect(\"png bytes under txt should be written\");\n\n        let opened = open_document(&path).expect(\"reclassified image should open\");\n        assert_eq!(opened.kind, Some(\"image\"));\n        assert_eq!(opened.format, Some(\"png\"));\n        assert!(opened.html.contains(\"data-image-document=\\\"true\\\"\"));\n\n        let bytes = super::read_standalone_image(&path).expect(\"standalone bytes should load\");\n        assert_eq!(bytes, png);\n    }\n\n    #[test]\n    fn fail_closes_image_extension_with_non_image_bytes() {\n        let fixture = FixtureDirectory::new(\"bad-image\");\n        let path = fixture.path().join(\"photo.png\");\n        fs::write(&path, b\"not an image\").expect(\"garbage should be written\");\n\n        let err = open_document(&path).unwrap_err();\n        assert!(\n            err.contains(\"damaged\") || err.contains(\"not a supported image\"),\n            \"unexpected error: {err}\"\n        );\n    }\n\n    #[test]\n    fn text_payloads_include_format_id() {\n        let fixture = FixtureDirectory::new(\"format-ids\");\n        let json_path = fixture.path().join(\"config.json\");\n        fs::write(&json_path, r#\"{\"ok\":true}\"#).unwrap();\n        let opened = open_document(&json_path).expect(\"json should open\");\n        assert_eq!(opened.kind, Some(\"text\"));\n        assert_eq!(opened.format, Some(\"json\"));\n\n        let log_path = fixture.path().join(\"app.log\");\n        fs::write(&log_path, \"ready\\n\").unwrap();\n        let log = open_document(&log_path).expect(\"log should open\");\n        assert_eq!(log.kind, Some(\"text\"));\n        assert_eq!(log.format, Some(\"log\"));\n    }\n\n    #[test]\n    fn rejects_invalid_utf8_unsupported_extensions_and_oversized_documents() {\n        let fixture = FixtureDirectory::new(\"invalid-documents\");\n        let invalid_utf8 = fixture.path().join(\"invalid.md\");\n        let unsupported = fixture.path().join(\"page.html\");\n        let oversized = fixture.path().join(\"large.md\");\n        fs::write(&invalid_utf8, [0xff, 0xfe]).expect(\"invalid bytes should be written\");\n        fs::write(&unsupported, \"<p>no</p>\").expect(\"unsupported file should be written\");\n        File::create(&oversized)\n            .expect(\"large file should be created\")\n            .set_len(MAX_RENDERABLE_FILE_SIZE_BYTES + 1)\n            .expect(\"large sparse file should be sized\");\n\n        assert!(open_document(&invalid_utf8)\n            .unwrap_err()\n            .contains(\"not in UTF-8\"));\n        assert!(open_document(&unsupported)\n            .unwrap_err()\n            .contains(\"Unsupported file format\"));\n        assert!(open_document(&oversized).unwrap_err().contains(\"too large\"));\n    }\n\n    #[test]\n    fn saves_supported_documents_and_returns_the_updated_render_contract() {\n        let fixture = FixtureDirectory::new(\"save-document\");\n        let markdown_path = fixture.path().join(\"guide.md\");\n        fs::write(&markdown_path, \"# Before\").expect(\"fixture should be written\");\n\n        let saved = save_document(&markdown_path, \"# After\\n\\n- [x] Saved\")\n            .expect(\"supported document should save\");\n\n        assert_eq!(\n            fs::read_to_string(&markdown_path).unwrap(),\n            \"# After\\n\\n- [x] Saved\"\n        );\n        assert_eq!(saved.source, \"# After\\n\\n- [x] Saved\");\n        assert!(saved.html.contains(\"<h1>After</h1>\"));\n        assert_eq!(saved.line_count, 3);\n        assert!(!fixture.path().read_dir().unwrap().any(|entry| {\n            entry\n                .unwrap()\n                .file_name()\n                .to_string_lossy()\n                .contains(\"openmd-\")\n        }));\n    }\n\n    #[test]\n    fn rejects_unsupported_missing_and_oversized_save_targets_without_changing_files() {\n        let fixture = FixtureDirectory::new(\"save-rejections\");\n        let unsupported = fixture.path().join(\"page.html\");\n        let supported = fixture.path().join(\"notes.md\");\n        let missing = fixture.path().join(\"missing.md\");\n        fs::write(&unsupported, \"keep\").unwrap();\n        fs::write(&supported, \"keep\").unwrap();\n        let oversized = \"x\".repeat(MAX_RENDERABLE_FILE_SIZE_BYTES as usize + 1);\n\n        assert!(save_document(&unsupported, \"replace\")\n            .unwrap_err()\n            .contains(\"Unsupported\"));\n        assert!(save_document(&missing, \"replace\")\n            .unwrap_err()\n            .contains(\"no longer\"));\n        assert!(save_document(&supported, &oversized)\n            .unwrap_err()\n            .contains(\"too large\"));\n        assert_eq!(fs::read_to_string(&unsupported).unwrap(), \"keep\");\n        assert_eq!(fs::read_to_string(&supported).unwrap(), \"keep\");\n    }\n\n    #[test]\n    fn saves_export_bytes_and_rejects_oversized_payloads() {\n        let fixture = FixtureDirectory::new(\"save-bytes\");\n        let destination = fixture.path().join(\"export.png\");\n        let payload = [0x89_u8, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];\n\n        save_bytes(&destination, &payload).expect(\"export should write\");\n        assert_eq!(\n            fs::read(&destination).expect(\"export should exist\"),\n            payload\n        );\n\n        // Overwrite path uses the same atomic replace helper as document saves.\n        let next = [1_u8, 2, 3, 4];\n        save_bytes(&destination, &next).expect(\"overwrite should write\");\n        assert_eq!(fs::read(&destination).expect(\"export should update\"), next);\n\n        let oversized = vec![0_u8; MAX_LOCAL_IMAGE_SIZE_BYTES as usize + 1];\n        assert!(save_bytes(&destination, &oversized)\n            .unwrap_err()\n            .contains(\"too large\"));\n        assert_eq!(\n            fs::read(&destination).expect(\"failed export keeps prior bytes\"),\n            next\n        );\n    }\n\n    #[cfg(target_os = \"windows\")]\n    #[test]\n    fn recovers_a_backup_left_between_windows_replace_steps() {\n        let fixture = FixtureDirectory::new(\"recover-save\");\n        let document_path = fixture.path().join(\"notes.md\");\n        let backup_path = fixture.path().join(\".notes.md.openmd-123-1.backup\");\n        fs::write(&backup_path, \"# Recovered\").unwrap();\n\n        let recovered = open_document(&document_path).expect(\"backup should be restored\");\n\n        assert_eq!(recovered.source, \"# Recovered\");\n        assert_eq!(fs::read_to_string(&document_path).unwrap(), \"# Recovered\");\n        assert!(!backup_path.exists());\n    }\n\n    #[test]\n    fn document_payload_serializes_the_frontend_contract() {\n        let payload =\n            build_document_payload(\"# Title\\nBody\", true, \"markdown\", \"markdown\", \"utf-8\");\n        let serialized = serde_json::to_value(payload).expect(\"payload should serialize\");\n\n        assert_eq!(serialized[\"source\"], \"# Title\\nBody\");\n        assert_eq!(serialized[\"lineCount\"], 2);\n        assert_eq!(serialized[\"characterCount\"], 12);\n        assert!(serialized.get(\"line_count\").is_none());\n        assert_eq!(serialized[\"kind\"], \"markdown\");\n        assert_eq!(serialized[\"format\"], \"markdown\");\n    }\n\n    #[test]\n    fn detects_png_magic_bytes() {\n        let png = sample_png();\n        assert_eq!(detect_image_format_from_magic(&png), Some(\"png\"));\n        assert_eq!(detect_image_format_from_magic(b\"nope\"), None);\n    }\n\n    #[test]\n    fn markdown_rendering_escapes_html_and_preserves_mermaid_wrappers() {\n        let escaped = render_markdown(\"<style>body { display: none; }</style>\");\n        assert!(!escaped.contains(\"<style>\"));\n        assert!(escaped.contains(\"&lt;style&gt;\"));\n\n        let mermaid = render_markdown(\"```mermaid\\ngraph TD\\nA-->B\\n```\");\n        assert!(mermaid.contains(\"<div class=\\\"mermaid\\\">\"));\n        assert!(mermaid.contains(\"graph TD\"));\n\n        let fenced = render_markdown(\"```js\\nconst x = 1;\\n```\");\n        assert!(fenced.contains(\"<pre><code class=\\\"language-js\\\">\"));\n        assert!(fenced.contains(\"const x = 1;\"));\n        assert!(!fenced.contains(\"class=\\\"source\\\"\"));\n        assert!(!fenced.contains(\"syntect\"));\n\n        let tasks = render_markdown(\"- [ ] First\\n- [x] Second\");\n        assert!(tasks.contains(\n            \"<input type=\\\"checkbox\\\" data-source-line=\\\"1\\\" aria-label=\\\"Mark task complete\\\">\"\n        ));\n        assert!(tasks.contains(\n            \"<input type=\\\"checkbox\\\" data-source-line=\\\"2\\\" aria-label=\\\"Mark task incomplete\\\" checked>\"\n        ));\n        assert!(!tasks.contains(\"disabled\"));\n    }\n\n    #[test]\n    fn comprehensive_example_exercises_supported_rich_content() {\n        let example_path =\n            Path::new(env!(\"CARGO_MANIFEST_DIR\")).join(\"../examples/a-quiet-place.md\");\n        let example = open_document(&example_path).expect(\"example document should open\");\n\n        assert!(example.html.contains(\"<table>\"));\n        assert!(example.html.contains(\"<div class=\\\"mermaid\\\">\"));\n        assert!(example.html.contains(\"type=\\\"checkbox\\\"\"));\n        assert!(example.html.contains(\"<del>completed ideas</del>\"));\n        assert!(example.html.contains(\n            \"<img src=\\\"assets/quiet-desk.webp\\\" alt=\\\"A blank notebook and pencil beside a rain-covered window\\\"\"\n        ));\n        assert!(example.html.contains(\"footnote-reference\"));\n        assert!(example.line_count > 70);\n\n        let image = read_document_image(&example_path, \"assets/quiet-desk.webp\")\n            .expect(\"example image should load through the safe resource policy\");\n        assert!(!image.is_empty());\n    }\n\n    #[test]\n    fn document_and_resource_file_policies_are_explicit() {\n        assert!(is_supported_document(Path::new(\"README.MD\")));\n        assert!(is_supported_document(Path::new(\"notes.TxT\")));\n        assert!(is_supported_document(Path::new(\"config.JSON\")));\n        assert!(is_supported_document(Path::new(\"setup.ini\")));\n        assert!(is_supported_document(Path::new(\"info.nfo\")));\n        assert!(is_supported_document(Path::new(\"settings.toml\")));\n        assert!(is_supported_document(Path::new(\"photo.PNG\")));\n        assert!(is_supported_document(Path::new(\"cover.webp\")));\n        assert!(!is_supported_document(Path::new(\"page.html\")));\n        assert!(!is_supported_document(Path::new(\"main.rs\")));\n        assert_eq!(image_mime_type(Path::new(\"cover.PNG\")), Some(\"image/png\"));\n        assert_eq!(image_mime_type(Path::new(\"vector.svg\")), None);\n        assert_eq!(file_size_label(5 * 1024 * 1024), \"5.0 MiB\");\n    }\n\n    #[test]\n    fn opens_cp437_nfo_and_rejects_xml_nfo_as_plain_text() {\n        let fixture = FixtureDirectory::new(\"nfo-documents\");\n        let scene_path = fixture.path().join(\"sample-scene.nfo\");\n        let xml_path = fixture.path().join(\"movie.nfo\");\n        let lt_art_path = fixture.path().join(\"lt-art.nfo\");\n        let mut scene = vec![\n            b'N', b'F', b'O', b'\\r', b'\\n', 0xB0, 0xB1, 0xB2, 0xC9, 0xCD, 0xBB, b'\\r', b'\\n',\n        ];\n        scene.push(0x1A);\n        fs::write(&scene_path, scene).unwrap();\n        fs::write(\n            &xml_path,\n            \"<?xml version=\\\"1.0\\\" encoding=\\\"UTF-8\\\"?>\\n<movie><title>Test</title></movie>\\n\",\n        )\n        .unwrap();\n        fs::write(&lt_art_path, b\"<not-xml art \\xB0\\xB1>\\r\\n\").unwrap();\n\n        let scene = open_document(&scene_path).expect(\"cp437 nfo should open\");\n        assert_eq!(scene.format, Some(\"nfo\"));\n        assert_eq!(scene.kind, Some(\"text\"));\n        assert_eq!(scene.source_encoding, Some(\"cp437\"));\n        assert!(scene.source.contains('\\u{2591}'));\n        assert!(!scene.source.contains('\\u{001A}'));\n        assert!(scene.source.contains('\\r'));\n\n        let xml = open_document(&xml_path).expect(\"xml nfo should open as text\");\n        assert_eq!(xml.format, Some(\"text\"));\n        assert_eq!(xml.source_encoding, None);\n        assert!(xml.source.contains(\"<movie>\"));\n\n        let lt_art = open_document(&lt_art_path).expect(\"angle-bracket art should stay nfo\");\n        assert_eq!(lt_art.format, Some(\"nfo\"));\n        assert_eq!(lt_art.source_encoding, Some(\"cp437\"));\n\n        let example_scene =\n            Path::new(env!(\"CARGO_MANIFEST_DIR\")).join(\"../examples/fixtures/sample-scene.nfo\");\n        let example = open_document(&example_scene).expect(\"bundled scene nfo should open\");\n        assert_eq!(example.format, Some(\"nfo\"));\n        assert_eq!(example.source_encoding, Some(\"cp437\"));\n        assert!(example.source.contains('╔'));\n        assert!(example.source.contains('╠'));\n        assert!(example.html.contains(\"data-format=\\\"nfo\\\"\"));\n    }\n\n    #[test]\n    fn saves_xml_nfo_as_text() {\n        let fixture = FixtureDirectory::new(\"nfo-save\");\n        let xml_path = fixture.path().join(\"show.nfo\");\n        fs::write(&xml_path, \"<tvshow><title>A</title></tvshow>\\n\").unwrap();\n        let saved = save_document(&xml_path, \"<tvshow><title>B</title></tvshow>\\n\")\n            .expect(\"xml nfo should stay editable text\");\n        assert_eq!(saved.format, Some(\"text\"));\n        assert_eq!(\n            fs::read_to_string(&xml_path).unwrap(),\n            \"<tvshow><title>B</title></tvshow>\\n\"\n        );\n    }\n\n    #[test]\n    fn rejects_save_for_scene_nfo_and_log() {\n        let fixture = FixtureDirectory::new(\"view-only-save\");\n        let scene_path = fixture.path().join(\"scene.nfo\");\n        let log_path = fixture.path().join(\"app.log\");\n        fs::write(&scene_path, [0xC9, 0xCD, 0xBB, b'\\r', b'\\n', 0x1A]).unwrap();\n        fs::write(&log_path, \"ready\\n\").unwrap();\n\n        let scene_error = save_document(&scene_path, \"overwrite\").unwrap_err();\n        assert!(scene_error.contains(\"cannot be edited\"));\n        assert_eq!(fs::read(&scene_path).unwrap()[0], 0xC9);\n\n        let log_error = save_document(&log_path, \"overwrite\").unwrap_err();\n        assert!(log_error.contains(\"cannot be edited\"));\n        assert_eq!(fs::read_to_string(&log_path).unwrap(), \"ready\\n\");\n    }\n\n    #[test]\n    fn relative_resource_paths_cannot_escape_the_document_folder() {\n        assert_eq!(\n            safe_relative_image_path(\"assets/diagram%20one.png?raw=1#preview\").unwrap(),\n            PathBuf::from(\"assets/diagram one.png\")\n        );\n        for source in [\n            \"../secret.png\",\n            \"..%2Fsecret.png\",\n            \"https://example.com/image.png\",\n            \"file:outside.png\",\n            \"/absolute/image.png\",\n        ] {\n            assert!(\n                safe_relative_image_path(source).is_err(),\n                \"accepted {source}\"\n            );\n        }\n    }\n\n    #[test]\n    fn reads_only_supported_bounded_images_for_supported_documents() {\n        let fixture = FixtureDirectory::new(\"resources\");\n        let assets = fixture.path().join(\"assets\");\n        fs::create_dir_all(&assets).expect(\"assets directory should be created\");\n        let document_path = fixture.path().join(\"sample.md\");\n        let unsupported_document = fixture.path().join(\"sample.html\");\n        let image_path = assets.join(\"pixel.png\");\n        let unsupported_image = assets.join(\"vector.svg\");\n        let oversized_image = assets.join(\"large.png\");\n        fs::write(&document_path, \"![Pixel](assets/pixel.png)\")\n            .expect(\"document should be written\");\n        fs::write(&unsupported_document, \"no\").expect(\"unsupported document should be written\");\n        fs::write(&image_path, [0x89, b'P', b'N', b'G']).expect(\"image should be written\");\n        fs::write(&unsupported_image, \"<svg/>\").expect(\"svg should be written\");\n        File::create(&oversized_image)\n            .expect(\"large image should be created\")\n            .set_len(MAX_LOCAL_IMAGE_SIZE_BYTES + 1)\n            .expect(\"large sparse image should be sized\");\n\n        assert_eq!(\n            read_document_image(&document_path, \"assets/pixel.png\")\n                .expect(\"image bytes should load\"),\n            [0x89, b'P', b'N', b'G']\n        );\n        assert!(read_document_image(&unsupported_document, \"assets/pixel.png\").is_err());\n        assert!(read_document_image(&document_path, \"assets/vector.svg\").is_err());\n        assert!(read_document_image(&document_path, \"assets/large.png\")\n            .unwrap_err()\n            .contains(\"too large\"));\n        assert!(read_document_image(&document_path, \"../outside.png\").is_err());\n    }\n}",
-            "start_line": 903,
-            "end_line": 1400,
-            "extractor": "tree-sitter-rust",
-            "source_digest": "a3aee340beb5ab12b4868f71e78131a7bc8350f9b4461ee7874a39571075ac92",
-            "kind": "import",
-            "resolved_target": "external:rust:tests"
-          }
-        ]
-      },
-      "callers": [
-        {
-          "id": "src-tauri/src/app_settings.rs",
-          "type": "imports",
-          "type_only": false
-        },
-        {
-          "id": "src-tauri/src/cp437.rs",
-          "type": "imports",
-          "type_only": false
-        },
-        {
-          "id": "src-tauri/src/document_access.rs",
-          "type": "imports",
-          "type_only": false
-        },
-        {
-          "id": "src-tauri/src/file_associations.rs",
+          "id": "src-tauri/src/images.rs",
           "type": "imports",
           "type_only": false
         },
@@ -41379,7 +40864,7 @@
             "start_line": 1,
             "end_line": 1,
             "extractor": "json-manifest",
-            "source_digest": "551e190adba3c4cbec8050925f084ac359cd64f206db22b694f088c3cb62bdd2",
+            "source_digest": "be69bd6f375f4fd55a93c19d623aacda8dc939995ab8f64595ee3a9261855596",
             "kind": "file"
           }
         ]
@@ -41476,181 +40961,6 @@
         },
         {
           "id": "external:javascript:node:zlib",
-          "type": "imports",
-          "type_only": false
-        }
-      ],
-      "parent": "scripts"
-    },
-    {
-      "id": "scripts/free-port.mjs",
-      "path": "scripts/free-port.mjs",
-      "label": "free-port.mjs",
-      "type": "module",
-      "boundary": "Repository",
-      "entrypoints": [],
-      "tests": [
-        "src/free-port.test.js"
-      ],
-      "test_evidence": [
-        {
-          "test": "src/free-port.test.js",
-          "type": "imports",
-          "location": {
-            "path": "src/free-port.test.js",
-            "symbol": "import { canBindPort, freePort, killPids } from '../scripts/free-port.mjs';",
-            "start_line": 3,
-            "end_line": 3,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "import",
-            "resolved_target": "scripts/free-port.mjs"
-          }
-        },
-        {
-          "test": "src/free-port.test.js",
-          "type": "calls",
-          "location": {
-            "path": "src/free-port.test.js",
-            "symbol": "canBindPort(testPort)",
-            "start_line": 16,
-            "end_line": 16,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "scripts/free-port.mjs",
-            "target_symbol": "canBindPort"
-          }
-        },
-        {
-          "test": "src/free-port.test.js",
-          "type": "calls",
-          "location": {
-            "path": "src/free-port.test.js",
-            "symbol": "canBindPort(testPort)",
-            "start_line": 22,
-            "end_line": 22,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "scripts/free-port.mjs",
-            "target_symbol": "canBindPort"
-          }
-        },
-        {
-          "test": "src/free-port.test.js",
-          "type": "calls",
-          "location": {
-            "path": "src/free-port.test.js",
-            "symbol": "freePort(testPort, { verbose: false })",
-            "start_line": 24,
-            "end_line": 24,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "scripts/free-port.mjs",
-            "target_symbol": "freePort"
-          }
-        },
-        {
-          "test": "src/free-port.test.js",
-          "type": "calls",
-          "location": {
-            "path": "src/free-port.test.js",
-            "symbol": "killPids([0, process.pid, -1])",
-            "start_line": 31,
-            "end_line": 31,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "scripts/free-port.mjs",
-            "target_symbol": "killPids"
-          }
-        }
-      ],
-      "analysis": "analyzed",
-      "is_test": false,
-      "symbols": [
-        "canBindPort",
-        "freePort",
-        "getPidsOnPort",
-        "isDirectExecution",
-        "killPids",
-        "result",
-        "targetPort"
-      ],
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "scripts/free-port.mjs",
-            "symbol": "canBindPort",
-            "start_line": 12,
-            "end_line": 12,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-            "kind": "definition"
-          },
-          {
-            "path": "scripts/free-port.mjs",
-            "symbol": "getPidsOnPort",
-            "start_line": 34,
-            "end_line": 34,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-            "kind": "definition"
-          },
-          {
-            "path": "scripts/free-port.mjs",
-            "symbol": "killPids",
-            "start_line": 115,
-            "end_line": 115,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-            "kind": "definition"
-          }
-        ]
-      },
-      "callers": [
-        {
-          "id": "src/free-port.test.js",
-          "type": "calls",
-          "type_only": false
-        },
-        {
-          "id": "src/free-port.test.js",
-          "type": "imports",
-          "type_only": false
-        }
-      ],
-      "callees": [
-        {
-          "id": "external:javascript:node:child_process",
-          "type": "calls",
-          "type_only": false
-        },
-        {
-          "id": "external:javascript:node:child_process",
-          "type": "imports",
-          "type_only": false
-        },
-        {
-          "id": "external:javascript:node:net",
-          "type": "imports",
-          "type_only": false
-        },
-        {
-          "id": "external:javascript:node:path",
-          "type": "imports",
-          "type_only": false
-        },
-        {
-          "id": "external:javascript:node:url",
-          "type": "calls",
-          "type_only": false
-        },
-        {
-          "id": "external:javascript:node:url",
           "type": "imports",
           "type_only": false
         }
@@ -42111,6 +41421,7 @@
       "symbols": [
         "AppSettings",
         "SetAllowMultipleInstancesResult",
+        "concurrent_settings_writes_keep_complete_json",
         "config_dir",
         "default",
         "default_allow_multiple_instances",
@@ -42120,7 +41431,6 @@
         "overwrite_existing_settings_atomically",
         "parse_settings",
         "parses_explicit_false",
-        "replace_file",
         "round_trips_settings_file",
         "save",
         "save_to_path",
@@ -42137,7 +41447,7 @@
             "start_line": 11,
             "end_line": 11,
             "extractor": "tree-sitter-rust",
-            "source_digest": "b5656628e64f34ebb6a0b01a61000bfe741c6234d1667ba447ddf414277485f1",
+            "source_digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
             "kind": "definition"
           },
           {
@@ -42146,7 +41456,7 @@
             "start_line": 18,
             "end_line": 18,
             "extractor": "tree-sitter-rust",
-            "source_digest": "b5656628e64f34ebb6a0b01a61000bfe741c6234d1667ba447ddf414277485f1",
+            "source_digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
             "kind": "definition"
           },
           {
@@ -42155,12 +41465,22 @@
             "start_line": 23,
             "end_line": 23,
             "extractor": "tree-sitter-rust",
-            "source_digest": "b5656628e64f34ebb6a0b01a61000bfe741c6234d1667ba447ddf414277485f1",
+            "source_digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
             "kind": "definition"
           }
         ]
       },
       "callers": [
+        {
+          "id": "src-tauri/src/file_associations.rs",
+          "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/lib.rs",
+          "type": "calls",
+          "type_only": false
+        },
         {
           "id": "src-tauri/src/lib.rs",
           "type": "imports",
@@ -42169,13 +41489,23 @@
       ],
       "callees": [
         {
+          "id": "external:rust:serde",
+          "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "external:rust:std",
+          "type": "calls",
+          "type_only": false
+        },
+        {
           "id": "external:rust:std",
           "type": "imports",
           "type_only": false
         },
         {
-          "id": "external:rust:tests",
-          "type": "imports",
+          "id": "src-tauri/src/document_access.rs",
+          "type": "calls",
           "type_only": false
         }
       ],
@@ -42234,18 +41564,17 @@
       },
       "callers": [
         {
+          "id": "src-tauri/src/document_access.rs",
+          "type": "calls",
+          "type_only": false
+        },
+        {
           "id": "src-tauri/src/lib.rs",
           "type": "imports",
           "type_only": false
         }
       ],
-      "callees": [
-        {
-          "id": "external:rust:tests",
-          "type": "imports",
-          "type_only": false
-        }
-      ],
+      "callees": [],
       "parent": "src-tauri/src"
     },
     {
@@ -42306,7 +41635,6 @@
         "rejects_unsupported_missing_and_oversized_save_targets_without_changing_files",
         "relative_resource_paths_cannot_escape_the_document_folder",
         "render_markdown",
-        "replace_document_file",
         "resolve_document_format",
         "safe_relative_image_path",
         "sample_png",
@@ -42336,7 +41664,7 @@
             "start_line": 16,
             "end_line": 16,
             "extractor": "tree-sitter-rust",
-            "source_digest": "a3aee340beb5ab12b4868f71e78131a7bc8350f9b4461ee7874a39571075ac92",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
             "kind": "definition"
           },
           {
@@ -42345,7 +41673,7 @@
             "start_line": 33,
             "end_line": 33,
             "extractor": "tree-sitter-rust",
-            "source_digest": "a3aee340beb5ab12b4868f71e78131a7bc8350f9b4461ee7874a39571075ac92",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
             "kind": "definition"
           },
           {
@@ -42354,12 +41682,32 @@
             "start_line": 77,
             "end_line": 77,
             "extractor": "tree-sitter-rust",
-            "source_digest": "a3aee340beb5ab12b4868f71e78131a7bc8350f9b4461ee7874a39571075ac92",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
             "kind": "definition"
           }
         ]
       },
       "callers": [
+        {
+          "id": "src-tauri/src/app_settings.rs",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/images.rs",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/images.rs",
+          "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/lib.rs",
+          "type": "calls",
+          "type_only": false
+        },
         {
           "id": "src-tauri/src/lib.rs",
           "type": "imports",
@@ -42368,8 +41716,23 @@
       ],
       "callees": [
         {
+          "id": "external:rust:pulldown_cmark",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "external:rust:pulldown_cmark",
+          "type": "imports",
+          "type_only": false
+        },
+        {
           "id": "external:rust:serde",
           "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "external:rust:std",
+          "type": "calls",
           "type_only": false
         },
         {
@@ -42378,8 +41741,8 @@
           "type_only": false
         },
         {
-          "id": "external:rust:tests",
-          "type": "imports",
+          "id": "src-tauri/src/cp437.rs",
+          "type": "calls",
           "type_only": false
         }
       ],
@@ -42450,6 +41813,11 @@
       "callers": [
         {
           "id": "src-tauri/src/lib.rs",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/lib.rs",
           "type": "imports",
           "type_only": false
         }
@@ -42462,11 +41830,16 @@
         },
         {
           "id": "external:rust:std",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "external:rust:std",
           "type": "imports",
           "type_only": false
         },
         {
-          "id": "external:rust:tests",
+          "id": "src-tauri/src/app_settings.rs",
           "type": "imports",
           "type_only": false
         }
@@ -42521,11 +41894,31 @@
       "callees": [
         {
           "id": "external:rust:std",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "external:rust:std",
           "type": "imports",
           "type_only": false
         },
         {
           "id": "external:rust:tauri",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "external:rust:tauri",
+          "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/document_access.rs",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/document_access.rs",
           "type": "imports",
           "type_only": false
         }
@@ -42594,6 +41987,11 @@
       "callees": [
         {
           "id": "external:rust:std",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "external:rust:std",
           "type": "imports",
           "type_only": false
         },
@@ -42603,8 +42001,8 @@
           "type_only": false
         },
         {
-          "id": "external:rust:tests",
-          "type": "imports",
+          "id": "src-tauri/src/app_settings.rs",
+          "type": "calls",
           "type_only": false
         },
         {
@@ -42619,7 +42017,17 @@
         },
         {
           "id": "src-tauri/src/document_access.rs",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/document_access.rs",
           "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/file_associations.rs",
+          "type": "calls",
           "type_only": false
         },
         {
@@ -42634,6 +42042,11 @@
         },
         {
           "id": "src-tauri/src/open_requests.rs",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/open_requests.rs",
           "type": "imports",
           "type_only": false
         }
@@ -42644,9 +42057,11 @@
       "id": "src-tauri/src/main.rs",
       "path": "src-tauri/src/main.rs",
       "label": "main.rs",
-      "type": "module",
+      "type": "interface",
       "boundary": "Repository",
-      "entrypoints": [],
+      "entrypoints": [
+        "src-tauri/src/main.rs:main"
+      ],
       "tests": [],
       "test_evidence": [],
       "analysis": "analyzed",
@@ -42738,6 +42153,11 @@
       "callers": [
         {
           "id": "src-tauri/src/lib.rs",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "src-tauri/src/lib.rs",
           "type": "imports",
           "type_only": false
         }
@@ -42750,11 +42170,16 @@
         },
         {
           "id": "external:rust:std",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "external:rust:std",
           "type": "imports",
           "type_only": false
         },
         {
-          "id": "external:rust:tests",
+          "id": "external:rust:tauri",
           "type": "imports",
           "type_only": false
         }
@@ -43663,6 +43088,11 @@
         {
           "id": "src/reader-motion.js",
           "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "src/reader-preferences.js",
+          "type": "calls",
           "type_only": false
         }
       ],
@@ -44589,6 +44019,11 @@
         {
           "id": "src/reader-motion.js",
           "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "src/reader-preferences.js",
+          "type": "calls",
           "type_only": false
         }
       ],
@@ -45566,6 +45001,11 @@
         {
           "id": "src/document-payload.js",
           "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "src/format-detect.js",
+          "type": "calls",
           "type_only": false
         },
         {
@@ -47584,6 +47024,7 @@
       "entrypoints": [],
       "tests": [
         "src/format-detect.test.js",
+        "src/format-registry.test.js",
         "src/main.test.js"
       ],
       "test_evidence": [
@@ -47961,6 +47402,36 @@
           }
         },
         {
+          "test": "src/format-registry.test.js",
+          "type": "calls",
+          "location": {
+            "path": "src/format-registry.test.js",
+            "symbol": "imageMimeForFormat('webp')",
+            "start_line": 73,
+            "end_line": 73,
+            "extractor": "tree-sitter-javascript",
+            "source_digest": "9ce050abfa670cfa2907abccd9cbb117c929642056e701d87aed027fa6dd05c2",
+            "kind": "call",
+            "resolved_target": "src/format-detect.js",
+            "target_symbol": "imageMimeForFormat"
+          }
+        },
+        {
+          "test": "src/format-registry.test.js",
+          "type": "calls",
+          "location": {
+            "path": "src/format-registry.test.js",
+            "symbol": "imageMimeForFormat('unknown')",
+            "start_line": 74,
+            "end_line": 74,
+            "extractor": "tree-sitter-javascript",
+            "source_digest": "9ce050abfa670cfa2907abccd9cbb117c929642056e701d87aed027fa6dd05c2",
+            "kind": "call",
+            "resolved_target": "src/format-detect.js",
+            "target_symbol": "imageMimeForFormat"
+          }
+        },
+        {
           "test": "src/main.test.js",
           "type": "calls",
           "location": {
@@ -48208,6 +47679,11 @@
           "type_only": false
         },
         {
+          "id": "src/document-session.js",
+          "type": "calls",
+          "type_only": false
+        },
+        {
           "id": "src/format-detect.test.js",
           "type": "calls",
           "type_only": false
@@ -48225,6 +47701,11 @@
         {
           "id": "src/format-registry.js",
           "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "src/format-registry.test.js",
+          "type": "calls",
           "type_only": false
         },
         {
@@ -49370,68 +48851,17 @@
           "type_only": false
         },
         {
-          "id": "src/format-registry.js",
+          "id": "src/format-detect.js",
           "type": "calls",
           "type_only": false
         },
         {
           "id": "src/format-registry.js",
-          "type": "imports",
-          "type_only": false
-        }
-      ],
-      "parent": "src"
-    },
-    {
-      "id": "src/free-port.test.js",
-      "path": "src/free-port.test.js",
-      "label": "free-port.test.js",
-      "type": "module",
-      "boundary": "Repository",
-      "entrypoints": [],
-      "tests": [],
-      "test_evidence": [],
-      "analysis": "analyzed",
-      "is_test": true,
-      "symbols": [],
-      "evidence": {
-        "status": "inventory",
-        "locations": [
-          {
-            "path": "src/free-port.test.js",
-            "symbol": "import { describe, expect, it } from 'vitest';",
-            "start_line": 1,
-            "end_line": 1,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "file"
-          }
-        ]
-      },
-      "callers": [],
-      "callees": [
-        {
-          "id": "external:javascript:node:net",
-          "type": "imports",
-          "type_only": false
-        },
-        {
-          "id": "external:javascript:vitest",
           "type": "calls",
           "type_only": false
         },
         {
-          "id": "external:javascript:vitest",
-          "type": "imports",
-          "type_only": false
-        },
-        {
-          "id": "scripts/free-port.mjs",
-          "type": "calls",
-          "type_only": false
-        },
-        {
-          "id": "scripts/free-port.mjs",
+          "id": "src/format-registry.js",
           "type": "imports",
           "type_only": false
         }
@@ -49588,6 +49018,11 @@
         {
           "id": "src/reader-motion.js",
           "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "src/reader-preferences.js",
+          "type": "calls",
           "type_only": false
         }
       ],
@@ -52980,6 +52415,16 @@
           "type_only": false
         },
         {
+          "id": "src/context-menu-controller.js",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "src/document-mode-coordinator.js",
+          "type": "calls",
+          "type_only": false
+        },
+        {
           "id": "src/editor-session.js",
           "type": "calls",
           "type_only": false
@@ -52987,6 +52432,11 @@
         {
           "id": "src/editor-session.js",
           "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "src/image-document-viewer.js",
+          "type": "calls",
           "type_only": false
         },
         {
@@ -53037,6 +52487,31 @@
         {
           "id": "src/reader-shell.js",
           "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "src/reading-navigation-controller.js",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "src/status-presenter.js",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "src/theme-coordinator.js",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "src/toast-presenter.js",
+          "type": "calls",
+          "type_only": false
+        },
+        {
+          "id": "src/tooltip-controller.js",
+          "type": "calls",
           "type_only": false
         }
       ],
@@ -54339,6 +53814,11 @@
           "type_only": false
         },
         {
+          "id": "src/reader-preferences.js",
+          "type": "calls",
+          "type_only": false
+        },
+        {
           "id": "src/reading-geometry.js",
           "type": "calls",
           "type_only": false
@@ -55335,6 +54815,11 @@
           "type_only": false
         },
         {
+          "id": "src/reader-preferences.js",
+          "type": "calls",
+          "type_only": false
+        },
+        {
           "id": "src/status-metrics.js",
           "type": "calls",
           "type_only": false
@@ -55902,6 +55387,11 @@
         {
           "id": "src/reader-motion.js",
           "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "src/reader-preferences.js",
+          "type": "calls",
           "type_only": false
         },
         {
@@ -56988,6 +56478,11 @@
           "id": "src/reader-motion.js",
           "type": "imports",
           "type_only": false
+        },
+        {
+          "id": "src/reader-preferences.js",
+          "type": "calls",
+          "type_only": false
         }
       ],
       "parent": "src"
@@ -57202,6 +56697,11 @@
         {
           "id": "src/reader-motion.js",
           "type": "imports",
+          "type_only": false
+        },
+        {
+          "id": "src/reader-preferences.js",
+          "type": "calls",
           "type_only": false
         }
       ],
@@ -57908,168 +57408,6 @@
       }
     },
     {
-      "id": "edge:ae17046112d14baa758c",
-      "from": "scripts/free-port.mjs",
-      "to": "external:javascript:node:child_process",
-      "type": "calls",
-      "type_only": false,
-      "evidence_count": 6,
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "scripts/free-port.mjs",
-            "symbol": "execSync('netstat -ano -p tcp', {\n        encoding: 'utf8',\n        stdio: ['ignore', 'pipe', 'ignore'],\n      })",
-            "start_line": 40,
-            "end_line": 43,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-            "kind": "call",
-            "resolved_target": "external:javascript:node:child_process",
-            "target_symbol": "execSync"
-          },
-          {
-            "path": "scripts/free-port.mjs",
-            "symbol": "execSync(psCmd, {\n          encoding: 'utf8',\n          stdio: ['ignore', 'pipe', 'ignore'],\n        })",
-            "start_line": 59,
-            "end_line": 62,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-            "kind": "call",
-            "resolved_target": "external:javascript:node:child_process",
-            "target_symbol": "execSync"
-          },
-          {
-            "path": "scripts/free-port.mjs",
-            "symbol": "execSync(`lsof -ti tcp:${port} -sTCP:LISTEN || lsof -ti :${port}`, {\n        encoding: 'utf8',\n        stdio: ['ignore', 'pipe', 'ignore'],\n      })",
-            "start_line": 77,
-            "end_line": 80,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-            "kind": "call",
-            "resolved_target": "external:javascript:node:child_process",
-            "target_symbol": "execSync"
-          }
-        ]
-      }
-    },
-    {
-      "id": "edge:2c875957e7e00c0d5d85",
-      "from": "scripts/free-port.mjs",
-      "to": "external:javascript:node:child_process",
-      "type": "imports",
-      "type_only": false,
-      "evidence_count": 1,
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "scripts/free-port.mjs",
-            "symbol": "import { execSync } from 'node:child_process';",
-            "start_line": 3,
-            "end_line": 3,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-            "kind": "import",
-            "resolved_target": "external:javascript:node:child_process"
-          }
-        ]
-      }
-    },
-    {
-      "id": "edge:042fb277d7bda1753d08",
-      "from": "scripts/free-port.mjs",
-      "to": "external:javascript:node:net",
-      "type": "imports",
-      "type_only": false,
-      "evidence_count": 1,
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "scripts/free-port.mjs",
-            "symbol": "import net from 'node:net';",
-            "start_line": 1,
-            "end_line": 1,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-            "kind": "import",
-            "resolved_target": "external:javascript:node:net"
-          }
-        ]
-      }
-    },
-    {
-      "id": "edge:6e2e37891649473ae6ba",
-      "from": "scripts/free-port.mjs",
-      "to": "external:javascript:node:path",
-      "type": "imports",
-      "type_only": false,
-      "evidence_count": 1,
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "scripts/free-port.mjs",
-            "symbol": "import path from 'node:path';",
-            "start_line": 2,
-            "end_line": 2,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-            "kind": "import",
-            "resolved_target": "external:javascript:node:path"
-          }
-        ]
-      }
-    },
-    {
-      "id": "edge:d091751a63d503c4348d",
-      "from": "scripts/free-port.mjs",
-      "to": "external:javascript:node:url",
-      "type": "calls",
-      "type_only": false,
-      "evidence_count": 1,
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "scripts/free-port.mjs",
-            "symbol": "fileURLToPath(import.meta.url)",
-            "start_line": 190,
-            "end_line": 190,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-            "kind": "call",
-            "resolved_target": "external:javascript:node:url",
-            "target_symbol": "fileURLToPath"
-          }
-        ]
-      }
-    },
-    {
-      "id": "edge:c297b55e4b9cde87df0c",
-      "from": "scripts/free-port.mjs",
-      "to": "external:javascript:node:url",
-      "type": "imports",
-      "type_only": false,
-      "evidence_count": 1,
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "scripts/free-port.mjs",
-            "symbol": "import { fileURLToPath } from 'node:url';",
-            "start_line": 4,
-            "end_line": 4,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "18f1f5a4ed749da29cd492afd9dae795f8f5572f7dc476ce1f3f1a316022c49a",
-            "kind": "import",
-            "resolved_target": "external:javascript:node:url"
-          }
-        ]
-      }
-    },
-    {
       "id": "edge:3f8d1da8771be54e464b",
       "from": "scripts/generate-runtime-themes.mjs",
       "to": "external:javascript:node:fs",
@@ -58382,12 +57720,81 @@
       }
     },
     {
+      "id": "edge:b4bf771817568a08faea",
+      "from": "src-tauri/src/app_settings.rs",
+      "to": "external:rust:serde",
+      "type": "imports",
+      "type_only": false,
+      "evidence_count": 1,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/app_settings.rs",
+            "symbol": "use serde::{Deserialize, Serialize};",
+            "start_line": 1,
+            "end_line": 1,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
+            "kind": "import",
+            "resolved_target": "external:rust:serde"
+          }
+        ]
+      }
+    },
+    {
+      "id": "edge:167ace1de3b3328da8b9",
+      "from": "src-tauri/src/app_settings.rs",
+      "to": "external:rust:std",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 11,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/app_settings.rs",
+            "symbol": "PathBuf::from(root)",
+            "start_line": 41,
+            "end_line": 41,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
+            "kind": "call",
+            "resolved_target": "external:rust:std",
+            "target_symbol": "from"
+          },
+          {
+            "path": "src-tauri/src/app_settings.rs",
+            "symbol": "PathBuf::from(home)",
+            "start_line": 47,
+            "end_line": 47,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
+            "kind": "call",
+            "resolved_target": "external:rust:std",
+            "target_symbol": "from"
+          },
+          {
+            "path": "src-tauri/src/app_settings.rs",
+            "symbol": "PathBuf::from(xdg)",
+            "start_line": 57,
+            "end_line": 57,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
+            "kind": "call",
+            "resolved_target": "external:rust:std",
+            "target_symbol": "from"
+          }
+        ]
+      }
+    },
+    {
       "id": "edge:4e80b9b2fc24996d7f2d",
       "from": "src-tauri/src/app_settings.rs",
       "to": "external:rust:std",
       "type": "imports",
       "type_only": false,
-      "evidence_count": 1,
+      "evidence_count": 3,
       "evidence": {
         "status": "verified",
         "locations": [
@@ -58397,7 +57804,27 @@
             "start_line": 2,
             "end_line": 2,
             "extractor": "tree-sitter-rust",
-            "source_digest": "b5656628e64f34ebb6a0b01a61000bfe741c6234d1667ba447ddf414277485f1",
+            "source_digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
+            "kind": "import",
+            "resolved_target": "external:rust:std"
+          },
+          {
+            "path": "src-tauri/src/app_settings.rs",
+            "symbol": "use std::path::{Path, PathBuf};",
+            "start_line": 3,
+            "end_line": 3,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
+            "kind": "import",
+            "resolved_target": "external:rust:std"
+          },
+          {
+            "path": "src-tauri/src/app_settings.rs",
+            "symbol": "use std::time::{SystemTime, UNIX_EPOCH};",
+            "start_line": 124,
+            "end_line": 124,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
             "kind": "import",
             "resolved_target": "external:rust:std"
           }
@@ -58405,10 +57832,10 @@
       }
     },
     {
-      "id": "edge:90566a5f22195b7845b6",
+      "id": "edge:f3dd32bf3dad26760811",
       "from": "src-tauri/src/app_settings.rs",
-      "to": "external:rust:tests",
-      "type": "imports",
+      "to": "src-tauri/src/document_access.rs",
+      "type": "calls",
       "type_only": false,
       "evidence_count": 1,
       "evidence": {
@@ -58416,21 +57843,68 @@
         "locations": [
           {
             "path": "src-tauri/src/app_settings.rs",
-            "symbol": "mod tests {\r\n    use super::*;\r\n    use std::time::{SystemTime, UNIX_EPOCH};\r\n\r\n    fn temp_settings_path(label: &str) -> PathBuf {\r\n        let nanos = SystemTime::now()\r\n            .duration_since(UNIX_EPOCH)\r\n            .map(|d| d.as_nanos())\r\n            .unwrap_or(0);\r\n        std::env::temp_dir().join(format!(\"openmd-settings-{label}-{nanos}.json\"))\r\n    }\r\n\r\n    #[test]\r\n    fn defaults_allow_multiple_instances() {\r\n        assert!(AppSettings::default().allow_multiple_instances);\r\n        assert!(parse_settings(\"{}\").allow_multiple_instances);\r\n        assert!(parse_settings(\"not-json\").allow_multiple_instances);\r\n        assert!(\r\n            load_from_path(Path::new(\"/no/such/openmd-settings.json\")).allow_multiple_instances\r\n        );\r\n    }\r\n\r\n    #[test]\r\n    fn parses_explicit_false() {\r\n        let settings = parse_settings(r#\"{\"allowMultipleInstances\":false}\"#);\r\n        assert!(!settings.allow_multiple_instances);\r\n    }\r\n\r\n    #[test]\r\n    fn round_trips_settings_file() {\r\n        let path = temp_settings_path(\"roundtrip\");\r\n        let settings = AppSettings {\r\n            allow_multiple_instances: false,\r\n        };\r\n        save_to_path(&path, &settings).expect(\"write\");\r\n        let loaded = load_from_path(&path);\r\n        assert_eq!(loaded, settings);\r\n        assert!(!path.with_extension(\"json.tmp\").exists());\r\n        let _ = fs::remove_file(&path);\r\n    }\r\n\r\n    #[test]\r\n    fn overwrite_existing_settings_atomically() {\r\n        let path = temp_settings_path(\"overwrite\");\r\n        save_to_path(\r\n            &path,\r\n            &AppSettings {\r\n                allow_multiple_instances: true,\r\n            },\r\n        )\r\n        .expect(\"first write\");\r\n        save_to_path(\r\n            &path,\r\n            &AppSettings {\r\n                allow_multiple_instances: false,\r\n            },\r\n        )\r\n        .expect(\"second write\");\r\n        assert!(!load_from_path(&path).allow_multiple_instances);\r\n        let _ = fs::remove_file(&path);\r\n    }\r\n}",
-            "start_line": 136,
-            "end_line": 197,
+            "symbol": "crate::document_access::save_bytes(path, raw.as_bytes())",
+            "start_line": 106,
+            "end_line": 106,
             "extractor": "tree-sitter-rust",
-            "source_digest": "b5656628e64f34ebb6a0b01a61000bfe741c6234d1667ba447ddf414277485f1",
-            "kind": "import",
-            "resolved_target": "external:rust:tests"
+            "source_digest": "d86f17718f75f1533fa8c34f37f8f99ff6393d472c918baf000ff2f277700ad7",
+            "kind": "call",
+            "resolved_target": "src-tauri/src/document_access.rs",
+            "target_symbol": "save_bytes"
           }
         ]
       }
     },
     {
-      "id": "edge:21a16deb0983c567517b",
-      "from": "src-tauri/src/cp437.rs",
-      "to": "external:rust:tests",
+      "id": "edge:6b35539d8b4d0917690c",
+      "from": "src-tauri/src/document_access.rs",
+      "to": "external:rust:pulldown_cmark",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 8,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/document_access.rs",
+            "symbol": "Options::empty()",
+            "start_line": 770,
+            "end_line": 770,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
+            "kind": "call",
+            "resolved_target": "external:rust:pulldown_cmark",
+            "target_symbol": "empty"
+          },
+          {
+            "path": "src-tauri/src/document_access.rs",
+            "symbol": "Parser::new_ext(content, options)",
+            "start_line": 781,
+            "end_line": 781,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
+            "kind": "call",
+            "resolved_target": "external:rust:pulldown_cmark",
+            "target_symbol": "new_ext"
+          },
+          {
+            "path": "src-tauri/src/document_access.rs",
+            "symbol": "Event::Html(\n                    format!(\n                        \"<span class=\\\"source-line-anchor\\\" data-source-line=\\\"{source_line}\\\" aria-hidden=\\\"true\\\"></span>\"\n                    )\n                    .into(),\n                )",
+            "start_line": 788,
+            "end_line": 793,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
+            "kind": "call",
+            "resolved_target": "external:rust:pulldown_cmark",
+            "target_symbol": "Html"
+          }
+        ]
+      }
+    },
+    {
+      "id": "edge:9e4b0d9664b13ef834d2",
+      "from": "src-tauri/src/document_access.rs",
+      "to": "external:rust:pulldown_cmark",
       "type": "imports",
       "type_only": false,
       "evidence_count": 1,
@@ -58438,14 +57912,14 @@
         "status": "verified",
         "locations": [
           {
-            "path": "src-tauri/src/cp437.rs",
-            "symbol": "mod tests {\n    use super::{decode, decode_byte, HIGH};\n\n    #[test]\n    fn high_page_has_one_char_per_byte() {\n        assert_eq!(HIGH.len(), 128);\n    }\n\n    #[test]\n    fn maps_shade_and_structural_bytes() {\n        assert_eq!(decode_byte(0xB0), '\\u{2591}');\n        assert_eq!(decode_byte(0x09), '\\t');\n        assert_eq!(decode_byte(0x0A), '\\n');\n        assert_eq!(decode_byte(0x0D), '\\r');\n        assert_eq!(decode_byte(0x00), ' ');\n        assert_eq!(decode_byte(0x01), '\\u{263A}');\n        assert_eq!(decode_byte(0x1A), '\\u{2192}');\n        assert_eq!(decode_byte(0x7F), '\\u{2302}');\n    }\n\n    #[test]\n    fn strips_trailing_eof_and_keeps_interior_arrow() {\n        assert_eq!(decode(&[0x41, 0x1A, 0x42, 0x1A]), \"A→B\");\n        assert_eq!(decode(&[0x41, 0x0D, 0x0A, 0x1A]), \"A\\r\\n\");\n    }\n}",
-            "start_line": 82,
-            "end_line": 107,
+            "path": "src-tauri/src/document_access.rs",
+            "symbol": "use pulldown_cmark::{html, CodeBlockKind, Event, Options, Parser, Tag, TagEnd};",
+            "start_line": 1,
+            "end_line": 1,
             "extractor": "tree-sitter-rust",
-            "source_digest": "048c8d7691332e23aa22cb4edbf3e05a0da92d579a533908575f86fbf4a6a966",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
             "kind": "import",
-            "resolved_target": "external:rust:tests"
+            "resolved_target": "external:rust:pulldown_cmark"
           }
         ]
       }
@@ -58466,9 +57940,55 @@
             "start_line": 2,
             "end_line": 2,
             "extractor": "tree-sitter-rust",
-            "source_digest": "a3aee340beb5ab12b4868f71e78131a7bc8350f9b4461ee7874a39571075ac92",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
             "kind": "import",
             "resolved_target": "external:rust:serde"
+          }
+        ]
+      }
+    },
+    {
+      "id": "edge:019bd4871f2e53c15e9d",
+      "from": "src-tauri/src/document_access.rs",
+      "to": "external:rust:std",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 62,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/document_access.rs",
+            "symbol": "AtomicU64::new(1)",
+            "start_line": 12,
+            "end_line": 12,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
+            "kind": "call",
+            "resolved_target": "external:rust:std",
+            "target_symbol": "new"
+          },
+          {
+            "path": "src-tauri/src/document_access.rs",
+            "symbol": "fs::canonicalize(file_path)",
+            "start_line": 35,
+            "end_line": 35,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
+            "kind": "call",
+            "resolved_target": "external:rust:std",
+            "target_symbol": "canonicalize"
+          },
+          {
+            "path": "src-tauri/src/document_access.rs",
+            "symbol": "fs::metadata(&canonical_path)",
+            "start_line": 43,
+            "end_line": 43,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
+            "kind": "call",
+            "resolved_target": "external:rust:std",
+            "target_symbol": "metadata"
           }
         ]
       }
@@ -58479,7 +57999,7 @@
       "to": "external:rust:std",
       "type": "imports",
       "type_only": false,
-      "evidence_count": 3,
+      "evidence_count": 9,
       "evidence": {
         "status": "verified",
         "locations": [
@@ -58489,7 +58009,7 @@
             "start_line": 3,
             "end_line": 3,
             "extractor": "tree-sitter-rust",
-            "source_digest": "a3aee340beb5ab12b4868f71e78131a7bc8350f9b4461ee7874a39571075ac92",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
             "kind": "import",
             "resolved_target": "external:rust:std"
           },
@@ -58499,17 +58019,17 @@
             "start_line": 4,
             "end_line": 4,
             "extractor": "tree-sitter-rust",
-            "source_digest": "a3aee340beb5ab12b4868f71e78131a7bc8350f9b4461ee7874a39571075ac92",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
             "kind": "import",
             "resolved_target": "external:rust:std"
           },
           {
             "path": "src-tauri/src/document_access.rs",
-            "symbol": "use std::io::Read;",
-            "start_line": 446,
-            "end_line": 446,
+            "symbol": "use std::path::{Component, Path, PathBuf};",
+            "start_line": 5,
+            "end_line": 5,
             "extractor": "tree-sitter-rust",
-            "source_digest": "a3aee340beb5ab12b4868f71e78131a7bc8350f9b4461ee7874a39571075ac92",
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
             "kind": "import",
             "resolved_target": "external:rust:std"
           }
@@ -58517,10 +58037,10 @@
       }
     },
     {
-      "id": "edge:050afcaafe3551b5aa23",
+      "id": "edge:32e4b8a515f0a134e88c",
       "from": "src-tauri/src/document_access.rs",
-      "to": "external:rust:tests",
-      "type": "imports",
+      "to": "src-tauri/src/cp437.rs",
+      "type": "calls",
       "type_only": false,
       "evidence_count": 1,
       "evidence": {
@@ -58528,13 +58048,14 @@
         "locations": [
           {
             "path": "src-tauri/src/document_access.rs",
-            "symbol": "mod tests {\n    use super::{\n        build_document_payload, detect_image_format_from_magic, file_size_label, image_mime_type,\n        is_plain_text_document, is_supported_document, looks_like_nfo_xml, open_document,\n        read_document_image, render_markdown, safe_relative_image_path, save_bytes, save_document,\n        MAX_LOCAL_IMAGE_SIZE_BYTES, MAX_RENDERABLE_FILE_SIZE_BYTES,\n    };\n    use std::fs::{self, File};\n    use std::path::{Path, PathBuf};\n    use std::time::{SystemTime, UNIX_EPOCH};\n\n    struct FixtureDirectory(PathBuf);\n\n    impl FixtureDirectory {\n        fn new(label: &str) -> Self {\n            let unique = SystemTime::now()\n                .duration_since(UNIX_EPOCH)\n                .expect(\"clock should be available\")\n                .as_nanos();\n            let path = std::env::temp_dir()\n                .join(format!(\"openmd-{label}-{}-{unique}\", std::process::id()));\n            fs::create_dir_all(&path).expect(\"fixture directory should be created\");\n            Self(path)\n        }\n\n        fn path(&self) -> &Path {\n            &self.0\n        }\n    }\n\n    impl Drop for FixtureDirectory {\n        fn drop(&mut self) {\n            let _ = fs::remove_dir_all(&self.0);\n        }\n    }\n\n    #[test]\n    fn shares_format_tables_with_js_parity_fixture() {\n        let parity: serde_json::Value =\n            serde_json::from_str(include_str!(\"../../src/format-parity.json\"))\n                .expect(\"parity fixture should parse\");\n        for prefix in parity[\"nfoXmlPrefixes\"].as_array().expect(\"prefixes\") {\n            let bytes = prefix.as_str().expect(\"prefix\").as_bytes();\n            assert!(looks_like_nfo_xml(bytes), \"{prefix}\");\n        }\n        for sample in parity[\"imageMagic\"].as_array().expect(\"magic\") {\n            let format = sample[\"format\"].as_str().expect(\"format\");\n            let bytes: Vec<u8> = sample[\"bytes\"]\n                .as_array()\n                .expect(\"bytes\")\n                .iter()\n                .map(|value| value.as_u64().expect(\"byte\") as u8)\n                .collect();\n            assert_eq!(detect_image_format_from_magic(&bytes), Some(format));\n        }\n        for extension in parity[\"plainTextExtensions\"].as_array().expect(\"text\") {\n            let path = PathBuf::from(format!(\"sample.{}\", extension.as_str().expect(\"ext\")));\n            assert!(is_plain_text_document(&path), \"{extension}\");\n        }\n        for extension in parity[\"markdownExtensions\"].as_array().expect(\"markdown\") {\n            let path = PathBuf::from(format!(\"sample.{}\", extension.as_str().expect(\"ext\")));\n            assert!(is_supported_document(&path), \"{extension}\");\n            assert!(!is_plain_text_document(&path), \"{extension}\");\n        }\n    }\n\n    #[test]\n    fn opens_markdown_and_text_documents_with_stable_metadata() {\n        let fixture = FixtureDirectory::new(\"documents\");\n        let markdown_path = fixture.path().join(\"guide.md\");\n        let text_path = fixture.path().join(\"notes.txt\");\n        let json_path = fixture.path().join(\"config.json\");\n        fs::write(&markdown_path, \"# Guide\\n\\nOne two\").expect(\"markdown should be written\");\n        fs::write(&text_path, \"<script>alert(1)</script>\").expect(\"text should be written\");\n        fs::write(&json_path, \"{\\n  \\\"ok\\\": true\\n}\").expect(\"json should be written\");\n\n        let markdown = open_document(&markdown_path).expect(\"markdown should open\");\n        assert!(markdown.html.contains(\"<h1>Guide</h1>\"));\n        assert_eq!(markdown.source, \"# Guide\\n\\nOne two\");\n        assert_eq!(markdown.line_count, 3);\n        assert_eq!(markdown.word_count, 4);\n        assert_eq!(markdown.reading_time_minutes, 1);\n\n        let text = open_document(&text_path).expect(\"text should open\");\n        assert!(text.html.contains(\"&lt;script&gt;alert(1)&lt;/script&gt;\"));\n        assert!(!text.html.contains(\"<script>\"));\n\n        let companion =\n            open_document(&json_path).expect(\"companion json should open as plain text\");\n        assert!(companion.html.contains(\"data-plain-text=\\\"true\\\"\"));\n        assert!(companion.html.contains(\"{\"));\n        assert!(!companion.html.contains(\"<h1>\"));\n        assert_eq!(companion.source, \"{\\n  \\\"ok\\\": true\\n}\");\n    }\n\n    fn sample_png() -> Vec<u8> {\n        vec![\n            0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48,\n            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00,\n            0x00, 0x90, 0x77, 0x53, 0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, 0x54, 0x08,\n            0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0x00, 0x00, 0x00, 0x03, 0x00, 0x01, 0x00, 0x05, 0xfe,\n            0xd4, 0xef, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,\n        ]\n    }\n\n    #[test]\n    fn opens_image_companions_as_image_kind_without_utf8_decode() {\n        let fixture = FixtureDirectory::new(\"image-documents\");\n        let image_path = fixture.path().join(\"pixel.png\");\n        let png = sample_png();\n        fs::write(&image_path, &png).expect(\"png should be written\");\n\n        let opened = open_document(&image_path).expect(\"image companion should open\");\n        assert_eq!(opened.kind, Some(\"image\"));\n        assert_eq!(opened.format, Some(\"png\"));\n        assert!(opened.html.contains(\"data-image-document=\\\"true\\\"\"));\n        assert!(opened.html.contains(\"image/png\"));\n        assert_eq!(opened.source, \"\");\n\n        let bytes = super::read_standalone_image(&image_path).expect(\"bytes should load\");\n        assert_eq!(bytes, png);\n\n        assert!(save_document(&image_path, \"nope\")\n            .unwrap_err()\n            .contains(\"Unsupported\"));\n    }\n\n    #[test]\n    fn reclassifies_text_companion_with_png_magic_to_image() {\n        let fixture = FixtureDirectory::new(\"reclassify-image\");\n        let path = fixture.path().join(\"notes.txt\");\n        let png = sample_png();\n        fs::write(&path, &png).expect(\"png bytes under txt should be written\");\n\n        let opened = open_document(&path).expect(\"reclassified image should open\");\n        assert_eq!(opened.kind, Some(\"image\"));\n        assert_eq!(opened.format, Some(\"png\"));\n        assert!(opened.html.contains(\"data-image-document=\\\"true\\\"\"));\n\n        let bytes = super::read_standalone_image(&path).expect(\"standalone bytes should load\");\n        assert_eq!(bytes, png);\n    }\n\n    #[test]\n    fn fail_closes_image_extension_with_non_image_bytes() {\n        let fixture = FixtureDirectory::new(\"bad-image\");\n        let path = fixture.path().join(\"photo.png\");\n        fs::write(&path, b\"not an image\").expect(\"garbage should be written\");\n\n        let err = open_document(&path).unwrap_err();\n        assert!(\n            err.contains(\"damaged\") || err.contains(\"not a supported image\"),\n            \"unexpected error: {err}\"\n        );\n    }\n\n    #[test]\n    fn text_payloads_include_format_id() {\n        let fixture = FixtureDirectory::new(\"format-ids\");\n        let json_path = fixture.path().join(\"config.json\");\n        fs::write(&json_path, r#\"{\"ok\":true}\"#).unwrap();\n        let opened = open_document(&json_path).expect(\"json should open\");\n        assert_eq!(opened.kind, Some(\"text\"));\n        assert_eq!(opened.format, Some(\"json\"));\n\n        let log_path = fixture.path().join(\"app.log\");\n        fs::write(&log_path, \"ready\\n\").unwrap();\n        let log = open_document(&log_path).expect(\"log should open\");\n        assert_eq!(log.kind, Some(\"text\"));\n        assert_eq!(log.format, Some(\"log\"));\n    }\n\n    #[test]\n    fn rejects_invalid_utf8_unsupported_extensions_and_oversized_documents() {\n        let fixture = FixtureDirectory::new(\"invalid-documents\");\n        let invalid_utf8 = fixture.path().join(\"invalid.md\");\n        let unsupported = fixture.path().join(\"page.html\");\n        let oversized = fixture.path().join(\"large.md\");\n        fs::write(&invalid_utf8, [0xff, 0xfe]).expect(\"invalid bytes should be written\");\n        fs::write(&unsupported, \"<p>no</p>\").expect(\"unsupported file should be written\");\n        File::create(&oversized)\n            .expect(\"large file should be created\")\n            .set_len(MAX_RENDERABLE_FILE_SIZE_BYTES + 1)\n            .expect(\"large sparse file should be sized\");\n\n        assert!(open_document(&invalid_utf8)\n            .unwrap_err()\n            .contains(\"not in UTF-8\"));\n        assert!(open_document(&unsupported)\n            .unwrap_err()\n            .contains(\"Unsupported file format\"));\n        assert!(open_document(&oversized).unwrap_err().contains(\"too large\"));\n    }\n\n    #[test]\n    fn saves_supported_documents_and_returns_the_updated_render_contract() {\n        let fixture = FixtureDirectory::new(\"save-document\");\n        let markdown_path = fixture.path().join(\"guide.md\");\n        fs::write(&markdown_path, \"# Before\").expect(\"fixture should be written\");\n\n        let saved = save_document(&markdown_path, \"# After\\n\\n- [x] Saved\")\n            .expect(\"supported document should save\");\n\n        assert_eq!(\n            fs::read_to_string(&markdown_path).unwrap(),\n            \"# After\\n\\n- [x] Saved\"\n        );\n        assert_eq!(saved.source, \"# After\\n\\n- [x] Saved\");\n        assert!(saved.html.contains(\"<h1>After</h1>\"));\n        assert_eq!(saved.line_count, 3);\n        assert!(!fixture.path().read_dir().unwrap().any(|entry| {\n            entry\n                .unwrap()\n                .file_name()\n                .to_string_lossy()\n                .contains(\"openmd-\")\n        }));\n    }\n\n    #[test]\n    fn rejects_unsupported_missing_and_oversized_save_targets_without_changing_files() {\n        let fixture = FixtureDirectory::new(\"save-rejections\");\n        let unsupported = fixture.path().join(\"page.html\");\n        let supported = fixture.path().join(\"notes.md\");\n        let missing = fixture.path().join(\"missing.md\");\n        fs::write(&unsupported, \"keep\").unwrap();\n        fs::write(&supported, \"keep\").unwrap();\n        let oversized = \"x\".repeat(MAX_RENDERABLE_FILE_SIZE_BYTES as usize + 1);\n\n        assert!(save_document(&unsupported, \"replace\")\n            .unwrap_err()\n            .contains(\"Unsupported\"));\n        assert!(save_document(&missing, \"replace\")\n            .unwrap_err()\n            .contains(\"no longer\"));\n        assert!(save_document(&supported, &oversized)\n            .unwrap_err()\n            .contains(\"too large\"));\n        assert_eq!(fs::read_to_string(&unsupported).unwrap(), \"keep\");\n        assert_eq!(fs::read_to_string(&supported).unwrap(), \"keep\");\n    }\n\n    #[test]\n    fn saves_export_bytes_and_rejects_oversized_payloads() {\n        let fixture = FixtureDirectory::new(\"save-bytes\");\n        let destination = fixture.path().join(\"export.png\");\n        let payload = [0x89_u8, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];\n\n        save_bytes(&destination, &payload).expect(\"export should write\");\n        assert_eq!(\n            fs::read(&destination).expect(\"export should exist\"),\n            payload\n        );\n\n        // Overwrite path uses the same atomic replace helper as document saves.\n        let next = [1_u8, 2, 3, 4];\n        save_bytes(&destination, &next).expect(\"overwrite should write\");\n        assert_eq!(fs::read(&destination).expect(\"export should update\"), next);\n\n        let oversized = vec![0_u8; MAX_LOCAL_IMAGE_SIZE_BYTES as usize + 1];\n        assert!(save_bytes(&destination, &oversized)\n            .unwrap_err()\n            .contains(\"too large\"));\n        assert_eq!(\n            fs::read(&destination).expect(\"failed export keeps prior bytes\"),\n            next\n        );\n    }\n\n    #[cfg(target_os = \"windows\")]\n    #[test]\n    fn recovers_a_backup_left_between_windows_replace_steps() {\n        let fixture = FixtureDirectory::new(\"recover-save\");\n        let document_path = fixture.path().join(\"notes.md\");\n        let backup_path = fixture.path().join(\".notes.md.openmd-123-1.backup\");\n        fs::write(&backup_path, \"# Recovered\").unwrap();\n\n        let recovered = open_document(&document_path).expect(\"backup should be restored\");\n\n        assert_eq!(recovered.source, \"# Recovered\");\n        assert_eq!(fs::read_to_string(&document_path).unwrap(), \"# Recovered\");\n        assert!(!backup_path.exists());\n    }\n\n    #[test]\n    fn document_payload_serializes_the_frontend_contract() {\n        let payload =\n            build_document_payload(\"# Title\\nBody\", true, \"markdown\", \"markdown\", \"utf-8\");\n        let serialized = serde_json::to_value(payload).expect(\"payload should serialize\");\n\n        assert_eq!(serialized[\"source\"], \"# Title\\nBody\");\n        assert_eq!(serialized[\"lineCount\"], 2);\n        assert_eq!(serialized[\"characterCount\"], 12);\n        assert!(serialized.get(\"line_count\").is_none());\n        assert_eq!(serialized[\"kind\"], \"markdown\");\n        assert_eq!(serialized[\"format\"], \"markdown\");\n    }\n\n    #[test]\n    fn detects_png_magic_bytes() {\n        let png = sample_png();\n        assert_eq!(detect_image_format_from_magic(&png), Some(\"png\"));\n        assert_eq!(detect_image_format_from_magic(b\"nope\"), None);\n    }\n\n    #[test]\n    fn markdown_rendering_escapes_html_and_preserves_mermaid_wrappers() {\n        let escaped = render_markdown(\"<style>body { display: none; }</style>\");\n        assert!(!escaped.contains(\"<style>\"));\n        assert!(escaped.contains(\"&lt;style&gt;\"));\n\n        let mermaid = render_markdown(\"```mermaid\\ngraph TD\\nA-->B\\n```\");\n        assert!(mermaid.contains(\"<div class=\\\"mermaid\\\">\"));\n        assert!(mermaid.contains(\"graph TD\"));\n\n        let fenced = render_markdown(\"```js\\nconst x = 1;\\n```\");\n        assert!(fenced.contains(\"<pre><code class=\\\"language-js\\\">\"));\n        assert!(fenced.contains(\"const x = 1;\"));\n        assert!(!fenced.contains(\"class=\\\"source\\\"\"));\n        assert!(!fenced.contains(\"syntect\"));\n\n        let tasks = render_markdown(\"- [ ] First\\n- [x] Second\");\n        assert!(tasks.contains(\n            \"<input type=\\\"checkbox\\\" data-source-line=\\\"1\\\" aria-label=\\\"Mark task complete\\\">\"\n        ));\n        assert!(tasks.contains(\n            \"<input type=\\\"checkbox\\\" data-source-line=\\\"2\\\" aria-label=\\\"Mark task incomplete\\\" checked>\"\n        ));\n        assert!(!tasks.contains(\"disabled\"));\n    }\n\n    #[test]\n    fn comprehensive_example_exercises_supported_rich_content() {\n        let example_path =\n            Path::new(env!(\"CARGO_MANIFEST_DIR\")).join(\"../examples/a-quiet-place.md\");\n        let example = open_document(&example_path).expect(\"example document should open\");\n\n        assert!(example.html.contains(\"<table>\"));\n        assert!(example.html.contains(\"<div class=\\\"mermaid\\\">\"));\n        assert!(example.html.contains(\"type=\\\"checkbox\\\"\"));\n        assert!(example.html.contains(\"<del>completed ideas</del>\"));\n        assert!(example.html.contains(\n            \"<img src=\\\"assets/quiet-desk.webp\\\" alt=\\\"A blank notebook and pencil beside a rain-covered window\\\"\"\n        ));\n        assert!(example.html.contains(\"footnote-reference\"));\n        assert!(example.line_count > 70);\n\n        let image = read_document_image(&example_path, \"assets/quiet-desk.webp\")\n            .expect(\"example image should load through the safe resource policy\");\n        assert!(!image.is_empty());\n    }\n\n    #[test]\n    fn document_and_resource_file_policies_are_explicit() {\n        assert!(is_supported_document(Path::new(\"README.MD\")));\n        assert!(is_supported_document(Path::new(\"notes.TxT\")));\n        assert!(is_supported_document(Path::new(\"config.JSON\")));\n        assert!(is_supported_document(Path::new(\"setup.ini\")));\n        assert!(is_supported_document(Path::new(\"info.nfo\")));\n        assert!(is_supported_document(Path::new(\"settings.toml\")));\n        assert!(is_supported_document(Path::new(\"photo.PNG\")));\n        assert!(is_supported_document(Path::new(\"cover.webp\")));\n        assert!(!is_supported_document(Path::new(\"page.html\")));\n        assert!(!is_supported_document(Path::new(\"main.rs\")));\n        assert_eq!(image_mime_type(Path::new(\"cover.PNG\")), Some(\"image/png\"));\n        assert_eq!(image_mime_type(Path::new(\"vector.svg\")), None);\n        assert_eq!(file_size_label(5 * 1024 * 1024), \"5.0 MiB\");\n    }\n\n    #[test]\n    fn opens_cp437_nfo_and_rejects_xml_nfo_as_plain_text() {\n        let fixture = FixtureDirectory::new(\"nfo-documents\");\n        let scene_path = fixture.path().join(\"sample-scene.nfo\");\n        let xml_path = fixture.path().join(\"movie.nfo\");\n        let lt_art_path = fixture.path().join(\"lt-art.nfo\");\n        let mut scene = vec![\n            b'N', b'F', b'O', b'\\r', b'\\n', 0xB0, 0xB1, 0xB2, 0xC9, 0xCD, 0xBB, b'\\r', b'\\n',\n        ];\n        scene.push(0x1A);\n        fs::write(&scene_path, scene).unwrap();\n        fs::write(\n            &xml_path,\n            \"<?xml version=\\\"1.0\\\" encoding=\\\"UTF-8\\\"?>\\n<movie><title>Test</title></movie>\\n\",\n        )\n        .unwrap();\n        fs::write(&lt_art_path, b\"<not-xml art \\xB0\\xB1>\\r\\n\").unwrap();\n\n        let scene = open_document(&scene_path).expect(\"cp437 nfo should open\");\n        assert_eq!(scene.format, Some(\"nfo\"));\n        assert_eq!(scene.kind, Some(\"text\"));\n        assert_eq!(scene.source_encoding, Some(\"cp437\"));\n        assert!(scene.source.contains('\\u{2591}'));\n        assert!(!scene.source.contains('\\u{001A}'));\n        assert!(scene.source.contains('\\r'));\n\n        let xml = open_document(&xml_path).expect(\"xml nfo should open as text\");\n        assert_eq!(xml.format, Some(\"text\"));\n        assert_eq!(xml.source_encoding, None);\n        assert!(xml.source.contains(\"<movie>\"));\n\n        let lt_art = open_document(&lt_art_path).expect(\"angle-bracket art should stay nfo\");\n        assert_eq!(lt_art.format, Some(\"nfo\"));\n        assert_eq!(lt_art.source_encoding, Some(\"cp437\"));\n\n        let example_scene =\n            Path::new(env!(\"CARGO_MANIFEST_DIR\")).join(\"../examples/fixtures/sample-scene.nfo\");\n        let example = open_document(&example_scene).expect(\"bundled scene nfo should open\");\n        assert_eq!(example.format, Some(\"nfo\"));\n        assert_eq!(example.source_encoding, Some(\"cp437\"));\n        assert!(example.source.contains('╔'));\n        assert!(example.source.contains('╠'));\n        assert!(example.html.contains(\"data-format=\\\"nfo\\\"\"));\n    }\n\n    #[test]\n    fn saves_xml_nfo_as_text() {\n        let fixture = FixtureDirectory::new(\"nfo-save\");\n        let xml_path = fixture.path().join(\"show.nfo\");\n        fs::write(&xml_path, \"<tvshow><title>A</title></tvshow>\\n\").unwrap();\n        let saved = save_document(&xml_path, \"<tvshow><title>B</title></tvshow>\\n\")\n            .expect(\"xml nfo should stay editable text\");\n        assert_eq!(saved.format, Some(\"text\"));\n        assert_eq!(\n            fs::read_to_string(&xml_path).unwrap(),\n            \"<tvshow><title>B</title></tvshow>\\n\"\n        );\n    }\n\n    #[test]\n    fn rejects_save_for_scene_nfo_and_log() {\n        let fixture = FixtureDirectory::new(\"view-only-save\");\n        let scene_path = fixture.path().join(\"scene.nfo\");\n        let log_path = fixture.path().join(\"app.log\");\n        fs::write(&scene_path, [0xC9, 0xCD, 0xBB, b'\\r', b'\\n', 0x1A]).unwrap();\n        fs::write(&log_path, \"ready\\n\").unwrap();\n\n        let scene_error = save_document(&scene_path, \"overwrite\").unwrap_err();\n        assert!(scene_error.contains(\"cannot be edited\"));\n        assert_eq!(fs::read(&scene_path).unwrap()[0], 0xC9);\n\n        let log_error = save_document(&log_path, \"overwrite\").unwrap_err();\n        assert!(log_error.contains(\"cannot be edited\"));\n        assert_eq!(fs::read_to_string(&log_path).unwrap(), \"ready\\n\");\n    }\n\n    #[test]\n    fn relative_resource_paths_cannot_escape_the_document_folder() {\n        assert_eq!(\n            safe_relative_image_path(\"assets/diagram%20one.png?raw=1#preview\").unwrap(),\n            PathBuf::from(\"assets/diagram one.png\")\n        );\n        for source in [\n            \"../secret.png\",\n            \"..%2Fsecret.png\",\n            \"https://example.com/image.png\",\n            \"file:outside.png\",\n            \"/absolute/image.png\",\n        ] {\n            assert!(\n                safe_relative_image_path(source).is_err(),\n                \"accepted {source}\"\n            );\n        }\n    }\n\n    #[test]\n    fn reads_only_supported_bounded_images_for_supported_documents() {\n        let fixture = FixtureDirectory::new(\"resources\");\n        let assets = fixture.path().join(\"assets\");\n        fs::create_dir_all(&assets).expect(\"assets directory should be created\");\n        let document_path = fixture.path().join(\"sample.md\");\n        let unsupported_document = fixture.path().join(\"sample.html\");\n        let image_path = assets.join(\"pixel.png\");\n        let unsupported_image = assets.join(\"vector.svg\");\n        let oversized_image = assets.join(\"large.png\");\n        fs::write(&document_path, \"![Pixel](assets/pixel.png)\")\n            .expect(\"document should be written\");\n        fs::write(&unsupported_document, \"no\").expect(\"unsupported document should be written\");\n        fs::write(&image_path, [0x89, b'P', b'N', b'G']).expect(\"image should be written\");\n        fs::write(&unsupported_image, \"<svg/>\").expect(\"svg should be written\");\n        File::create(&oversized_image)\n            .expect(\"large image should be created\")\n            .set_len(MAX_LOCAL_IMAGE_SIZE_BYTES + 1)\n            .expect(\"large sparse image should be sized\");\n\n        assert_eq!(\n            read_document_image(&document_path, \"assets/pixel.png\")\n                .expect(\"image bytes should load\"),\n            [0x89, b'P', b'N', b'G']\n        );\n        assert!(read_document_image(&unsupported_document, \"assets/pixel.png\").is_err());\n        assert!(read_document_image(&document_path, \"assets/vector.svg\").is_err());\n        assert!(read_document_image(&document_path, \"assets/large.png\")\n            .unwrap_err()\n            .contains(\"too large\"));\n        assert!(read_document_image(&document_path, \"../outside.png\").is_err());\n    }\n}",
-            "start_line": 903,
-            "end_line": 1400,
+            "symbol": "crate::cp437::decode(bytes)",
+            "start_line": 534,
+            "end_line": 534,
             "extractor": "tree-sitter-rust",
-            "source_digest": "a3aee340beb5ab12b4868f71e78131a7bc8350f9b4461ee7874a39571075ac92",
-            "kind": "import",
-            "resolved_target": "external:rust:tests"
+            "source_digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
+            "kind": "call",
+            "resolved_target": "src-tauri/src/cp437.rs",
+            "target_symbol": "decode"
           }
         ]
       }
@@ -58563,6 +58084,52 @@
       }
     },
     {
+      "id": "edge:79d72503cac299414a42",
+      "from": "src-tauri/src/file_associations.rs",
+      "to": "external:rust:std",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 7,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/file_associations.rs",
+            "symbol": "Command::new(\"reg\")",
+            "start_line": 103,
+            "end_line": 103,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "7aa6160aeb68e1f51eaef15271b916734b24b3809401488abab7ca2c7bbac077",
+            "kind": "call",
+            "resolved_target": "external:rust:std",
+            "target_symbol": "new"
+          },
+          {
+            "path": "src-tauri/src/file_associations.rs",
+            "symbol": "Command::new(\"cmd\")",
+            "start_line": 141,
+            "end_line": 141,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "7aa6160aeb68e1f51eaef15271b916734b24b3809401488abab7ca2c7bbac077",
+            "kind": "call",
+            "resolved_target": "external:rust:std",
+            "target_symbol": "new"
+          },
+          {
+            "path": "src-tauri/src/file_associations.rs",
+            "symbol": "Command::new(\"open\")",
+            "start_line": 159,
+            "end_line": 159,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "7aa6160aeb68e1f51eaef15271b916734b24b3809401488abab7ca2c7bbac077",
+            "kind": "call",
+            "resolved_target": "external:rust:std",
+            "target_symbol": "new"
+          }
+        ]
+      }
+    },
+    {
       "id": "edge:6df49e8b31d8bd20ac67",
       "from": "src-tauri/src/file_associations.rs",
       "to": "external:rust:std",
@@ -58586,9 +58153,9 @@
       }
     },
     {
-      "id": "edge:0a75ffaad3a3de4d342b",
+      "id": "edge:d135a5ffbcb9df0b74aa",
       "from": "src-tauri/src/file_associations.rs",
-      "to": "external:rust:tests",
+      "to": "src-tauri/src/app_settings.rs",
       "type": "imports",
       "type_only": false,
       "evidence_count": 1,
@@ -58597,13 +58164,48 @@
         "locations": [
           {
             "path": "src-tauri/src/file_associations.rs",
-            "symbol": "mod tests {\r\n    use super::*;\r\n\r\n    #[test]\r\n    fn status_lists_packaged_extensions() {\r\n        let status = get_status();\r\n        assert_eq!(status.extensions, vec![\"md\", \"markdown\", \"txt\"]);\r\n        assert!(!status.platform.is_empty());\r\n        assert!(!status.status.is_empty());\r\n        assert!(!status.detail.is_empty());\r\n    }\r\n}",
-            "start_line": 308,
-            "end_line": 319,
+            "symbol": "use super::*;",
+            "start_line": 309,
+            "end_line": 309,
             "extractor": "tree-sitter-rust",
             "source_digest": "7aa6160aeb68e1f51eaef15271b916734b24b3809401488abab7ca2c7bbac077",
             "kind": "import",
-            "resolved_target": "external:rust:tests"
+            "resolved_target": "src-tauri/src/app_settings.rs"
+          }
+        ]
+      }
+    },
+    {
+      "id": "edge:e162434d6610009f75b5",
+      "from": "src-tauri/src/images.rs",
+      "to": "external:rust:std",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 2,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/images.rs",
+            "symbol": "Path::new(&document_path)",
+            "start_line": 10,
+            "end_line": 10,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "eb271c2ba70b728739b366073231fd1cef5c3caa8e736a1b782ad7038216335a",
+            "kind": "call",
+            "resolved_target": "external:rust:std",
+            "target_symbol": "new"
+          },
+          {
+            "path": "src-tauri/src/images.rs",
+            "symbol": "Path::new(&path)",
+            "start_line": 17,
+            "end_line": 17,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "eb271c2ba70b728739b366073231fd1cef5c3caa8e736a1b782ad7038216335a",
+            "kind": "call",
+            "resolved_target": "external:rust:std",
+            "target_symbol": "new"
           }
         ]
       }
@@ -58632,6 +58234,41 @@
       }
     },
     {
+      "id": "edge:ea473c6c4dcae62b97c2",
+      "from": "src-tauri/src/images.rs",
+      "to": "external:rust:tauri",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 2,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/images.rs",
+            "symbol": "Response::new(read_document_image(\r\n        Path::new(&document_path),\r\n        &relative_source,\r\n    )?)",
+            "start_line": 9,
+            "end_line": 12,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "eb271c2ba70b728739b366073231fd1cef5c3caa8e736a1b782ad7038216335a",
+            "kind": "call",
+            "resolved_target": "external:rust:tauri",
+            "target_symbol": "new"
+          },
+          {
+            "path": "src-tauri/src/images.rs",
+            "symbol": "Response::new(read_standalone_image(Path::new(&path))?)",
+            "start_line": 17,
+            "end_line": 17,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "eb271c2ba70b728739b366073231fd1cef5c3caa8e736a1b782ad7038216335a",
+            "kind": "call",
+            "resolved_target": "external:rust:tauri",
+            "target_symbol": "new"
+          }
+        ]
+      }
+    },
+    {
       "id": "edge:89a2af3670946e659007",
       "from": "src-tauri/src/images.rs",
       "to": "external:rust:tauri",
@@ -58655,12 +58292,116 @@
       }
     },
     {
+      "id": "edge:53bc042fd8a87e18d259",
+      "from": "src-tauri/src/images.rs",
+      "to": "src-tauri/src/document_access.rs",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 2,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/images.rs",
+            "symbol": "read_document_image(\r\n        Path::new(&document_path),\r\n        &relative_source,\r\n    )",
+            "start_line": 9,
+            "end_line": 12,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "eb271c2ba70b728739b366073231fd1cef5c3caa8e736a1b782ad7038216335a",
+            "kind": "call",
+            "resolved_target": "src-tauri/src/document_access.rs",
+            "target_symbol": "read_document_image"
+          },
+          {
+            "path": "src-tauri/src/images.rs",
+            "symbol": "read_standalone_image(Path::new(&path))",
+            "start_line": 17,
+            "end_line": 17,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "eb271c2ba70b728739b366073231fd1cef5c3caa8e736a1b782ad7038216335a",
+            "kind": "call",
+            "resolved_target": "src-tauri/src/document_access.rs",
+            "target_symbol": "read_standalone_image"
+          }
+        ]
+      }
+    },
+    {
+      "id": "edge:dd0205cf7637803ddd45",
+      "from": "src-tauri/src/images.rs",
+      "to": "src-tauri/src/document_access.rs",
+      "type": "imports",
+      "type_only": false,
+      "evidence_count": 1,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/images.rs",
+            "symbol": "use crate::document_access::{read_document_image, read_standalone_image};",
+            "start_line": 5,
+            "end_line": 5,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "eb271c2ba70b728739b366073231fd1cef5c3caa8e736a1b782ad7038216335a",
+            "kind": "import",
+            "resolved_target": "src-tauri/src/document_access.rs"
+          }
+        ]
+      }
+    },
+    {
+      "id": "edge:4fcd7117cfd4bcd20b3a",
+      "from": "src-tauri/src/lib.rs",
+      "to": "external:rust:std",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 6,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/lib.rs",
+            "symbol": "AtomicUsize::new(1)",
+            "start_line": 13,
+            "end_line": 13,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
+            "kind": "call",
+            "resolved_target": "external:rust:std",
+            "target_symbol": "new"
+          },
+          {
+            "path": "src-tauri/src/lib.rs",
+            "symbol": "AtomicBool::new(true)",
+            "start_line": 15,
+            "end_line": 15,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
+            "kind": "call",
+            "resolved_target": "external:rust:std",
+            "target_symbol": "new"
+          },
+          {
+            "path": "src-tauri/src/lib.rs",
+            "symbol": "Path::new(&path)",
+            "start_line": 19,
+            "end_line": 19,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
+            "kind": "call",
+            "resolved_target": "external:rust:std",
+            "target_symbol": "new"
+          }
+        ]
+      }
+    },
+    {
       "id": "edge:f01c55fd15ff050f2aff",
       "from": "src-tauri/src/lib.rs",
       "to": "external:rust:std",
       "type": "imports",
       "type_only": false,
-      "evidence_count": 2,
+      "evidence_count": 3,
       "evidence": {
         "status": "verified",
         "locations": [
@@ -58679,6 +58420,16 @@
             "symbol": "use std::path::Path;",
             "start_line": 2,
             "end_line": 2,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
+            "kind": "import",
+            "resolved_target": "external:rust:std"
+          },
+          {
+            "path": "src-tauri/src/lib.rs",
+            "symbol": "use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};",
+            "start_line": 3,
+            "end_line": 3,
             "extractor": "tree-sitter-rust",
             "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
             "kind": "import",
@@ -58711,24 +58462,47 @@
       }
     },
     {
-      "id": "edge:4b05cb9266ff7d66de77",
+      "id": "edge:5a17e714750059c648b1",
       "from": "src-tauri/src/lib.rs",
-      "to": "external:rust:tests",
-      "type": "imports",
+      "to": "src-tauri/src/app_settings.rs",
+      "type": "calls",
       "type_only": false,
-      "evidence_count": 1,
+      "evidence_count": 3,
       "evidence": {
         "status": "verified",
         "locations": [
           {
             "path": "src-tauri/src/lib.rs",
-            "symbol": "mod tests {\r\n    use super::initial_file_paths;\r\n\r\n    #[test]\r\n    fn preserves_non_flag_command_line_paths_for_frontend_policy() {\r\n        let args = vec![\r\n            \"open-md\".to_string(),\r\n            \"--tauri-flag\".to_string(),\r\n            \"C:\\\\notes\\\\sample.md\".to_string(),\r\n            \"C:\\\\notes\\\\photo.png\".to_string(),\r\n        ];\r\n\r\n        assert_eq!(\r\n            initial_file_paths(&args),\r\n            vec![\r\n                \"C:\\\\notes\\\\sample.md\".to_string(),\r\n                \"C:\\\\notes\\\\photo.png\".to_string(),\r\n            ]\r\n        );\r\n        assert!(initial_file_paths(&[\"open-md\".to_string()]).is_empty());\r\n    }\r\n}",
-            "start_line": 170,
-            "end_line": 191,
+            "symbol": "app_settings::load()",
+            "start_line": 68,
+            "end_line": 68,
             "extractor": "tree-sitter-rust",
             "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
-            "kind": "import",
-            "resolved_target": "external:rust:tests"
+            "kind": "call",
+            "resolved_target": "src-tauri/src/app_settings.rs",
+            "target_symbol": "load"
+          },
+          {
+            "path": "src-tauri/src/lib.rs",
+            "symbol": "app_settings::set_allow_multiple_instances(value)",
+            "start_line": 81,
+            "end_line": 81,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
+            "kind": "call",
+            "resolved_target": "src-tauri/src/app_settings.rs",
+            "target_symbol": "set_allow_multiple_instances"
+          },
+          {
+            "path": "src-tauri/src/lib.rs",
+            "symbol": "app_settings::load()",
+            "start_line": 104,
+            "end_line": 104,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
+            "kind": "call",
+            "resolved_target": "src-tauri/src/app_settings.rs",
+            "target_symbol": "load"
           }
         ]
       }
@@ -58780,6 +58554,52 @@
       }
     },
     {
+      "id": "edge:90a05a100620aa8081df",
+      "from": "src-tauri/src/lib.rs",
+      "to": "src-tauri/src/document_access.rs",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 3,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/lib.rs",
+            "symbol": "document_access::open_document(Path::new(&path))",
+            "start_line": 19,
+            "end_line": 19,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
+            "kind": "call",
+            "resolved_target": "src-tauri/src/document_access.rs",
+            "target_symbol": "open_document"
+          },
+          {
+            "path": "src-tauri/src/lib.rs",
+            "symbol": "document_access::save_document(Path::new(&path), &content)",
+            "start_line": 27,
+            "end_line": 27,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
+            "kind": "call",
+            "resolved_target": "src-tauri/src/document_access.rs",
+            "target_symbol": "save_document"
+          },
+          {
+            "path": "src-tauri/src/lib.rs",
+            "symbol": "document_access::save_bytes(Path::new(&path), &contents)",
+            "start_line": 32,
+            "end_line": 32,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
+            "kind": "call",
+            "resolved_target": "src-tauri/src/document_access.rs",
+            "target_symbol": "save_bytes"
+          }
+        ]
+      }
+    },
+    {
       "id": "edge:ecc425698a5c6a53d47e",
       "from": "src-tauri/src/lib.rs",
       "to": "src-tauri/src/document_access.rs",
@@ -58798,6 +58618,41 @@
             "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
             "kind": "import",
             "resolved_target": "src-tauri/src/document_access.rs"
+          }
+        ]
+      }
+    },
+    {
+      "id": "edge:837a1236df174d8b3c52",
+      "from": "src-tauri/src/lib.rs",
+      "to": "src-tauri/src/file_associations.rs",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 2,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/lib.rs",
+            "symbol": "file_associations::get_status()",
+            "start_line": 86,
+            "end_line": 86,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
+            "kind": "call",
+            "resolved_target": "src-tauri/src/file_associations.rs",
+            "target_symbol": "get_status"
+          },
+          {
+            "path": "src-tauri/src/lib.rs",
+            "symbol": "file_associations::request_association()",
+            "start_line": 91,
+            "end_line": 91,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
+            "kind": "call",
+            "resolved_target": "src-tauri/src/file_associations.rs",
+            "target_symbol": "request_association"
           }
         ]
       }
@@ -58849,6 +58704,52 @@
       }
     },
     {
+      "id": "edge:eda2b8673f3b040b345d",
+      "from": "src-tauri/src/lib.rs",
+      "to": "src-tauri/src/open_requests.rs",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 4,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/lib.rs",
+            "symbol": "open_requests::deliver(app, paths)",
+            "start_line": 117,
+            "end_line": 117,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
+            "kind": "call",
+            "resolved_target": "src-tauri/src/open_requests.rs",
+            "target_symbol": "deliver"
+          },
+          {
+            "path": "src-tauri/src/lib.rs",
+            "symbol": "open_requests::OpenRequestQueue::default()",
+            "start_line": 125,
+            "end_line": 125,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
+            "kind": "call",
+            "resolved_target": "src-tauri/src/open_requests.rs",
+            "target_symbol": "default"
+          },
+          {
+            "path": "src-tauri/src/lib.rs",
+            "symbol": "open_requests::redeliver_pending(app_handle, label)",
+            "start_line": 151,
+            "end_line": 151,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
+            "kind": "call",
+            "resolved_target": "src-tauri/src/open_requests.rs",
+            "target_symbol": "redeliver_pending"
+          }
+        ]
+      }
+    },
+    {
       "id": "edge:59ee9ca001c3c644a72d",
       "from": "src-tauri/src/lib.rs",
       "to": "src-tauri/src/open_requests.rs",
@@ -58895,15 +58796,60 @@
       }
     },
     {
+      "id": "edge:fb4a0845e1e92b90c2b5",
+      "from": "src-tauri/src/open_requests.rs",
+      "to": "external:rust:std",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 2,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src-tauri/src/open_requests.rs",
+            "symbol": "AtomicUsize::new(1)",
+            "start_line": 21,
+            "end_line": 21,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "c58e043e79ef35cb2f3127fc2a86103c41dae702580bb2736f65bce10e6b80a3",
+            "kind": "call",
+            "resolved_target": "external:rust:std",
+            "target_symbol": "new"
+          },
+          {
+            "path": "src-tauri/src/open_requests.rs",
+            "symbol": "Mutex::new(Vec::new())",
+            "start_line": 22,
+            "end_line": 22,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "c58e043e79ef35cb2f3127fc2a86103c41dae702580bb2736f65bce10e6b80a3",
+            "kind": "call",
+            "resolved_target": "external:rust:std",
+            "target_symbol": "new"
+          }
+        ]
+      }
+    },
+    {
       "id": "edge:bd85b6338d04ec931562",
       "from": "src-tauri/src/open_requests.rs",
       "to": "external:rust:std",
       "type": "imports",
       "type_only": false,
-      "evidence_count": 1,
+      "evidence_count": 2,
       "evidence": {
         "status": "verified",
         "locations": [
+          {
+            "path": "src-tauri/src/open_requests.rs",
+            "symbol": "use std::sync::atomic::{AtomicUsize, Ordering};",
+            "start_line": 2,
+            "end_line": 2,
+            "extractor": "tree-sitter-rust",
+            "source_digest": "c58e043e79ef35cb2f3127fc2a86103c41dae702580bb2736f65bce10e6b80a3",
+            "kind": "import",
+            "resolved_target": "external:rust:std"
+          },
           {
             "path": "src-tauri/src/open_requests.rs",
             "symbol": "use std::sync::Mutex;",
@@ -58918,9 +58864,9 @@
       }
     },
     {
-      "id": "edge:b9fbcfd07769fd665efd",
+      "id": "edge:70ee287b62bb8a49b85d",
       "from": "src-tauri/src/open_requests.rs",
-      "to": "external:rust:tests",
+      "to": "external:rust:tauri",
       "type": "imports",
       "type_only": false,
       "evidence_count": 1,
@@ -58929,13 +58875,13 @@
         "locations": [
           {
             "path": "src-tauri/src/open_requests.rs",
-            "symbol": "mod tests {\r\n    use super::{select_coordinator_label, OpenRequestQueue};\r\n\r\n    #[test]\r\n    fn main_window_is_preferred_but_a_reader_window_can_coordinate() {\r\n        assert_eq!(\r\n            select_coordinator_label([\"window-2\", \"main\", \"window-1\"]),\r\n            Some(\"main\".to_string())\r\n        );\r\n        assert_eq!(\r\n            select_coordinator_label([\"window-2\", \"window-1\"]),\r\n            Some(\"window-1\".to_string())\r\n        );\r\n        assert_eq!(select_coordinator_label(std::iter::empty::<&str>()), None);\r\n    }\r\n\r\n    #[test]\r\n    fn pending_requests_are_listed_non_destructively_until_acknowledged() {\r\n        let queue = OpenRequestQueue::default();\r\n        let request = queue\r\n            .enqueue(vec![\"one.md\".to_string(), \"two.txt\".to_string()])\r\n            .expect(\"non-empty request should queue\");\r\n\r\n        assert_eq!(queue.list(), vec![request.clone()]);\r\n        assert_eq!(queue.list(), vec![request.clone()]);\r\n        assert!(queue.acknowledge(request.id));\r\n        assert!(queue.list().is_empty());\r\n        assert!(!queue.acknowledge(request.id));\r\n    }\r\n\r\n    #[test]\r\n    fn request_ids_are_stable_unique_and_serialize_for_the_frontend() {\r\n        let queue = OpenRequestQueue::default();\r\n        assert!(queue.enqueue(Vec::new()).is_none());\r\n        let first = queue\r\n            .enqueue(vec![\"one.md\".to_string()])\r\n            .expect(\"first request should queue\");\r\n        let second = queue\r\n            .enqueue(vec![\"two.md\".to_string()])\r\n            .expect(\"second request should queue\");\r\n\r\n        assert!(second.id > first.id);\r\n        let serialized = serde_json::to_value(first).expect(\"request should serialize\");\r\n        assert!(serialized[\"id\"].as_u64().unwrap_or_default() > 0);\r\n        assert_eq!(serialized[\"paths\"][0], \"one.md\");\r\n    }\r\n}",
-            "start_line": 142,
-            "end_line": 188,
+            "symbol": "use tauri::{AppHandle, Emitter, Manager, State};",
+            "start_line": 4,
+            "end_line": 4,
             "extractor": "tree-sitter-rust",
             "source_digest": "c58e043e79ef35cb2f3127fc2a86103c41dae702580bb2736f65bce10e6b80a3",
             "kind": "import",
-            "resolved_target": "external:rust:tests"
+            "resolved_target": "external:rust:tauri"
           }
         ]
       }
@@ -59930,6 +59876,30 @@
       }
     },
     {
+      "id": "edge:9f4b1aef2e730842ac79",
+      "from": "src/context-menu-controller.js",
+      "to": "src/reader-preferences.js",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 1,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/context-menu-controller.js",
+            "symbol": "shouldReduceMotion(window)",
+            "start_line": 16,
+            "end_line": 16,
+            "extractor": "tree-sitter-javascript",
+            "source_digest": "83bd172214efe88833a5eb56c04a3189308610408282e9b6f91252028632451a",
+            "kind": "call",
+            "resolved_target": "src/reader-preferences.js",
+            "target_symbol": "shouldReduceMotion"
+          }
+        ]
+      }
+    },
+    {
       "id": "edge:67abaa54dbbb71bf9087",
       "from": "src/context-menu-controller.test.js",
       "to": "external:javascript:jsdom",
@@ -60775,6 +60745,30 @@
       }
     },
     {
+      "id": "edge:7e9a168f68a4ac5104ae",
+      "from": "src/document-mode-coordinator.js",
+      "to": "src/reader-preferences.js",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 1,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/document-mode-coordinator.js",
+            "symbol": "shouldReduceMotion(window)",
+            "start_line": 148,
+            "end_line": 148,
+            "extractor": "tree-sitter-javascript",
+            "source_digest": "1a5c5e676a3d9fcd56a5cdfb6c49ebfed31b4167cd61c65ebb7abb65b6bb3d6b",
+            "kind": "call",
+            "resolved_target": "src/reader-preferences.js",
+            "target_symbol": "shouldReduceMotion"
+          }
+        ]
+      }
+    },
+    {
       "id": "edge:900ed62b14023742a419",
       "from": "src/document-mode-coordinator.test.js",
       "to": "external:javascript:jsdom",
@@ -61327,6 +61321,30 @@
             "source_digest": "c6aa1ce72c64f58c6f84633282b1bcaffa25c46ec97898b9c8576c7836c5e4fc",
             "kind": "import",
             "resolved_target": "src/document-payload.js"
+          }
+        ]
+      }
+    },
+    {
+      "id": "edge:467efe389ee0d3201ad6",
+      "from": "src/document-session.js",
+      "to": "src/format-detect.js",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 1,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/document-session.js",
+            "symbol": "imageMimeForFormat(openedDocument?.format)",
+            "start_line": 368,
+            "end_line": 368,
+            "extractor": "tree-sitter-javascript",
+            "source_digest": "c6aa1ce72c64f58c6f84633282b1bcaffa25c46ec97898b9c8576c7836c5e4fc",
+            "kind": "call",
+            "resolved_target": "src/format-detect.js",
+            "target_symbol": "imageMimeForFormat"
           }
         ]
       }
@@ -63877,6 +63895,41 @@
       }
     },
     {
+      "id": "edge:dfb7e5a4d2faae613e03",
+      "from": "src/format-registry.test.js",
+      "to": "src/format-detect.js",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 2,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/format-registry.test.js",
+            "symbol": "imageMimeForFormat('webp')",
+            "start_line": 73,
+            "end_line": 73,
+            "extractor": "tree-sitter-javascript",
+            "source_digest": "9ce050abfa670cfa2907abccd9cbb117c929642056e701d87aed027fa6dd05c2",
+            "kind": "call",
+            "resolved_target": "src/format-detect.js",
+            "target_symbol": "imageMimeForFormat"
+          },
+          {
+            "path": "src/format-registry.test.js",
+            "symbol": "imageMimeForFormat('unknown')",
+            "start_line": 74,
+            "end_line": 74,
+            "extractor": "tree-sitter-javascript",
+            "source_digest": "9ce050abfa670cfa2907abccd9cbb117c929642056e701d87aed027fa6dd05c2",
+            "kind": "call",
+            "resolved_target": "src/format-detect.js",
+            "target_symbol": "imageMimeForFormat"
+          }
+        ]
+      }
+    },
+    {
       "id": "edge:cd5a08953b0379994c06",
       "from": "src/format-registry.test.js",
       "to": "src/format-registry.js",
@@ -63946,167 +63999,6 @@
       }
     },
     {
-      "id": "edge:2dc9a552ac1213df4eba",
-      "from": "src/free-port.test.js",
-      "to": "external:javascript:node:net",
-      "type": "imports",
-      "type_only": false,
-      "evidence_count": 1,
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/free-port.test.js",
-            "symbol": "import net from 'node:net';",
-            "start_line": 2,
-            "end_line": 2,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "import",
-            "resolved_target": "external:javascript:node:net"
-          }
-        ]
-      }
-    },
-    {
-      "id": "edge:64da0e04683d5f77abef",
-      "from": "src/free-port.test.js",
-      "to": "external:javascript:vitest",
-      "type": "calls",
-      "type_only": false,
-      "evidence_count": 8,
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/free-port.test.js",
-            "symbol": "describe('free-port utility', () => {\n  it('detects when a port is bound and in use', async () => {\n    const server = net.createServer();\n\n    await new Promise((resolve, reject) => {\n      server.once('error', reject);\n      server.listen(0, '127.0.0.1', resolve);\n    });\n    const testPort = server.address().port;\n\n    try {\n      const isFree = await canBindPort(testPort);\n      expect(isFree).toBe(false);\n    } finally {\n      await new Promise((resolve) => server.close(resolve));\n    }\n\n    const isFreeAfterClose = await canBindPort(testPort);\n    expect(isFreeAfterClose).toBe(true);\n    const result = await freePort(testPort, { verbose: false });\n    expect(result.freed).toBe(false);\n    expect(result.pids).toEqual([]);\n  });\n\n  it('ignores current process PID and invalid PIDs during kill', () => {\n    expect(() => {\n      killPids([0, process.pid, -1]);\n    }).not.toThrow();\n  });\n\n})",
-            "start_line": 5,
-            "end_line": 35,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "external:javascript:vitest",
-            "target_symbol": "describe"
-          },
-          {
-            "path": "src/free-port.test.js",
-            "symbol": "it('detects when a port is bound and in use', async () => {\n    const server = net.createServer();\n\n    await new Promise((resolve, reject) => {\n      server.once('error', reject);\n      server.listen(0, '127.0.0.1', resolve);\n    });\n    const testPort = server.address().port;\n\n    try {\n      const isFree = await canBindPort(testPort);\n      expect(isFree).toBe(false);\n    } finally {\n      await new Promise((resolve) => server.close(resolve));\n    }\n\n    const isFreeAfterClose = await canBindPort(testPort);\n    expect(isFreeAfterClose).toBe(true);\n    const result = await freePort(testPort, { verbose: false });\n    expect(result.freed).toBe(false);\n    expect(result.pids).toEqual([]);\n  })",
-            "start_line": 6,
-            "end_line": 27,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "external:javascript:vitest",
-            "target_symbol": "it"
-          },
-          {
-            "path": "src/free-port.test.js",
-            "symbol": "expect(isFree)",
-            "start_line": 17,
-            "end_line": 17,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "external:javascript:vitest",
-            "target_symbol": "expect"
-          }
-        ]
-      }
-    },
-    {
-      "id": "edge:50992e221ab6736a234a",
-      "from": "src/free-port.test.js",
-      "to": "external:javascript:vitest",
-      "type": "imports",
-      "type_only": false,
-      "evidence_count": 1,
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/free-port.test.js",
-            "symbol": "import { describe, expect, it } from 'vitest';",
-            "start_line": 1,
-            "end_line": 1,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "import",
-            "resolved_target": "external:javascript:vitest"
-          }
-        ]
-      }
-    },
-    {
-      "id": "edge:449c4eb8cb9f3b52855a",
-      "from": "src/free-port.test.js",
-      "to": "scripts/free-port.mjs",
-      "type": "calls",
-      "type_only": false,
-      "evidence_count": 4,
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/free-port.test.js",
-            "symbol": "canBindPort(testPort)",
-            "start_line": 16,
-            "end_line": 16,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "scripts/free-port.mjs",
-            "target_symbol": "canBindPort"
-          },
-          {
-            "path": "src/free-port.test.js",
-            "symbol": "canBindPort(testPort)",
-            "start_line": 22,
-            "end_line": 22,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "scripts/free-port.mjs",
-            "target_symbol": "canBindPort"
-          },
-          {
-            "path": "src/free-port.test.js",
-            "symbol": "freePort(testPort, { verbose: false })",
-            "start_line": 24,
-            "end_line": 24,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "call",
-            "resolved_target": "scripts/free-port.mjs",
-            "target_symbol": "freePort"
-          }
-        ]
-      }
-    },
-    {
-      "id": "edge:f4d751e1ad92fb9926e0",
-      "from": "src/free-port.test.js",
-      "to": "scripts/free-port.mjs",
-      "type": "imports",
-      "type_only": false,
-      "evidence_count": 1,
-      "evidence": {
-        "status": "verified",
-        "locations": [
-          {
-            "path": "src/free-port.test.js",
-            "symbol": "import { canBindPort, freePort, killPids } from '../scripts/free-port.mjs';",
-            "start_line": 3,
-            "end_line": 3,
-            "extractor": "tree-sitter-javascript",
-            "source_digest": "54675701146233cee9e01f1c9add9acf05867b1db196cc2228be023ace538f0c",
-            "kind": "import",
-            "resolved_target": "scripts/free-port.mjs"
-          }
-        ]
-      }
-    },
-    {
       "id": "edge:e211379c7af0a7623231",
       "from": "src/image-document-viewer.js",
       "to": "src/reader-motion.js",
@@ -64125,6 +64017,41 @@
             "source_digest": "a5088cb2b5120da1d49a4f889c6088f5395a6582b5b84773884f51dd35bfae70",
             "kind": "import",
             "resolved_target": "src/reader-motion.js"
+          }
+        ]
+      }
+    },
+    {
+      "id": "edge:1303c6c233ea1c1c372c",
+      "from": "src/image-document-viewer.js",
+      "to": "src/reader-preferences.js",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 2,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/image-document-viewer.js",
+            "symbol": "shouldReduceMotion(window)",
+            "start_line": 33,
+            "end_line": 33,
+            "extractor": "tree-sitter-javascript",
+            "source_digest": "a5088cb2b5120da1d49a4f889c6088f5395a6582b5b84773884f51dd35bfae70",
+            "kind": "call",
+            "resolved_target": "src/reader-preferences.js",
+            "target_symbol": "shouldReduceMotion"
+          },
+          {
+            "path": "src/image-document-viewer.js",
+            "symbol": "shouldReduceMotion(window)",
+            "start_line": 251,
+            "end_line": 251,
+            "extractor": "tree-sitter-javascript",
+            "source_digest": "a5088cb2b5120da1d49a4f889c6088f5395a6582b5b84773884f51dd35bfae70",
+            "kind": "call",
+            "resolved_target": "src/reader-preferences.js",
+            "target_symbol": "shouldReduceMotion"
           }
         ]
       }
@@ -68675,6 +68602,30 @@
       }
     },
     {
+      "id": "edge:993f1c9f0cc41831b737",
+      "from": "src/reading-navigation-controller.js",
+      "to": "src/reader-preferences.js",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 1,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/reading-navigation-controller.js",
+            "symbol": "shouldReduceMotion(window)",
+            "start_line": 164,
+            "end_line": 164,
+            "extractor": "tree-sitter-javascript",
+            "source_digest": "2799212e6c4f4594a6be9b6f10d378d8519f7922fa8017530e8e3b530122a26f",
+            "kind": "call",
+            "resolved_target": "src/reader-preferences.js",
+            "target_symbol": "shouldReduceMotion"
+          }
+        ]
+      }
+    },
+    {
       "id": "edge:5461af68b9733141e5bb",
       "from": "src/reading-navigation-controller.js",
       "to": "src/reading-geometry.js",
@@ -69491,6 +69442,30 @@
       }
     },
     {
+      "id": "edge:80a837cac215df20bcb7",
+      "from": "src/status-presenter.js",
+      "to": "src/reader-preferences.js",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 1,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/status-presenter.js",
+            "symbol": "shouldReduceMotion(window)",
+            "start_line": 112,
+            "end_line": 112,
+            "extractor": "tree-sitter-javascript",
+            "source_digest": "f453cf63856f125e60efea018c8c04b7ec54813edca2d61489859ca8efefa018",
+            "kind": "call",
+            "resolved_target": "src/reader-preferences.js",
+            "target_symbol": "shouldReduceMotion"
+          }
+        ]
+      }
+    },
+    {
       "id": "edge:9aefc59a93d186c7bb59",
       "from": "src/status-presenter.js",
       "to": "src/status-metrics.js",
@@ -69914,6 +69889,30 @@
       }
     },
     {
+      "id": "edge:6e2e66692bbc314306a4",
+      "from": "src/theme-coordinator.js",
+      "to": "src/reader-preferences.js",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 1,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/theme-coordinator.js",
+            "symbol": "shouldReduceMotion(window)",
+            "start_line": 217,
+            "end_line": 217,
+            "extractor": "tree-sitter-javascript",
+            "source_digest": "e3ff5075aa7ad0ef372c031faa81e22a96f5313680ba81dfb63bde3606772b45",
+            "kind": "call",
+            "resolved_target": "src/reader-preferences.js",
+            "target_symbol": "shouldReduceMotion"
+          }
+        ]
+      }
+    },
+    {
       "id": "edge:257721dd281c275bc7ed",
       "from": "src/theme-coordinator.js",
       "to": "src/theme-tokens.js",
@@ -70236,6 +70235,30 @@
       }
     },
     {
+      "id": "edge:020b191be3c1acdd8e19",
+      "from": "src/toast-presenter.js",
+      "to": "src/reader-preferences.js",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 1,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/toast-presenter.js",
+            "symbol": "shouldReduceMotion(window)",
+            "start_line": 81,
+            "end_line": 81,
+            "extractor": "tree-sitter-javascript",
+            "source_digest": "5fab55eef9b120f48d407052e3afce1abd15dd8fa6343c9ec47c6deb8fb5c20a",
+            "kind": "call",
+            "resolved_target": "src/reader-preferences.js",
+            "target_symbol": "shouldReduceMotion"
+          }
+        ]
+      }
+    },
+    {
       "id": "edge:c00f54971a6e31b5d3f6",
       "from": "src/toast-presenter.test.js",
       "to": "external:javascript:jsdom",
@@ -70438,6 +70461,30 @@
             "source_digest": "7db94039f7c25bef39ce87ab5b7151dccea9f7e1bb6012ab4d059533e64593b0",
             "kind": "import",
             "resolved_target": "src/reader-motion.js"
+          }
+        ]
+      }
+    },
+    {
+      "id": "edge:a744a8790ede8937e93c",
+      "from": "src/tooltip-controller.js",
+      "to": "src/reader-preferences.js",
+      "type": "calls",
+      "type_only": false,
+      "evidence_count": 1,
+      "evidence": {
+        "status": "verified",
+        "locations": [
+          {
+            "path": "src/tooltip-controller.js",
+            "symbol": "shouldReduceMotion(window)",
+            "start_line": 23,
+            "end_line": 23,
+            "extractor": "tree-sitter-javascript",
+            "source_digest": "7db94039f7c25bef39ce87ab5b7151dccea9f7e1bb6012ab4d059533e64593b0",
+            "kind": "call",
+            "resolved_target": "src/reader-preferences.js",
+            "target_symbol": "shouldReduceMotion"
           }
         ]
       }
@@ -70932,15 +70979,7 @@
         },
         {
           "kind": "node",
-          "id": "external:javascript:node:child_process"
-        },
-        {
-          "kind": "node",
           "id": "external:javascript:node:fs"
-        },
-        {
-          "kind": "node",
-          "id": "external:javascript:node:net"
         },
         {
           "kind": "node",
@@ -70976,6 +71015,10 @@
         },
         {
           "kind": "node",
+          "id": "external:rust:pulldown_cmark"
+        },
+        {
+          "kind": "node",
           "id": "external:rust:serde"
         },
         {
@@ -70985,10 +71028,6 @@
         {
           "kind": "node",
           "id": "external:rust:tauri"
-        },
-        {
-          "kind": "node",
-          "id": "external:rust:tests"
         }
       ]
     },
@@ -71057,10 +71096,6 @@
         {
           "kind": "node",
           "id": "scripts/check-bundle.mjs"
-        },
-        {
-          "kind": "node",
-          "id": "scripts/free-port.mjs"
         },
         {
           "kind": "node",
@@ -71281,10 +71316,6 @@
         {
           "kind": "node",
           "id": "src/format-registry.test.js"
-        },
-        {
-          "kind": "node",
-          "id": "src/free-port.test.js"
         },
         {
           "kind": "node",
@@ -71587,69 +71618,35 @@
       "path": "examples/write_bulk.py",
       "handler_path": "examples/write_bulk.py",
       "handler_symbol": "main"
+    },
+    {
+      "label": "Rust main",
+      "handler": "main",
+      "location": {
+        "path": "src-tauri/src/main.rs",
+        "symbol": "main",
+        "start_line": 4,
+        "end_line": 4,
+        "extractor": "tree-sitter-rust",
+        "source_digest": "23d120cfd07eb7dc987d2240b6508fc7c9de4a382bf058a8908188581873fc68",
+        "kind": "trigger"
+      },
+      "kind": "main-function",
+      "path": "src-tauri/src/main.rs",
+      "handler_path": "src-tauri/src/main.rs",
+      "handler_symbol": "main"
     }
   ],
-  "source_digest": "42db14cfb1639fe1f3df8c3f52c68e0b33626e42548464cac5c3ee7a7a92f38c",
+  "source_digest": "74b526248084556f1923ce8717340ca31234bbc5c8e976f506671b29d53164fc",
   "changes": {
     "added_nodes": [],
     "removed_nodes": [],
     "added_edges": [],
-    "removed_edges": [
-      {
-        "id": "edge:bb4492fc705ecadca87f",
-        "from": "vite.config.js",
-        "to": "scripts/free-port.mjs",
-        "type": "calls",
-        "type_only": false,
-        "evidence_count": 1,
-        "evidence": {
-          "status": "verified",
-          "locations": [
-            {
-              "path": "vite.config.js",
-              "symbol": "freePort(33223)",
-              "start_line": 6,
-              "end_line": 6,
-              "extractor": "tree-sitter-javascript",
-              "source_digest": "90f3e21eb4e3ccecfa5e17e8683166d2104d510de8f31b86442c542c00561d3e",
-              "kind": "call",
-              "resolved_target": "scripts/free-port.mjs",
-              "target_symbol": "freePort"
-            }
-          ]
-        }
-      },
-      {
-        "id": "edge:60d85d948700ee1530dd",
-        "from": "vite.config.js",
-        "to": "scripts/free-port.mjs",
-        "type": "imports",
-        "type_only": false,
-        "evidence_count": 1,
-        "evidence": {
-          "status": "verified",
-          "locations": [
-            {
-              "path": "vite.config.js",
-              "symbol": "import { freePort } from \"./scripts/free-port.mjs\";",
-              "start_line": 2,
-              "end_line": 2,
-              "extractor": "tree-sitter-javascript",
-              "source_digest": "90f3e21eb4e3ccecfa5e17e8683166d2104d510de8f31b86442c542c00561d3e",
-              "kind": "import",
-              "resolved_target": "scripts/free-port.mjs"
-            }
-          ]
-        }
-      }
-    ],
+    "removed_edges": [],
     "boundary_changes": [],
     "new_cycles": [],
-    "changed": true,
-    "changed_node_ids": [
-      "scripts/free-port.mjs",
-      "vite.config.js"
-    ]
+    "changed": false,
+    "changed_node_ids": []
   },
-  "generation_id": "e0801ca4f86ba699bc717bdd36ae8ce797208719fa9db5449abd823e8e6aee9e"
+  "generation_id": "85c7679d384f778ce73fc006ba47a967064df33f9636a278f4a567ec3a45a0ee"
 }

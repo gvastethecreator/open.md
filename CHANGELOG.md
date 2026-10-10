@@ -19,6 +19,11 @@ stable release is cut.
 
 ### Fixed
 
+- Reduced motion no longer distorts Mermaid layout through near-zero SVG transitions.
+- Updated indirect DOMPurify, Undici, and source-map-js dependencies to address security advisories.
+- Settings use unique temporary files and replace the saved file without deleting it first.
+- Document saves replace files directly on Windows, while keeping recovery for backups from older versions.
+- Removed the unused port cleanup utility and its test, which could terminate other processes on Unix.
 - The first document is editable when it opens before the editor finishes loading.
 - Work from a closed or replaced document no longer applies late syntax, diagram,
   or clipboard feedback.
@@ -32,6 +37,8 @@ stable release is cut.
 
 ### Changed
 
+- CI shares setup with dependency audits and no longer repeats the Windows gate in Store validation.
+- The full verification gate omits `cargo check`, which is covered by `cargo test`.
 - JSON previews stop generating rows at the existing value limit. Source stays complete.
 - Editing reuses the serialized document, and companion documents use one syntax pass.
 - Frontend packages: `vite` 8.2.2, `vitest` 4.1.11, and `mermaid` 11.17.2.

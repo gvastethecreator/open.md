@@ -45,7 +45,9 @@ pnpm run test:rust
 
 `check:frontend` validates static assets, config, themes, and Pages. `test:frontend` runs all frontend tests, including reader-shell scenarios over real `index.html` with fake adapters. Use `check:shell` to run only those scenarios.
 
-For the full gate, run `pnpm run verify` instead of repeating the commands above. CI runs the same gates on Linux, Windows, and macOS, with separate pnpm and Cargo dependency audit jobs.
+For the full gate, run `pnpm run verify` instead of repeating the commands above. Rust tests compile the backend, so this gate omits a separate `check:rust` pass. Keep `check:rust` for a quick compile check during development. CI runs `verify` on Linux, Windows, and macOS to cover their native branches. The Linux job also runs the pnpm and Cargo dependency audits.
+
+Store validation reads repository files without installing dependencies or repeating `verify`. A manually requested signed candidate still runs `verify` before loading the signing certificate.
 
 VS Code tasks mirror these commands. **Build** runs `pnpm run tauri build`, whose Tauri hook builds and checks the frontend bundle. **Verify** runs the full gate separately; Build does not run it automatically.
 

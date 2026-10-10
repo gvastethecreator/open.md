@@ -103,21 +103,7 @@ pub fn save_to_path(path: &Path, settings: &AppSettings) -> Result<(), String> {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }
     let raw = serde_json::to_string_pretty(settings).map_err(|error| error.to_string())?;
-    let tmp = path.with_extension("json.tmp");
-    fs::write(&tmp, &raw).map_err(|error| error.to_string())?;
-    replace_file(&tmp, path).map_err(|error| {
-        let _ = fs::remove_file(&tmp);
-        error
-    })?;
-    Ok(())
-}
-
-fn replace_file(from: &Path, to: &Path) -> Result<(), String> {
-    // Windows rename fails when the destination exists; remove first.
-    if to.exists() {
-        fs::remove_file(to).map_err(|error| error.to_string())?;
-    }
-    fs::rename(from, to).map_err(|error| error.to_string())
+    crate::document_access::save_bytes(path, raw.as_bytes())
 }
 
 pub fn set_allow_multiple_instances(
@@ -170,7 +156,6 @@ mod tests {
         save_to_path(&path, &settings).expect("write");
         let loaded = load_from_path(&path);
         assert_eq!(loaded, settings);
-        assert!(!path.with_extension("json.tmp").exists());
         let _ = fs::remove_file(&path);
     }
 
@@ -193,5 +178,32 @@ mod tests {
         .expect("second write");
         assert!(!load_from_path(&path).allow_multiple_instances);
         let _ = fs::remove_file(&path);
+    }
+
+    #[test]
+    fn concurrent_settings_writes_keep_complete_json() {
+        let path = temp_settings_path("concurrent");
+        let barrier = std::sync::Barrier::new(8);
+        std::thread::scope(|scope| {
+            for _ in 0..8 {
+                scope.spawn(|| {
+                    barrier.wait();
+                    save_to_path(
+                        &path,
+                        &AppSettings {
+                            allow_multiple_instances: false,
+                        },
+                    )
+                    .expect("concurrent write");
+                });
+            }
+        });
+        let raw = fs::read_to_string(&path).expect("settings should exist");
+        assert!(
+            !serde_json::from_str::<AppSettings>(&raw)
+                .unwrap()
+                .allow_multiple_instances
+        );
+        fs::remove_file(&path).unwrap();
     }
 }
