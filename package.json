@@ -50,6 +50,6 @@
     "@tauri-apps/plugin-opener": "^2.5.4",
     "highlight.js": "11.12.0",
     "iconoir": "^7.12.1",
-    "mermaid": "^11.17.2"
+    "mermaid": "^12.1.0"
   }
 }
