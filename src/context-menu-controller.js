@@ -125,7 +125,8 @@ export function createContextMenuController({
 
       if (item.shortcut) {
         const shortcut = document.createElement('kbd');
-        shortcut.textContent = item.shortcut;
+        shortcut.textContent = /Mac/.test(window.navigator?.platform || '')
+          ? item.shortcut.replace(/\bCtrl\b/g, 'Cmd') : item.shortcut;
         shortcut.setAttribute('aria-hidden', 'true');
         button.append(shortcut);
       }
@@ -202,8 +203,8 @@ export function createContextMenuController({
   };
 
   const onContextMenu = (event) => {
+    event.preventDefault();
     if (menu.contains(event.target)) {
-      event.preventDefault();
       return;
     }
     let descriptor = null;
@@ -220,7 +221,6 @@ export function createContextMenuController({
       close({ immediate: true });
       return;
     }
-    event.preventDefault();
   };
 
   const onMenuClick = (event) => {

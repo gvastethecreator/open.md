@@ -97,7 +97,7 @@ describe('responsive typography', () => {
     vi.doUnmock('@chenglou/pretext');
   });
 
-  it('refits every heading when ResizeObserver fires with entries', async () => {
+  it('refits headings on width changes and ignores height-only resizing', async () => {
     vi.resetModules();
     vi.doMock('@chenglou/pretext', () => ({
       prepare: () => ({}),
@@ -166,6 +166,13 @@ describe('responsive typography', () => {
 
     expect(keep.dataset.pretextFitted).not.toBe('sentinel');
     expect(edit.dataset.pretextFitted).not.toBe('sentinel');
+    keep.dataset.pretextFitted = 'width-stable';
+    observers[0].callback(
+      [{ target: root.querySelector('.markdown-body'), contentRect: { width: 0, height: 500 } }],
+      observers[0],
+    );
+    while (frames.length > 0) frames.shift()(16);
+    expect(keep.dataset.pretextFitted).toBe('width-stable');
     typography.dispose();
     root.remove();
     window.ResizeObserver = OriginalResizeObserver;

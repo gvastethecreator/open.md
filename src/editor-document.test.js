@@ -6,7 +6,6 @@ import {
   classicLinePreviewHtml,
   classicLineSourceHtml,
   createEditorDocumentModel,
-  editableHtmlToMarkdown,
   getEditorDocumentStats,
   inlineMarkdownToHtml,
   parseEditorDocument,
@@ -61,7 +60,7 @@ describe('editor document model', () => {
     expect(serializeEditorDocument(blocks, { markdown: false })).toBe('# literal\n- also literal');
   });
 
-  it('converts supported inline Markdown to editable semantics and back', () => {
+  it('renders supported inline Markdown semantics', () => {
     const host = document.createElement('div');
     host.innerHTML = inlineMarkdownToHtml('Use **bold**, *italics*, ~~old~~, `code` and [docs](https://example.com).');
 
@@ -70,7 +69,6 @@ describe('editor document model', () => {
     expect(host.querySelector('s')?.textContent).toBe('old');
     expect(host.querySelector('code')?.textContent).toBe('code');
     expect(host.querySelector('a')?.getAttribute('href')).toBe('https://example.com');
-    expect(editableHtmlToMarkdown(host)).toBe('Use **bold**, *italics*, ~~old~~, `code` and [docs](https://example.com).');
   });
 
   it('classifies fenced interiors, tables and images for Classic preview', () => {
@@ -107,7 +105,7 @@ describe('editor document model', () => {
     expect(classicLinePreviewHtml('Hello **world** and `code`')).toContain('<code>code</code>');
     expect(classicLinePreviewHtml('- nested item')).toContain('classic-line-bullet');
     expect(classicLinePreviewHtml('![Desk](assets/quiet-desk.webp)')).toContain(
-      'src="assets/quiet-desk.webp"',
+      'data-document-source="assets/quiet-desk.webp"',
     );
     expect(classicLinePreviewHtml('| A | **B** |')).toContain('classic-line-cell');
     expect(classicLinePreviewHtml('const ready = true;', { kind: 'code' })).toContain(
@@ -129,6 +127,17 @@ describe('editor document model', () => {
   it('reports line, word and character stats from source text', () => {
     const stats = getEditorDocumentStats('# One\n\nTwo words\n---');
     expect(stats).toEqual({ lines: 4, words: 5, characters: 20 });
+
+    const model = createEditorDocumentModel({ source: 'one two\r\n😀 tail\rline\r\n' });
+    for (const [removed, text] of [[' ', ''], ['two', ' TWO '], ['\r\n', '\n'], ['😀', '🦊🦊'], ['\rline', '\r\nline']]) {
+      const previous = model.source();
+      const start = previous.indexOf(removed);
+      const end = start + removed.length;
+      const next = previous.slice(0, start) + text + previous.slice(end);
+      model.applySource(next, { change: { start, end, text } });
+      expect(model.snapshot().stats).toEqual(getEditorDocumentStats(next));
+    }
+    model.dispose();
   });
 
   it('applies source, undoes, and restores cursor without a Block CRUD API', () => {
@@ -145,6 +154,24 @@ describe('editor document model', () => {
     model.dispose();
   });
 
+  it('keeps raw Markdown and line endings through load, edits and history', () => {
+    const raw = '# Notes\r\n\r\n* star\r\n\t- nested\r\n1) one\r\n***\r\n```js\r\nunfinished';
+    const model = createEditorDocumentModel({ source: raw });
+    expect(model.source()).toBe(raw);
+    model.load(raw);
+    expect(model.applySource(raw)).toBe(false);
+    expect(model.snapshot().canUndo).toBe(false);
+
+    const edited = raw.replace('# Notes', '# Edited notes');
+    model.applySource(edited);
+    expect(model.source()).toBe(edited);
+    model.undo();
+    expect(model.source()).toBe(raw);
+    model.redo();
+    expect(model.source()).toBe(edited);
+    model.dispose();
+  });
+
   it('keeps bounded undo and redo history independent per model', () => {
     const first = createEditorDocumentModel({ source: 'one', historyLimit: 3 });
     const second = createEditorDocumentModel({ source: 'other' });
@@ -158,6 +185,17 @@ describe('editor document model', () => {
     expect(second.source()).toBe('other');
     first.dispose();
     second.dispose();
+  });
+
+  it('caps undo history at 16 million characters while retaining the current document', () => {
+    const large = 'a'.repeat(9 * 1024 * 1024);
+    const model = createEditorDocumentModel({ source: large });
+    model.applySource(`b${large.slice(1)}`);
+    expect(model.snapshot().canUndo).toBe(false);
+    model.applySource('small');
+    expect(model.undo().changed).toBe(true);
+    expect(model.source()).toBe(`b${large.slice(1)}`);
+    model.dispose();
   });
 
   it('preserves plain-text semantics and publishes cursor snapshots', () => {
@@ -185,7 +223,6 @@ describe('editor document model', () => {
     const after = model.snapshot();
     expect(after.cursor).toEqual({ line: 25, column: 2 });
     expect(after.source).toBe(before.source);
-    expect(after.blocks).toBe(before.blocks);
     expect(after.stats).toBe(before.stats);
   });
 });

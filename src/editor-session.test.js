@@ -48,6 +48,87 @@ function activeSource() {
 }
 
 describe('editor session', () => {
+  it('renames JSON properties, changes types, and restores deleted rows through document undo', async () => {
+    const { session, save } = mount(vi.fn(async () => ({ saved: true })));
+    session.setDocument({ path: 'config.json', source: '{"newKey":"","used":true}', markdown: false, presentation: 'json-props' });
+    session.enter();
+    document.querySelector('#document-stage').classList.remove('hidden');
+    document.querySelector('#editor-view').classList.remove('hidden');
+    document.querySelector('#editor-view').removeAttribute('inert');
+    const key = document.querySelector('[data-json-key-editor]');
+    key.textContent = 'port';
+    key.dispatchEvent(new Event('blur'));
+    const type = document.querySelector('[data-json-path="port"] select');
+    type.value = 'number';
+    type.dispatchEvent(new Event('change'));
+    const value = document.querySelector('[data-json-path="port"] [data-json-value]');
+    value.textContent = '8080';
+    await session.save();
+    expect(JSON.parse(save.mock.calls.at(-1)[1])).toEqual({ port: 8080, used: true });
+    const editorCanvas = document.querySelector('#editor-canvas');
+    const replaceChildren = editorCanvas.replaceChildren.bind(editorCanvas);
+    const replace = vi.spyOn(editorCanvas, 'replaceChildren').mockImplementation((...children) => {
+      // Blink blurs the focused old cell while replaceChildren is running.
+      editorCanvas.querySelector('[data-json-path="port"] [data-json-value]')?.dispatchEvent(new Event('blur'));
+      replaceChildren(...children);
+    });
+    editorCanvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }));
+    expect(JSON.parse(session.source()).port).toBe(0);
+    editorCanvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'y', ctrlKey: true, bubbles: true, cancelable: true }));
+    expect(JSON.parse(session.source()).port).toBe(8080);
+    replace.mockRestore();
+    session.jsonPropertyActions.remove('port');
+    const canvas = document.querySelector('#editor-canvas');
+    const focus = vi.spyOn(window.HTMLElement.prototype, 'focus');
+    canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }));
+    expect(JSON.parse(session.source())).toEqual({ port: 8080, used: true });
+    expect(document.querySelector('[data-json-path="port"]')).not.toBeNull();
+    const restoredFocus = focus.mock.contexts.at(-1);
+    expect(canvas.contains(restoredFocus)).toBe(true);
+    session.setDocument({ path: 'config.json', source: session.source(), markdown: false, presentation: 'json-props' });
+    expect(restoredFocus.isConnected).toBe(true);
+    restoredFocus.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }));
+    expect(JSON.parse(session.source())).toEqual({ used: true });
+    const invalid = document.querySelector('[data-json-key-editor]');
+    invalid.textContent = '__proto__';
+    session.setDocument({ path: 'config.json', source: session.source(), markdown: false, presentation: 'json-props' });
+    expect(invalid.isConnected).toBe(true);
+    await expect(session.save()).resolves.toMatchObject({ status: 'unavailable' });
+    expect(document.querySelector('.json-props__error').textContent).toContain('__proto__');
+    expect(save).toHaveBeenCalledTimes(1);
+    focus.mockRestore();
+    session.dispose();
+  });
+
+  it.each([false, true])('preserves CRLF and Markdown bytes in Edit (source mode: %s)', async (sourceMode) => {
+    const raw = '# Notes\r\n\r\n* star\r\n\t- nested\r\n1) one\r\n***\r\n';
+    const { session, save } = mount(undefined, {}, { sourceMode });
+    session.setDocument({ path: 'notes.md', source: raw, markdown: true });
+    expect(session.enter()).toBe(true);
+    await Promise.resolve();
+    expect(session.source()).toBe(raw);
+    expect(session.isDirty()).toBe(false);
+    await expect(session.save()).resolves.toMatchObject({ status: 'unchanged', source: raw });
+    expect(save).not.toHaveBeenCalled();
+
+    const content = activeSource();
+    content.textContent = '# Edited notes';
+    content.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    const edited = raw.replace('# Notes', '# Edited notes');
+    expect(session.source()).toBe(edited);
+    expect(session.isDirty()).toBe(true);
+    const canvas = document.getElementById('editor-canvas');
+    canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true, cancelable: true }));
+    expect(session.source()).toBe(raw);
+    expect(session.isDirty()).toBe(false);
+    canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'y', ctrlKey: true, bubbles: true, cancelable: true }));
+    await session.save();
+    expect(save).toHaveBeenCalledExactlyOnceWith('notes.md', edited, {
+      expectedSource: raw, overwrite: false, renderDocument: false,
+    });
+    session.dispose();
+  });
+
   it('enters Markdown Rendered Edit on the Classic live-preview surface and saves', async () => {
     const { session, save } = mount();
     session.setDocument({ path: 'C:\\notes\\sample.md', source: '# Note\n\nParagraph', markdown: true });
@@ -72,7 +153,9 @@ describe('editor session', () => {
     expect(session.current()).toMatchObject({ mode: 'edit', dirty: true });
 
     await expect(session.save()).resolves.toMatchObject({ status: 'saved' });
-    expect(save).toHaveBeenCalledWith('C:\\notes\\sample.md', '# Note\n\nParagraph updated');
+    expect(save).toHaveBeenCalledWith('C:\\notes\\sample.md', '# Note\n\nParagraph updated', {
+      expectedSource: '# Note\n\nParagraph', overwrite: false, renderDocument: false,
+    });
     expect(session.current()).toMatchObject({ dirty: false, saveState: 'saved' });
     session.dispose();
   });
@@ -150,6 +233,39 @@ describe('editor session', () => {
     session.dispose();
   });
 
+  it('keeps the latest conflicted draft and its baseline until an explicit discard', async () => {
+    const pending = deferred();
+    const save = vi.fn().mockReturnValueOnce(pending.promise)
+      .mockRejectedValue(new Error('The file changed on disk.'));
+    const { session } = mount(save);
+    session.setDocument({ path: 'notes.txt', source: 'Before', markdown: false });
+    session.enter();
+    await Promise.resolve();
+    let content = activeSource();
+    content.textContent = 'Draft';
+    content.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    const saving = session.save();
+    content.textContent = 'Newer draft';
+    content.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    pending.reject(new Error('The file changed on disk.'));
+    await expect(saving).resolves.toMatchObject({ status: 'failed', conflict: true });
+    expect(session.current()).toMatchObject({ dirty: true, saveState: 'error' });
+    session.setDocument({ path: 'other.txt', source: 'Other', markdown: false });
+    session.setDocument({ path: 'notes.txt', source: 'Before\nExternal', markdown: false });
+    expect(session.source()).toBe('Newer draft');
+    await session.save();
+    expect(save).toHaveBeenLastCalledWith('notes.txt', 'Newer draft', {
+      expectedSource: 'Before', overwrite: false, renderDocument: false,
+    });
+    session.exit({ force: true });
+    session.clearDocument();
+    session.setDocument({ path: 'notes.txt', source: 'Before\nExternal', markdown: false });
+    session.enter();
+    expect(session.source()).toBe('Before\nExternal');
+    expect(session.isDirty()).toBe(false);
+    session.dispose();
+  });
+
   it('enters JSON property editor for valid object sources and flushes pending cells on save', async () => {
     const save = vi.fn(async (_path, source) => ({ source }));
     const { session } = mount(save);
@@ -175,6 +291,7 @@ describe('editor session', () => {
     expect(save).toHaveBeenCalledWith(
       'config.json',
       expect.stringContaining('"count": 9'),
+      expect.objectContaining({ expectedSource: '{\n  "name": "open.md",\n  "count": 1\n}\n' }),
     );
     expect(session.isDirty()).toBe(false);
     session.dispose();
@@ -199,7 +316,8 @@ describe('editor session', () => {
     expect(count.isConnected).toBe(true);
     count.textContent = '9';
     await expect(session.save()).resolves.toMatchObject({ status: 'saved' });
-    expect(save).toHaveBeenCalledWith('config.json', expect.stringContaining('"count": 9'));
+    expect(save).toHaveBeenCalledWith('config.json', expect.stringContaining('"count": 9'),
+      expect.objectContaining({ expectedSource: '{\n  "name": "open.md",\n  "count": 1\n}\n' }));
     session.dispose();
   });
 
@@ -273,6 +391,32 @@ describe('editor session', () => {
     expect(session.enter()).toBe(true);
     expect(session.current().presentation).toBe('classic');
     expect(document.querySelector('.json-props')).toBeNull();
+    session.dispose();
+  });
+
+  it.each([false, true])('keeps unsafe JSON values exact in plain Edit (enter from Source: %s)', async (fromSource) => {
+    const raw = '{\r\n  "id": 123456789012345678901\r\n}\r\n';
+    let sourceMode = fromSource;
+    const onUnavailable = vi.fn();
+    const { session, save } = mount(undefined, { onUnavailable }, { isSourceMode: () => sourceMode });
+    session.setDocument({ path: 'large-id.json', source: raw, markdown: false, presentation: 'json-props' });
+    expect(session.enter()).toBe(true);
+    if (fromSource) {
+      sourceMode = false;
+      expect(session.refreshPresentation()).toBe(true);
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    }
+    expect(session.current().presentation).toBe('classic');
+    expect(session.isDirty()).toBe(false);
+    expect(session.source()).toBe(raw);
+    expect(onUnavailable).toHaveBeenCalledWith('JSON values need source editing to stay exact — editing as plain text');
+    const content = activeSource();
+    content.textContent = '{ ';
+    content.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    await session.save();
+    expect(save).toHaveBeenCalledExactlyOnceWith('large-id.json', raw.replace('{', '{ '), {
+      expectedSource: raw, overwrite: false, renderDocument: false,
+    });
     session.dispose();
   });
 
@@ -666,7 +810,9 @@ describe('editor session', () => {
     active.textContent = 'First line edited';
     active.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
     await expect(session.save()).resolves.toMatchObject({ status: 'saved' });
-    expect(save).toHaveBeenCalledWith('commit.md', expect.stringContaining('First line edited'));
+    expect(save).toHaveBeenCalledWith('commit.md', expect.stringContaining('First line edited'), {
+      expectedSource: 'First line', overwrite: false, renderDocument: false,
+    });
     session.dispose();
   });
 

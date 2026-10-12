@@ -3,7 +3,6 @@
  */
 
 export const JSON_PROPS_ROW_CAP = 2000;
-export const JSON_PROPS_DEPTH = 1;
 
 function detectIndent(source) {
   const match = String(source).match(/\n([ \t]+)"/);
@@ -31,6 +30,28 @@ function serializeValue(value, indent) {
   return JSON.stringify(value, null, indent);
 }
 
+function canRebuildJson(text) {
+  const containers = [];
+  // JSON.parse validates syntax first; keep strings whole when inspecting tokens.
+  const tokens = /("(?:[^"\\]|\\.)*")\s*:|"(?:[^"\\]|\\.)*"|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|[{}\[\]]/g;
+  for (const [token, keyText, numberText] of text.matchAll(tokens)) {
+    if (token === '{') containers.push(new Set());
+    else if (token === '[') containers.push(null);
+    else if (token === '}' || token === ']') containers.pop();
+    else if (keyText !== undefined) {
+      const key = JSON.parse(keyText);
+      const keys = containers.at(-1);
+      if (key === '__proto__' || keys.has(key)) return false;
+      keys.add(key);
+    } else if (numberText !== undefined) {
+      const number = Number(numberText);
+      if ((Number.isInteger(number) && !Number.isSafeInteger(number))
+          || JSON.stringify(number) !== numberText) return false;
+    }
+  }
+  return true;
+}
+
 /**
  * @returns {{
  *   ok: true,
@@ -54,6 +75,7 @@ export function parseJsonPropertyModel(source, { rowCap = JSON_PROPS_ROW_CAP } =
   if (value === null || typeof value !== 'object') {
     return { ok: false, reason: 'primitive' };
   }
+  if (!canRebuildJson(text)) return { ok: false, reason: 'unsafe' };
 
   const indent = detectIndent(text);
   const trailingNewline = preserveTrailingNewline(text);
@@ -103,7 +125,9 @@ function parseCellText(type, text) {
   // even when the value looks like JSON (e.g. "{\"a\":1}" as a string).
   if (type === 'composite') {
     try {
-      return { ok: true, value: JSON.parse(raw) };
+      const value = JSON.parse(raw);
+      if (!canRebuildJson(raw)) return { ok: false, error: 'Use plain-text editing to preserve this JSON' };
+      return { ok: true, value };
     } catch {
       return { ok: false, error: 'Invalid JSON' };
     }
@@ -112,6 +136,9 @@ function parseCellText(type, text) {
   if (type === 'number') {
     if (raw.trim() === '' || Number.isNaN(Number(raw))) {
       return { ok: false, error: 'Enter a number' };
+    }
+    if (JSON.stringify(Number(raw)) !== raw.trim() || !canRebuildJson(raw)) {
+      return { ok: false, error: 'Use plain-text editing to preserve this number' };
     }
     return { ok: true, value: Number(raw) };
   }
@@ -134,14 +161,23 @@ function parseCellText(type, text) {
 /**
  * Apply a top-level row edit and return serialized source.
  */
-export function updateJsonPropertyModel(model, path, nextText) {
+export function updateJsonPropertyModel(model, path, nextText, { key, type } = {}) {
   if (!model?.ok) return { ok: false, error: 'Model unavailable' };
   const rows = model.rows.map((row) => ({ ...row }));
   const index = rows.findIndex((row) => row.path === path);
   if (index < 0) return { ok: false, error: 'Property not found' };
 
   const row = rows[index];
-  const cellType = row.composite ? 'composite' : row.type;
+  if (key !== undefined && key !== row.key) {
+    if (model.rootType !== 'object' || !key.trim() || key === '__proto__') {
+      return { ok: false, error: 'Use a non-empty property name other than __proto__', path };
+    }
+    if (rows.some((item) => item.key === key)) return { ok: false, error: 'This property name already exists', path };
+  }
+  if (type !== undefined && !['string', 'number', 'boolean', 'null', row.type].includes(type)) {
+    return { ok: false, error: 'Unsupported value type', path };
+  }
+  const cellType = type && type !== row.type ? type : row.composite ? 'composite' : row.type;
   let parsed;
   try {
     parsed = parseCellText(cellType, nextText);
@@ -152,6 +188,7 @@ export function updateJsonPropertyModel(model, path, nextText) {
 
   rows[index] = {
     ...row,
+    key: key ?? row.key,
     value: parsed.value,
     type: valueType(parsed.value),
     composite: isComposite(parsed.value),
@@ -240,11 +277,4 @@ export function addJsonProperty(model, { key = 'newKey', value = '' } = {}) {
   const next = parseJsonPropertyModel(source);
   if (!next.ok) return { ok: false, error: 'Could not rebuild JSON' };
   return { ok: true, model: next, source };
-}
-
-export function serializeJsonPropertyModel(model) {
-  if (!model?.ok) return '';
-  let source = JSON.stringify(model.value, null, model.indent);
-  if (model.trailingNewline) source += '\n';
-  return source;
 }

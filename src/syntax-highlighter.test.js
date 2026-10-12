@@ -41,6 +41,12 @@ describe('syntax highlighter', () => {
     document.body.innerHTML = '<pre data-full-document-highlight="true"><code>a: 1</code></pre>';
     expect(highlightDocument(document.body, 'yaml')).toBe(true);
     expect(document.querySelector('code').dataset.highlightLanguage).toBe('yaml');
+    const large = 'a: 1\n'.repeat(60000);
+    document.body.innerHTML = '<pre data-full-document-highlight="true"><code></code></pre>';
+    document.querySelector('code').textContent = large;
+    expect(highlightDocument(document.body, 'yaml')).toBe(false);
+    expect(document.querySelector('code').textContent).toBe(large);
+    expect(document.querySelector('.hljs')).toBeNull();
   });
 
   it('returns false for unsupported full-document languages without throwing', () => {

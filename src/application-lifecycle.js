@@ -96,7 +96,6 @@ export function createApplicationLifecycleController({
       event.preventDefault();
       event.returnValue = '';
     }
-    void dispose();
   };
 
   const scope = Object.freeze({
@@ -118,6 +117,7 @@ export function createApplicationLifecycleController({
     startPromise = (async () => {
       try {
         listen(window, 'beforeunload', beforeUnload);
+        listen(window, 'pagehide', dispose);
         await setup?.(scope);
         if (phase === 'disposing' || phase === 'disposed') return { status: 'disposed' };
         phase = 'started';

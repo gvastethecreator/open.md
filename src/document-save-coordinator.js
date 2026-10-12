@@ -18,6 +18,7 @@ export function createDocumentSaveCoordinator({
   let currentDocument = null;
   let documentRevision = 0;
   let editorSaveGeneration = 0;
+  let editorConflict = false;
   let taskTail = Promise.resolve();
   let disposed = false;
   const pendingTasks = new Set();
@@ -48,7 +49,10 @@ export function createDocumentSaveCoordinator({
   };
 
   const replaceDocument = ({ path = null, document = null } = {}) => {
-    if (path !== currentPath) editorSaveGeneration += 1;
+    if (path !== currentPath) {
+      editorSaveGeneration += 1;
+      editorConflict = false;
+    }
     documentRevision += 1;
     currentPath = path;
     currentDocument = document;
@@ -67,15 +71,24 @@ export function createDocumentSaveCoordinator({
     );
     let result;
     try {
-      result = await adapters.saveEditor();
+      if (!automatic && editorConflict) {
+        if (!await adapters.confirmOverwrite?.()) return { status: 'cancelled' };
+        if (isStale()) return { status: 'stale' };
+        result = await adapters.saveEditor({ overwrite: true });
+      } else {
+        result = await adapters.saveEditor();
+      }
     } catch (error) {
       if (isStale()) return { status: 'stale' };
       hooks.onDiagnostic?.('Could not save the edited document', error);
       result = { status: 'failed', error };
     }
     if (isStale()) return { status: 'stale' };
+    editorConflict = result?.conflict === true;
     if (result?.status === 'failed') {
-      hooks.notify?.('Could not save. Your changes are still here.');
+      hooks.notify?.(editorConflict
+        ? String(result.error?.message || result.error)
+        : 'Could not save. Your changes are still here.');
     } else if (!automatic && result?.status === 'saved') {
       hooks.notify?.('Changes saved');
     }
@@ -144,7 +157,9 @@ export function createDocumentSaveCoordinator({
           return { status: 'unchanged' };
         }
 
-        const savedPayload = await adapters.saveDocument(task.path, update.source);
+        const savedPayload = await adapters.saveDocument(task.path, update.source, {
+          expectedSource: currentDocument.source,
+        });
         if (isStale()) return { status: 'stale' };
         const savedDocument = normalizeDocumentPayload(savedPayload);
         currentDocument = savedDocument;
@@ -161,7 +176,10 @@ export function createDocumentSaveCoordinator({
         if (isStale()) return { status: 'stale' };
         settleTaskUi(task, { rollback: true });
         hooks.onDiagnostic?.('Could not save the task state', error);
-        hooks.notify?.('Could not save this task. The previous state was restored.');
+        const message = String(error?.message || error);
+        hooks.notify?.(message.includes('changed on disk')
+          ? 'The file changed on disk. The task was not saved. Close and reopen the file to reload; use Edit and Save to overwrite on purpose.'
+          : 'Could not save this task. The previous state was restored.');
         return { status: 'failed', error };
       } finally {
         if (!task.uiSettled) settleTaskUi(task, { rollback: isStale() });

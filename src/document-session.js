@@ -116,7 +116,7 @@ function enhanceCodeBlocks({ window, document, content, clipboard, onToast, onDi
   content.querySelectorAll('pre').forEach((pre) => {
     const code = pre.querySelector('code');
     if (!code || pre.querySelector('.copy-code-btn')) return;
-    if (pre.dataset.plainText === 'true' && (pre.dataset.format === 'nfo' || pre.dataset.format === 'log')) return;
+    if (pre.dataset.plainText === 'true') return;
 
     const button = document.createElement('button');
     button.className = 'copy-code-btn';
@@ -223,16 +223,12 @@ export function enhanceReadSurface({
   window,
   document,
   content,
-  sourceContent,
-  source,
-  isMarkdown,
   clipboard,
   onToast,
   onDiagnostic,
   isCurrent = () => true,
 }) {
   if (!content) return;
-  renderSource(document, sourceContent, source, isMarkdown);
   enhanceTables(document, content);
   return enhanceCodeBlocks({
     window,
@@ -267,6 +263,11 @@ export function createDocumentSession({ window, adapters, hooks = {}, elements =
   let imageViewerMime = null;
   let imageViewerPath = null;
   let disposeReadSurface = null;
+  let enrichmentObserver = null;
+  let sourceRendered = false;
+  let preferencesSnapshot = null;
+  let imageHydrator = null;
+  const previewImages = new Map();
   let state = Object.freeze({ state: 'idle', path: null, document: null });
 
   const disposeImageViewer = () => {
@@ -284,72 +285,115 @@ export function createDocumentSession({ window, adapters, hooks = {}, elements =
   };
   const isCurrent = (candidate) => !disposed && candidate === generation;
   const clearReadSurface = () => {
+    sourceRendered = false;
+    imageHydrator = null;
+    previewImages.clear();
+    enrichmentObserver?.disconnect();
+    enrichmentObserver = null;
     disposeReadSurface?.();
     disposeReadSurface = null;
   };
 
-  const hydrateImages = async (path, candidate) => {
-    const images = [...content.querySelectorAll('img')];
-    images.slice(MAX_LOCAL_IMAGES).forEach((image) => {
-      renderImageError(document, image, 'Image limit exceeded');
-    });
+  const ensureSourceView = () => {
+    if (disposed || state.state !== 'ready' || sourceRendered) return;
+    const format = resolveFormatId(state.path, state.document);
+    renderSource(document, sourceContent, state.document.source, isMarkdownFormat(format, { kind: state.document.kind }));
+    sourceRendered = true;
+  };
 
-    const pending = images.slice(0, MAX_LOCAL_IMAGES);
-    let nextIndex = 0;
+  const getPreferences = () => preferencesSnapshot || hooks.getPreferences?.() || adapters.preferences?.current?.();
+
+  const createImageHydrator = (path, candidate) => {
+    const pending = [];
+    let activeWorkers = 0;
 
     const worker = async () => {
-      while (nextIndex < pending.length) {
-        if (!isCurrent(candidate)) return;
-        const image = pending[nextIndex];
-        nextIndex += 1;
-
-        const policy = getImageSourcePolicy(image.getAttribute('src'));
-        if (policy.type !== 'relative') {
-          renderImageError(document, image, policy.reason);
-          continue;
-        }
-
-        const mimeType = getImageMimeType(policy.source);
-        if (!mimeType) {
-          renderImageError(document, image, 'This local image format is not supported');
-          continue;
-        }
-
-        image.removeAttribute('src');
-        image.setAttribute('aria-busy', 'true');
-        let objectUrl = null;
-
-        try {
-          const bytes = await adapters.documents.readImage(path, policy.source);
-          if (!isCurrent(candidate) || !image.isConnected) return;
-          objectUrl = resources.create(bytes, mimeType);
-          if (!isCurrent(candidate) || !image.isConnected) {
-            resources.revoke(objectUrl);
-            return;
-          }
-
-          image.src = objectUrl;
-          if (typeof image.decode === 'function') await image.decode();
-          if (!isCurrent(candidate) || !image.isConnected) {
-            resources.revoke(objectUrl);
-            return;
-          }
-          image.removeAttribute('aria-busy');
-        } catch (error) {
-          if (objectUrl) resources.revoke(objectUrl);
+      try {
+        while (pending.length > 0) {
           if (!isCurrent(candidate)) return;
-          const reason = error instanceof ImageResourceBudgetError
-            || error?.code === 'IMAGE_RESOURCE_BUDGET_EXCEEDED'
-            ? 'Image budget exceeded (64 MiB per document)'
-            : 'Image unavailable';
-          hooks.onDiagnostic?.('Could not load a relative image', error);
-          if (image.isConnected) renderImageError(document, image, reason);
+          const image = pending.shift();
+          const isCurrentImage = () => isCurrent(candidate) && image.isConnected
+            && (content.contains(image) || previewImages.has(image));
+          if (!isCurrentImage()) continue;
+
+          const policy = getImageSourcePolicy(image.dataset.documentSource);
+          if (policy.type !== 'relative') {
+            renderImageError(document, image, policy.reason);
+            continue;
+          }
+
+          const mimeType = getImageMimeType(policy.source);
+          if (!mimeType) {
+            renderImageError(document, image, 'This local image format is not supported');
+            continue;
+          }
+
+          image.removeAttribute('src');
+          image.setAttribute('aria-busy', 'true');
+          let objectUrl = null;
+
+          try {
+            const bytes = await adapters.documents.readImage(path, policy.source);
+            if (!isCurrentImage()) continue;
+            objectUrl = resources.create(bytes, mimeType);
+            if (!isCurrentImage()) {
+              resources.revoke(objectUrl);
+              continue;
+            }
+
+            image.src = objectUrl;
+            if (typeof image.decode === 'function') await image.decode();
+            if (!isCurrentImage()) {
+              resources.revoke(objectUrl);
+              continue;
+            }
+            image.removeAttribute('aria-busy');
+          } catch (error) {
+            if (objectUrl) resources.revoke(objectUrl);
+            if (!isCurrent(candidate)) return;
+            const reason = error instanceof ImageResourceBudgetError
+              || error?.code === 'IMAGE_RESOURCE_BUDGET_EXCEEDED'
+              ? 'Image budget exceeded (64 MiB per document)'
+              : 'Image unavailable';
+            hooks.onDiagnostic?.('Could not load a relative image', error);
+            if (isCurrentImage()) renderImageError(document, image, reason);
+          }
         }
+      } finally {
+        activeWorkers -= 1;
       }
     };
 
-    const workers = Math.min(IMAGE_LOAD_CONCURRENCY, pending.length);
-    await Promise.all(Array.from({ length: workers }, worker));
+    return (images) => {
+      pending.push(...images);
+      const workers = Math.min(IMAGE_LOAD_CONCURRENCY - activeWorkers, pending.length);
+      for (let index = 0; index < workers; index += 1) {
+        activeWorkers += 1;
+        void worker();
+      }
+    };
+  };
+
+  const hydrateImagePreviews = (root) => {
+    for (const [image, owned] of previewImages) {
+      if (root?.contains(image)) continue;
+      if (owned && image.getAttribute('src')) resources.revoke(image.getAttribute('src'));
+      previewImages.delete(image);
+    }
+    if (!root || disposed || state.state !== 'ready' || !imageHydrator) return;
+    const images = [...root.querySelectorAll('img[data-document-source]')];
+    images.slice(MAX_LOCAL_IMAGES).forEach((image) => renderImageError(document, image, 'Image limit exceeded'));
+    const pending = [];
+    for (const image of images.slice(0, MAX_LOCAL_IMAGES)) {
+      if (image.hasAttribute('src') || image.hasAttribute('aria-busy') || previewImages.has(image)) continue;
+      const shared = [...content.querySelectorAll('img[src]')].find((current) => (
+        current.dataset.documentSource === image.dataset.documentSource && resources.get?.(current.getAttribute('src'))
+      ));
+      previewImages.set(image, !shared);
+      if (shared) image.src = shared.getAttribute('src');
+      else pending.push(image);
+    }
+    imageHydrator(pending);
   };
 
   const clear = () => {
@@ -405,8 +449,8 @@ export function createDocumentSession({ window, adapters, hooks = {}, elements =
       imageUrl: objectUrl,
       alt: getDisplayName(path),
       padding: 24,
-      animateZoom: (hooks.getPreferences?.() || adapters.preferences?.current?.())?.advanced?.imageZoomAnimation !== false,
-      defaultZoom: (hooks.getPreferences?.() || adapters.preferences?.current?.())?.advanced?.imageDefaultZoom || 'fit',
+      animateZoom: getPreferences()?.advanced?.imageZoomAnimation !== false,
+      defaultZoom: getPreferences()?.advanced?.imageDefaultZoom || 'fit',
       onScaleChange: () => {
         if (!isCurrent(candidate)) return;
         hooks.onImageStateChange?.(imageViewer?.getState?.() || null);
@@ -466,12 +510,11 @@ export function createDocumentSession({ window, adapters, hooks = {}, elements =
       if (!isImageDocument && !isMarkdown) {
         const renderer = getReadRenderer(format, { kind: openedDocument.kind });
         if (renderer !== 'plain' && renderer !== 'markdown' && renderer !== 'image') {
-          const rowCap = (hooks.getPreferences?.() || adapters.preferences?.current?.())?.advanced?.csvRowCap;
           try {
             const { buildCompanionReadHtml } = await import('./format-readers.js');
             if (!isCurrent(candidate)) return { status: 'superseded', path };
             const built = buildCompanionReadHtml(openedDocument.source, format, {
-              rowCap,
+              rowCap: getPreferences()?.advanced?.csvRowCap,
               highlightLanguage: getHighlightLanguage(format),
             });
             readHtml = built.html;
@@ -483,6 +526,7 @@ export function createDocumentSession({ window, adapters, hooks = {}, elements =
       }
 
       content.innerHTML = readHtml;
+      if (sourceContent) sourceContent.textContent = '';
       if (!quiet) hooks.onDocumentCommitted?.({ path, document: openedDocument });
 
       if (isImageDocument) {
@@ -490,8 +534,8 @@ export function createDocumentSession({ window, adapters, hooks = {}, elements =
       }
 
       content.querySelectorAll('img').forEach((image) => {
-        image.setAttribute('loading', 'lazy');
         image.dataset.documentSource = image.getAttribute('src') || '';
+        image.removeAttribute('src');
       });
       if (!isCurrent(candidate)) return { status: 'superseded', path };
 
@@ -509,51 +553,79 @@ export function createDocumentSession({ window, adapters, hooks = {}, elements =
         });
         hooks.onSettled?.(state);
       }
+      if (hooks.isSourceActive?.()) ensureSourceView();
 
       disposeReadSurface = enhanceReadSurface({
         window,
         document,
         content,
-        sourceContent,
-        source: openedDocument.source,
-        isMarkdown,
         clipboard: adapters.clipboard || window.navigator?.clipboard,
         onToast: hooks.onToast,
         onDiagnostic: hooks.onDiagnostic,
         isCurrent: () => isCurrent(candidate),
       });
 
-      await hydrateImages(path, candidate);
-      if (!isCurrent(candidate)) return { status: 'superseded', path };
-
-      try {
-        const scope = { isCurrent: () => isCurrent(candidate) };
-        const language = getHighlightLanguage(format);
-        if (!isMarkdown && language && adapters.syntax?.highlightDocument) {
-          await adapters.syntax.highlightDocument(content, language, scope);
-        } else {
-          await adapters.syntax?.highlight?.(content, scope);
+      const images = [...content.querySelectorAll('img')];
+      images.slice(MAX_LOCAL_IMAGES).forEach((image) => {
+        renderImageError(document, image, 'Image limit exceeded');
+      });
+      const diagrams = [...content.querySelectorAll('.mermaid')];
+      diagrams.forEach((diagram) => { diagram.dataset.mermaidPending = 'true'; });
+      const hydrateImages = createImageHydrator(path, candidate);
+      imageHydrator = hydrateImages;
+      const targets = [...images.slice(0, MAX_LOCAL_IMAGES), ...diagrams];
+      if (targets.length > 0) {
+        enrichmentObserver = new window.IntersectionObserver((entries) => {
+          if (!isCurrent(candidate)) return;
+          const visibleImages = [];
+          let renderDiagrams = false;
+          for (const { target, isIntersecting } of entries) {
+            if (!isIntersecting || !target.isConnected) continue;
+            enrichmentObserver.unobserve(target);
+            if (target.tagName === 'IMG') visibleImages.push(target);
+            else {
+              delete target.dataset.mermaidPending;
+              renderDiagrams = true;
+            }
+          }
+          hydrateImages(visibleImages);
+          if (renderDiagrams) {
+            void (async () => {
+              try {
+                const tokens = hooks.getDiagramTokens?.();
+                await adapters.diagrams?.render?.(content, {
+                  isCurrent: () => isCurrent(candidate),
+                  theme: hooks.getDiagramTheme?.() || 'default',
+                  ...(tokens ? { tokens } : {}),
+                });
+              } catch (error) {
+                if (!isCurrent(candidate)) return;
+                hooks.onDiagnostic?.('Mermaid render error', error);
+                hooks.onWarning?.('One or more diagrams could not be rendered');
+              }
+            })();
+          }
+        }, { rootMargin: `${window.innerHeight}px 0px` });
+        for (const target of targets) {
+          enrichmentObserver.observe(target);
         }
-      } catch (error) {
-        if (!isCurrent(candidate)) return { status: 'superseded', path };
-        hooks.onDiagnostic?.('Syntax highlighting error', error);
-        hooks.onWarning?.('Code remains readable without syntax colors');
       }
-      if (!isCurrent(candidate)) return { status: 'superseded', path };
 
-      try {
-        const diagramTokens = hooks.getDiagramTokens?.();
-        await adapters.diagrams?.render?.(content, {
-          isCurrent: () => isCurrent(candidate),
-          theme: hooks.getDiagramTheme?.() || 'default',
-          ...(diagramTokens ? { tokens: diagramTokens } : {}),
-        });
-      } catch (error) {
-        if (!isCurrent(candidate)) return { status: 'superseded', path };
-        hooks.onDiagnostic?.('Mermaid render error', error);
-        hooks.onWarning?.('One or more diagrams could not be rendered');
-      }
-      if (!isCurrent(candidate)) return { status: 'superseded', path };
+      void (async () => {
+        try {
+          const scope = { isCurrent: () => isCurrent(candidate) };
+          const language = getHighlightLanguage(format);
+          if (!isMarkdown && language && adapters.syntax?.highlightDocument) {
+            await adapters.syntax.highlightDocument(content, language, scope);
+          } else {
+            await adapters.syntax?.highlight?.(content, scope);
+          }
+        } catch (error) {
+          if (!isCurrent(candidate)) return;
+          hooks.onDiagnostic?.('Syntax highlighting error', error);
+          hooks.onWarning?.('Code remains readable without syntax colors');
+        }
+      })();
 
       return { status: 'ready', path, document: openedDocument };
     } catch (error) {
@@ -615,22 +687,37 @@ export function createDocumentSession({ window, adapters, hooks = {}, elements =
     }
   };
 
+  const applyPreferences = (snapshot) => {
+    if (disposed) return;
+    const previous = getPreferences()?.advanced;
+    preferencesSnapshot = snapshot;
+    imageViewer?.setPreferences(snapshot.advanced);
+    if (state.state === 'ready' && resolveFormatId(state.path, state.document) === 'csv'
+      && previous?.csvRowCap !== snapshot.advanced?.csvRowCap) {
+      return open({ path: state.path, quiet: true });
+    }
+  };
+
   return Object.freeze({
     open,
     clear,
     prepareDiagrams,
     refreshDiagrams,
+    ensureSourceView,
+    applyPreferences,
+    hydrateImagePreviews,
     current: () => state,
     getImageViewer: () => imageViewer,
-    getImageMedia: () => (
-      imageViewerBytes
-        ? Object.freeze({
-            bytes: imageViewerBytes,
-            mimeType: imageViewerMime,
-            path: imageViewerPath,
-          })
-        : null
-    ),
+    getImageMedia: (image = null) => {
+      if (image) {
+        if (disposed || !content.contains(image) || getImageSourcePolicy(image.dataset.documentSource).type !== 'relative') return null;
+        const media = resources.get?.(image.getAttribute('src'));
+        return media ? Object.freeze({ ...media, path: image.dataset.documentSource }) : null;
+      }
+      return imageViewerBytes
+        ? Object.freeze({ bytes: imageViewerBytes, mimeType: imageViewerMime, path: imageViewerPath })
+        : null;
+    },
     dispose() {
       if (disposed) return;
       disposed = true;

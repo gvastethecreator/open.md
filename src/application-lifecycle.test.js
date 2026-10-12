@@ -77,7 +77,7 @@ describe('Application Lifecycle', () => {
     );
   });
 
-  it('guards dirty beforeunload and still tears down all owned listeners', async () => {
+  it('keeps dirty sessions alive after beforeunload and tears down on pagehide', async () => {
     const cleanup = vi.fn();
     const listener = vi.fn();
     const view = fixture({ isDirty: () => true });
@@ -90,9 +90,16 @@ describe('Application Lifecycle', () => {
     window.dispatchEvent(event);
     await Promise.resolve();
     expect(event.defaultPrevented).toBe(true);
+    expect(cleanup).not.toHaveBeenCalled();
+    window.dispatchEvent(new Event('test-lifecycle-dirty'));
+    expect(listener).toHaveBeenCalledOnce();
+    expect(view.controller.isDisposed()).toBe(false);
+
+    window.dispatchEvent(new Event('pagehide'));
+    expect(view.controller.isDisposed()).toBe(true);
+    await view.controller.dispose();
     expect(cleanup).toHaveBeenCalledOnce();
     window.dispatchEvent(new Event('test-lifecycle-dirty'));
-    expect(listener).not.toHaveBeenCalled();
-    expect(view.controller.isDisposed()).toBe(true);
+    expect(listener).toHaveBeenCalledOnce();
   });
 });

@@ -91,18 +91,24 @@ export function createApplicationRuntimeAdapters({
       : invokeNative('get_file_content', { path });
   };
 
-  const save = async (path, source) => {
+  const save = async (path, source, { expectedSource, overwrite = false, renderDocument = true } = {}) => {
+    if (typeof expectedSource !== 'string') throw new TypeError('Saving requires the loaded source');
     const preview = getPreviewDocument(window, path);
-    if (!preview) return invokeNative('save_file_content', { path, content: source });
+    if (!preview) return invokeNative('save_file_content', {
+      path, content: source, expectedContent: expectedSource, overwrite, renderDocument,
+    });
     if (window.__OPENMD_PREVIEW_SAVE_FAILURE__) throw new Error('Preview save failure');
 
     const previewDelay = Number(window.__OPENMD_PREVIEW_SAVE_DELAY_MS__) || 0;
     if (previewDelay > 0) {
       await new Promise((resolve) => window.setTimeout(resolve, Math.min(previewDelay, 3_000)));
     }
+    if (!overwrite && preview.source !== expectedSource) {
+      throw new Error('The file changed on disk. Your draft is kept. Close and reopen the file to reload, or Save again to confirm overwrite.');
+    }
     const next = previewPayload(source, preview);
     Object.assign(preview, next);
-    return { ...next };
+    return renderDocument ? { ...next } : { saved: true };
   };
 
   const readImage = (documentPath, relativeSource) => invokeNative('get_image_bytes', {

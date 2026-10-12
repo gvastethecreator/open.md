@@ -1,70 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import {
-  detectImageFormatFromMagic,
   FORMAT_BY_EXTENSION,
   IMAGE_EXTENSIONS,
-  looksLikeJson,
-  looksLikeNfoXml,
   MARKDOWN_EXTENSIONS,
-  NFO_XML_PREFIXES,
   PLAIN_TEXT_EXTENSIONS,
   resolveDocumentFormat,
 } from './format-detect.js';
 import formatParity from './format-parity.json';
-
-const PNG_SIG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
-const WEBP_SIG = new Uint8Array([
-  0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
-]);
-const AVIF_SIG = new Uint8Array([
-  0x00, 0x00, 0x00, 0x1c, 0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66,
-]);
 
 describe('format detect', () => {
   it('shares JS/native format tables with the parity fixture', () => {
     expect([...MARKDOWN_EXTENSIONS].sort()).toEqual([...formatParity.markdownExtensions].sort());
     expect([...PLAIN_TEXT_EXTENSIONS].sort()).toEqual([...formatParity.plainTextExtensions].sort());
     expect([...IMAGE_EXTENSIONS].sort()).toEqual([...formatParity.imageExtensions].sort());
-    expect(NFO_XML_PREFIXES).toEqual(formatParity.nfoXmlPrefixes);
-    for (const sample of formatParity.imageMagic) {
-      expect(detectImageFormatFromMagic(Uint8Array.from(sample.bytes))).toBe(sample.format);
-    }
-    for (const prefix of formatParity.nfoXmlPrefixes) {
-      expect(looksLikeNfoXml(prefix)).toBe(true);
-    }
     expect(FORMAT_BY_EXTENSION.md).toBe('markdown');
     expect(FORMAT_BY_EXTENSION.png).toBe('png');
   });
 
-  it('detects additional image headers and rejects unknown bytes', () => {
-    expect(detectImageFormatFromMagic(WEBP_SIG)).toBe('webp');
-    expect(detectImageFormatFromMagic(AVIF_SIG)).toBe('avif');
-    expect(detectImageFormatFromMagic(new Uint8Array([0x00, 0x01, 0x02]))).toBeNull();
-  });
-
   it('rejects unknown extensions without expanding support', () => {
-    const resolved = resolveDocumentFormat('payload.bin', PNG_SIG);
+    const resolved = resolveDocumentFormat('payload.bin');
     expect(resolved.supported).toBe(false);
     expect(resolved.format).toBeNull();
   });
 
-  it('reclassifies text companion path with PNG magic to image (F4)', () => {
-    const resolved = resolveDocumentFormat('notes.txt', PNG_SIG);
-    expect(resolved.supported).toBe(true);
-    expect(resolved.kind).toBe('image');
-    expect(resolved.format).toBe('png');
-    expect(resolved.reclassified).toBe(true);
-    expect(resolved.mime).toBe('image/png');
-  });
-
-  it('fail-closes image extension with non-image bytes (F3)', () => {
-    const resolved = resolveDocumentFormat('photo.png', new Uint8Array([0x00, 0x01, 0x02, 0x03]));
-    expect(resolved.supported).toBe(true);
-    expect(resolved.failClosed).toMatch(/damaged|not a supported image/i);
-    expect(resolved.kind).toBe('image');
-  });
-
-  it('keeps markdown and json extension mapping without header', () => {
+  it('keeps markdown and json extension mapping from extensions', () => {
     expect(resolveDocumentFormat('README.md').format).toBe('markdown');
     expect(resolveDocumentFormat('config.json').format).toBe('json');
     expect(resolveDocumentFormat('data.csv').format).toBe('csv');
@@ -73,21 +32,4 @@ describe('format detect', () => {
     expect(resolveDocumentFormat('app.log').format).toBe('log');
   });
 
-  it('classifies nfo XML as text and leaves scene art as nfo', () => {
-    const xml = new TextEncoder().encode('  <?xml version="1.0"?>\n<movie></movie>');
-    const movie = new TextEncoder().encode('<movie><title>A</title></movie>');
-    const art = new TextEncoder().encode('<not-xml banner');
-    expect(looksLikeNfoXml(xml)).toBe(true);
-    expect(looksLikeNfoXml(movie)).toBe(true);
-    expect(looksLikeNfoXml(art)).toBe(false);
-    expect(resolveDocumentFormat('film.nfo', xml).format).toBe('text');
-    expect(resolveDocumentFormat('banner.nfo', art).format).toBe('nfo');
-    expect(resolveDocumentFormat('banner.nfo').format).toBe('nfo');
-  });
-
-  it('detects JSON leading character after BOM/whitespace', () => {
-    expect(looksLikeJson(new TextEncoder().encode('  \n{"a":1}'))).toBe(true);
-    expect(looksLikeJson(new TextEncoder().encode('\uFEFF[1]'))).toBe(true);
-    expect(looksLikeJson(new TextEncoder().encode('not json'))).toBe(false);
-  });
 });

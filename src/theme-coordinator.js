@@ -119,6 +119,14 @@ export function createThemeCoordinator({
     }
     const label = 'Theme: ' + theme.name;
     if (elements.select) {
+      if (!catalogReady) {
+        elements.select.querySelector('option')?.remove();
+        const option = document.createElement('option');
+        option.value = String(currentIndex);
+        const { pill, label: name, tone } = createThemeOptionContent(document, theme);
+        option.append(pill, name, tone);
+        elements.select.appendChild(option);
+      }
       elements.select.value = String(currentIndex);
       elements.select.dataset.tooltip = label;
       elements.select.setAttribute('aria-label', label);
@@ -314,7 +322,9 @@ export function createThemeCoordinator({
     if (random && themes.length > 0) {
       initialIndex = Math.floor(Math.random() * themes.length);
     } else {
-      initialIndex = getPreferredThemeIndex(themes, savedThemeName);
+      const defaultName = window.matchMedia?.('(prefers-color-scheme: dark)').matches
+        ? 'Github Dark' : 'Github Light';
+      initialIndex = getPreferredThemeIndex(themes, savedThemeName || defaultName);
     }
     if (elements.select) {
       const fillCatalog = () => ensureCatalog();

@@ -1,3 +1,5 @@
+import { shouldReduceMotion } from './reader-motion.js';
+
 const DEFAULT_DELAY_MS = 2000;
 const SHIMMER_CLASS = 'is-shimmering';
 const SHIMMER_ANIMATION_NAME = 'empty-logo-shimmer';
@@ -19,7 +21,7 @@ export function createEmptyStateMotion({
   let timer = null;
 
   const play = () => {
-    if (disposed || busy) return false;
+    if (disposed || busy || !isEmpty() || shouldReduceMotion(window)) return false;
     busy = true;
     shell.classList.remove(SHIMMER_CLASS);
     // A style flush lets a later idle pass restart the same keyframes.
@@ -39,6 +41,7 @@ export function createEmptyStateMotion({
     if (started || disposed) return false;
     started = true;
     shell.addEventListener('animationend', handleAnimationEnd);
+    shell.addEventListener('mouseenter', play);
     openButton?.addEventListener('mouseenter', play);
     if (isEmpty()) timer = window.setTimeout(play, DEFAULT_DELAY_MS);
     return true;
@@ -50,6 +53,7 @@ export function createEmptyStateMotion({
     if (timer !== null) window.clearTimeout(timer);
     timer = null;
     shell.removeEventListener('animationend', handleAnimationEnd);
+    shell.removeEventListener('mouseenter', play);
     openButton?.removeEventListener('mouseenter', play);
     shell.classList.remove(SHIMMER_CLASS);
     busy = false;

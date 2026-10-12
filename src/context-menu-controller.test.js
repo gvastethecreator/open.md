@@ -94,7 +94,7 @@ describe('Context Menu Controller', () => {
     expect(view.document.activeElement).toBe(origin);
   });
 
-  it('clamps against viewport chrome and leaves unrelated native menus untouched', () => {
+  it('clamps against viewport chrome and suppresses native menus in unresolved areas', () => {
     const view = fixture();
     const event = contextmenu(view, view.document.querySelector('p'), 490, 390);
     expect(event.defaultPrevented).toBe(true);
@@ -102,7 +102,7 @@ describe('Context Menu Controller', () => {
     expect(view.controller.element().style.top).toBe('184px');
 
     const outsideEvent = contextmenu(view, view.document.querySelector('#outside'));
-    expect(outsideEvent.defaultPrevented).toBe(false);
+    expect(outsideEvent.defaultPrevented).toBe(true);
     expect(view.controller.element().hidden).toBe(true);
   });
 

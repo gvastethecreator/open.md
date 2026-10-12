@@ -32,7 +32,7 @@ describe('Editor State Coordinator', () => {
     expect(read).toMatchObject({ isEditing: false, modeChanged: false });
     expect(view.order).toEqual([
       'renderFeedback', 'refreshDocumentMode', 'observeSave',
-      'scheduleTypography', 'refreshStatus',
+      'refreshStatus',
     ]);
     expect(new Set(view.applications)).toEqual(new Set([read]));
 
@@ -53,7 +53,7 @@ describe('Editor State Coordinator', () => {
     view.coordinator.apply({ mode: 'edit', dirty: false });
     expect(view.order).toEqual([
       'renderFeedback', 'refreshDocumentMode', 'observeSave',
-      'markNavigationDirty', 'scheduleTypography', 'refreshStatus',
+      'refreshStatus',
     ]);
 
     view.order.length = 0;
@@ -91,8 +91,7 @@ describe('Editor State Coordinator', () => {
     expect(view.order).toEqual([
       'feedback:true', 'closeTransientContext', 'mode:true', 'save:true',
       'nav:true', 'type:true', 'tools:true',
-      'feedback:false', 'mode:false', 'save:false', 'nav:false',
-      'type:false', 'status:false',
+      'feedback:false', 'mode:false', 'save:false', 'status:false',
     ]);
   });
 
@@ -114,5 +113,18 @@ describe('Editor State Coordinator', () => {
     view.coordinator.dispose();
     expect(view.coordinator.apply({ mode: 'read' })).toBeUndefined();
     expect(view.order).toEqual([]);
+  });
+
+  it('invalidates navigation for source changes and keeps cursor/save snapshots cheap', () => {
+    const view = harness();
+    const stats = { lines: 2, words: 3, characters: 12 };
+    view.coordinator.apply({ mode: 'edit', stats });
+    view.order.length = 0;
+    view.coordinator.apply({ mode: 'edit', stats, cursor: { line: 2, column: 1 } });
+    view.coordinator.apply({ mode: 'edit', stats, saveState: 'saved' });
+    expect(view.order).not.toContain('markNavigationDirty');
+    expect(view.order).not.toContain('scheduleTypography');
+    view.coordinator.apply({ mode: 'edit', stats: { ...stats, words: 4 } });
+    expect(view.order.filter((stage) => stage === 'markNavigationDirty')).toHaveLength(1);
   });
 });

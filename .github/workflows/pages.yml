@@ -4,7 +4,10 @@ on:
   push:
     branches: [main]
     paths:
-      - "docs/**"
+      - "docs/index.html"
+      - "docs/privacy.html"
+      - "docs/.nojekyll"
+      - "docs/assets/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -31,10 +34,16 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
+      - name: Stage static site
+        run: |
+          mkdir -p _site
+          cp docs/index.html docs/privacy.html docs/.nojekyll _site/
+          cp -R docs/assets _site/assets
+
       - name: Upload static site
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: docs
+          path: _site
 
       - name: Deploy GitHub Pages
         id: deployment

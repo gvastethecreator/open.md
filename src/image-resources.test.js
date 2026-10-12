@@ -53,8 +53,10 @@ describe('image resource pool', () => {
     const { pool, revokedUrls } = createPool();
     const first = pool.create(new Uint8Array([1]), 'image/png');
     const second = pool.create(new Uint8Array([2, 3]), 'image/jpeg');
+    expect(pool.get(second)).toEqual({ bytes: new Uint8Array([2, 3]), mimeType: 'image/jpeg' });
 
     expect(pool.revoke(first)).toBe(true);
+    expect(pool.get(first)).toBeNull();
     expect(revokedUrls).toEqual([first]);
     expect(pool.bytesUsed).toBe(2);
 
@@ -62,6 +64,7 @@ describe('image resource pool', () => {
     expect(revokedUrls).toEqual([first, second]);
     expect(pool.bytesUsed).toBe(0);
     expect(pool.size).toBe(0);
+    expect(pool.get(second)).toBeNull();
 
     const third = pool.create(new Uint8Array([4]), 'image/png');
     expect(third).toBe('blob:test-3');

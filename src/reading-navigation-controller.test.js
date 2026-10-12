@@ -14,8 +14,8 @@ function fixture() {
       </article>
       <pre id="source" style="padding-left:24px;padding-top:0;line-height:20px">one\ntwo\nthree\nfour\nfive</pre>
       <section id="edit"><div id="canvas" style="padding-left:24px;--editor-control-lane:52;--editor-line-gap:12">
-        <div data-source-line-start="2" data-source-line-count="1" data-block-type="paragraph">
-          <p data-editor-content id="edit-copy">Edit copy</p>
+        <div data-classic-line="1" class="classic-line classic-line--paragraph">
+          <div data-classic-content data-line-kind="paragraph" id="edit-copy">Edit copy</div>
         </div>
       </div></section>
     </div></div>
@@ -100,6 +100,44 @@ function fixture() {
 }
 
 describe('Reading Navigation Controller', () => {
+  it('keeps the edit minimap until typing has been idle for 500 ms', () => {
+    const view = fixture();
+    view.setMode('edit');
+    const unchanged = view.document.createElement('div');
+    unchanged.dataset.classicLine = '';
+    unchanged.textContent = 'Unchanged row';
+    view.elements.editorCanvas.append(unchanged);
+    view.controller.refreshTools();
+    view.controller.refresh();
+    const originalRoot = view.elements.minimapDocument.firstElementChild;
+    const originalRow = originalRoot.lastElementChild;
+    const timers = [];
+    vi.spyOn(view.dom.window, 'setTimeout').mockImplementation((callback, delay) => {
+      timers.push({ callback, delay });
+      return timers.length;
+    });
+    view.document.querySelector('#edit-copy').textContent = 'Changed copy';
+    view.controller.markDirty();
+    view.controller.refresh();
+    expect(view.elements.minimapDocument.textContent).toContain('Edit copy');
+    expect(timers[0].delay).toBe(500);
+    timers[0].callback();
+    view.controller.refresh();
+    expect(view.elements.minimapDocument.textContent).toContain('Changed copy');
+    expect(view.elements.minimapDocument.firstElementChild).toBe(originalRoot);
+    expect(originalRoot.lastElementChild).toBe(originalRow);
+    const added = unchanged.cloneNode(true);
+    added.textContent = 'Inserted row';
+    view.elements.editorCanvas.insertBefore(added, unchanged);
+    view.controller.markDirty({ queue: false });
+    view.controller.refresh();
+    expect([...originalRoot.children].map((row) => row.textContent.trim()))
+      .toEqual(['Changed copy', 'Inserted row', 'Unchanged row']);
+    expect(originalRoot.lastElementChild).toBe(originalRow);
+    view.controller.dispose();
+    view.dom.window.close();
+  });
+
   it('renders line guides and minimap snapshots from the active Read, Source and Edit view', () => {
     const view = fixture();
     view.controller.refreshTools();
@@ -107,6 +145,16 @@ describe('Reading Navigation Controller', () => {
     expect(view.controller.activeView()).toBe(view.elements.readView);
     expect(view.elements.minimapDocument.textContent).toContain('Read copy');
     expect(view.elements.lineGutter.textContent).toContain('1');
+    const readSnapshot = view.elements.minimapDocument.firstElementChild;
+    view.controller.markDirty({ queue: false, geometryOnly: true });
+    view.controller.refresh();
+    expect(view.elements.minimapDocument.firstElementChild).toBe(readSnapshot);
+    expect(view.elements.minimapDocument.style.fontSize).toBe('calc(16px * var(--content-scale, 1))');
+    view.document.querySelector('#read-copy').textContent = 'Updated Read copy';
+    view.controller.markDirty({ queue: false, geometryOnly: true });
+    view.controller.refresh();
+    expect(view.elements.minimapDocument.firstElementChild).not.toBe(readSnapshot);
+    expect(view.elements.minimapDocument.textContent).toContain('Updated Read copy');
     const mermaid = view.document.createElement('div');
     mermaid.className = 'mermaid';
     const svg = view.document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -169,31 +217,7 @@ describe('Reading Navigation Controller', () => {
     expect(view.elements.lineGutter.querySelector('[data-line="3"]')?.style.top).toBe('96px');
   });
 
-  it('uses authoritative payload format for Markdown code-line offsets', () => {
-    const view = fixture();
-    view.elements.editorCanvas.innerHTML = `
-      <div data-source-line-start="2" data-source-line-count="4" data-block-type="code">
-        <pre data-editor-content>alpha\nbeta</pre>
-      </div>
-    `;
-    const content = view.elements.editorCanvas.querySelector('[data-editor-content]');
-    content.getBoundingClientRect = () => ({ top: 48, left: 60, width: 300, height: 48 });
-    view.setPath('notes.txt');
-    view.setDocument({
-      source: '```\nalpha\nbeta\n```',
-      lineCount: 4,
-      kind: 'markdown',
-      format: 'markdown',
-    });
-    view.setMode('edit');
-    view.controller.refreshTools();
-    view.controller.refresh();
 
-    const lines = [...view.elements.lineGutter.querySelectorAll('[data-line]')]
-      .map((node) => Number(node.dataset.line));
-    expect(lines).toEqual(expect.arrayContaining([3, 4]));
-    expect(lines).not.toContain(5);
-  });
 
   it('force-refreshes the minimap during mode morph so the VT new snapshot is current', () => {
     const view = fixture();

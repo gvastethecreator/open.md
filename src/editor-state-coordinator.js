@@ -21,6 +21,7 @@ export function createEditorStateCoordinator({ adapters = {}, hooks = {} } = {})
   }
 
   let editing = false;
+  let latestStats = null;
   let disposed = false;
   let draining = false;
   const queue = [];
@@ -45,6 +46,8 @@ export function createEditorStateCoordinator({ adapters = {}, hooks = {} } = {})
   const project = (snapshot) => {
     const nextEditing = snapshot.mode === 'edit';
     const modeChanged = nextEditing !== editing;
+    const contentChanged = snapshot.stats !== latestStats;
+    latestStats = snapshot.stats;
     editing = nextEditing;
     const application = Object.freeze({ snapshot, isEditing: editing, modeChanged });
 
@@ -52,8 +55,8 @@ export function createEditorStateCoordinator({ adapters = {}, hooks = {} } = {})
     if (modeChanged) run('closeTransientContext', application);
     run('refreshDocumentMode', application);
     run('observeSave', application);
-    if (editing) run('markNavigationDirty', application);
-    run('scheduleTypography', application);
+    if (editing && (modeChanged || contentChanged)) run('markNavigationDirty', application);
+    if (modeChanged) run('scheduleTypography', application);
     if (modeChanged) run('reapplyReadingTools', application);
     else run('refreshStatus', application);
   };

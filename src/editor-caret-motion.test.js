@@ -14,6 +14,7 @@ function fixture() {
   document.body.innerHTML = '<div class="editor-view"><div class="editor-canvas" tabindex="0"><div data-classic-line="0"><span data-classic-content>Text</span></div></div></div>';
   const canvas = document.querySelector('.editor-canvas');
   const row = canvas.firstElementChild;
+  row.classicLineIndex = 0;
   canvas.focus();
   canvas.getBoundingClientRect = () => ({ left: 50, right: 450, top: 0, bottom: 400 });
   canvas.parentElement.getBoundingClientRect = () => ({ left: 0, right: 500, top: 0, bottom: 400 });
@@ -50,7 +51,7 @@ function fixture() {
   trail.animate = vi.fn(() => ({ cancel: vi.fn() }));
   flush();
   const move = (line, left, top) => {
-    row.dataset.classicLine = String(line);
+    row.classicLineIndex = line;
     rect = { left, top, height: 20 };
     document.dispatchEvent(new Event('selectionchange'));
     flush();
@@ -72,9 +73,10 @@ describe('editor caret motion', () => {
     expect(frames[1].offset).toBe(frames[2].offset);
     expect(frames.at(-1).transform).toBe('translate3d(110px, 70px, 0)');
     expect(view.trail.animate).toHaveBeenCalled();
-    expect(view.canvas.classList.contains('is-caret-sliding')).toBe(true);
-    view.animations[0].onfinish();
+    expect(view.canvas.querySelector('[data-classic-content]').classList.contains('is-caret-sliding')).toBe(true);
     expect(view.canvas.classList.contains('is-caret-sliding')).toBe(false);
+    view.animations[0].onfinish();
+    expect(view.canvas.querySelector('[data-classic-content]').classList.contains('is-caret-sliding')).toBe(false);
   });
 
   it('reverses the exit and entry edges when moving up', () => {
@@ -108,9 +110,9 @@ describe('editor caret motion', () => {
     expect(first.cancel).toHaveBeenCalledOnce();
     expect(view.animations[1].frames[0].transform).toBe('translate3d(170px, 30px, 0)');
     first.onfinish();
-    expect(view.canvas.classList.contains('is-caret-sliding')).toBe(true);
+    expect(view.canvas.querySelector('[data-classic-content]').classList.contains('is-caret-sliding')).toBe(true);
     view.disable();
-    expect(view.canvas.classList.contains('is-caret-sliding')).toBe(false);
+    expect(view.canvas.querySelector('[data-classic-content]').classList.contains('is-caret-sliding')).toBe(false);
     view.move(3, 180, 150);
     expect(view.animations).toHaveLength(2);
   });
@@ -120,7 +122,7 @@ describe('editor caret motion', () => {
     view.move(1, 160, 70);
     view.reduce();
     expect(view.animations[0].cancel).toHaveBeenCalled();
-    expect(view.canvas.classList.contains('is-caret-sliding')).toBe(false);
+    expect(view.canvas.querySelector('[data-classic-content]').classList.contains('is-caret-sliding')).toBe(false);
     view.move(2, 180, 110);
     expect(view.animations).toHaveLength(1);
     motion.unmount();
@@ -132,19 +134,19 @@ describe('editor caret motion', () => {
     view.move(1, 160, 70);
     view.selection.isCollapsed = false;
     view.move(2, 180, 110);
-    expect(view.canvas.classList.contains('is-caret-sliding')).toBe(false);
+    expect(view.canvas.querySelector('[data-classic-content]').classList.contains('is-caret-sliding')).toBe(false);
     view.selection.isCollapsed = true;
     view.move(2, 180, 110);
     view.move(3, 180, 150);
     view.canvas.dispatchEvent(new Event('compositionstart'));
     view.flush();
-    expect(view.canvas.classList.contains('is-caret-sliding')).toBe(false);
+    expect(view.canvas.querySelector('[data-classic-content]').classList.contains('is-caret-sliding')).toBe(false);
     view.canvas.dispatchEvent(new Event('compositionend'));
     view.flush();
     view.move(2, 180, 110);
     document.dispatchEvent(new Event('scroll'));
     view.flush();
-    expect(view.canvas.classList.contains('is-caret-sliding')).toBe(false);
+    expect(view.canvas.querySelector('[data-classic-content]').classList.contains('is-caret-sliding')).toBe(false);
     expect(view.canvas.textContent).toBe('Text');
   });
 });

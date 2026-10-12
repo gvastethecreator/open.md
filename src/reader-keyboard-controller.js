@@ -13,9 +13,16 @@ export function createReaderKeyboardController({
 
   let disposed = false;
   let started = false;
+  const isMac = /Mac/.test(window.navigator?.platform || '');
 
   const handleKeydown = (event) => {
     if (disposed) return;
+    const command = event.ctrlKey || (isMac && event.metaKey);
+    if (command && !event.altKey && event.key.toLowerCase() === 'f') {
+      event.preventDefault();
+      hooks.openFind?.();
+      return;
+    }
 
     if (event.key === 'F1') {
       event.preventDefault();
@@ -47,7 +54,7 @@ export function createReaderKeyboardController({
       return;
     }
 
-    if (event.ctrlKey && event.key.toLowerCase() === 'o') {
+    if (command && event.key.toLowerCase() === 'o') {
       event.preventDefault();
       hooks.openFile?.();
       return;
@@ -55,34 +62,41 @@ export function createReaderKeyboardController({
 
     // Close the open document (not the window). Match key or code so layout
     // variants still deliver Ctrl+F4 to the page handler.
-    if (event.ctrlKey && !event.altKey && (event.key === 'F4' || event.code === 'F4')) {
+    if (!event.altKey && ((event.ctrlKey && (event.key === 'F4' || event.code === 'F4'))
+      || (isMac && event.metaKey && event.key.toLowerCase() === 'w'))) {
       event.preventDefault();
       event.stopPropagation?.();
       hooks.closeFile?.();
       return;
     }
 
-    if (event.ctrlKey && (event.key === '=' || event.key === '+')) {
+    if (command && (event.key === '=' || event.key === '+')) {
       event.preventDefault();
       hooks.zoomIn?.();
-    } else if (event.ctrlKey && event.key === '-') {
+    } else if (command && event.key === '-') {
       event.preventDefault();
       hooks.zoomOut?.();
-    } else if (event.ctrlKey && event.key === '0') {
+    } else if (command && event.key === '0') {
       event.preventDefault();
       hooks.resetZoom?.();
     }
 
     const typingField = isTypingTarget(event.target);
-    if (!typingField && (event.key === 't' || event.key === 'T') && !event.metaKey && !event.altKey) {
+    if (!typingField && (event.key === 't' || event.key === 'T') && (!event.metaKey || isMac) && !event.altKey) {
       event.preventDefault();
-      hooks.cycleTheme?.(event.ctrlKey || event.shiftKey ? -1 : 1);
+      hooks.cycleTheme?.(command || event.shiftKey ? -1 : 1);
     }
   };
 
   const start = () => {
     if (disposed || started) return;
     started = true;
+    if (isMac) {
+      window.document?.querySelectorAll('kbd').forEach((key) => {
+        if (key.textContent === 'Ctrl') key.textContent = 'Cmd';
+        if (key.textContent === 'F4') key.textContent = 'W';
+      });
+    }
     window.addEventListener('keydown', handleKeydown);
   };
 

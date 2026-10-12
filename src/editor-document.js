@@ -154,14 +154,6 @@ function isImageLine(raw) {
   return /^\s*!\[[^\]]*\]\([^)\s]+\)\s*$/.test(String(raw ?? ''));
 }
 
-function safePreviewSrc(href) {
-  const value = String(href ?? '').trim();
-  if (!value) return '';
-  if (/^(?:https?:)/i.test(value)) return value;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(value)) return '';
-  return value;
-}
-
 /**
  * Structural kind of one hard source line for Classic typography
  * (active source keeps raw Markdown but uses the same visual scale).
@@ -205,9 +197,7 @@ export function classicLineKinds(lines, { markdown = true } = {}) {
 function imagePreviewHtml(raw) {
   const match = String(raw ?? '').match(/^\s*!\[([^\]]*)\]\(([^)\s]+)\)\s*$/);
   if (!match) return '';
-  const src = safePreviewSrc(match[2]);
-  if (!src) return inlineMarkdownToHtml(raw);
-  return `<img class="classic-line-image" alt="${escapeHtml(match[1])}" src="${escapeHtml(src)}">`;
+  return `<img class="classic-line-image" alt="${escapeHtml(match[1])}" data-document-source="${escapeHtml(match[2])}">`;
 }
 
 function tablePreviewHtml(raw) {
@@ -296,9 +286,7 @@ export function inlineMarkdownToHtml(value) {
   let output = escapeHtml(value);
   output = output.replace(/`([^`\n]+)`/g, (_match, text) => hold(`<code>${text}</code>`));
   output = output.replace(/!\[([^\]\n]*)\]\(([^)\s]+)\)/g, (_match, alt, href) => {
-    const src = safePreviewSrc(href);
-    if (!src) return _match;
-    return hold(`<img class="classic-line-image" alt="${alt}" src="${escapeHtml(src)}">`);
+    return hold(`<img class="classic-line-image" alt="${alt}" data-document-source="${href}">`);
   });
   output = output.replace(/\[([^\]\n]+)\]\(([^)\s]+)\)/g, (_match, label, href) => {
     const safeHref = /^(?:https?:|mailto:|#|\.\.?\/)/i.test(href) ? href : '#';
@@ -314,43 +302,29 @@ export function inlineMarkdownToHtml(value) {
   return output;
 }
 
-function markdownFromNode(node) {
-  if (!node) return '';
-  if (node.nodeType === 3) return node.nodeValue || '';
-  if (node.nodeType !== 1) return '';
-
-  const tag = node.tagName.toLowerCase();
-  const content = [...node.childNodes].map(markdownFromNode).join('');
-  if (tag === 'br') return '\n';
-  if (tag === 'strong' || tag === 'b') return content ? `**${content}**` : '';
-  if (tag === 'em' || tag === 'i') return content ? `*${content}*` : '';
-  if (tag === 's' || tag === 'strike' || tag === 'del') return content ? `~~${content}~~` : '';
-  if (tag === 'code') return content ? `\`${content.replace(/`/g, '\\`')}\`` : '';
-  if (tag === 'a') {
-    const href = node.getAttribute('href') || '';
-    return content && href ? `[${content}](${href})` : content;
-  }
-  if (tag === 'div' || tag === 'p') return `${content}\n`;
-  return content;
-}
-
-export function editableHtmlToMarkdown(element) {
-  return [...(element?.childNodes || [])]
-    .map(markdownFromNode)
-    .join('')
-    .replace(/\u00a0/g, ' ')
-    .replace(/\u200b/g, '')
-    .replace(/\n+$/g, '');
-}
-
 export function getEditorDocumentStats(source) {
   const plainText = String(source ?? '').replace(/\r\n?/g, '\n');
   const lines = plainText.length === 0 ? 1 : plainText.split('\n').length;
-  const words = plainText.trim() ? plainText.trim().split(/\s+/u).length : 0;
+  const words = plainText.match(/\S+/gu)?.length || 0;
   return {
     lines,
     words,
-    characters: [...plainText].length,
+    characters: plainText.length - (plainText.match(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g)?.length || 0),
+  };
+}
+
+function changedDocumentStats(source, stats, { start, end, text }) {
+  // Include the words at both edges, plus CRLF/surrogate pairs crossing an edge.
+  let from = Math.max(0, start - 1);
+  let to = Math.min(source.length, end + 1);
+  while (from > 0 && !/\s/u.test(source[from - 1])) from -= 1;
+  while (to < source.length && !/\s/u.test(source[to])) to += 1;
+  const before = getEditorDocumentStats(source.slice(from, to));
+  const after = getEditorDocumentStats(source.slice(from, start) + text + source.slice(end, to));
+  return {
+    lines: stats.lines + after.lines - before.lines,
+    words: stats.words + after.words - before.words,
+    characters: stats.characters + after.characters - before.characters,
   };
 }
 
@@ -360,29 +334,35 @@ export function createEditorDocumentModel({
   historyLimit = 150,
 } = {}) {
   let markdown = initialMarkdown !== false;
-  let blocks = parseEditorDocument(initialSource, { markdown });
+  let currentSource = String(initialSource ?? '');
   let cursor = null;
   let revision = 0;
   let disposed = false;
   const limit = Math.max(2, Math.floor(Number(historyLimit) || 150));
-  let history = [serializeEditorDocument(blocks, { markdown })];
+  let history = [currentSource];
   let historyCursors = [null];
   let historyIndex = 0;
   let coalesceOpen = false;
   const subscribers = new Set();
+  const trimHistory = () => {
+    let characters = history.reduce((total, entry) => total + entry.length, 0);
+    while (history.length > 1 && (history.length > limit || characters > 16 * 1024 * 1024)) {
+      characters -= history.shift().length;
+      historyCursors.shift();
+    }
+    historyIndex = history.length - 1;
+  };
 
-  const serializeCurrent = () => serializeEditorDocument(blocks, { markdown });
-  const publicBlock = (block) => Object.freeze({ ...block });
   let projection = null;
+  let changedStats = null;
   let currentSnapshot = null;
-  const refreshSnapshot = ({ structure = false, currentSource } = {}) => {
+  const refreshSnapshot = ({ structure = false } = {}) => {
     if (structure || !projection) {
-      const serialized = currentSource ?? serializeCurrent();
       projection = Object.freeze({
-        source: serialized,
-        blocks: Object.freeze(blocks.map(publicBlock)),
-        stats: Object.freeze(getEditorDocumentStats(serialized)),
+        source: currentSource,
+        stats: Object.freeze(changedStats || getEditorDocumentStats(currentSource)),
       });
+      changedStats = null;
     }
     currentSnapshot = Object.freeze({
       revision,
@@ -394,7 +374,7 @@ export function createEditorDocumentModel({
     });
     return currentSnapshot;
   };
-  refreshSnapshot({ structure: true, currentSource: history[0] });
+  refreshSnapshot({ structure: true });
   const source = () => projection.source;
   const snapshot = () => currentSnapshot;
   const publish = (options) => {
@@ -408,23 +388,18 @@ export function createEditorDocumentModel({
     historyCursors = historyCursors.slice(0, historyIndex + 1);
     history.push(current);
     historyCursors.push(cursor || null);
-    if (history.length > limit) {
-      history.shift();
-      historyCursors.shift();
-    }
-    historyIndex = history.length - 1;
+    trimHistory();
     return true;
   };
   const commit = (mutate, options = {}) => {
     if (disposed) return null;
     const result = mutate();
     if (result === false || result === null) return result;
-    if (blocks.length === 0) blocks = [createEditorBlock()];
-    const currentSource = serializeCurrent();
     const cursor = options.cursor || null;
     if (options.coalesce && coalesceOpen && historyIndex === history.length - 1) {
       history[historyIndex] = currentSource;
       historyCursors[historyIndex] = cursor;
+      trimHistory();
     } else {
       if (options.coalesce && options.originCursor) {
         historyCursors[historyIndex] = options.originCursor;
@@ -433,30 +408,27 @@ export function createEditorDocumentModel({
       coalesceOpen = Boolean(options.coalesce);
     }
     revision += 1;
-    publish({ structure: true, currentSource });
+    publish({ structure: true });
     return result;
   };
-  const findIndex = (id) => blocks.findIndex((block) => block.id === id);
-  const restoreHistory = (nextIndex, action, activeId = null) => {
+  const restoreHistory = (nextIndex, action) => {
     if (disposed) return { changed: false, action };
     const index = Math.min(Math.max(nextIndex, 0), history.length - 1);
     if (index === historyIndex) return { changed: false, action };
-    const activeIndex = Math.max(0, findIndex(activeId));
     historyIndex = index;
     coalesceOpen = false;
-    blocks = parseEditorDocument(history[index], { markdown });
+    currentSource = history[index];
     cursor = historyCursors[index] || cursor;
     revision += 1;
     publish({ structure: true });
     return {
       changed: true,
       action,
-      focusId: blocks[Math.min(activeIndex, blocks.length - 1)].id,
       cursor: historyCursors[index] || null,
     };
   };
-  const undo = (activeId = null) => restoreHistory(historyIndex - 1, 'undo', activeId);
-  const redo = (activeId = null) => restoreHistory(historyIndex + 1, 'redo', activeId);
+  const undo = () => restoreHistory(historyIndex - 1, 'undo');
+  const redo = () => restoreHistory(historyIndex + 1, 'redo');
 
   const setCursor = (nextCursor) => {
     const next = nextCursor
@@ -472,21 +444,22 @@ export function createEditorDocumentModel({
   const load = (nextSource = '', { markdown: nextMarkdown = markdown } = {}) => {
     if (disposed) return snapshot();
     markdown = nextMarkdown !== false;
-    blocks = parseEditorDocument(nextSource, { markdown });
+    currentSource = String(nextSource ?? '');
     cursor = null;
-    history = [serializeCurrent()];
+    history = [currentSource];
     historyCursors = [null];
     historyIndex = 0;
     coalesceOpen = false;
     revision += 1;
-    return publish({ structure: true, currentSource: history[0] });
+    return publish({ structure: true });
   };
 
   /** Replace document from full source text and record history (Classic surface). */
   const applySource = (nextSource = '', options = {}) => commit(() => {
-    const normalized = String(nextSource ?? '').replace(/\r\n?/g, '\n');
-    if (projection.source === normalized) return false;
-    blocks = parseEditorDocument(normalized, { markdown });
+    const next = String(nextSource ?? '');
+    if (currentSource === next) return false;
+    if (options.change) changedStats = changedDocumentStats(currentSource, projection.stats, options.change);
+    currentSource = next;
     return true;
   }, {
     coalesce: Boolean(options.coalesce),

@@ -1,8 +1,6 @@
 const FIT_SELECTORS = [
   '.markdown-body h1',
   '.markdown-body h2',
-  '.editor-block--heading1 .editor-block-content',
-  '.editor-block--heading2 .editor-block-content',
   '.classic-line--heading1',
   '.classic-line--heading2',
 ].join(',');
@@ -80,7 +78,7 @@ function measureElement(window, element, { layout, prepare }) {
   if (!Number.isFinite(baseSize) || !Number.isFinite(lineHeight)) return null;
 
   const headingOne = element.matches(
-    'h1, .editor-block--heading1 .editor-block-content, .classic-line--heading1',
+    'h1, .classic-line--heading1',
   );
   const narrow = window.matchMedia?.('(max-width: 460px)').matches;
   const maxLines = headingOne && narrow ? 3 : 2;
@@ -137,8 +135,7 @@ export function createResponsiveTypography({ window, root = window.document, onD
 
   const collectDirtyHeadings = (records) => {
     const dirty = new Set();
-    const fit = fitHeadings();
-    const consider = (node) => {
+    const consider = (node, descendants = false) => {
       if (!node) return;
       if (node.nodeType === 3) {
         consider(node.parentElement);
@@ -147,19 +144,21 @@ export function createResponsiveTypography({ window, root = window.document, onD
       if (node.nodeType !== 1) return;
       let current = node;
       while (current) {
-        if (fit.has(current)) {
+        if (current.matches(FIT_SELECTORS) && !current.closest('.minimap-document')) {
           dirty.add(current);
           break;
         }
         current = current.parentElement;
       }
-      node.querySelectorAll?.(FIT_SELECTORS).forEach((element) => {
-        if (fit.has(element)) dirty.add(element);
-      });
+      if (descendants) {
+        node.querySelectorAll?.(FIT_SELECTORS).forEach((element) => {
+          if (!element.closest('.minimap-document')) dirty.add(element);
+        });
+      }
     };
     records.forEach((record) => {
       consider(record.target);
-      record.addedNodes.forEach(consider);
+      record.addedNodes.forEach((node) => consider(node, true));
     });
     return dirty;
   };
@@ -171,10 +170,9 @@ export function createResponsiveTypography({ window, root = window.document, onD
       return false;
     }
     try {
-      const fit = fitHeadings();
       const elements = (dirty instanceof Set
-        ? [...dirty].filter((element) => element.isConnected && fit.has(element))
-        : [...fit]);
+        ? [...dirty].filter((element) => element.isConnected && element.matches(FIT_SELECTORS))
+        : [...fitHeadings()]);
       elements.forEach(resetElement);
       const measurements = elements.map((element) => measureElement(window, element, pretext));
       elements.forEach((element, index) => {
@@ -230,8 +228,17 @@ export function createResponsiveTypography({ window, root = window.document, onD
     });
   }
 
+  const observedWidths = new WeakMap();
   const resizeObserver = typeof window.ResizeObserver === 'function'
-    ? new window.ResizeObserver(() => schedule())
+    ? new window.ResizeObserver((entries) => {
+      let changed = false;
+      entries.forEach(({ target, contentRect }) => {
+        const width = contentRect?.width ?? target.clientWidth;
+        if (observedWidths.get(target) !== width) changed = true;
+        observedWidths.set(target, width);
+      });
+      if (changed) schedule();
+    })
     : null;
   root.querySelectorAll('.markdown-body, .editor-canvas').forEach((element) => resizeObserver?.observe(element));
 

@@ -6,6 +6,7 @@ import { parseJsonPropertyModel } from './json-property-model.js';
 
 const MAX_EDITABLE_CHARACTERS = 2 * 1024 * 1024;
 const MAX_EDITABLE_LINES = 20_000;
+const JSON_UNSAFE_MESSAGE = 'JSON values need source editing to stay exact — editing as plain text';
 
 function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
@@ -108,11 +109,14 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       ? documentModel.redo()
       : documentModel.undo();
     if (!result.changed) return false;
+    if (isJsonProps()) jsonPropertyEditor?.load(documentSnapshot.source);
     if (isClassic() && classicSurface?.isMounted?.()) {
       const line = Math.max(0, (result.cursor?.line || 1) - 1);
       const caret = Math.max(0, (result.cursor?.column || 1) - 1);
       classicSurface.render({ source: source(), focusLine: line, caret });
     }
+    saveState = 'idle';
+    saveError = '';
     notify();
     hooks.onHistoryRestore?.(action);
     return true;
@@ -190,6 +194,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     jsonPropertyEditor = createJsonPropertyEditor({
       window,
       root: canvas,
+      onHistory: restoreHistory,
       onChange: ({ source: nextSource }) => {
         documentModel.applySource(nextSource);
         saveState = 'idle';
@@ -235,6 +240,8 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
           hooks.onUnavailable?.('Invalid JSON — editing as plain text');
         } else if (parsed.reason === 'too-large') {
           hooks.onUnavailable?.('Large JSON — editing as plain text');
+        } else if (parsed.reason === 'unsafe') {
+          hooks.onUnavailable?.(JSON_UNSAFE_MESSAGE);
         }
       }
     }
@@ -242,7 +249,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     documentModel.load(initialSource, {
       markdown: Boolean(activeDocument.markdown) && !useJsonProps && !isSourceSelected(),
     });
-    savedSource = activeDocument.source;
+    savedSource = draft?.savedSource ?? activeDocument.source;
     mode = 'edit';
     saveState = draft ? 'recovered' : 'idle';
     saveError = '';
@@ -270,6 +277,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     if (mode !== 'edit') return true;
     flushJsonProps();
     if (dirty() && !force) return false;
+    if (force && activeDocument?.path) drafts.delete(activeDocument.path);
     if (classicSurface?.isMounted?.()) classicSurface.unmount();
     disposeJsonPropertyEditor();
     mode = 'read';
@@ -316,7 +324,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       activeDocument = { ...activeDocument, presentation: 'default', markdown: false };
       const unavailableMessage = result.reason === 'invalid'
         ? 'Invalid JSON — editing as plain text'
-        : 'Large JSON — editing as plain text';
+        : result.reason === 'unsafe' ? JSON_UNSAFE_MESSAGE : 'Large JSON — editing as plain text';
       const fallbackPath = activeDocument.path;
       window.setTimeout(() => {
         if (
@@ -339,7 +347,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     return true;
   };
 
-  const save = async () => {
+  const save = async ({ overwrite = false } = {}) => {
     if (disposed || mode !== 'edit' || !activeDocument || saveState === 'saving') {
       return { status: 'unavailable' };
     }
@@ -360,7 +368,9 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     saveError = '';
     notify();
     try {
-      const result = await adapters.save(savingPath, nextSource);
+      const result = await adapters.save(savingPath, nextSource, {
+        expectedSource: savedSource, overwrite, renderDocument: false,
+      });
       if (disposed || activeDocument !== savingDocument) return { status: 'stale' };
       savedSource = nextSource;
       drafts.delete(savingPath);
@@ -372,10 +382,10 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       if (disposed || activeDocument !== savingDocument) return { status: 'stale' };
       saveState = 'error';
       saveError = errorMessage(error);
-      drafts.set(savingPath, { source: nextSource, savedSource });
+      drafts.set(savingPath, { source: source(), savedSource });
       notify();
       hooks.onDiagnostic?.('Could not save the document', error);
-      return { status: 'failed', error };
+      return { status: 'failed', error, conflict: saveError.includes('changed on disk') };
     }
   };
 
@@ -403,9 +413,6 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
     updateContextChrome();
     if (sameActiveEditor) {
       savedSource = normalizedSource;
-      if (isJsonProps()) {
-        jsonPropertyEditor?.load(normalizedSource);
-      }
       saveState = source() === normalizedSource ? 'saved' : 'idle';
       saveError = '';
       notify();
@@ -455,6 +462,7 @@ export function createEditorSession({ window, elements, adapters, hooks = {} }) 
       getBandHost: () => root,
     },
     hooks: {
+      onPreviewChange: (root) => adapters.hydrateImagePreviews?.(root),
       onChange: () => {
         saveState = 'idle';
         saveError = '';

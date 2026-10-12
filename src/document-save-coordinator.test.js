@@ -13,7 +13,7 @@ function payload(source) {
   return { html: `<p>${source}</p>`, source };
 }
 
-function fixture({ delay = 8, saveDocument, saveEditor } = {}) {
+function fixture({ delay = 8, saveDocument, saveEditor, confirmOverwrite } = {}) {
   const dom = new JSDOM(`<!doctype html><html><body>
     <input id="first" type="checkbox"><input id="second" type="checkbox">
   </body></html>`);
@@ -28,6 +28,7 @@ function fixture({ delay = 8, saveDocument, saveEditor } = {}) {
       isEditing: () => editing,
       saveEditor: saveEditor || vi.fn(async () => ({ status: 'saved' })),
       saveDocument: saveDocument || vi.fn(async (_path, source) => payload(source)),
+      confirmOverwrite,
     },
     hooks: { notify, onTaskCommitted, onDiagnostic },
   });
@@ -122,11 +123,45 @@ describe('Document Save Coordinator', () => {
     expect(secondResult.status).toBe('saved');
     expect(view.first.checked).toBe(false);
     expect(view.second.checked).toBe(true);
-    expect(saveDocument).toHaveBeenNthCalledWith(2, 'tasks.md', '- [ ] first\n- [x] second');
+    expect(saveDocument).toHaveBeenNthCalledWith(2, 'tasks.md', '- [ ] first\n- [x] second', {
+      expectedSource: '- [ ] first\n- [ ] second',
+    });
     expect(view.onTaskCommitted).toHaveBeenCalledOnce();
     expect(view.onTaskCommitted.mock.calls[0][0].document.source).toBe('- [ ] first\n- [x] second');
     expect(view.first.disabled).toBe(false);
     expect(view.second.disabled).toBe(false);
+  });
+
+  it('keeps conflicts visible and only overwrites after a second manual Save is confirmed', async () => {
+    const error = new Error('The file changed on disk. Close and reopen to reload, or Save again to confirm overwrite.');
+    const saveEditor = vi.fn()
+      .mockResolvedValueOnce({ status: 'failed', conflict: true, error })
+      .mockResolvedValueOnce({ status: 'failed', conflict: true, error })
+      .mockResolvedValueOnce({ status: 'saved' });
+    const confirmOverwrite = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    const view = fixture({ saveEditor, confirmOverwrite });
+    await view.coordinator.saveEditor({ automatic: true });
+    expect(view.notify).toHaveBeenLastCalledWith(error.message);
+    await view.coordinator.saveEditor({ automatic: true });
+    expect(confirmOverwrite).not.toHaveBeenCalled();
+    await expect(view.coordinator.saveEditor()).resolves.toMatchObject({ status: 'cancelled' });
+    expect(saveEditor).toHaveBeenCalledTimes(2);
+    await view.coordinator.saveEditor();
+    expect(saveEditor).toHaveBeenLastCalledWith({ overwrite: true });
+  });
+
+  it('rolls back a Read task conflict without replacing the loaded source', async () => {
+    const saveDocument = vi.fn().mockRejectedValue(new Error('The file changed on disk.'));
+    const view = fixture({ saveDocument });
+    view.setEditing(false);
+    view.coordinator.replaceDocument({ path: 'tasks.md', document: payload('- [ ] Task') });
+    view.first.checked = true;
+    await expect(view.coordinator.toggleReadTask({ checkbox: view.first, sourceLine: 1 }))
+      .resolves.toMatchObject({ status: 'failed' });
+    expect(saveDocument).toHaveBeenCalledWith('tasks.md', '- [x] Task', { expectedSource: '- [ ] Task' });
+    expect(view.first.checked).toBe(false);
+    expect(view.onTaskCommitted).not.toHaveBeenCalled();
+    expect(view.notify).toHaveBeenLastCalledWith(expect.stringContaining('changed on disk'));
   });
 
   it('invalidates in-flight and queued task commits when the document is replaced', async () => {

@@ -37,6 +37,10 @@ describe('format readers', () => {
     expect(result.warning).toMatch(/Invalid JSON/i);
     expect(result.html).toContain('data-plain-text="true"');
     expect(result.html).toContain('{not valid');
+    const large = renderJsonRead('{'.repeat(2 * 1024 * 1024) + 'UNSHOWN');
+    expect(large.truncated).toBe(true);
+    expect(large.warning).toContain('first 262144 characters');
+    expect(large.html).not.toContain('UNSHOWN');
   });
 
   it('renders CSV tables and caps large row counts (F7)', () => {
@@ -55,6 +59,15 @@ describe('format readers', () => {
     expect(result.html).toContain('struct-section');
     expect(result.html).toContain('struct-key');
     expect(result.html).toContain('foo');
+    const capped = renderStructuredTextRead('key=value\n'.repeat(501));
+    expect(capped.truncated).toBe(true);
+    expect(capped.warning).toMatch(/first 500/i);
+    expect(capped.html.match(/class="struct-kv"/g)).toHaveLength(500);
+    const yaml = renderStructuredTextRead('parent:\n  child: value\n    deeper: yes', { format: 'yaml' });
+    expect(yaml.html).toContain('padding-inline-start: 2ch');
+    expect(yaml.html).toContain('padding-inline-start: 4ch');
+    expect(renderStructuredTextRead('[[bin]]\nname="app"', { format: 'toml' }).html)
+      .toContain('<h3 class="struct-section">bin</h3>');
   });
 
   it('routes companions through buildCompanionReadHtml', () => {

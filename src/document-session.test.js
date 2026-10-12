@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDocumentSession } from './document-session.js';
 import { createApplicationRuntimeAdapters } from './application-runtime-adapters.js';
 import { highlightCodeBlocks, highlightDocument } from './syntax-highlighter.js';
+import { ImageResourcePool } from './image-resources.js';
 
 const indexHtml = readFileSync('index.html', 'utf8');
 
@@ -62,6 +63,12 @@ function createSession({ open, readImage, readImageFile, prepare, render, highli
 }
 
 beforeEach(() => {
+  window.IntersectionObserver = class {
+    constructor(callback) { this.callback = callback; }
+    observe(target) { queueMicrotask(() => this.callback([{ target, isIntersecting: true }])); }
+    unobserve() {}
+    disconnect() {}
+  };
   document.open();
   document.write(indexHtml);
   document.close();
@@ -94,7 +101,8 @@ describe('document session', () => {
     else session.dispose();
     const before = document.querySelector('#content').innerHTML;
     release();
-    await expect(opening).resolves.toMatchObject({ status: 'superseded' });
+    await expect(opening).resolves.toMatchObject({ status: 'ready' });
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
     expect(document.querySelector('#content').innerHTML).toBe(before);
     expect(highlight).not.toHaveBeenCalled();
     expect(fullHighlight).not.toHaveBeenCalled();
@@ -163,6 +171,7 @@ describe('document session', () => {
 
     await expect(session.open({ path: 'guide.md' })).resolves.toMatchObject({ status: 'ready' });
 
+    session.ensureSourceView();
     expect(document.querySelector('#source-content .source-markup-token')?.textContent).toBe('#');
     expect(document.querySelector('#content .table-scroll table')).not.toBeNull();
     expect(document.querySelector('#content .copy-code-btn')).not.toBeNull();
@@ -170,17 +179,17 @@ describe('document session', () => {
     expect(session.current()).toMatchObject({ state: 'ready', path: 'guide.md' });
   });
 
-  it('does not put a copy-code control on a full-document nfo pre', async () => {
+  it.each(['nfo', 'log', 'txt'])('does not put a copy-code control on a full-document %s pre', async (format) => {
     const session = createSession({
       open: vi.fn(async () => payload({
-        html: '<pre data-plain-text="true" data-format="nfo"><code>╔═╗</code></pre>',
+        html: `<pre data-plain-text="true" data-format="${format}"><code>╔═╗</code></pre>`,
         source: '╔═╗',
         format: 'nfo',
         kind: 'text',
       })),
     });
 
-    await expect(session.open({ path: 'info.nfo' })).resolves.toMatchObject({ status: 'ready' });
+    await expect(session.open({ path: `info.${format}` })).resolves.toMatchObject({ status: 'ready' });
     expect(document.querySelector('#content .copy-code-btn')).toBeNull();
     expect(document.querySelector('#content pre[data-plain-text="true"]')).not.toBeNull();
   });
@@ -196,6 +205,9 @@ describe('document session', () => {
 
     await session.open({ path: 'guide.md' });
     const editorControl = document.querySelector('#editor-canvas');
+    const editorView = document.querySelector('#editor-view');
+    editorView.hidden = false;
+    editorView.inert = false;
     editorControl.tabIndex = -1;
     editorControl.focus();
     onStateChange.mockClear();
@@ -206,6 +218,7 @@ describe('document session', () => {
     });
 
     await expect(session.open({ path: 'guide.md', quiet: true })).resolves.toMatchObject({ status: 'ready' });
+    session.ensureSourceView();
 
     expect(document.querySelector('#content h1')?.textContent).toBe('After');
     expect(document.querySelector('#content .copy-code-btn')).not.toBeNull();
@@ -216,7 +229,7 @@ describe('document session', () => {
     expect(session.current()).toMatchObject({ state: 'ready', path: 'guide.md', document: current });
   });
 
-  it('settles Read paint before hidden Source token DOM is built', async () => {
+  it('builds hidden Source token DOM only when Source is opened', async () => {
     const onSettled = vi.fn(() => {
       expect(document.querySelector('#source-content .source-markup-token')).toBeNull();
     });
@@ -232,7 +245,10 @@ describe('document session', () => {
 
     expect(onSettled).toHaveBeenCalledOnce();
     expect(document.querySelector('#content h1')?.textContent).toBe('Title');
+    expect(document.querySelector('#source-content .source-markup-token')).toBeNull();
+    session.ensureSourceView();
     expect(document.querySelector('#source-content .source-markup-token')?.textContent).toBe('#');
+    expect(document.querySelector('#source-content').textContent).toBe('# Title\n`code`');
   });
 
   it('settles Read paint before image bytes resolve', async () => {
@@ -248,12 +264,14 @@ describe('document session', () => {
     await Promise.resolve();
     expect(onSettled).toHaveBeenCalled();
     expect(document.querySelector('#content p')?.textContent).toBe('Hello');
-    resolveImage(new Uint8Array([1, 2, 3]));
     await opening;
+    await vi.waitFor(() => expect(readImage).toHaveBeenCalledOnce());
+    resolveImage(new Uint8Array([1, 2, 3]));
   });
 
   it('hydrates a relative image through native bytes and Blob resource adapters', async () => {
     const resources = createResources();
+    resources.get = vi.fn(() => ({ bytes: new Uint8Array([1, 2, 3]), mimeType: 'image/png' }));
     const readImage = vi.fn(async () => new Uint8Array([1, 2, 3]));
     const session = createSession({
       open: vi.fn(async () => payload({ html: '<img src="assets/photo.png" alt="Photo">' })),
@@ -264,9 +282,113 @@ describe('document session', () => {
     await session.open({ path: 'guide.md' });
 
     expect(readImage).toHaveBeenCalledWith('guide.md', 'assets/photo.png');
-    expect(resources.create).toHaveBeenCalledWith(expect.any(Uint8Array), 'image/png');
+    await vi.waitFor(() => expect(resources.create).toHaveBeenCalledWith(expect.any(Uint8Array), 'image/png'));
     expect(document.querySelector('#content img')?.getAttribute('src')).toBe('blob:test-image');
     expect(document.querySelector('#content img')?.hasAttribute('aria-busy')).toBe(false);
+    const image = document.querySelector('#content img');
+    expect(session.getImageMedia(image)).toEqual({ bytes: new Uint8Array([1, 2, 3]), mimeType: 'image/png', path: 'assets/photo.png' });
+    session.clear();
+    expect(session.getImageMedia(image)).toBeNull();
+  });
+
+  it('opens and enriches text even when image decoding never settles', async () => {
+    const decode = vi.fn(() => new Promise(() => {}));
+    const highlight = vi.fn(async () => false);
+    const render = vi.fn(async () => false);
+    const session = createSession({
+      open: async () => payload({ html: '<p>Readable</p><img src="photo.png"><pre><code>code</code></pre><div class="mermaid">graph TD</div>' }),
+      highlight,
+      render,
+      hooks: {
+        onDocumentCommitted: () => { document.querySelector('#content img').decode = decode; },
+      },
+    });
+
+    await expect(session.open({ path: 'images.md' })).resolves.toMatchObject({ status: 'ready' });
+    expect(document.querySelector('#content p').textContent).toBe('Readable');
+    expect(decode).toHaveBeenCalledOnce();
+    expect(highlight).toHaveBeenCalledOnce();
+    expect(render).toHaveBeenCalledOnce();
+    session.dispose();
+  });
+
+  it('shares viewport observation for queued images and diagrams and disconnects stale work', async () => {
+    let intersect;
+    const disconnect = vi.fn();
+    const observe = vi.fn();
+    window.IntersectionObserver = class {
+      constructor(callback, options) {
+        intersect = callback;
+        expect(options.rootMargin).toBe(`${window.innerHeight}px 0px`);
+      }
+      observe = observe;
+      unobserve = vi.fn();
+      disconnect = disconnect;
+    };
+    const readImage = vi.fn(async () => new Uint8Array([1]));
+    const render = vi.fn(async () => true);
+    const session = createSession({
+      open: async () => payload({ html: '<img src="photo.png"><div class="mermaid">graph TD</div>' }),
+      readImage,
+      render,
+    });
+    await session.open({ path: 'queued.md' });
+    const image = document.querySelector('#content img');
+    const diagram = document.querySelector('#content .mermaid');
+    expect(observe).toHaveBeenCalledTimes(2);
+    expect(image.hasAttribute('src')).toBe(false);
+    expect(readImage).not.toHaveBeenCalled();
+    expect(render).not.toHaveBeenCalled();
+    expect(diagram.dataset.mermaidPending).toBe('true');
+
+    intersect([{ target: image, isIntersecting: true }, { target: diagram, isIntersecting: true }]);
+    await vi.waitFor(() => expect(image.getAttribute('src')).toBe('blob:test-image'));
+    expect(readImage).toHaveBeenCalledOnce();
+    expect(render).toHaveBeenCalledOnce();
+    expect(diagram.dataset.mermaidPending).toBeUndefined();
+    session.clear();
+    expect(disconnect).toHaveBeenCalledOnce();
+    intersect([{ target: image, isIntersecting: true }, { target: diagram, isIntersecting: true }]);
+    expect(readImage).toHaveBeenCalledOnce();
+    expect(render).toHaveBeenCalledOnce();
+  });
+
+  it('hydrates editor previews through the shared pool and releases only editor-owned URLs', async () => {
+    let nextUrl = 0;
+    const resources = new ImageResourcePool({ createObjectURL: () => `blob:preview-${++nextUrl}`, revokeObjectURL: vi.fn() });
+    const readImage = vi.fn(async () => new Uint8Array([1]));
+    const session = createSession({
+      open: async () => payload({ html: '<img src="photo.png">' }),
+      readImage,
+      resources,
+    });
+    await session.open({ path: 'guide.md' });
+    await vi.waitFor(() => expect(document.querySelector('#content img').getAttribute('src')).toBe('blob:preview-1'));
+    const root = document.createElement('div');
+    root.innerHTML = '<img data-document-source="photo.png"><img data-document-source="other.jpg"><img data-document-source="https://example.com/blocked.png">';
+    document.body.append(root);
+    session.hydrateImagePreviews(root);
+    expect(root.querySelector('img').getAttribute('src')).toBe('blob:preview-1');
+    await vi.waitFor(() => expect(root.querySelectorAll('img[src]')).toHaveLength(2));
+    expect(readImage).toHaveBeenCalledTimes(2);
+    expect(root.querySelector('.image-error')).not.toBeNull();
+    expect(resources.size).toBe(2);
+    session.hydrateImagePreviews(root);
+    expect(readImage).toHaveBeenCalledTimes(2);
+    session.hydrateImagePreviews(null);
+    expect(resources.size).toBe(1);
+    expect(resources.get('blob:preview-1')).not.toBeNull();
+    let resolveLate;
+    readImage.mockImplementationOnce(() => new Promise((resolve) => { resolveLate = resolve; }));
+    root.innerHTML = '<img data-document-source="late.jpg">';
+    session.hydrateImagePreviews(root);
+    session.hydrateImagePreviews(null);
+    resolveLate(new Uint8Array([1]));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(resources.size).toBe(1);
+    expect(root.querySelector('img').hasAttribute('src')).toBe(false);
+    session.clear();
+    expect(resources.size).toBe(0);
   });
 
   it('opens a standalone image companion with the pan/zoom viewer shell', async () => {
@@ -296,6 +418,35 @@ describe('document session', () => {
     expect(document.querySelector('#content .image-document')).not.toBeNull();
     expect(document.querySelector('#content .image-document__img')?.getAttribute('src')).toBe('blob:test-image');
     expect(session.current()).toMatchObject({ state: 'ready', path: 'C:\\pics\\photo.png' });
+  });
+
+  it('applies changed CSV and image preferences without reopening for unrelated settings', async () => {
+    const open = vi.fn(async (path) => path.endsWith('.png')
+      ? { ...payload({ html: '<div data-image-document="true"></div>', source: '' }), kind: 'image' }
+      : payload({ source: 'heading\nfirst\nsecond' }));
+    const session = createSession({ open });
+    let advanced = { csvRowCap: 2, imageDefaultZoom: 'fit', imageZoomAnimation: true };
+    session.applyPreferences({ advanced });
+    await session.open({ path: 'rows.csv' });
+    expect(document.querySelectorAll('#content tbody tr')).toHaveLength(1);
+    advanced = { ...advanced, csvRowCap: 3 };
+    await session.applyPreferences({ advanced });
+    expect(document.querySelectorAll('#content tbody tr')).toHaveLength(2);
+    await session.applyPreferences({ advanced: { ...advanced, edgeFade: false } });
+    expect(open).toHaveBeenCalledTimes(2);
+
+    await session.open({ path: 'photo.png' });
+    const image = document.querySelector('#content img');
+    Object.defineProperty(image, 'naturalWidth', { value: 800 });
+    Object.defineProperty(image, 'naturalHeight', { value: 600 });
+    image.dispatchEvent(new Event('load'));
+    expect(session.getImageViewer().getScale()).toBeLessThan(1);
+    session.applyPreferences({ advanced: { ...advanced, imageDefaultZoom: '100%', imageZoomAnimation: false } });
+    expect(session.getImageViewer().getScale()).toBe(1);
+    session.getImageViewer().fit();
+    expect(image.style.transition).toBe('none');
+    expect(open).toHaveBeenCalledTimes(3);
+    session.dispose();
   });
 
   it('keeps the document ready and reports one warning when Mermaid fails', async () => {

@@ -597,7 +597,7 @@
                     <h1 id="help-title" tabindex="-1">About + Help</h1>
                   </div>
                 </div>
-                <p class="help-copy">A local Markdown and text reader with focused editing tools.</p>
+                <p class="help-copy">A local document reader with focused text editing and image viewing.</p>
               </div>
               <button id="close-help-button" class="icon-button help-close-button" type="button" aria-label="Close About and Help" title="Close About and Help (Esc)">
                 <i class="iconoir-xmark" aria-hidden="true"></i>
@@ -611,7 +611,7 @@
                   <p class="help-about-intro">Read and edit files without moving them into a private document format.</p>
                   <dl class="help-project-facts">
                     <div><dt>Storage</dt><dd>On this device</dd></div>
-                    <div><dt>Files</dt><dd>Markdown or text</dd></div>
+                    <div><dt>Files</dt><dd>Markdown, text, JSON, CSV, config, NFO, logs and images</dd></div>
                     <div><dt>License</dt><dd>MIT</dd></div>
                   </dl>
                   <a class="help-project-link" href="https://github.com/gvastethecreator/open.md" aria-label="View the open.md project on GitHub">
@@ -624,9 +624,9 @@
               <section class="help-panel" aria-labelledby="quick-start-title">
                 <h2 id="quick-start-title">Quick start</h2>
                 <ol class="help-steps">
-                  <li><span>01</span><div><strong>Open a file</strong><small>Press <kbd>Ctrl</kbd> + <kbd>O</kbd> or drop Markdown and text into the window.</small></div></li>
+                  <li><span>01</span><div><strong>Open a file</strong><small>Press <kbd>Ctrl</kbd> + <kbd>O</kbd> for Markdown or text, or drop a supported document or image into the window.</small></div></li>
                   <li><span>02</span><div><strong>Choose a mode</strong><small>Use the separate Rendered/Source and Read only/Edit controls. Scene NFO and log files keep Edit unavailable.</small></div></li>
-                  <li><span>03</span><div><strong>Adjust the view</strong><small>Use the gear for lines, minimap and wrap; use the palette for theme and type.</small></div></li>
+                  <li><span>03</span><div><strong>Adjust the view</strong><small>Use the gear for theme, fonts, line numbers, minimap and word wrap.</small></div></li>
                   <li><span>04</span><div><strong>Keep changes</strong><small>Auto-save is on. Press <kbd>Ctrl</kbd> + <kbd>S</kbd> to save at once.</small></div></li>
                 </ol>
               </section>
@@ -635,6 +635,7 @@
                 <h2 id="shortcuts-help-title">Shortcuts</h2>
                 <dl class="help-shortcuts help-shortcuts--compact">
                   <div><dt><kbd>Ctrl</kbd> + <kbd>O</kbd></dt><dd>Open a file</dd></div>
+                  <div><dt><kbd>Ctrl</kbd> + <kbd>F</kbd></dt><dd>Find in Read or Edit. Enter / Shift+Enter move; Esc closes.</dd></div>
                   <div><dt><kbd>Ctrl</kbd> + <kbd>F4</kbd></dt><dd>Close the current file</dd></div>
                   <div><dt><kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd></dt><dd>Toggle Read and Edit</dd></div>
                   <div><dt><kbd>Ctrl</kbd> + <kbd>S</kbd></dt><dd>Save now</dd></div>
@@ -724,10 +725,17 @@
       </div>
     </nav>
 
+    <div id="document-find" class="document-find" role="search" aria-label="Find in document" hidden>
+      <input type="search" aria-label="Find text" placeholder="Find in document" autocomplete="off" spellcheck="false" />
+      <span role="status" aria-live="polite">Type to find</span>
+      <button type="button" data-find-action="previous" aria-label="Previous match">↑</button>
+      <button type="button" data-find-action="next" aria-label="Next match">↓</button>
+      <button type="button" data-find-action="close" aria-label="Close find">×</button>
+    </div>
     <div id="drop-indicator" class="drop-indicator" aria-hidden="true">
       <div class="drop-indicator__box">
         <i class="iconoir-page-down" aria-hidden="true"></i>
-        <span>Drop a Markdown or text file</span>
+        <span>Drop Markdown, text, JSON, CSV, config, NFO, logs or images</span>
       </div>
     </div>
 

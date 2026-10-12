@@ -22,12 +22,30 @@ function mountSurface(initial = '# Title\n\nHello **world**\n\n- item', options 
       setCursor,
       highlightSource: () => Boolean(options.highlightSource),
     },
+    hooks: { onPreviewChange: options.onPreviewChange },
   });
   surface.mount();
   return { surface, canvas, applySource, setCursor, getSource: () => source };
 }
 
 describe('Editor Classic Surface', () => {
+  it('keeps untouched mixed line endings and uses the document ending for inserted lines', () => {
+    const raw = '# Notes\u00a0\u200b\r\n\n* star\r\n\t- nested\n1) one\r\n***\r\n';
+    const { surface, canvas, applySource, getSource } = mountSurface(raw);
+    expect(surface.commitFromDom()).toBe(raw);
+    expect(applySource).not.toHaveBeenCalled();
+    surface.activateLine(2, { caret: 0 });
+    const content = canvas.querySelector('[data-editor-mode="source"]');
+    content.textContent = '* edited star';
+    content.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText' }));
+    expect(getSource()).toBe(raw.replace('* star', '* edited star'));
+
+    surface.activateLine(2, { caret: 3 });
+    surface.handleKeydown(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    expect(getSource()).toBe(raw.replace('* star', '* e\r\ndited star'));
+    surface.dispose();
+  });
+
   it('shows only the active source line as Markdown; other lines are preview', () => {
     const { canvas } = mountSurface();
     expect(canvas.contentEditable).toBe('true');
@@ -54,19 +72,36 @@ describe('Editor Classic Surface', () => {
       '```js',
       'const ready = true;',
       '```',
+      'After fence',
     ].join('\n');
-    const { canvas } = mountSurface(source);
+    const onPreviewChange = vi.fn();
+    const { surface, canvas } = mountSurface(source, { onPreviewChange });
     const rows = [...canvas.querySelectorAll('[data-classic-line]')];
     expect(rows[2].classList.contains('classic-line--bullet')).toBe(true);
     expect(rows[2].style.getPropertyValue('--block-indent')).toBe('1');
     expect(rows[3].classList.contains('classic-line--image')).toBe(true);
-    expect(rows[3].querySelector('img.classic-line-image')?.getAttribute('src'))
+    expect(rows[3].querySelector('img.classic-line-image')?.getAttribute('data-document-source'))
       .toBe('assets/quiet-desk.webp');
+    expect(rows[3].querySelector('img.classic-line-image')?.getAttribute('src')).toBeNull();
+    expect(onPreviewChange).toHaveBeenLastCalledWith(canvas);
     expect(rows[4].classList.contains('classic-line--fence')).toBe(true);
     expect(rows[5].classList.contains('classic-line--code')).toBe(true);
     expect(rows[5].querySelector('[data-editor-mode="preview"]')?.textContent)
       .toContain('const ready = true;');
     expect(rows[6].classList.contains('classic-line--fence')).toBe(true);
+    surface.activateLine(4);
+    const fence = canvas.children[4].querySelector('[data-classic-content]');
+    fence.textContent = '~~~js';
+    surface.handleInput();
+    expect(canvas.children[6].dataset.lineKind).toBe('code');
+    expect(canvas.children[7].dataset.lineKind).toBe('code');
+    const changedFence = canvas.children[4].querySelector('[data-classic-content]');
+    changedFence.textContent = '```js';
+    surface.handleInput();
+    expect(canvas.children[6].dataset.lineKind).toBe('fence');
+    expect(canvas.children[7].dataset.lineKind).toBe('paragraph');
+    surface.dispose();
+    expect(onPreviewChange).toHaveBeenLastCalledWith(null);
   });
 
   it('activates a preview line as the sole source line on click', () => {
@@ -127,7 +162,11 @@ describe('Editor Classic Surface', () => {
   });
 
   it('splits lines on Enter and keeps continuous host', () => {
-    const { surface, canvas, applySource, getSource } = mountSurface('Hello');
+    const { surface, canvas, applySource, getSource } = mountSurface('Before\nHello\nAfter');
+    surface.activateLine(1);
+    const untouched = [canvas.children[0], canvas.children[2]];
+    const observer = new MutationObserver(() => {});
+    observer.observe(canvas, { childList: true, attributes: true, subtree: true });
     const content = canvas.querySelector('[data-editor-mode="source"]');
     // Place caret in middle
     const text = content.firstChild;
@@ -142,9 +181,14 @@ describe('Editor Classic Surface', () => {
     surface.handleKeydown(event);
     expect(event.defaultPrevented).toBe(true);
     expect(applySource).toHaveBeenCalled();
-    expect(getSource()).toBe('He\nllo');
+    expect(getSource()).toBe('Before\nHe\nllo\nAfter');
     expect(canvas.contentEditable).toBe('true');
-    expect(canvas.querySelectorAll('.classic-line')).toHaveLength(2);
+    expect(canvas.querySelectorAll('.classic-line')).toHaveLength(4);
+    expect(canvas.children[0]).toBe(untouched[0]);
+    expect(canvas.children[3]).toBe(untouched[1]);
+    expect(untouched[1].classicLineIndex).toBe(3);
+    expect(observer.takeRecords().some((record) => record.target === untouched[1])).toBe(false);
+    observer.disconnect();
     expect(canvas.querySelectorAll('[data-editor-mode="source"]')).toHaveLength(1);
   });
 
@@ -260,7 +304,7 @@ describe('Editor Classic Surface', () => {
     expect(surface.preferredColumn()).toBe(5);
 
     // Pointer placement on the active short line ends sticky sequence.
-    const shortRow = canvas.querySelector('[data-classic-line="1"]');
+    const shortRow = canvas.children[1];
     surface.handleClick({
       target: shortRow.querySelector('[data-classic-content]'),
       preventDefault: () => {},
@@ -394,7 +438,7 @@ describe('Editor Classic Surface', () => {
     ];
     const stubRows = () => {
       canvas.querySelectorAll('[data-classic-line]').forEach((row) => {
-        const i = Number(row.dataset.classicLine);
+        const i = row.classicLineIndex;
         const m = rowMetrics[i] || { top: 0, height: 18 };
         row.getBoundingClientRect = () => ({
           top: m.top,
@@ -569,7 +613,7 @@ describe('Editor Classic Surface', () => {
 
   it('places the caret at the click offset on a preview line, not the line end', () => {
     const { surface, canvas } = mountSurface('Short\nHello world\nTail');
-    const previewRow = canvas.querySelector('[data-classic-line="1"]');
+    const previewRow = canvas.children[1];
     const preview = previewRow.querySelector('[data-classic-content]');
     const text = preview.firstChild;
     expect(text).toBeTruthy();
@@ -629,9 +673,15 @@ describe('Editor Classic Surface', () => {
   it('keeps ArrowDown on the same hard line when the line is visually wrapped', () => {
     const { surface, canvas } = mountSurface(`${'abcdefghij'.repeat(3)}\nnext`);
     const content = canvas.querySelector('[data-editor-mode="source"]');
+    content.innerHTML = '<span>abcdefghij</span><span>abcdefghij</span><span>abcdefghij</span>';
     const original = Range.prototype.getClientRects;
+    let measurements = 0;
     Range.prototype.getClientRects = function getClientRects() {
-      const offset = this.startOffset;
+      measurements += 1;
+      const before = document.createRange();
+      before.selectNodeContents(content);
+      before.setEnd(this.startContainer, this.startOffset);
+      const offset = before.toString().length;
       const top = offset < 10 ? 0 : offset < 20 ? 16 : 32;
       const rect = {
         top, left: offset % 10, bottom: top + 16, right: (offset % 10) + 8, height: 16, width: 8,
@@ -644,13 +694,15 @@ describe('Editor Classic Surface', () => {
       };
     };
     try {
-      placeCaretIn(content, 4);
+      placeCaretIn(content.children[0], 4);
+      surface.handleKeydown(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+      expect(measurements).toBe(0);
       const down = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
       expect(surface.handleKeydown(down)).toBe(true);
       expect(surface.activeLine()).toBe(0);
       expect(caretOffsetInSource(canvas.querySelector('[data-editor-mode="source"]'))).toBe(14);
 
-      placeCaretIn(canvas.querySelector('[data-editor-mode="source"]'), 14);
+      placeCaretIn(content.children[1], 4);
       const downFromWrap = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true });
       expect(surface.handleKeydown(downFromWrap)).toBe(true);
       expect(surface.activeLine()).toBe(0);

@@ -1,4 +1,4 @@
-import { getDisplayName } from './document-path.js';
+import { getDisplayName, getImageSourcePolicy } from './document-path.js';
 import {
   getEditorKind,
   getFormatLabel,
@@ -156,8 +156,8 @@ export function createDocumentContentActions({
     }
   };
 
-  const copyStandaloneImage = async () => {
-    const media = adapters.getImageMedia?.();
+  const copyImage = async (image) => {
+    const media = adapters.getImageMedia?.(image);
     if (!media?.bytes) {
       hooks.onToast?.('Could not copy the image');
       return false;
@@ -173,9 +173,9 @@ export function createDocumentContentActions({
     }
   };
 
-  const downloadStandaloneImage = async () => {
-    const media = adapters.getImageMedia?.();
-    const path = adapters.getDocumentPath?.() || media?.path || '';
+  const downloadImage = async (image) => {
+    const media = adapters.getImageMedia?.(image);
+    const path = media?.path || adapters.getDocumentPath?.() || '';
     if (!media?.bytes) {
       hooks.onToast?.('Could not download the image');
       return false;
@@ -340,13 +340,13 @@ export function createDocumentContentActions({
         id: 'copy-image',
         label: 'Copy image',
         icon: 'iconoir-media-image',
-        onSelect: () => copyStandaloneImage(),
+        onSelect: () => copyImage(),
       },
       {
         id: 'download-image',
         label: 'Download image…',
         icon: 'iconoir-download',
-        onSelect: () => downloadStandaloneImage(),
+        onSelect: () => downloadImage(),
       },
       { type: 'separator' },
       {
@@ -495,6 +495,19 @@ export function createDocumentContentActions({
       } else if (image) {
         const source = image.dataset.documentSource || image.getAttribute('src');
         if (items.length) items.push({ type: 'separator' });
+        if (getImageSourcePolicy(source).type === 'relative' && adapters.getImageMedia?.(image)?.bytes) {
+          items.push({
+            id: 'copy-image',
+            label: 'Copy image',
+            icon: 'iconoir-media-image',
+            onSelect: () => copyImage(image),
+          }, {
+            id: 'download-image',
+            label: 'Save image…',
+            icon: 'iconoir-download',
+            onSelect: () => downloadImage(image),
+          });
+        }
         if (source) {
           items.push({
             id: 'copy-image-source',

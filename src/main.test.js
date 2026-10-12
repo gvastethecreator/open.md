@@ -390,6 +390,11 @@ describe('Frontend Logic Tests', () => {
       });
       expect(setMarkdownTaskChecked(source, 5, true)).toBeNull();
       expect(setMarkdownTaskChecked(source, 99, true)).toBeNull();
+      const mixed = '# Tasks\r\n\n* [ ] First\r\n\t1) [X] Nested\n***\r\n';
+      expect(setMarkdownTaskChecked(mixed, 3, true)).toEqual({
+        source: mixed.replace('* [ ] First', '* [x] First'),
+        changed: true,
+      });
     });
 
     it('projects document modes onto separate view and editing controls', () => {

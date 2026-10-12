@@ -5,6 +5,8 @@
 
 export const DEFAULT_CSV_ROW_CAP = 500;
 export const DEFAULT_JSON_NODE_CAP = 2000;
+const STRUCTURED_LINE_CAP = 500;
+const PLAIN_TEXT_CHAR_CAP = 256 * 1024;
 
 function escapeHtml(value) {
   return String(value)
@@ -89,11 +91,14 @@ export function renderJsonRead(source, { nodeCap = DEFAULT_JSON_NODE_CAP } = {})
       truncated: state.truncated,
     };
   } catch {
-    const warning = 'Invalid JSON — showing plain text. Edit mode can still fix the source.';
+    const truncated = text.length > PLAIN_TEXT_CHAR_CAP;
+    const warning = 'Invalid JSON — showing plain text. Edit mode can still fix the source.'
+      + (truncated ? ` Showing the first ${PLAIN_TEXT_CHAR_CAP} characters for performance.` : '');
     return {
-      html: plainPre(text, { language: 'json', warning }),
+      html: plainPre(text.slice(0, PLAIN_TEXT_CHAR_CAP), { language: 'json', warning }),
       warning,
       mode: 'plain',
+      truncated,
     };
   }
 }
@@ -193,6 +198,8 @@ export function renderStructuredTextRead(source, { format = 'ini' } = {}) {
 
   try {
     const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    const truncated = lines.length > STRUCTURED_LINE_CAP;
+    const warning = truncated ? `Showing first ${STRUCTURED_LINE_CAP} of ${lines.length} lines for performance.` : null;
     const parts = [];
     let buffer = [];
 
@@ -200,6 +207,8 @@ export function renderStructuredTextRead(source, { format = 'ini' } = {}) {
       if (buffer.length === 0) return;
       const body = buffer.map((line) => {
         const trimmed = line.trim();
+        const indent = format === 'yaml' ? line.length - line.trimStart().length : 0;
+        const indentation = indent ? ` style="padding-inline-start: ${indent}ch"` : '';
         if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith(';')) {
           return `<div class="struct-comment">${escapeHtml(line)}</div>`;
         }
@@ -211,19 +220,19 @@ export function renderStructuredTextRead(source, { format = 'ini' } = {}) {
         if (split > 0) {
           const key = trimmed.slice(0, split).trim();
           const value = trimmed.slice(split + 1).trim();
-          return `<div class="struct-kv"><span class="struct-key">${escapeHtml(key)}</span><span class="struct-sep">:</span><span class="struct-value">${escapeHtml(value)}</span></div>`;
+          return `<div class="struct-kv"${indentation}><span class="struct-key">${escapeHtml(key)}</span><span class="struct-sep">:</span><span class="struct-value">${escapeHtml(value)}</span></div>`;
         }
-        return `<div class="struct-line">${escapeHtml(line)}</div>`;
+        return `<div class="struct-line"${indentation}>${escapeHtml(format === 'yaml' ? trimmed : line)}</div>`;
       }).join('');
       parts.push(`<div class="struct-block">${body}</div>`);
       buffer = [];
     };
 
-    for (const line of lines) {
-      const section = line.match(/^\s*\[([^\]]+)\]\s*$/);
+    for (const line of lines.slice(0, STRUCTURED_LINE_CAP)) {
+      const section = line.match(/^\s*(?:\[\[([^\]]+)\]\]|\[([^\]]+)\])\s*$/);
       if (section) {
         flushBuffer();
-        parts.push(`<h3 class="struct-section">${escapeHtml(section[1])}</h3>`);
+        parts.push(`<h3 class="struct-section">${escapeHtml(section[1] || section[2])}</h3>`);
         continue;
       }
       buffer.push(line);
@@ -231,9 +240,10 @@ export function renderStructuredTextRead(source, { format = 'ini' } = {}) {
     flushBuffer();
 
     return {
-      html: wrapRich(parts.join(''), { format }),
-      warning: null,
+      html: wrapRich(parts.join(''), { format, warning }),
+      warning,
       mode: 'rich',
+      truncated,
     };
   } catch {
     const warning = 'Could not structure this file — showing plain text.';

@@ -29,6 +29,7 @@ import { createApplicationLifecycleController } from './application-lifecycle.js
 import { createReaderZoomController } from './reader-zoom-controller.js';
 import { createEmptyStateMotion } from './empty-state-motion.js';
 import { createEditorStateCoordinator } from './editor-state-coordinator.js';
+import { createDocumentFind } from './document-find.js';
 
 const appLoadingScreenModule = import('./app-loading-screen.js');
 const themesModule = import('./themes.runtime.json');
@@ -59,6 +60,7 @@ let documentLinkController = null;
 let documentViewState = null;
 let documentIngress = null;
 let readerKeyboard = null;
+let documentFind = null;
 let applicationLifecycle = null;
 let appLoadingScreen = null;
 let pendingInitialTheme = Promise.resolve();
@@ -411,6 +413,7 @@ function handleDocumentSessionState(snapshot) {
 
 function commitDocumentViewState(value) {
   documentViewState?.commitDocument(value);
+  appLoadingScreen?.complete();
 }
 
 async function exitEditMode() {
@@ -459,6 +462,10 @@ function mountDocumentViewState(own) {
       markNavigationDirty: () => readingNavigation?.markDirty(),
       handleNavigationScroll: () => readingNavigation?.handleScroll(),
       onSavedDocument: ({ path, document: savedDocument }) => {
+        if (isEditing()) {
+          updateStatus(path);
+          return;
+        }
         if (ui.sourceContent) ui.sourceContent.textContent = savedDocument.source;
         readingNavigation?.markDirty();
         responsiveTypography?.schedule();
@@ -572,6 +579,7 @@ function mountReaderControls(own) {
       captureScrollPosition: () => readingNavigation?.captureScrollPosition(),
       restoreScrollPosition: (position) => readingNavigation?.restoreScrollPosition(position),
       onReadingToolsApplied: ({ sourceActive }) => {
+        if (sourceActive) readerShell?.ensureSourceView();
         readerViewport?.sync({
           hasFilePath: Boolean(getCurrentFilePath()),
           sourceActive,
@@ -623,7 +631,8 @@ function mountApplicationEditor(own) {
       contextHint: ui.editorContextHint,
     },
     adapters: {
-      save: (path, source) => runtimeAdapters.documents.save(path, source),
+      save: (path, source, options) => runtimeAdapters.documents.save(path, source, options),
+      hydrateImagePreviews: (root) => readerShell?.hydrateImagePreviews(root),
       isSourceMode: isSourceModeSelected,
       getAdvancedPreferences: () => readerControls?.current()?.advanced
         || readerShell?.preferences?.current()?.advanced
@@ -635,7 +644,14 @@ function mountApplicationEditor(own) {
         updateStatusMetrics();
         if (readerControls?.current().readingTools.lineGuide) readingNavigation?.queueUpdate();
       },
-      onSaved: async ({ path, result }) => {
+      onSaved: async ({ path, source, result }) => {
+        if (isEditing()) {
+          documentViewState?.applySavedDocument({
+            path,
+            document: { ...getCurrentDocument(), ...result, source },
+          });
+          return;
+        }
         if (result && typeof result.source === 'string') {
           documentViewState?.applySavedDocument({ path, document: result });
           return;
@@ -676,8 +692,12 @@ function mountDocumentSaveCoordinator(own) {
     window,
     adapters: {
       isEditing,
-      saveEditor: () => editorSession?.save(),
-      saveDocument: (path, source) => runtimeAdapters.documents.save(path, source),
+      saveEditor: (options) => editorSession?.save(options),
+      saveDocument: (path, source, options) => runtimeAdapters.documents.save(path, source, options),
+      confirmOverwrite: () => runtimeAdapters.dialogs.confirm(
+        'Overwrite the changes made on disk with your draft?',
+        { title: 'open.md', kind: 'warning', okLabel: 'Overwrite', cancelLabel: 'Keep draft' },
+      ),
     },
     hooks: {
       notify: showToast,
@@ -797,7 +817,7 @@ function mountDocumentContentActions(own) {
       getDocumentPath: getCurrentFilePath,
       getEditorSession: () => editorSession,
       getImageViewer: () => readerShell?.getImageViewer?.(),
-      getImageMedia: () => readerShell?.getImageMedia?.(),
+      getImageMedia: (image) => readerShell?.getImageMedia?.(image),
       downloadImage: (payload) => runtimeAdapters?.documents?.downloadImage?.(payload),
       toggleReadTask: (payload) => documentSaveCoordinator?.toggleReadTask(payload),
     },
@@ -861,7 +881,7 @@ function mountReaderZoom(own) {
     document,
     hooks: {
       onZoomChange: () => {
-        readingNavigation?.markDirty();
+        readingNavigation?.markDirty({ geometryOnly: true });
         updateStatus(getCurrentFilePath());
       },
       onToast: showToast,
@@ -870,6 +890,16 @@ function mountReaderZoom(own) {
 }
 
 function mountReaderKeyboard(own) {
+  documentFind = own(createDocumentFind({
+    window,
+    panel: document.getElementById('document-find'),
+    scroller: ui.readerPage,
+    observeRoot: ui.documentStage,
+    getSurface: () => {
+      if (!getCurrentDocument() || isHelpVisible() || getCurrentDocument().kind === 'image') return null;
+      return isEditing() ? ui.editorCanvas : isSourceModeSelected() ? ui.sourceContent : ui.content;
+    },
+  }));
   readerKeyboard = own(createReaderKeyboardController({
     window,
     adapters: {
@@ -890,6 +920,7 @@ function mountReaderKeyboard(own) {
       },
       saveEditor: () => documentSaveCoordinator?.saveEditor(),
       openFile: openFilePicker,
+      openFind: () => documentFind.open(),
       closeFile: closeCurrentFile,
       zoomIn: () => readerZoom?.zoomIn(),
       zoomOut: () => readerZoom?.zoomOut(),

@@ -28,6 +28,11 @@ function payload(title) {
 }
 
 function renderFixture() {
+  window.IntersectionObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
   document.open();
   document.write(indexHtml);
   document.close();
@@ -107,6 +112,9 @@ describe('reader shell', () => {
     title = 'After';
 
     const focusTarget = document.querySelector('#editor-canvas');
+    const editorView = document.querySelector('#editor-view');
+    editorView.hidden = false;
+    editorView.inert = false;
     focusTarget.tabIndex = -1;
     focusTarget.focus();
     await expect(shell.reload({ quiet: true })).resolves.toMatchObject({ status: 'ready', path: 'sample.md' });

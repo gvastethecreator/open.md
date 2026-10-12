@@ -7,7 +7,6 @@ import {
   getReadRenderer,
   getStatusProfile,
   imageMimeForFormat,
-  isCompanionTextFormat,
   isImageFormat,
   resolveFormatId,
 } from './format-registry.js';
@@ -20,7 +19,6 @@ describe('format registry', () => {
       expect(allowsDocumentMode(format, 'edit')).toBe(false);
       expect(getEditorKind(format)).toBe('none');
       expect(getReadRenderer(format)).toBe('plain');
-      expect(isCompanionTextFormat(format)).toBe(true);
     }
     expect(getFormatLabel('nfo')).toBe('NFO');
     expect(getFormatLabel('log')).toBe('Log');
@@ -74,10 +72,4 @@ describe('format registry', () => {
     expect(imageMimeForFormat('unknown')).toBeNull();
   });
 
-  it('classifies companion text formats without soft tool defaults', () => {
-    expect(isCompanionTextFormat('json')).toBe(true);
-    expect(isCompanionTextFormat('markdown')).toBe(false);
-    expect(isCompanionTextFormat('png')).toBe(false);
-    expect(isCompanionTextFormat('text')).toBe(false);
-  });
 });

@@ -4,12 +4,14 @@ use std::fs;
 use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 
 const MAX_RENDERABLE_FILE_SIZE_BYTES: u64 = 20 * 1024 * 1024;
 const MAX_LOCAL_IMAGE_SIZE_BYTES: u64 = 12 * 1024 * 1024;
 const READING_WORDS_PER_MINUTE: usize = 220;
 
 static SAVE_COUNTER: AtomicU64 = AtomicU64::new(1);
+static DOCUMENT_SAVE_LOCK: Mutex<()> = Mutex::new(());
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,6 +28,13 @@ pub(crate) struct DocumentPayload {
     format: Option<&'static str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     source_encoding: Option<&'static str>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(untagged)]
+pub(crate) enum SaveDocumentResult {
+    Document(DocumentPayload),
+    Receipt { saved: bool },
 }
 
 const HEADER_SNIFF_BYTES: usize = 512;
@@ -100,10 +109,7 @@ pub(crate) fn save_bytes(file_path: &Path, bytes: &[u8]) -> Result<(), String> {
         .and_then(|name| name.to_str())
         .ok_or_else(|| "The destination name is invalid.".to_string())?;
     let nonce = SAVE_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let temporary_path = parent.join(format!(
-        ".{file_name}.openmd-export-{}-{nonce}.tmp",
-        std::process::id()
-    ));
+    let temporary_path = parent.join(format!(".openmd-export-{}-{nonce}.tmp", std::process::id()));
     let destination = parent.join(file_name);
 
     let result: Result<(), String> = (|| {
@@ -126,7 +132,13 @@ pub(crate) fn save_bytes(file_path: &Path, bytes: &[u8]) -> Result<(), String> {
     result
 }
 
-pub(crate) fn save_document(file_path: &Path, content: &str) -> Result<DocumentPayload, String> {
+pub(crate) fn save_document(
+    file_path: &Path,
+    content: &str,
+    expected_content: &str,
+    overwrite: bool,
+    render_document: bool,
+) -> Result<SaveDocumentResult, String> {
     recover_interrupted_save(file_path)?;
     let canonical_path = fs::canonicalize(file_path).map_err(user_friendly_write_error)?;
     if is_log_document(&canonical_path) {
@@ -154,15 +166,12 @@ pub(crate) fn save_document(file_path: &Path, content: &str) -> Result<DocumentP
     let parent = canonical_path
         .parent()
         .ok_or_else(|| "The document folder is unavailable.".to_string())?;
-    let file_name = canonical_path
+    canonical_path
         .file_name()
         .and_then(|name| name.to_str())
         .ok_or_else(|| "The document name is invalid.".to_string())?;
     let nonce = SAVE_COUNTER.fetch_add(1, Ordering::Relaxed);
-    let temporary_path = parent.join(format!(
-        ".{file_name}.openmd-{}-{nonce}.tmp",
-        std::process::id()
-    ));
+    let temporary_path = parent.join(format!(".openmd-{}-{nonce}.tmp", std::process::id()));
 
     let result: Result<(), String> = (|| {
         let mut temporary = fs::OpenOptions::new()
@@ -180,6 +189,22 @@ pub(crate) fn save_document(file_path: &Path, content: &str) -> Result<DocumentP
                 .map_err(user_friendly_write_error)?;
         }
 
+        let _save_guard = DOCUMENT_SAVE_LOCK.lock().map_err(|_| {
+            "The document could not be saved. Restart open.md and try again.".to_string()
+        })?;
+        // shortcut: external writes can race this final check, add file locking if serialization is required.
+        if !overwrite {
+            use std::io::Read;
+            let mut current = Vec::new();
+            fs::File::open(&canonical_path)
+                .map_err(user_friendly_write_error)?
+                .take(expected_content.len() as u64 + 1)
+                .read_to_end(&mut current)
+                .map_err(user_friendly_write_error)?;
+            if current != expected_content.as_bytes() {
+                return Err("The file changed on disk. Your draft is kept. Close and reopen the file to reload, or Save again to confirm overwrite.".to_string());
+            }
+        }
         fs::rename(&temporary_path, &canonical_path).map_err(user_friendly_write_error)?;
         Ok(())
     })();
@@ -189,19 +214,22 @@ pub(crate) fn save_document(file_path: &Path, content: &str) -> Result<DocumentP
     }
     result?;
 
+    if !render_document {
+        return Ok(SaveDocumentResult::Receipt { saved: true });
+    }
     let format = text_format_from_saved_content(&canonical_path, content.as_bytes());
     let kind = if is_markdown_document(&canonical_path) {
         "markdown"
     } else {
         "text"
     };
-    Ok(build_document_payload(
+    Ok(SaveDocumentResult::Document(build_document_payload(
         content,
         kind == "markdown",
         kind,
         format,
         "utf-8",
-    ))
+    )))
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -867,7 +895,7 @@ mod tests {
         build_document_payload, detect_image_format_from_magic, file_size_label, image_mime_type,
         is_plain_text_document, is_supported_document, looks_like_nfo_xml, open_document,
         read_document_image, render_markdown, safe_relative_image_path, save_bytes, save_document,
-        MAX_LOCAL_IMAGE_SIZE_BYTES, MAX_RENDERABLE_FILE_SIZE_BYTES,
+        SaveDocumentResult, MAX_LOCAL_IMAGE_SIZE_BYTES, MAX_RENDERABLE_FILE_SIZE_BYTES,
     };
     use std::fs::{self, File};
     use std::path::{Path, PathBuf};
@@ -984,7 +1012,7 @@ mod tests {
         let bytes = super::read_standalone_image(&image_path).expect("bytes should load");
         assert_eq!(bytes, png);
 
-        assert!(save_document(&image_path, "nope")
+        assert!(save_document(&image_path, "nope", "", false, true)
             .unwrap_err()
             .contains("Unsupported"));
     }
@@ -1062,8 +1090,16 @@ mod tests {
         let markdown_path = fixture.path().join("guide.md");
         fs::write(&markdown_path, "# Before").expect("fixture should be written");
 
-        let saved = save_document(&markdown_path, "# After\n\n- [x] Saved")
-            .expect("supported document should save");
+        let SaveDocumentResult::Document(saved) = save_document(
+            &markdown_path,
+            "# After\n\n- [x] Saved",
+            "# Before",
+            false,
+            true,
+        )
+        .expect("supported document should save") else {
+            panic!("expected document payload")
+        };
 
         assert_eq!(
             fs::read_to_string(&markdown_path).unwrap(),
@@ -1082,6 +1118,50 @@ mod tests {
     }
 
     #[test]
+    fn saves_documents_and_exports_with_long_file_names() {
+        let fixture = FixtureDirectory::new("long-save");
+        let directory = fs::canonicalize(fixture.path()).unwrap();
+        let document_path = directory.join(format!("{}.md", "a".repeat(237)));
+        let export_path = directory.join(format!("{}.png", "b".repeat(236)));
+        fs::write(&document_path, "# Before").unwrap();
+
+        let SaveDocumentResult::Document(saved) =
+            save_document(&document_path, "# After", "# Before", false, true)
+                .expect("long document name should save")
+        else {
+            panic!("expected document payload")
+        };
+        assert_eq!(saved.source, "# After");
+        assert_eq!(fs::read_to_string(&document_path).unwrap(), "# After");
+        save_bytes(&export_path, b"export").expect("long export name should save");
+        assert_eq!(fs::read(&export_path).unwrap(), b"export");
+        assert_eq!(directory.read_dir().unwrap().count(), 2);
+    }
+
+    #[test]
+    fn rejects_external_changes_and_only_overwrites_with_explicit_consent() {
+        let fixture = FixtureDirectory::new("save-conflict");
+        let path = fixture.path().join("notes.md");
+        let baseline = "\u{feff}# Before\r\n";
+        fs::write(&path, baseline).unwrap();
+        assert_eq!(open_document(&path).unwrap().source, baseline);
+        let external = format!("{baseline}External append\r\n");
+        fs::write(&path, &external).unwrap();
+
+        let error = save_document(&path, "# Draft", baseline, false, false).unwrap_err();
+        assert!(error.contains("changed on disk"));
+        assert_eq!(fs::read_to_string(&path).unwrap(), external);
+        assert_eq!(fixture.path().read_dir().unwrap().count(), 1);
+
+        let receipt = save_document(&path, "# Draft", baseline, true, false).unwrap();
+        assert_eq!(
+            serde_json::to_value(receipt).unwrap(),
+            serde_json::json!({ "saved": true })
+        );
+        assert_eq!(fs::read_to_string(&path).unwrap(), "# Draft");
+    }
+
+    #[test]
     fn rejects_unsupported_missing_and_oversized_save_targets_without_changing_files() {
         let fixture = FixtureDirectory::new("save-rejections");
         let unsupported = fixture.path().join("page.html");
@@ -1091,13 +1171,13 @@ mod tests {
         fs::write(&supported, "keep").unwrap();
         let oversized = "x".repeat(MAX_RENDERABLE_FILE_SIZE_BYTES as usize + 1);
 
-        assert!(save_document(&unsupported, "replace")
+        assert!(save_document(&unsupported, "replace", "keep", false, true)
             .unwrap_err()
             .contains("Unsupported"));
-        assert!(save_document(&missing, "replace")
+        assert!(save_document(&missing, "replace", "", false, true)
             .unwrap_err()
             .contains("no longer"));
-        assert!(save_document(&supported, &oversized)
+        assert!(save_document(&supported, &oversized, "keep", false, true)
             .unwrap_err()
             .contains("too large"));
         assert_eq!(fs::read_to_string(&unsupported).unwrap(), "keep");
@@ -1294,8 +1374,16 @@ mod tests {
         let fixture = FixtureDirectory::new("nfo-save");
         let xml_path = fixture.path().join("show.nfo");
         fs::write(&xml_path, "<tvshow><title>A</title></tvshow>\n").unwrap();
-        let saved = save_document(&xml_path, "<tvshow><title>B</title></tvshow>\n")
-            .expect("xml nfo should stay editable text");
+        let SaveDocumentResult::Document(saved) = save_document(
+            &xml_path,
+            "<tvshow><title>B</title></tvshow>\n",
+            "<tvshow><title>A</title></tvshow>\n",
+            false,
+            true,
+        )
+        .expect("xml nfo should stay editable text") else {
+            panic!("expected document payload")
+        };
         assert_eq!(saved.format, Some("text"));
         assert_eq!(
             fs::read_to_string(&xml_path).unwrap(),
@@ -1311,11 +1399,11 @@ mod tests {
         fs::write(&scene_path, [0xC9, 0xCD, 0xBB, b'\r', b'\n', 0x1A]).unwrap();
         fs::write(&log_path, "ready\n").unwrap();
 
-        let scene_error = save_document(&scene_path, "overwrite").unwrap_err();
+        let scene_error = save_document(&scene_path, "overwrite", "", false, true).unwrap_err();
         assert!(scene_error.contains("cannot be edited"));
         assert_eq!(fs::read(&scene_path).unwrap()[0], 0xC9);
 
-        let log_error = save_document(&log_path, "overwrite").unwrap_err();
+        let log_error = save_document(&log_path, "overwrite", "ready\n", false, true).unwrap_err();
         assert!(log_error.contains("cannot be edited"));
         assert_eq!(fs::read_to_string(&log_path).unwrap(), "ready\n");
     }

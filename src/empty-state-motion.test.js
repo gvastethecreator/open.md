@@ -32,7 +32,7 @@ describe('Empty State Motion', () => {
     vi.advanceTimersByTime(1);
     expect(shell.classList.contains('is-shimmering')).toBe(true);
     expect(styleFlush).toHaveBeenCalledOnce();
-    openButton.dispatchEvent(new Event('mouseenter'));
+    shell.dispatchEvent(new Event('mouseenter'));
     expect(styleFlush).toHaveBeenCalledOnce();
 
     shell.dispatchEvent(animationEnd('another-animation'));
@@ -49,22 +49,29 @@ describe('Empty State Motion', () => {
     expect(shell.classList.contains('is-shimmering')).toBe(false);
   });
 
-  it('skips the boot timer outside the empty state but keeps hover playback', () => {
+  it('skips delayed and hover playback after a document opens or motion is reduced', () => {
     vi.useFakeTimers();
     document.body.innerHTML = '<div id="shell"></div><button id="open"></button>';
     const shell = document.querySelector('#shell');
     const openButton = document.querySelector('#open');
+    let empty = true;
     const motion = createEmptyStateMotion({
       window,
       shell,
       openButton,
-      isEmpty: () => false,
+      isEmpty: () => empty,
     });
     motion.start();
+    empty = false;
     vi.runAllTimers();
     expect(shell.classList.contains('is-shimmering')).toBe(false);
     openButton.dispatchEvent(new Event('mouseenter'));
-    expect(shell.classList.contains('is-shimmering')).toBe(true);
+    expect(shell.classList.contains('is-shimmering')).toBe(false);
+    empty = true;
+    document.body.classList.add('is-app-reduce-motion');
+    shell.dispatchEvent(new Event('mouseenter'));
+    expect(shell.classList.contains('is-shimmering')).toBe(false);
+    document.body.classList.remove('is-app-reduce-motion');
     motion.dispose();
   });
 });

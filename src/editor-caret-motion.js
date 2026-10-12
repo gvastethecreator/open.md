@@ -19,6 +19,7 @@ export function createEditorCaretMotion({ window, canvas, isEnabled, shouldReduc
   let previous = null;
   let movement = null;
   let gradient = null;
+  let slidingContent = null;
   const media = window.matchMedia?.('(prefers-reduced-motion: reduce)');
 
   function stop() {
@@ -28,7 +29,8 @@ export function createEditorCaretMotion({ window, canvas, isEnabled, shouldReduc
     gradient?.cancel();
     gradient = null;
     overlay.hidden = true;
-    canvas.classList.remove('is-caret-sliding');
+    slidingContent?.classList.remove('is-caret-sliding');
+    slidingContent = null;
   }
 
   function measure() {
@@ -39,11 +41,12 @@ export function createEditorCaretMotion({ window, canvas, isEnabled, shouldReduc
     const element = node.nodeType === 1 ? node : node.parentElement;
     const row = element?.closest('[data-classic-line]');
     if (!row) return null;
+    const content = row.querySelector('[data-classic-content]');
+    if (!content) return null;
     const range = selection.getRangeAt(0).cloneRange();
     range.collapse(false);
     let rect = range.getClientRects?.()[0] || range.getBoundingClientRect?.();
     if (!rect?.height) {
-      const content = row.querySelector('[data-classic-content]');
       if (content?.textContent) return null;
       const bounds = content?.getBoundingClientRect();
       if (!bounds?.height) return null;
@@ -62,7 +65,7 @@ export function createEditorCaretMotion({ window, canvas, isEnabled, shouldReduc
       || rect.left < left || rect.left > right) return null;
     return {
       x: rect.left - left, y: rect.top - top, height: rect.height,
-      line: Number(row.dataset.classicLine), left, top, width: right - left, bottom,
+      line: row.classicLineIndex, content, left, top, width: right - left, bottom,
     };
   }
 
@@ -106,7 +109,8 @@ export function createEditorCaretMotion({ window, canvas, isEnabled, shouldReduc
     caret.style.transform = end;
     caret.style.height = `${next.height}px`;
     overlay.hidden = false;
-    canvas.classList.add('is-caret-sliding');
+    slidingContent = next.content;
+    slidingContent.classList.add('is-caret-sliding');
     const keyframes = changesLine ? [
       { transform: position(startX, startY), height: `${from.height}px`, offset: 0, easing: MOTION_EASE_EXIT },
       { transform: position(direction > 0 ? next.width + tail : -tail, startY), height: `${from.height}px`, offset: 0.42 },

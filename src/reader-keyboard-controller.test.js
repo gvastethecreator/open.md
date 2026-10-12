@@ -42,6 +42,25 @@ function press(key, options = {}) {
 }
 
 describe('Reader Keyboard Controller', () => {
+  it('uses Cmd shortcuts and Help labels on macOS', () => {
+    const platform = vi.spyOn(window.navigator, 'platform', 'get').mockReturnValue('MacIntel');
+    const view = fixture();
+    document.body.insertAdjacentHTML('beforeend', '<kbd>Ctrl</kbd><kbd>F4</kbd>');
+    view.controller.dispose();
+    const controller = createReaderKeyboardController({ window, hooks: view.hooks });
+    controller.start();
+    for (const key of ['o', 'w', '=', '-', '0', 't']) {
+      expect(press(key, { metaKey: true }).defaultPrevented).toBe(true);
+    }
+    for (const action of ['openFile', 'closeFile', 'zoomIn', 'zoomOut', 'resetZoom']) {
+      expect(view.hooks[action]).toHaveBeenCalledOnce();
+    }
+    expect(view.hooks.cycleTheme).toHaveBeenCalledWith(-1);
+    expect([...document.querySelectorAll('kbd')].map((key) => key.textContent)).toEqual(['Cmd', 'W']);
+    controller.dispose();
+    platform.mockRestore();
+  });
+
   it('preserves help, panel and edit/save precedence', () => {
     const view = fixture();
     expect(press('F1').defaultPrevented).toBe(true);

@@ -175,9 +175,9 @@ if (!stylesCss.includes('--toolbar-height: 30px') || !stylesCss.includes('--moti
 if (
   !stylesCss.includes('.status-metric--zoom')
   || !stylesCss.includes('.iconoir-search::before')
-  || !stylesCss.includes('transition: font-size 180ms')
+  || stylesCss.includes('transition: font-size')
 ) {
-  throw new Error('src/styles.css must preserve conditional animated zoom status');
+  throw new Error('src/styles.css must preserve zoom status without animating document font size');
 }
 if (
   !stylesCss.includes('.toast-surface')
@@ -208,13 +208,13 @@ if (!stylesCss.includes('.source-markup-token') || !stylesCss.includes('font-wei
 if (
   !stylesCss.includes('--content-depth-filter: drop-shadow(1px 1px 2px rgba(0, 0, 0, 0.1))')
   || !stylesCss.includes('body.is-word-wrap .source-view')
-  || !stylesCss.includes('body:not(.is-word-wrap) .editor-block-content')
+  || !stylesCss.includes('body:not(.is-word-wrap) :is(.markdown-body, .source-view, .editor-view)')
 ) {
   throw new Error('src/styles.css must preserve configurable wrapping and subtle content depth');
 }
 
 if (
-  !stylesCss.includes('.typography-panel')
+  !stylesCss.includes('.reading-tools-panel')
   || !stylesCss.includes('--content-edge-fade')
   || !stylesCss.includes('mask-image: linear-gradient(')
   || !stylesCss.includes('.reader-page')
@@ -228,8 +228,8 @@ if (
 ) {
   throw new Error('src/styles.css must bundle Inter normal and italic as the default sans family');
 }
-if (!stylesCss.includes('.editor-block-content') || !stylesCss.includes('.editor-menu')) {
-  throw new Error('src/styles.css must include the block editor canvas and command surface');
+if (!stylesCss.includes('.classic-line-content') || !stylesCss.includes('.classic-line-preview')) {
+  throw new Error('src/styles.css must include Classic editor content and preview surfaces');
 }
 const themesRaw = readFileSync(path.join(root, 'src/themes.json'), 'utf8').trim();
 if (!themesRaw) {

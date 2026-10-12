@@ -31,7 +31,7 @@ describe('Application Runtime Adapters', () => {
     const opened = await adapters.documents.open('preview.md');
     expect(opened).toEqual(view.window.__OPENMD_PREVIEW_DOCUMENTS__['preview.md']);
 
-    const saved = await adapters.documents.save('preview.md', '# Updated\n\nText');
+    const saved = await adapters.documents.save('preview.md', '# Updated\n\nText', { expectedSource: opened.source });
     expect(saved.source).toBe('# Updated\n\nText');
     expect(view.window.__OPENMD_PREVIEW_DOCUMENTS__['preview.md'].source).toBe('# Updated\n\nText');
 
@@ -40,7 +40,7 @@ describe('Application Runtime Adapters', () => {
     expect(confirm).toHaveBeenCalledWith('Discard?');
 
     view.window.__OPENMD_PREVIEW_SAVE_FAILURE__ = true;
-    await expect(adapters.documents.save('preview.md', 'nope')).rejects.toThrow('Preview save failure');
+    await expect(adapters.documents.save('preview.md', 'nope', { expectedSource: saved.source })).rejects.toThrow('Preview save failure');
     expect(view.window.__OPENMD_PREVIEW_DOCUMENTS__['preview.md'].source).toBe('# Updated\n\nText');
   });
 
@@ -76,7 +76,7 @@ describe('Application Runtime Adapters', () => {
     });
 
     await adapters.documents.open('notes.md');
-    await adapters.documents.save('notes.md', 'Updated');
+    await adapters.documents.save('notes.md', 'Updated', { expectedSource: 'Before' });
     await adapters.documents.readImage('notes.md', 'assets/pixel.png');
     await adapters.documents.readImageFile('photo.png');
     await adapters.windows.openDocument('other.md');
@@ -106,7 +106,7 @@ describe('Application Runtime Adapters', () => {
 
     expect(invoke.mock.calls).toEqual([
       ['get_file_content', { path: 'notes.md' }],
-      ['save_file_content', { path: 'notes.md', content: 'Updated' }],
+      ['save_file_content', { path: 'notes.md', content: 'Updated', expectedContent: 'Before', overwrite: false, renderDocument: true }],
       ['get_image_bytes', { documentPath: 'notes.md', relativeSource: 'assets/pixel.png' }],
       ['get_standalone_image_bytes', { path: 'photo.png' }],
       ['open_new_window', { path: 'other.md' }],
@@ -121,6 +121,23 @@ describe('Application Runtime Adapters', () => {
     expect(nativeWindow.setAlwaysOnTop).toHaveBeenCalledWith(true);
     expect(openUrl).toHaveBeenCalledWith('https://example.com');
     expect(confirmDialog).toHaveBeenCalledWith('Discard?', { kind: 'warning' });
+  });
+
+  it('rejects stale saves and returns only a receipt for explicit editor overwrites', async () => {
+    const view = fixture({ preview: true });
+    const adapters = createApplicationRuntimeAdapters({ window: view.window });
+    const opened = await adapters.documents.open('preview.md');
+    const preview = view.window.__OPENMD_PREVIEW_DOCUMENTS__['preview.md'];
+    preview.source += '\nExternal append';
+    const external = preview.source;
+    await expect(adapters.documents.save('preview.md', 'Draft', {
+      expectedSource: opened.source, renderDocument: false,
+    })).rejects.toThrow('changed on disk');
+    expect(preview.source).toBe(external);
+    await expect(adapters.documents.save('preview.md', 'Draft', {
+      expectedSource: opened.source, overwrite: true, renderDocument: false,
+    })).resolves.toEqual({ saved: true });
+    expect(preview.source).toBe('Draft');
   });
 
   it('exposes browser fallbacks for system settings without invoking Tauri', async () => {

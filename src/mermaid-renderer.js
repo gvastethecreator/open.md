@@ -250,15 +250,6 @@ function captureDiagramSource(diagram) {
   return diagram.dataset.mermaidSource;
 }
 
-function isDiagramInViewport(diagram) {
-  if (typeof diagram.getBoundingClientRect !== 'function') return true;
-  const view = diagram.ownerDocument?.defaultView;
-  const viewHeight = Number(view?.innerHeight) || 0;
-  if (viewHeight <= 0) return true;
-  const rect = diagram.getBoundingClientRect();
-  return rect.bottom >= -40 && rect.top <= viewHeight + 240;
-}
-
 function isCurrentTarget(container, diagram) {
   if (diagram.isConnected === false) return false;
   return typeof container?.contains !== 'function' || container.contains(diagram);
@@ -316,7 +307,8 @@ export async function prepareMermaidDiagrams(
   { reset = false, theme = 'default', tokens = null, isCurrent = () => true } = {}
 ) {
   if (!isCurrent()) return null;
-  const diagrams = [...(container?.querySelectorAll?.('.mermaid') || [])];
+  const diagrams = [...(container?.querySelectorAll?.('.mermaid') || [])]
+    .filter((diagram) => !diagram.dataset.mermaidPending);
   if (diagrams.length === 0) return null;
 
   const requestRevision = ++mermaidRequestRevision;
@@ -331,10 +323,6 @@ export async function prepareMermaidDiagrams(
 
     const renderResults = [];
     for (let index = 0; index < diagrams.length; index += 1) {
-      if (!isDiagramInViewport(diagrams[index])) {
-        renderResults.push(null);
-        continue;
-      }
       const result = await mermaid.render(
         `openmd-mermaid-${requestRevision}-${index}`,
         sources[index]

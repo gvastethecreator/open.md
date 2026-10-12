@@ -206,11 +206,3 @@ export function getFormatLabel(format, hint = {}) {
   if (descriptor.id === 'log') return 'Log';
   return 'Text';
 }
-
-/**
- * Companion text formats (json, yaml, csv, …) versus associated Markdown/TXT.
- */
-export function isCompanionTextFormat(format, hint = {}) {
-  const descriptor = getFormatDescriptor(format, hint);
-  return descriptor.productSurface === 'companion' && descriptor.family === 'text';
-}

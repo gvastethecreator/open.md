@@ -10,7 +10,6 @@
 
 import {
   classicLineKind,
-  classicLineKinds,
   classicLinePreviewHtml,
   classicLineSourceHtml,
   parseMarkdownLine,
@@ -113,51 +112,57 @@ function caretOffsetFromPointer(element, event) {
   return null;
 }
 
-function rangeAtOffset(element, offset) {
+function visualLineStarts(element) {
   const doc = element.ownerDocument;
   const range = doc.createRange();
   if (!element.firstChild) element.appendChild(doc.createTextNode(''));
-  let remaining = Math.max(0, Math.floor(Number(offset) || 0));
+  const nodes = [];
+  const ends = [];
+  let length = 0;
   const walker = doc.createTreeWalker(element, NodeFilter.SHOW_TEXT);
   let node = walker.nextNode();
   while (node) {
-    const len = node.nodeValue?.length || 0;
-    if (remaining <= len) {
-      range.setStart(node, remaining);
-      range.collapse(true);
-      return range;
-    }
-    remaining -= len;
+    nodes.push(node);
+    length += node.nodeValue?.length || 0;
+    ends.push(length);
     node = walker.nextNode();
   }
-  range.selectNodeContents(element);
-  range.collapse(false);
-  return range;
-}
-
-function collapsedRectAt(element, offset) {
-  const range = rangeAtOffset(element, offset);
-  const rects = typeof range.getClientRects === 'function' ? range.getClientRects() : null;
-  if (rects && rects.length > 0) return rects[0];
-  return typeof range.getBoundingClientRect === 'function' ? range.getBoundingClientRect() : null;
-}
-
-function visualLineStarts(element) {
-  const length = element?.textContent?.length || 0;
+  const rectAt = (offset) => {
+    if (nodes.length > 0) {
+      let low = 0;
+      let high = nodes.length - 1;
+      while (low < high) {
+        const middle = Math.floor((low + high) / 2);
+        if (ends[middle] < offset) low = middle + 1;
+        else high = middle;
+      }
+      range.setStart(nodes[low], offset - (low > 0 ? ends[low - 1] : 0));
+      range.collapse(true);
+    } else {
+      range.selectNodeContents(element);
+      range.collapse(false);
+    }
+    const rects = typeof range.getClientRects === 'function' ? range.getClientRects() : null;
+    if (rects && rects.length > 0) return rects[0];
+    return typeof range.getBoundingClientRect === 'function' ? range.getBoundingClientRect() : null;
+  };
   const starts = [0];
-  let lastTop = null;
-  for (let offset = 0; offset <= length; offset += 1) {
-    const rect = collapsedRectAt(element, offset);
-    if (!rect || !Number.isFinite(rect.top)) continue;
-    if (rect.height <= 0 && rect.width <= 0) continue;
-    if (lastTop == null) {
-      lastTop = rect.top;
-      continue;
+  let current = rectAt(0);
+  const last = rectAt(length);
+  if (!current || !last || !Number.isFinite(current.top) || !Number.isFinite(last.top)) return starts;
+  while (last.top - current.top > 2) {
+    let low = starts.at(-1) + 1;
+    let high = length;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      const rect = rectAt(middle);
+      if (!rect || rect.top - current.top <= 2) low = middle + 1;
+      else high = middle;
     }
-    if (Math.abs(rect.top - lastTop) > 2) {
-      starts.push(offset);
-      lastTop = rect.top;
-    }
+    const next = rectAt(low);
+    if (!next || next.top - current.top <= 2) break;
+    starts.push(low);
+    current = next;
   }
   return starts;
 }
@@ -187,10 +192,18 @@ export function createEditorClassicSurface({
   let listenersBound = false;
   let composing = false;
   let lastCaret = 0;
+  let renderedLines = [];
+  let renderedKinds = [];
+  let renderedFences = [];
+  let renderedRows = [];
+  let renderedActive = 0;
+  let renderedHighlight = null;
+  let renderedMarkdown = null;
+  const dragRows = new Set();
 
   const isMarkdown = () => adapters.isMarkdown?.() !== false;
   const highlightSource = () => Boolean(adapters.highlightSource?.());
-  const readSource = () => normalizeSource(adapters.getSource?.() || '');
+  const readSource = () => String(adapters.getSource?.() ?? '');
   const reduceMotion = () => Boolean(adapters.shouldReduceMotion?.());
   const caretMotion = createEditorCaretMotion({
     window,
@@ -220,44 +233,92 @@ export function createEditorClassicSurface({
   };
 
   const commitLines = (lines, { coalesce = false, originCaret = lastCaret } = {}) => {
-    const next = joinLines(lines);
+    const raw = readSource();
+    const before = normalizeSource(raw);
+    const after = joinLines(lines);
+    if (before === after) return raw;
+    const parts = raw.split(/(\r\n|\r|\n)/);
+    const beforeLines = [];
+    const rawStarts = [];
+    const normalizedStarts = [];
+    let rawPosition = 0;
+    let normalizedPosition = 0;
+    for (let index = 0; index < parts.length; index += 2) {
+      beforeLines.push(parts[index]);
+      rawStarts.push(rawPosition);
+      normalizedStarts.push(normalizedPosition);
+      rawPosition += parts[index].length + (parts[index + 1]?.length || 0);
+      normalizedPosition += parts[index].length + (parts[index + 1] ? 1 : 0);
+    }
+    let first = 0;
+    while (first < beforeLines.length && first < lines.length && beforeLines[first] === lines[first]) first += 1;
+    let previousEnd = beforeLines.length;
+    let lineEnd = lines.length;
+    while (previousEnd > first && lineEnd > first && beforeLines[previousEnd - 1] === lines[lineEnd - 1]) {
+      previousEnd -= 1;
+      lineEnd -= 1;
+    }
+    let start = normalizedStarts[Math.max(0, first - 1)];
+    let end = normalizedStarts[previousEnd] ?? before.length;
+    let nextEnd = after.length - (before.length - end);
+    while (start < end && start < nextEnd && before[start] === after[start]) start += 1;
+    while (end > start && nextEnd > start && before[end - 1] === after[nextEnd - 1]) {
+      end -= 1;
+      nextEnd -= 1;
+    }
+    const rawOffset = (offset) => {
+      let low = 0;
+      let high = normalizedStarts.length - 1;
+      while (low < high) {
+        const middle = Math.ceil((low + high) / 2);
+        if (normalizedStarts[middle] <= offset) low = middle;
+        else high = middle - 1;
+      }
+      return rawStarts[low] + offset - normalizedStarts[low];
+    };
+    const lineEnding = raw.match(/\r\n?|\n/)?.[0] || '\n';
+    const replacement = after.slice(start, nextEnd).replace(/\n/g, lineEnding);
+    const rawStart = rawOffset(start);
+    const rawEnd = rawOffset(end);
+    const next = raw.slice(0, rawStart) + replacement + raw.slice(rawEnd);
     if (typeof adapters.applySource === 'function') {
       adapters.applySource(next, {
         coalesce,
         cursor: { line: activeLine + 1, column: Math.max(1, lastCaret + 1) },
         originCursor: { line: activeLine + 1, column: Math.max(1, originCaret + 1) },
+        change: { start: rawStart, end: rawEnd, text: replacement },
       });
     }
     hooks.onChange?.();
     return next;
   };
 
-  const lineElements = () => [...canvas.querySelectorAll('[data-classic-line]')];
+  const lineElements = () => renderedRows;
 
   const readLinesFromDom = () => {
-    const rows = lineElements();
-    if (rows.length === 0) return splitLines(readSource());
-    return rows.map((row) => {
+    if (renderedRows.length === 0) return splitLines(readSource());
+    const lines = renderedLines.slice();
+    for (const index of new Set([renderedActive, ...selectionLines])) {
+      const row = renderedRows[index];
+      if (!row) continue;
       const content = row.querySelector('[data-classic-content]');
       if (content?.dataset.editorMode === 'source') {
-        return String(content.textContent ?? '')
+        const text = String(content.textContent ?? '')
           .replace(/\r\n?/g, '\n')
-          .replace(/\u00a0/g, ' ')
-          .replace(/\u200b/g, '')
           .replace(/\n+$/g, '');
+        lines.splice(index, 1, ...text.split('\n'));
       }
-      return row.dataset.sourceText ?? '';
-    });
+    }
+    return lines;
   };
-
-  const kindsFor = (lineList) => classicLineKinds(lineList, { markdown: isMarkdown() });
 
   const renderLineRow = (line, index, { source, active, kind } = {}) => {
     const markdown = isMarkdown();
     const resolvedKind = kind || classicLineKind(line, { markdown });
     const row = document.createElement('div');
     row.className = `classic-line classic-line--${resolvedKind}`;
-    row.dataset.classicLine = String(index);
+    row.dataset.classicLine = '';
+    row.classicLineIndex = index;
     row.dataset.sourceText = line;
     row.dataset.lineKind = resolvedKind;
     if (markdown && (resolvedKind === 'bullet' || resolvedKind === 'numbered' || resolvedKind === 'todo')) {
@@ -302,26 +363,97 @@ export function createEditorClassicSurface({
   } = {}) => {
     if (disposed || !mounted) return;
     const lines = splitLines(source);
-    const kinds = kindsFor(lines);
+    const previousActiveRow = renderedRows[renderedActive];
     activeLine = Math.max(0, Math.min(focusLine, lines.length - 1));
+    const full = !renderedRows[0]?.isConnected
+      || renderedHighlight !== highlightSource()
+      || renderedMarkdown !== isMarkdown();
+    let first = 0;
+    if (!full) {
+      while (first < renderedLines.length && first < lines.length && renderedLines[first] === lines[first]) first += 1;
+    }
+    let previousEnd = renderedLines.length;
+    let nextEnd = lines.length;
+    if (!full) {
+      while (previousEnd > first && nextEnd > first && renderedLines[previousEnd - 1] === lines[nextEnd - 1]) {
+        previousEnd -= 1;
+        nextEnd -= 1;
+      }
+    }
+    const kinds = renderedKinds.slice(0, first);
+    const fences = renderedFences.slice(0, first);
+    let fence = first > 0 ? renderedFences[first - 1] : null;
+    let classifiedEnd = nextEnd;
+    for (let index = first; index < lines.length; index += 1) {
+      const previousIndex = index - (nextEnd - previousEnd);
+      const previousFence = previousIndex > 0 ? renderedFences[previousIndex - 1] : null;
+      if (!full && index >= nextEnd && fence === previousFence) {
+        kinds.push(...renderedKinds.slice(previousIndex));
+        fences.push(...renderedFences.slice(previousIndex));
+        break;
+      }
+      const marker = isMarkdown() && lines[index].match(/^\s{0,3}(```|~~~)/);
+      if (fence) {
+        const closed = marker && marker[1] === fence && /^\s{0,3}(?:```|~~~)\s*$/.test(lines[index]);
+        kinds.push(closed ? 'fence' : 'code');
+        if (closed) fence = null;
+      } else {
+        kinds.push(marker ? 'fence' : classicLineKind(lines[index], { markdown: isMarkdown() }));
+        if (marker) fence = marker[1];
+      }
+      fences.push(fence);
+      classifiedEnd = index + 1;
+    }
     const fragment = document.createDocumentFragment();
-    lines.forEach((line, index) => {
+    const added = [];
+    for (let index = first; index < nextEnd; index += 1) {
       const sourceMode = index === activeLine || selectionLines.has(index);
-      fragment.append(renderLineRow(line, index, {
+      const row = renderLineRow(lines[index], index, {
         source: sourceMode,
         active: index === activeLine,
         kind: kinds[index],
-      }));
-    });
+      });
+      added.push(row);
+      fragment.append(row);
+    }
     withSelectionSuppressed(() => {
-      canvas.replaceChildren(fragment);
+      const anchor = renderedRows[previousEnd] || null;
+      renderedRows.slice(first, previousEnd).forEach((row) => row.remove());
+      if (full) canvas.replaceChildren(fragment);
+      else canvas.insertBefore(fragment, anchor);
+      renderedRows.splice(first, previousEnd - first, ...added);
+      const shifted = nextEnd - previousEnd;
+      if (shifted !== 0) {
+        for (let index = nextEnd; index < renderedRows.length; index += 1) {
+          renderedRows[index].classicLineIndex = index;
+        }
+      }
+      renderedLines = lines;
+      renderedKinds = kinds;
+      renderedFences = fences;
+      renderedHighlight = highlightSource();
+      renderedMarkdown = isMarkdown();
+      for (let index = nextEnd; index < classifiedEnd; index += 1) {
+        const row = renderedRows[index];
+        if (row.dataset.lineKind !== kinds[index]) {
+          replaceLineRow(index, lines[index], { source: index === activeLine, active: index === activeLine });
+        }
+      }
+      if (previousActiveRow?.isConnected && previousActiveRow !== renderedRows[activeLine]) {
+        const index = previousActiveRow.classicLineIndex;
+        replaceLineRow(index, lines[index], { source: selectionLines.has(index), active: false });
+      }
+      if (!renderedRows[activeLine]?.classList.contains('is-active-line')) {
+        replaceLineRow(activeLine, lines[activeLine], { source: true, active: true });
+      }
+      renderedActive = activeLine;
       canvas.contentEditable = 'true';
       canvas.setAttribute('role', 'textbox');
       canvas.setAttribute('aria-multiline', 'true');
       canvas.setAttribute('aria-label', adapters.getAriaLabel?.() || 'Document editor');
       canvas.classList.add('is-classic-surface');
       if (caret != null) {
-        const row = canvas.querySelector(`[data-classic-line="${activeLine}"] [data-classic-content]`);
+        const row = renderedRows[activeLine]?.querySelector('[data-classic-content]');
         if (row) {
           canvas.focus({ preventScroll: true });
           placeCaret(row, caret, window.getSelection());
@@ -333,14 +465,15 @@ export function createEditorClassicSurface({
     preferredColumn = caret == null ? preferredColumn : caret;
     if (caret != null) lastCaret = caret;
     scheduleActiveLineBand();
+    hooks.onPreviewChange?.(canvas);
   };
 
   const replaceLineRow = (index, line, { source, active, caret = null } = {}) => {
-    const kinds = kindsFor(splitLines(readSource()));
-    const next = renderLineRow(line, index, { source, active, kind: kinds[index] });
-    const current = canvas.querySelector(`[data-classic-line="${index}"]`);
+    const next = renderLineRow(line, index, { source, active, kind: renderedKinds[index] });
+    const current = renderedRows[index];
     if (current) current.replaceWith(next);
     else canvas.append(next);
+    renderedRows[index] = next;
     if (active && caret != null) {
       const content = next.querySelector('[data-classic-content]');
       try {
@@ -368,6 +501,8 @@ export function createEditorClassicSurface({
       active: true,
       caret,
     });
+    renderedActive = activeLine;
+    hooks.onPreviewChange?.(canvas);
     lastCaret = caret ?? lastCaret;
     preferredColumn = caret ?? preferredColumn;
     adapters.setCursor?.({
@@ -413,7 +548,7 @@ export function createEditorClassicSurface({
     if (target.closest?.('[data-todo-check]')) return false;
     const row = target.closest?.('[data-classic-line]');
     if (!row || !canvas.contains(row)) return false;
-    const index = Number(row.dataset.classicLine);
+    const index = row.classicLineIndex;
     if (!Number.isFinite(index)) return false;
     // Any pointer placement ends a sticky vertical sequence.
     stickyVerticalNav = false;
@@ -434,9 +569,7 @@ export function createEditorClassicSurface({
     if (disposed || !mounted) return false;
     if (isComposingEvent(event) || composing) return true;
     stickyVerticalNav = false;
-    const activeContent = canvas.querySelector(
-      `[data-classic-line="${activeLine}"] [data-classic-content]`,
-    );
+    const activeContent = renderedRows[activeLine]?.querySelector('[data-classic-content]');
     const hostBefore = activeContent;
     const selection = window.getSelection();
     const originCaret = lastCaret;
@@ -449,10 +582,24 @@ export function createEditorClassicSurface({
     if (rows.length !== lines.length) {
       render({ source: joinLines(lines), focusLine: activeLine, caret });
     } else {
-      rows.forEach((row, index) => {
-        row.dataset.sourceText = lines[index] ?? '';
-      });
-      const content = canvas.querySelector(`[data-classic-line="${activeLine}"] [data-classic-content]`);
+      rows[activeLine].dataset.sourceText = lines[activeLine] ?? '';
+      const previousKind = renderedKinds[activeLine];
+      let kind = classicLineKind(lines[activeLine], { markdown: isMarkdown() });
+      if (previousKind === 'code' && kind !== 'fence') kind = 'code';
+      if (previousKind === 'fence' || kind === 'fence') {
+        render({ source: readSource(), focusLine: activeLine, caret });
+        return true;
+      }
+      renderedLines = lines;
+      if (kind !== previousKind) {
+        const row = rows[activeLine];
+        row.classList.replace(`classic-line--${previousKind}`, `classic-line--${kind}`);
+        activeContent.classList.replace(`classic-line-content--${previousKind}`, `classic-line-content--${kind}`);
+        row.dataset.lineKind = kind;
+        activeContent.dataset.lineKind = kind;
+        renderedKinds[activeLine] = kind;
+      }
+      const content = renderedRows[activeLine]?.querySelector('[data-classic-content]');
       if (content !== hostBefore) return true;
       adapters.setCursor?.({ line: activeLine + 1, column: Math.max(1, caret + 1) });
     }
@@ -461,9 +608,7 @@ export function createEditorClassicSurface({
 
   const restyleActiveSource = () => {
     if (!highlightSource()) return;
-    const content = canvas.querySelector(
-      `[data-classic-line="${activeLine}"] [data-classic-content]`,
-    );
+    const content = renderedRows[activeLine]?.querySelector('[data-classic-content]');
     if (!content || content.dataset.editorMode !== 'source') return;
     const selection = window.getSelection();
     const caret = caretOffsetIn(content, selection);
@@ -492,7 +637,7 @@ export function createEditorClassicSurface({
    */
   const ensureActiveLineVisible = () => {
     if (disposed || !mounted) return;
-    const row = canvas.querySelector(`[data-classic-line="${activeLine}"]`);
+    const row = renderedRows[activeLine];
     if (!row) return;
     const target = row.querySelector('[data-classic-content]') || row;
     try {
@@ -506,7 +651,7 @@ export function createEditorClassicSurface({
   /** PageUp/Down step from the real scroll viewport, not canvas document height. */
   const pageLineStep = () => {
     const scroller = canvas.closest?.('.reader-page') || canvas;
-    const row = canvas.querySelector(`[data-classic-line="${activeLine}"]`);
+    const row = renderedRows[activeLine];
     let lineH = 28;
     if (row && typeof row.getBoundingClientRect === 'function') {
       const height = row.getBoundingClientRect().height;
@@ -552,9 +697,7 @@ export function createEditorClassicSurface({
   };
 
   const ensureActiveSourceContent = () => {
-    let content = canvas.querySelector(
-      `[data-classic-line="${activeLine}"] [data-classic-content]`,
-    );
+    let content = renderedRows[activeLine]?.querySelector('[data-classic-content]');
     if (content?.dataset.editorMode === 'source') return content;
     // Recover when active line drifted out of source mode (stale projection).
     const lines = splitLines(readSource());
@@ -565,9 +708,7 @@ export function createEditorClassicSurface({
       focusLine: activeLine,
       caret: preferredColumn,
     });
-    content = canvas.querySelector(
-      `[data-classic-line="${activeLine}"] [data-classic-content]`,
-    );
+    content = renderedRows[activeLine]?.querySelector('[data-classic-content]');
     return content?.dataset.editorMode === 'source' ? content : null;
   };
 
@@ -595,8 +736,8 @@ export function createEditorClassicSurface({
     };
     const startRow = rowFor(range?.startContainer) || content.closest('[data-classic-line]');
     const endRow = rowFor(range?.endContainer) || startRow;
-    let startLine = Number(startRow?.dataset.classicLine);
-    let endLine = Number(endRow?.dataset.classicLine);
+    let startLine = startRow?.classicLineIndex;
+    let endLine = endRow?.classicLineIndex;
     if (!Number.isFinite(startLine)) startLine = activeLine;
     if (!Number.isFinite(endLine)) endLine = startLine;
     if (endLine < startLine) [startLine, endLine] = [endLine, startLine];
@@ -635,8 +776,8 @@ export function createEditorClassicSurface({
     };
     const startRow = rowFor(range.startContainer);
     const endRow = rowFor(range.endContainer);
-    let startLine = Number(startRow?.dataset.classicLine);
-    let endLine = Number(endRow?.dataset.classicLine);
+    let startLine = startRow?.classicLineIndex;
+    let endLine = endRow?.classicLineIndex;
     if (!Number.isFinite(startLine) || !Number.isFinite(endLine) || startLine === endLine) {
       return false;
     }
@@ -690,13 +831,10 @@ export function createEditorClassicSurface({
     return false;
   };
 
-  const moveVisualOrHard = (event, direction) => {
-    const content = canvas.querySelector(
-      `[data-classic-line="${activeLine}"] [data-classic-content]`,
-    );
+  const moveVisualOrHard = (event, direction, starts) => {
+    const content = renderedRows[activeLine]?.querySelector('[data-classic-content]');
     const selection = window.getSelection();
     const offset = caretOffsetIn(content, selection);
-    const starts = visualLineStarts(content);
     if (starts.length > 1) {
       let visual = 0;
       for (let index = 0; index < starts.length; index += 1) {
@@ -732,13 +870,13 @@ export function createEditorClassicSurface({
     if (!content) return false;
     const offset = caretOffsetIn(content, selection);
     const length = content.textContent?.length || 0;
-    const linesNow = splitLines(readSource());
+    const linesNow = renderedLines;
     const meta = event.ctrlKey || event.metaKey;
     const isVerticalNav = event.key === 'ArrowUp'
       || event.key === 'ArrowDown'
       || event.key === 'PageUp'
       || event.key === 'PageDown';
-    const wrapStarts = visualLineStarts(content);
+    const wrapStarts = isVerticalNav ? visualLineStarts(content) : [0];
     let visualColumn = offset;
     if (wrapStarts.length > 1) {
       let visual = 0;
@@ -811,7 +949,7 @@ export function createEditorClassicSurface({
     }
 
     if (event.key === 'ArrowUp' && selection?.isCollapsed && !meta) {
-      if (moveVisualOrHard(event, -1)) return true;
+      if (moveVisualOrHard(event, -1, wrapStarts)) return true;
       if (activeLine <= 0) return false;
       event.preventDefault();
       goToLine(activeLine - 1, preferredColumn, { retainPreferred: true });
@@ -819,7 +957,7 @@ export function createEditorClassicSurface({
     }
 
     if (event.key === 'ArrowDown' && selection?.isCollapsed && !meta) {
-      if (moveVisualOrHard(event, 1)) return true;
+      if (moveVisualOrHard(event, 1, wrapStarts)) return true;
       if (activeLine >= linesNow.length - 1) return false;
       event.preventDefault();
       goToLine(activeLine + 1, preferredColumn, { retainPreferred: true });
@@ -1004,7 +1142,7 @@ export function createEditorClassicSurface({
         ? selection.focusNode.closest?.('[data-classic-line]')
         : selection.focusNode?.parentElement?.closest?.('[data-classic-line]');
       if (focusRow) {
-        const b = Number(focusRow.dataset.classicLine);
+        const b = focusRow.classicLineIndex;
         if (Number.isFinite(b)) activeLine = b;
       }
       // Soft highlight only (no content re-projection).
@@ -1012,20 +1150,24 @@ export function createEditorClassicSurface({
         ? selection.anchorNode.closest?.('[data-classic-line]')
         : selection.anchorNode?.parentElement?.closest?.('[data-classic-line]');
       if (anchorRow && focusRow) {
-        const a = Number(anchorRow.dataset.classicLine);
-        const b = Number(focusRow.dataset.classicLine);
+        const a = anchorRow.classicLineIndex;
+        const b = focusRow.classicLineIndex;
         const lo = Math.min(a, b);
         const hi = Math.max(a, b);
-        lineElements().forEach((row) => {
-          const i = Number(row.dataset.classicLine);
+        dragRows.forEach((row) => row.classList.remove('is-in-selection'));
+        dragRows.clear();
+        lineElements().slice(lo, hi + 1).forEach((row) => {
+          const i = row.classicLineIndex;
           row.classList.toggle('is-in-selection', Number.isFinite(i) && i >= lo && i <= hi);
+          dragRows.add(row);
         });
       }
       return true;
     }
 
     // Collapsed caret: clear drag highlights; follow active line.
-    lineElements().forEach((row) => row.classList.remove('is-in-selection'));
+    dragRows.forEach((row) => row.classList.remove('is-in-selection'));
+    dragRows.clear();
     if (selectionLines.size > 0) {
       selectionLines = new Set();
     }
@@ -1034,7 +1176,7 @@ export function createEditorClassicSurface({
       ? node.closest?.('[data-classic-line]')
       : node?.parentElement?.closest?.('[data-classic-line]');
     if (!row) return false;
-    const index = Number(row.dataset.classicLine);
+    const index = row.classicLineIndex;
     if (!Number.isFinite(index)) return false;
     if (index === activeLine && row.querySelector('[data-editor-mode="source"]')) {
       const content = row.querySelector('[data-classic-content]');
@@ -1118,6 +1260,7 @@ export function createEditorClassicSurface({
   };
 
   const unmount = () => {
+    hooks.onPreviewChange?.(null);
     caretMotion.unmount();
     mounted = false;
     selectionLines = new Set();
@@ -1135,6 +1278,7 @@ export function createEditorClassicSurface({
   };
 
   const dispose = () => {
+    if (mounted) hooks.onPreviewChange?.(null);
     caretMotion.unmount();
     disposed = true;
     mounted = false;
@@ -1164,8 +1308,7 @@ export function createEditorClassicSurface({
     activeLine: () => activeLine,
     commitFromDom: () => {
       const lines = readLinesFromDom();
-      commitLines(lines);
-      return joinLines(lines);
+      return commitLines(lines);
     },
   });
 }

@@ -33,6 +33,7 @@ export function mountReaderShell({ window, adapters, hooks = {} }) {
       : null,
   });
   const unsubscribePreferences = preferences.subscribe((snapshot) => {
+    void documentSession.applyPreferences(snapshot);
     hooks.onPreferencesChange?.(snapshot);
   });
   let disposed = false;
@@ -47,6 +48,8 @@ export function mountReaderShell({ window, adapters, hooks = {} }) {
       return openIntents.submit(intent);
     },
     preferences,
+    ensureSourceView: () => documentSession.ensureSourceView(),
+    hydrateImagePreviews: (root) => documentSession.hydrateImagePreviews(root),
     prepareAppearance({ diagramTheme = 'default', diagramTokens = null } = {}) {
       if (disposed) return Promise.resolve(null);
       return documentSession.prepareDiagrams(diagramTheme, diagramTokens);
@@ -70,7 +73,7 @@ export function mountReaderShell({ window, adapters, hooks = {} }) {
     },
     currentDocument: () => documentSession.current(),
     getImageViewer: () => documentSession.getImageViewer?.(),
-    getImageMedia: () => documentSession.getImageMedia?.(),
+    getImageMedia: (image) => documentSession.getImageMedia(image),
     dispose() {
       if (disposed) return;
       disposed = true;

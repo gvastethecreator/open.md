@@ -91,7 +91,7 @@ fn coordinator_labels(app: &AppHandle, excluded_label: Option<&str>) -> Vec<Stri
     )
 }
 
-fn coordinator_label(app: &AppHandle) -> Option<String> {
+pub(crate) fn coordinator_label(app: &AppHandle) -> Option<String> {
     let windows = app.webview_windows();
     select_coordinator_label(windows.keys())
 }

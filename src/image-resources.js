@@ -76,6 +76,10 @@ export class ImageResourcePool {
     return this.#resources.size;
   }
 
+  get(objectUrl) {
+    return this.#resources.get(objectUrl) || null;
+  }
+
   create(response, mimeType) {
     const bytes = toUint8Array(response);
     if (!bytes) {
@@ -95,17 +99,17 @@ export class ImageResourcePool {
       throw new Error('Could not create a local image URL.');
     }
 
-    this.#resources.set(objectUrl, requestedBytes);
+    this.#resources.set(objectUrl, Object.freeze({ bytes, mimeType }));
     this.#bytesUsed += requestedBytes;
     return objectUrl;
   }
 
   revoke(objectUrl) {
-    const bytes = this.#resources.get(objectUrl);
-    if (bytes === undefined) return false;
+    const resource = this.#resources.get(objectUrl);
+    if (!resource) return false;
 
     this.#resources.delete(objectUrl);
-    this.#bytesUsed -= bytes;
+    this.#bytesUsed -= resource.bytes.byteLength;
     try {
       this.#revokeObjectURL(objectUrl);
     } catch {

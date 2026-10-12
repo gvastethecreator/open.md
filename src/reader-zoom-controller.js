@@ -40,7 +40,7 @@ export function createReaderZoomController({
   };
 
   const handleWheel = (event) => {
-    if (disposed || !event?.ctrlKey) return;
+    if (disposed || !(event?.ctrlKey || (event?.metaKey && /Mac/.test(window.navigator?.platform || '')))) return;
     event.preventDefault?.();
     setZoom(calculateNewZoom(zoom, event.deltaY, step, min, max));
   };

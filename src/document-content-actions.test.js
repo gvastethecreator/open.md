@@ -51,10 +51,10 @@ function fixture({
       getDocumentPath: () => path,
       getEditorSession: () => editorSession,
       getImageViewer: () => imageViewer,
-      getImageMedia: () => ({
+      getImageMedia: (image) => ({
         bytes: new Uint8Array([1, 2, 3]),
         mimeType: 'image/png',
-        path,
+        path: image?.dataset.documentSource || image?.getAttribute('src') || path,
       }),
       downloadImage,
       toggleReadTask,
@@ -81,6 +81,30 @@ function action(context, id) {
 }
 
 describe('Document Content Actions', () => {
+  it('copies and saves a retained local inline image and excludes remote or blocked sources', async () => {
+    const view = fixture();
+    const write = vi.fn(async () => {});
+    view.dom.window.ClipboardItem = class { constructor(items) { this.items = items; } };
+    Object.defineProperty(view.dom.window.navigator, 'clipboard', { value: { write }, configurable: true });
+    const image = view.document.querySelector('#image');
+    image.dataset.documentSource = './cover.png';
+    image.src = 'blob:retained';
+    const context = view.controller.resolveContext({ target: image });
+    await expect(action(context, 'copy-image').onSelect()).resolves.toBe(true);
+    expect(Object.keys(write.mock.calls[0][0][0].items)).toEqual(['image/png']);
+    await action(context, 'download-image').onSelect();
+    expect(view.downloadImage).toHaveBeenCalledWith({
+      bytes: new Uint8Array([1, 2, 3]), mimeType: 'image/png', path: './cover.png', defaultName: 'cover.png',
+    });
+    for (const source of ['https://example.com/remote.png', 'file:///private.png']) {
+      image.dataset.documentSource = source;
+      const blocked = view.controller.resolveContext({ target: image });
+      expect(action(blocked, 'copy-image')).toBeUndefined();
+      expect(action(blocked, 'download-image')).toBeUndefined();
+    }
+    view.controller.dispose();
+  });
+
   it('keeps Read context actions and clipboard feedback', async () => {
     const view = fixture();
     const clipboard = { writeText: vi.fn(async () => {}) };

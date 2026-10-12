@@ -225,6 +225,18 @@ export function createImageDocumentViewer({
   }
 
   return Object.freeze({
+    setPreferences: ({ imageZoomAnimation, imageDefaultZoom } = {}) => {
+      if (disposed) return;
+      animateZoom = imageZoomAnimation !== false;
+      if (!motionEnabled()) img.style.transition = 'none';
+      if (imageDefaultZoom && imageDefaultZoom !== defaultZoom) {
+        defaultZoom = imageDefaultZoom;
+        if (ready) {
+          if (defaultZoom === '100%' || defaultZoom === '1:1') centerAtScale(1);
+          else fitToWindow();
+        }
+      }
+    },
     fit: () => {
       if (!disposed && ready) fitToWindow({ animate: true });
     },

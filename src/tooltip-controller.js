@@ -89,18 +89,22 @@ function tooltipShowDelay(target, { withinGrace, immediate }) {
   return FIRST_HOVER_DELAY;
 }
 
-function splitShortcutKeys(shortcut) {
-  return String(shortcut).split('+').map((part) => part.trim()).filter(Boolean);
+function splitShortcutKeys(shortcut, target) {
+  const isMac = /Mac/.test(target.ownerDocument.defaultView?.navigator?.platform || '');
+  return String(shortcut).split('+').map((part) => {
+    const key = part.trim();
+    return isMac && key === 'Ctrl' ? 'Cmd' : key;
+  }).filter(Boolean);
 }
 
 function resolveTooltipCopy(target) {
   const raw = target?.dataset?.tooltip?.trim() || '';
   if (!raw) return { text: '', keys: [] };
   const explicit = target.dataset.tooltipShortcut?.trim();
-  if (explicit) return { text: raw, keys: splitShortcutKeys(explicit) };
+  if (explicit) return { text: raw, keys: splitShortcutKeys(explicit, target) };
   const matched = raw.match(TRAILING_SHORTCUT);
   if (!matched?.[1]?.trim() || !matched[2]) return { text: raw, keys: [] };
-  return { text: matched[1].trim(), keys: splitShortcutKeys(matched[2]) };
+  return { text: matched[1].trim(), keys: splitShortcutKeys(matched[2], target) };
 }
 
 function copySignature(copy) {

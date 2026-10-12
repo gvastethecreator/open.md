@@ -109,9 +109,12 @@ for (const marker of [
   'actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d',
   'actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9',
   'actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128',
-  'path: docs',
+  'path: _site',
+  'cp docs/index.html docs/privacy.html docs/.nojekyll _site/',
+  'cp -R docs/assets _site/assets',
 ]) {
   if (!workflow.includes(marker)) throw new Error(`Pages workflow is missing ${marker}`);
 }
+if (workflow.includes('"docs/**"')) throw new Error('Pages must only run for site files and assets');
 
 console.log(`GitHub Pages validation passed (${localReferences.length} local references checked).`);

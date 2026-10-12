@@ -108,9 +108,8 @@ export function setMarkdownTaskChecked(source, sourceLine, checked) {
   const lineNumber = Math.floor(Number(sourceLine));
   if (!Number.isFinite(lineNumber) || lineNumber < 1) return null;
 
-  const newline = source.includes('\r\n') ? '\r\n' : '\n';
-  const lines = source.split(/\r?\n/);
-  const index = lineNumber - 1;
+  const lines = source.split(/(\r\n|\r|\n)/);
+  const index = (lineNumber - 1) * 2;
   if (index >= lines.length) return null;
 
   const match = lines[index].match(/^(\s*(?:[-+*]|\d+[.)])\s+\[)([ xX])(\])/);
@@ -120,5 +119,5 @@ export function setMarkdownTaskChecked(source, sourceLine, checked) {
   if (nextLine === lines[index]) return { source, changed: false };
 
   lines[index] = nextLine;
-  return { source: lines.join(newline), changed: true };
+  return { source: lines.join(''), changed: true };
 }

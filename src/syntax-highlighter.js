@@ -103,7 +103,7 @@ export function highlightDocument(container, language) {
   let highlighted = 0;
   for (const code of targets) {
     const source = code.textContent || '';
-    if (!source.trim()) continue;
+    if (source.length >= 256 * 1024 || !source.trim()) continue;
     try {
       code.innerHTML = hljs.highlight(source, { language: resolved, ignoreIllegals: true }).value;
       code.classList.add('hljs');

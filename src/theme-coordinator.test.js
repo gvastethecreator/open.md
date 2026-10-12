@@ -50,6 +50,27 @@ function fixture({ reduced = false, viewTransitions = false } = {}) {
 }
 
 describe('Theme Coordinator', () => {
+  it('uses the OS appearance on first run and keeps a saved theme', async () => {
+    const { dom, elements } = fixture();
+    dom.window.matchMedia = (query) => ({ matches: query === '(prefers-color-scheme: dark)' });
+    const themes = [
+      { ...THEMES[0], name: 'Github Light' },
+      { ...THEMES[1], name: 'Github Dark' },
+    ];
+    const coordinator = createThemeCoordinator({ window: dom.window, document: dom.window.document, themes, elements });
+    await coordinator.start();
+    expect(coordinator.current().name).toBe('Github Dark');
+    expect(elements.select.selectedOptions[0].textContent).toBe('Github Dark');
+    await coordinator.start('Github Light');
+    expect(coordinator.current().name).toBe('Github Light');
+    expect(elements.select.querySelectorAll('option')).toHaveLength(1);
+    elements.select.dispatchEvent(new dom.window.Event('focus'));
+    expect(elements.select.querySelectorAll('option')).toHaveLength(2);
+    expect(elements.select.selectedOptions[0].textContent).toBe('Github Light');
+    coordinator.dispose();
+    dom.window.close();
+  });
+
   it('exposes three signature preview colors for theme pills', () => {
     expect(getThemePreviewColors(THEMES[0])).toEqual({
       background: '#ffffff',
@@ -74,7 +95,8 @@ describe('Theme Coordinator', () => {
     });
 
     await coordinator.start('Light');
-    expect(elements.select.querySelectorAll('option')).toHaveLength(0);
+    expect(elements.select.querySelectorAll('option')).toHaveLength(1);
+    expect(elements.select.selectedOptions[0].textContent).toBe('Light');
     coordinator.ensureCatalog();
     expect(elements.select.querySelector(':scope > button selectedcontent')).not.toBeNull();
     const options = [...elements.select.querySelectorAll('option')];

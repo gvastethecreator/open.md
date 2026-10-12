@@ -1,7 +1,7 @@
 use std::env;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 mod app_settings;
 mod cp437;
@@ -14,20 +14,29 @@ static WINDOW_COUNTER: AtomicUsize = AtomicUsize::new(1);
 /// Boot-time mode: true when this process skipped the single-instance plugin.
 static PROCESS_ALLOWS_MULTIPLE_INSTANCES: AtomicBool = AtomicBool::new(true);
 
-#[tauri::command]
+#[tauri::command(async)]
 fn get_file_content(path: String) -> Result<document_access::DocumentPayload, String> {
     document_access::open_document(Path::new(&path))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn save_file_content(
     path: String,
     content: String,
-) -> Result<document_access::DocumentPayload, String> {
-    document_access::save_document(Path::new(&path), &content)
+    expected_content: String,
+    overwrite: bool,
+    render_document: bool,
+) -> Result<document_access::SaveDocumentResult, String> {
+    document_access::save_document(
+        Path::new(&path),
+        &content,
+        &expected_content,
+        overwrite,
+        render_document,
+    )
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn save_file_bytes(path: String, contents: Vec<u8>) -> Result<(), String> {
     document_access::save_bytes(Path::new(&path), &contents)
 }
@@ -58,7 +67,7 @@ fn build_document_window(app: &AppHandle, path: &str) -> Result<(), String> {
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn open_new_window(app: AppHandle, path: String) -> Result<(), String> {
     build_document_window(&app, &path)
 }
@@ -81,7 +90,7 @@ fn set_allow_multiple_instances(
     app_settings::set_allow_multiple_instances(value)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 fn get_file_association_status() -> file_associations::FileAssociationStatus {
     file_associations::get_status()
 }
@@ -109,6 +118,15 @@ pub fn run() {
     let mut builder = tauri::Builder::default();
     if !boot_settings.allow_multiple_instances {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if let Some(window) = open_requests::coordinator_label(app)
+                .and_then(|label| app.get_webview_window(&label))
+            {
+                for result in [window.unminimize(), window.show(), window.set_focus()] {
+                    if let Err(error) = result {
+                        eprintln!("Could not activate the existing window: {error}");
+                    }
+                }
+            }
             let paths = args
                 .into_iter()
                 .skip(1)

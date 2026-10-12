@@ -1,4 +1,3 @@
-import { isMarkdownFormat, resolveFormatId } from './format-registry.js';
 import {
   getCurrentLineFromAnchors,
   getLineGutterLeft,
@@ -28,6 +27,10 @@ export function createReadingNavigationController({
   let resizeObserver = null;
   let minimapDragging = false;
   let minimapDirty = true;
+  let minimapContentDirty = true;
+  let minimapView = null;
+  let minimapClone = null;
+  let readMinimapObserver = null;
   let minimapCloneRevision = 0;
   let minimapContentHeight = 0;
   let started = false;
@@ -35,6 +38,13 @@ export function createReadingNavigationController({
   let morphLocked = false;
   let morphOrigins = null;
   let lineAnchorCache = null;
+  let dirtyTimer = null;
+  let editMinimapView = null;
+  let editMinimapClone = null;
+  let editMinimapObserver = null;
+  const editMinimapRows = new Map();
+  const dirtyMinimapRows = new Set();
+  const removedMinimapRows = new Set();
   const morphAnimations = new Set();
 
   const requestFrame = (callback) => (
@@ -65,7 +75,7 @@ export function createReadingNavigationController({
   const getRenderedLineAnchors = () => {
     if (!elements.documentStage) return [];
     const scrollTop = activeScroller()?.scrollTop || 0;
-    if (lineAnchorCache) {
+    if (lineAnchorCache && mode() !== 'edit') {
       return lineAnchorCache.map((anchor) => ({
         ...anchor,
         top: anchor.documentTop - scrollTop,
@@ -75,50 +85,36 @@ export function createReadingNavigationController({
     const seenLines = new Set();
     let anchors = [];
     if (mode() === 'edit') {
-      const classicRows = [...(elements.editorCanvas?.querySelectorAll('[data-classic-line]') || [])];
-      if (classicRows.length > 0) {
-        // Classic continuous surface: one source line per hard-line row.
-        anchors = classicRows.map((row) => {
-          const index = Number.parseInt(row.dataset.classicLine, 10);
+      const classicRows = elements.editorCanvas?.children || [];
+      if (classicRows[0]?.matches('[data-classic-line]')) {
+        const visibleStart = scrollTop - 18;
+        const visibleEnd = scrollTop + (activeScroller()?.clientHeight || 0) + 18;
+        let low = 0;
+        let high = classicRows.length;
+        while (low < high) {
+          const middle = Math.floor((low + high) / 2);
+          if (classicRows[middle].getBoundingClientRect().top - stageTop < visibleStart) low = middle + 1;
+          else high = middle;
+        }
+        const lineHeights = new Map();
+        for (let rowIndex = Math.max(0, low - 1); rowIndex < classicRows.length; rowIndex += 1) {
+          const row = classicRows[rowIndex];
+          const index = rowIndex;
           const content = row.querySelector('[data-classic-content]') || row;
-          const styles = window.getComputedStyle(content);
-          const lineHeight = Number.parseFloat(styles.lineHeight)
-            || Math.min(Math.max(content.getBoundingClientRect().height, 16), 32);
-          return {
+          const rect = content.getBoundingClientRect();
+          const top = rect.top - stageTop;
+          if (top > visibleEnd) break;
+          const kind = content.dataset.lineKind || 'paragraph';
+          if (!lineHeights.has(kind)) {
+            lineHeights.set(kind, Number.parseFloat(window.getComputedStyle(content).lineHeight)
+              || Math.min(Math.max(rect.height, 16), 32));
+          }
+          anchors.push({
             line: index + 1,
-            top: content.getBoundingClientRect().top - stageTop,
-            lineHeight,
-          };
-        });
-      } else {
-        const activeDocument = adapters.getDocument?.();
-        const activePath = adapters.getFilePath?.();
-        const activeFormat = resolveFormatId(activePath, activeDocument);
-        const usesMarkdownCodeOffsets = isMarkdownFormat(activeFormat, {
-          kind: activeDocument?.kind,
-          path: activePath,
-        });
-        anchors = [...(elements.editorCanvas?.querySelectorAll('[data-source-line-start]') || [])].flatMap((wrapper) => {
-          const content = wrapper.querySelector('[data-editor-content]');
-          if (!content) return [];
-          const sourceStart = Number.parseInt(wrapper.dataset.sourceLineStart, 10);
-          const sourceCount = Math.max(1, Number.parseInt(wrapper.dataset.sourceLineCount, 10) || 1);
-          const styles = window.getComputedStyle(content);
-          const lineHeight = Number.parseFloat(styles.lineHeight)
-            || Math.min(Math.max(content.getBoundingClientRect().height, 16), 32);
-          const top = content.getBoundingClientRect().top - stageTop;
-          const isCode = wrapper.dataset.blockType === 'code'
-            && usesMarkdownCodeOffsets;
-          const visibleCount = isCode
-            ? Math.max(1, content.textContent.split('\n').length)
-            : sourceCount;
-          const visibleStart = sourceStart + (isCode ? 1 : 0);
-          return Array.from({ length: visibleCount }, (_value, index) => ({
-            line: visibleStart + index,
-            top: top + (index * lineHeight),
-            lineHeight,
-          }));
-        });
+            top,
+            lineHeight: lineHeights.get(kind),
+          });
+        }
       }
     } else {
       anchors = [...(elements.readView?.querySelectorAll('.source-line-anchor[data-source-line]') || [])]
@@ -492,6 +488,61 @@ export function createReadingNavigationController({
     }
   };
 
+  const collectMinimapRows = (records) => {
+    for (const record of records) {
+      const element = record.target.nodeType === 1 ? record.target : record.target.parentElement;
+      const row = element?.closest('[data-classic-line]');
+      if (row?.parentElement === editMinimapView) dirtyMinimapRows.add(row);
+      if (record.target === editMinimapView) {
+        record.addedNodes.forEach((node) => {
+          if (node.nodeType === 1) dirtyMinimapRows.add(node);
+        });
+        record.removedNodes.forEach((node) => {
+          removedMinimapRows.add(node);
+          dirtyMinimapRows.delete(node);
+        });
+      }
+    }
+  };
+
+  const clearEditMinimap = () => {
+    readMinimapObserver?.disconnect();
+    readMinimapObserver = null;
+    editMinimapObserver?.disconnect();
+    editMinimapObserver = null;
+    editMinimapView = null;
+    editMinimapClone = null;
+    editMinimapRows.clear();
+    dirtyMinimapRows.clear();
+    removedMinimapRows.clear();
+  };
+
+  const updateEditMinimap = (view) => {
+    collectMinimapRows(editMinimapObserver?.takeRecords() || []);
+    if (view !== editMinimapView || !editMinimapClone?.isConnected) return null;
+    for (const row of removedMinimapRows) {
+      if (row.parentElement === view) continue;
+      editMinimapRows.get(row)?.remove();
+      editMinimapRows.delete(row);
+    }
+    removedMinimapRows.clear();
+    for (const row of dirtyMinimapRows) {
+      if (row.parentElement !== view) continue;
+      const clone = buildMinimapSnapshot(row);
+      sanitizeMinimapClone(clone);
+      const previous = editMinimapRows.get(row);
+      if (previous) previous.replaceWith(clone);
+      else {
+        let next = row.nextElementSibling;
+        while (next && !editMinimapRows.has(next)) next = next.nextElementSibling;
+        editMinimapClone.insertBefore(clone, editMinimapRows.get(next) || null);
+      }
+      editMinimapRows.set(row, clone);
+    }
+    dirtyMinimapRows.clear();
+    return editMinimapClone;
+  };
+
   const renderMinimapDocument = () => {
     if (
       !minimapDirty
@@ -511,19 +562,57 @@ export function createReadingNavigationController({
     if (trackWidth <= 0 || trackHeight <= 0 || viewRect.width <= 0) return;
 
     const documentWidth = Math.max(1, viewRect.width);
-    const clone = buildMinimapSnapshot(view);
+    if (readMinimapObserver?.takeRecords().length) minimapContentDirty = true;
+    let clone = mode() === 'edit'
+      ? updateEditMinimap(view)
+      : !minimapContentDirty && minimapView === view && minimapClone?.isConnected
+        ? minimapClone
+        : null;
+    const retained = Boolean(clone);
+    if (!clone) {
+      clearEditMinimap();
+      clone = buildMinimapSnapshot(view);
+    }
     if (!clone) return;
-    sanitizeMinimapClone(clone);
+    if (!retained) sanitizeMinimapClone(clone);
+    const documentHeight = Math.max(1, view.scrollHeight, viewRect.height);
     clone.style.width = `${documentWidth}px`;
     clone.style.maxWidth = 'none';
     clone.style.minHeight = '0';
     clone.style.margin = '0';
     elements.minimapDocument.style.width = `${documentWidth}px`;
-    elements.minimapDocument.style.fontSize = viewStyles.fontSize;
-    elements.minimapDocument.style.lineHeight = viewStyles.lineHeight;
-    elements.minimapDocument.style.transform = 'none';
-    elements.minimapDocument.replaceChildren(clone);
-    const documentHeight = Math.max(1, view.scrollHeight, viewRect.height, clone.scrollHeight, clone.offsetHeight);
+    const zoom = Number.parseFloat(window.getComputedStyle(document.documentElement)
+      .getPropertyValue('--content-scale')) || 1;
+    const minimapFontMetric = (value) => {
+      const pixels = Number.parseFloat(value);
+      return mode() === 'read' && Number.isFinite(pixels)
+        ? `calc(${Number((pixels / zoom).toFixed(6))}px * var(--content-scale, 1))`
+        : value;
+    };
+    elements.minimapDocument.style.fontSize = minimapFontMetric(viewStyles.fontSize);
+    elements.minimapDocument.style.lineHeight = minimapFontMetric(viewStyles.lineHeight);
+    if (!retained) elements.minimapDocument.replaceChildren(clone);
+    if (mode() === 'edit' && !retained) {
+      editMinimapView = view;
+      editMinimapClone = clone;
+      [...view.children].forEach((row, index) => editMinimapRows.set(row, clone.children[index]));
+      if (typeof window.MutationObserver === 'function') {
+        editMinimapObserver = new window.MutationObserver(collectMinimapRows);
+        editMinimapObserver.observe(view, {
+          childList: true, characterData: true, subtree: true, attributes: true,
+          attributeFilter: ['class', 'style', 'data-source-text', 'src'],
+        });
+      }
+    } else if (mode() !== 'edit' && !retained && typeof window.MutationObserver === 'function') {
+      readMinimapObserver = new window.MutationObserver(() => markDirty());
+      readMinimapObserver.observe(view, {
+        childList: true, characterData: true, subtree: true, attributes: true,
+        attributeFilter: ['class', 'style', 'src'],
+      });
+    }
+    minimapView = view;
+    minimapClone = clone;
+    minimapContentDirty = false;
     elements.minimapDocument.style.height = `${documentHeight}px`;
     const scale = Math.min(trackWidth / documentWidth, trackHeight / documentHeight);
     minimapContentHeight = documentHeight * scale;
@@ -583,7 +672,19 @@ export function createReadingNavigationController({
     });
   };
 
-  const markDirty = ({ queue = true } = {}) => {
+  const markDirty = ({ queue = true, geometryOnly = false } = {}) => {
+    if (!geometryOnly) minimapContentDirty = true;
+    window.clearTimeout(dirtyTimer);
+    dirtyTimer = null;
+    if (queue && mode() === 'edit') {
+      dirtyTimer = window.setTimeout(() => {
+        dirtyTimer = null;
+        minimapDirty = true;
+        lineAnchorCache = null;
+        queueUpdate();
+      }, 500);
+      return;
+    }
     minimapDirty = true;
     lineAnchorCache = null;
     if (queue) queueUpdate();
@@ -599,10 +700,11 @@ export function createReadingNavigationController({
       if (!available) elements.lineGutter.replaceChildren();
     }
     if (elements.minimap) {
+      const activationChanged = elements.minimap.getAttribute('aria-hidden') !== String(!minimapActive);
       elements.minimap.hidden = !available;
       elements.minimap.setAttribute('aria-hidden', String(!minimapActive));
       elements.minimap.toggleAttribute('inert', !minimapActive);
-      minimapDirty = minimapActive;
+      if (activationChanged || !elements.minimapDocument?.firstChild) minimapDirty = minimapActive;
       if (!available) {
         minimapContentHeight = 0;
         elements.minimapDocument?.replaceChildren();
@@ -696,6 +798,10 @@ export function createReadingNavigationController({
   };
 
   const reset = () => {
+    clearEditMinimap();
+    minimapContentDirty = true;
+    minimapView = null;
+    minimapClone = null;
     currentLine = 1;
     readingProgress = 0;
     minimapDirty = true;
@@ -717,7 +823,7 @@ export function createReadingNavigationController({
     elements.minimap?.addEventListener('pointercancel', onMinimapPointerUp);
     elements.minimap?.addEventListener('keydown', onMinimapKeyboard);
     if (typeof window.ResizeObserver === 'function') {
-      resizeObserver = new window.ResizeObserver(() => markDirty());
+      resizeObserver = new window.ResizeObserver(() => markDirty({ geometryOnly: true }));
       [elements.documentStage, elements.readView, elements.sourceView, elements.editView, elements.editorCanvas]
         .filter(Boolean)
         .forEach((element) => resizeObserver.observe(element));
@@ -727,6 +833,8 @@ export function createReadingNavigationController({
   const dispose = () => {
     if (disposed) return;
     disposed = true;
+    clearEditMinimap();
+    window.clearTimeout(dirtyTimer);
     window.removeEventListener('resize', queueUpdate);
     window.removeEventListener('resize', handleScroll);
     elements.readerPage?.removeEventListener('scroll', handleScroll);
