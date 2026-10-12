@@ -11,7 +11,7 @@ Resolved versions live in those lockfiles, not in this page.
 3. Run `pnpm run verify`.
 4. Record user-visible or security-relevant changes in `CHANGELOG.md` under `Unreleased`.
 
-Keep `pnpm-workspace.yaml` `overrides` until `pnpm audit --json` stays clean without them.
+For an advisory in an indirect package, run `pnpm update <package>` first; it refreshes the lockfile inside the existing ranges. Add a `pnpm-workspace.yaml` override only when no allowed range reaches the fix, use a range rather than an exact pin, and remove it once the dependent covers the fix.
 
 ## Update Rust
 

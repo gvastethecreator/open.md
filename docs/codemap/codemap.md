@@ -1,15 +1,15 @@
 # Code map: open.md
 
-Generated: 2026-10-10T23:17:16Z | Commit: `9c1a9c87a1bc` | Schema: 2
-Generation: `85c7679d384f778ce73fc006ba47a967064df33f9636a278f4a567ec3a45a0ee`
+Generated: 2026-10-12T10:10:41Z | Commit: `ff03d417c477` | Schema: 2
+Generation: `51fcd974a5428ce7f7c26b29e398769615274444abf1dac408b1685c34b04238`
 Scope: . | Inventory: working-tree
-Nodes: 140 | Edges: 468 | Flows: 1
+Nodes: 142 | Edges: 475 | Flows: 1
 
 ## Coverage
 
-- Analysis: **partial**; 115 analyzed of 122 included files.
+- Analysis: **partial**; 117 analyzed of 122 included files.
 - Configuration files: 1; omitted untracked files: 0.
-- Unresolved references and analysis limits: 540.
+- Unresolved references and analysis limits: 576.
 - Static references and call paths do not prove runtime execution or test coverage.
 
 ## Modules
@@ -29,12 +29,12 @@ Nodes: 140 | Edges: 468 | Flows: 1
 - `external:javascript:node:url` | external | External | callers: scripts/generate-runtime-themes.mjs, scripts/generate-runtime-themes.mjs, src/application-composition.test.js, src/application-composition.test.js | callees: none | tests: 1 | entry: none
 - `external:javascript:node:zlib` | external | External | callers: scripts/check-bundle.mjs, scripts/check-bundle.mjs | callees: none | tests: 0 | entry: none
 - `external:javascript:vite` | external | External | callers: vite.config.js, vite.config.js | callees: none | tests: 0 | entry: none
-- `external:javascript:vitest` | external | External | callers: src/app-loading-screen.test.js, src/app-loading-screen.test.js, src/application-composition.test.js, src/application-composition.test.js | callees: none | tests: 46 | entry: none
+- `external:javascript:vitest` | external | External | callers: src/app-loading-screen.test.js, src/app-loading-screen.test.js, src/application-composition.test.js, src/application-composition.test.js | callees: none | tests: 47 | entry: none
 - `external:python:datetime` | external | External | callers: examples/write_bulk.py, examples/write_bulk.py | callees: none | tests: 0 | entry: none
 - `external:python:pathlib` | external | External | callers: examples/fixtures/write-nfo-fixtures.py, examples/fixtures/write-nfo-fixtures.py, examples/write_bulk.py, examples/write_bulk.py | callees: none | tests: 0 | entry: none
 - `external:python:xml` | external | External | callers: examples/write_bulk.py | callees: none | tests: 0 | entry: none
 - `external:rust:pulldown_cmark` | external | External | callers: src-tauri/src/document_access.rs, src-tauri/src/document_access.rs | callees: none | tests: 0 | entry: none
-- Showing 20 of 140 nodes. Query `impact --module <path>` or open the HTML hierarchy for the rest.
+- Showing 20 of 142 nodes. Query `impact --module <path>` or open the HTML hierarchy for the rest.
 
 ## Edges
 
@@ -88,7 +88,7 @@ Nodes: 140 | Edges: 468 | Flows: 1
 - `src-tauri/src/lib.rs` -> `src-tauri/src/app_settings.rs` | imports
 - `src-tauri/src/lib.rs` -> `src-tauri/src/cp437.rs` | imports
 - `src-tauri/src/lib.rs` -> `src-tauri/src/document_access.rs` | calls
-- Showing 50 of 468 edges; JSON contains every edge and its evidence.
+- Showing 50 of 475 edges; JSON contains every edge and its evidence.
 
 ## Unknown
 

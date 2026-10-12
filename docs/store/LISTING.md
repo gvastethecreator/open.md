@@ -37,7 +37,7 @@ Highlights
 • Themes, font choices, zoom, keyboard shortcuts, and reduced motion
 • Local settings with no open.md account, advertising, or telemetry
 
-Opening a document does not modify it. Changes are written only when you edit and save, or while you have explicitly enabled autosave.
+Opening a document does not modify it. Auto-save is on by default and saves edits automatically; turn it off in Settings to save edits manually. Toggling a task checkbox in Read mode writes that change immediately, regardless of the auto-save preference.
 
 open.md is an early release. Keep backups of important documents and review changes before saving.
 ```

@@ -53,6 +53,8 @@ VS Code tasks mirror these commands. **Build** runs `pnpm run tauri build`, whos
 
 Use the [code map](codemap/codemap.md) to find module relationships and related tests. The [interactive map](codemap/codemap.html) includes source evidence and analysis limits.
 
+`src/status-metrics.js` derives format-specific status values. `src/status-presenter.js` displays them. `src/json-property-model.js` validates and updates JSON properties; `src/json-property-editor.js` owns their controls. `src/editor-session.js` connects that surface to document history and saving.
+
 Reproduce the Rust audit locally with the pinned tool version used in CI:
 
 ```bash

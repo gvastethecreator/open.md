@@ -17,7 +17,7 @@ open.md is a local-first Markdown and text reader/editor.
 - It does not collect analytics or telemetry.
 - It does not upload documents, document contents, local images, file paths, or reading preferences to the publisher.
 - It does not fetch remote images referenced by Markdown documents.
-- Opening a document is read-only. A document is changed only after the user enters an editing mode and saves, or when the user has explicitly enabled the app's autosave behavior.
+- Opening a document does not change it. Auto-save is on by default and saves edits automatically. Toggling a task checkbox in Read mode also writes to the document.
 
 ### Files selected by the user
 
@@ -33,7 +33,7 @@ Opening a file does not write to it.
 
 When the user chooses to edit and save, open.md writes only to the selected document or to a destination explicitly chosen by the user. Saves use a temporary file and replacement flow intended to reduce the risk of partially written files.
 
-The app includes an autosave preference. When autosave is enabled and the user is editing, document changes may be written without an additional confirmation for every individual save. Users should disable autosave when they require manual save control.
+Auto-save is on by default. While the user is editing, it writes changes without a separate confirmation for each save. Users can turn it off in Settings to save edits manually. Toggling a task checkbox in Read mode writes that change immediately, regardless of the auto-save preference.
 
 open.md does not create cloud backups and does not synchronize documents.
 
@@ -103,7 +103,7 @@ open.md es un lector y editor local de Markdown y texto.
 - No recopila analíticas ni telemetría.
 - No sube documentos, contenido de documentos, imágenes locales, rutas de archivos ni preferencias de lectura al publicador.
 - No descarga imágenes remotas referenciadas por documentos Markdown.
-- Abrir un documento es una operación de lectura. El documento cambia únicamente cuando el usuario entra en un modo de edición y guarda, o cuando habilitó explícitamente el guardado automático.
+- Abrir un documento no lo modifica. El guardado automático está activo por defecto y guarda las ediciones. Marcar o desmarcar una tarea en el modo Lectura también escribe en el documento.
 
 ### Archivos elegidos por el usuario
 
@@ -119,7 +119,7 @@ Abrir un archivo no escribe sobre él.
 
 Cuando el usuario decide editar y guardar, open.md escribe únicamente en el documento seleccionado o en un destino elegido explícitamente. El guardado utiliza un archivo temporal y un reemplazo diseñado para reducir el riesgo de archivos escritos parcialmente.
 
-La aplicación incluye una preferencia de guardado automático. Cuando está habilitada y el usuario está editando, los cambios pueden escribirse sin una confirmación adicional para cada guardado individual. Se recomienda desactivarla cuando se requiera control manual.
+El guardado automático está activo por defecto. Durante la edición, escribe los cambios sin pedir confirmación para cada guardado. Se puede desactivar en Configuración para guardar las ediciones manualmente. Marcar o desmarcar una tarea en el modo Lectura guarda ese cambio de inmediato, independientemente de la preferencia de guardado automático.
 
 open.md no crea copias de seguridad en la nube ni sincroniza documentos.
 

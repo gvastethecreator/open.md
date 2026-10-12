@@ -1,9 +1,9 @@
 {
   "schema_version": 2,
-  "source_commit": "9c1a9c87a1bcd5e20d1708f5c835e72847ced0a4",
+  "source_commit": "ff03d417c4771ad933ac07a23c5c6933fd3c5145",
   "working_tree_dirty": true,
-  "generated_at": "2026-10-10T23:17:16Z",
-  "generation_id": "85c7679d384f778ce73fc006ba47a967064df33f9636a278f4a567ec3a45a0ee",
+  "generated_at": "2026-10-12T10:10:41Z",
+  "generation_id": "51fcd974a5428ce7f7c26b29e398769615274444abf1dac408b1685c34b04238",
   "analysis": {
     "version": "syntax-1",
     "digest": "96e36f012ebfed8f88e81298e738e1c64801c7245f18e598ae77c684b0b22329"
@@ -67,8 +67,8 @@
         "path": "package.json",
         "origin": "tracked",
         "state": "present",
-        "digest": "be69bd6f375f4fd55a93c19d623aacda8dc939995ab8f64595ee3a9261855596",
-        "size": 2175
+        "digest": "bd3341c46a6db95f83709a45c4d614b5a93b93a1138a89f65d3c6954e574cca9",
+        "size": 2304
       },
       {
         "path": "scripts/check-bundle.mjs",
@@ -76,13 +76,6 @@
         "state": "present",
         "digest": "37cc4d643e765f15b9dd825532f619a0b1fa16df48e9b17dc5b28da06083d32e",
         "size": 4191
-      },
-      {
-        "path": "scripts/free-port.mjs",
-        "origin": "tracked",
-        "state": "missing",
-        "digest": null,
-        "size": 0
       },
       {
         "path": "scripts/generate-runtime-themes.mjs",
@@ -123,15 +116,15 @@
         "path": "scripts/validate-frontend.mjs",
         "origin": "tracked",
         "state": "present",
-        "digest": "8ee44d763f4dbb4aae2a0ac51c32d426c1ff6b1ebdd6b5ecded77288a76d8d70",
-        "size": 13305
+        "digest": "71e6ac2d4d5b7f7e67d3105bd661c40703882bdf6c74f40932943221693acb88",
+        "size": 13352
       },
       {
         "path": "scripts/validate-pages.mjs",
         "origin": "tracked",
         "state": "present",
-        "digest": "b251d84a0dd403ee284b3eaeaab7623b1aa8bdabf168e9977eb6ef15a6348356",
-        "size": 5003
+        "digest": "05d54fbd903cb4a5b475ccd684aebda2dff9a335957884dbbbaa158a828a70b2",
+        "size": 5209
       },
       {
         "path": "src-tauri/Cargo.toml",
@@ -165,8 +158,8 @@
         "path": "src-tauri/src/document_access.rs",
         "origin": "tracked",
         "state": "present",
-        "digest": "edc7c2e80766a84ed9871f806b63ba4ea478ff00a333a5ddcfbddc05780220a3",
-        "size": 51858
+        "digest": "5395eca62e5b36cbac52f4fa82df8e632431afd47d59ae9fb5174fa1e0dbd9b3",
+        "size": 55676
       },
       {
         "path": "src-tauri/src/file_associations.rs",
@@ -179,15 +172,15 @@
         "path": "src-tauri/src/images.rs",
         "origin": "tracked",
         "state": "present",
-        "digest": "eb271c2ba70b728739b366073231fd1cef5c3caa8e736a1b782ad7038216335a",
-        "size": 538
+        "digest": "5f8b1d5af917f2078b77342a74d172581252370d08fe66ff68baa35ddefb4c7d",
+        "size": 552
       },
       {
         "path": "src-tauri/src/lib.rs",
         "origin": "tracked",
         "state": "present",
-        "digest": "bc15aad35da92671a1c51f6c41ac11201fbb87548be32dc171db45dbc3037134",
-        "size": 6173
+        "digest": "34b8224988d4f0c9ae56751866583108c77ffa1d64eed9bd51cd27454af7f25e",
+        "size": 6842
       },
       {
         "path": "src-tauri/src/main.rs",
@@ -200,8 +193,8 @@
         "path": "src-tauri/src/open_requests.rs",
         "origin": "tracked",
         "state": "present",
-        "digest": "c58e043e79ef35cb2f3127fc2a86103c41dae702580bb2736f65bce10e6b80a3",
-        "size": 5710
+        "digest": "3f15ff83978d61498e515ce2e819fad6328cfeaa14eed5d9b5daa2d44c960d48",
+        "size": 5721
       },
       {
         "path": "src/app-loading-screen.js",
@@ -228,57 +221,71 @@
         "path": "src/application-lifecycle.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "df5d1d3ed14769963565c5aba12213e0572e533dd861da335dd6bd1ed52282e9",
-        "size": 4016
+        "digest": "c260cd72f3b42fa4f1f10da1de661f5512bebdb872a813a833f13f6666d3c886",
+        "size": 4041
       },
       {
         "path": "src/application-lifecycle.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "620d6baad311fcbc6e241c1c358ef0dbd780b8ecdfaa5d59bf3506a031ca3e11",
-        "size": 3731
+        "digest": "0e2e03f0aee27953797683cbdf103d527b1c42e2ff69bdea37c2e0268db37054",
+        "size": 4035
       },
       {
         "path": "src/application-runtime-adapters.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "08e82a61ebd695cdd09e95fc227499b50a316ae4a1bd487c5afaf58c02f00466",
-        "size": 11321
+        "digest": "fe1b8010840cb8539b8643f14093f1348f16d4971e7a728c5141d4e78bee3776",
+        "size": 11812
       },
       {
         "path": "src/application-runtime-adapters.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "adbf766d3cb18b5855ae190fc93add3466e1a3f5990328304515bb6998c00618",
-        "size": 7566
+        "digest": "3e4bf58d56da0af87929750112cc159714602d290d6da394072ba153cabfba00",
+        "size": 8643
       },
       {
         "path": "src/context-menu-controller.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "83bd172214efe88833a5eb56c04a3189308610408282e9b6f91252028632451a",
-        "size": 10516
+        "digest": "42df8b0f0c9e6290e4d0f02e40d45b5e7c0d92841425e8f54278d5c91c8b3780",
+        "size": 10587
       },
       {
         "path": "src/context-menu-controller.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "cf9d1c2e011d03f920f4b06e2eed2e9a3db6171c3ba4574c755f823fa62918eb",
-        "size": 4857
+        "digest": "43a4e7a79547205713331ea96afc48b2d72ded287d824133c70cffe96dc95981",
+        "size": 4860
       },
       {
         "path": "src/document-content-actions.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "78a0a12ed9f402b4aeabda580ae8a1ab26e79594f76cb8a7464d3947b923ca24",
-        "size": 21244
+        "digest": "80231abc0b82f187f0de34e5633ac9c573d23f2ea44720e10002a6e1a267a12d",
+        "size": 21735
       },
       {
         "path": "src/document-content-actions.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "ca40e6697fe12d04f8b755d998946fc76ad13775c5ca5680757ba812c8491390",
-        "size": 10441
+        "digest": "4d5eed189272fd0c5dab910804b17cbf1951e088fee2d044077f3851555cf6a5",
+        "size": 11889
+      },
+      {
+        "path": "src/document-find.js",
+        "origin": "untracked",
+        "state": "present",
+        "digest": "9abbdbf576c90834e937c6fe843177b9a21312af82249415eea7f090580de64d",
+        "size": 4973
+      },
+      {
+        "path": "src/document-find.test.js",
+        "origin": "untracked",
+        "state": "present",
+        "digest": "a96a1caf623fad5c35dea75b380f51c5815dd797bd10b4161cabfa7f425a4bd9",
+        "size": 570
       },
       {
         "path": "src/document-ingress-controller.js",
@@ -340,29 +347,29 @@
         "path": "src/document-save-coordinator.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "b07b495290889eede3e3e5674c9812ffe30648e0ed85405a0cbe5fbc5bc58727",
-        "size": 6447
+        "digest": "f6962eb07ed69dcd79f4d95859fb406d76c05ce57305b89afce1ba7f418bebe4",
+        "size": 7245
       },
       {
         "path": "src/document-save-coordinator.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "7591a4bfd699561ec81198ebfdc9e6fe774722a31851c356a16bd4a168e07bfa",
-        "size": 8016
+        "digest": "47e2dbb7a863e95ff538d427e57c78364c0c41f2d9b1e523a811a41f3a881830",
+        "size": 10099
       },
       {
         "path": "src/document-session.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "c6aa1ce72c64f58c6f84633282b1bcaffa25c46ec97898b9c8576c7836c5e4fc",
-        "size": 22750
+        "digest": "e8f71f4641d22fa365a421d1074dd9e42de72e857bba7ea2c127e53fd269ccd2",
+        "size": 26651
       },
       {
         "path": "src/document-session.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "1f0752e4617bb91c8ef0b04cb18b0d69161a656a03c580ce1af60401b2680640",
-        "size": 18520
+        "digest": "2dcb5d9f88730b34ecdcc410ce21975c45d9482f5554ef478bfcc33fbc9f5712",
+        "size": 25704
       },
       {
         "path": "src/document-view-state.js",
@@ -382,43 +389,43 @@
         "path": "src/editor-caret-motion.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "b8f9162aba0a8b09c468318b62743aefb2f6b7cccea7b717e169d49bc1bad8bb",
-        "size": 7249
+        "digest": "64e39dfccc635dea71751e513768f2ff6296af7fce1e0555bbb287d14ee74161",
+        "size": 7573
       },
       {
         "path": "src/editor-caret-motion.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "e300e44ba2c2d1123fbd44a5876d593f48396657a893da02dc92a8608410b6e4",
-        "size": 6149
+        "digest": "d986ed29bd753749500eba713c73191c890c48cdda83b4a12db8e138c39ab686",
+        "size": 6713
       },
       {
         "path": "src/editor-classic-surface.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "fb5442be862390d04a12cee7ef684678ee3759fada6c0b81e7b26f08c5eae0d9",
-        "size": 43458
+        "digest": "8e8304f1aae3dd8a926ed354539e041d511bebf8290a01707e6ade4156f1f99b",
+        "size": 50093
       },
       {
         "path": "src/editor-classic-surface.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "4b3f3d3e890b8a696d49111e05f657b635993da5eff51bedd71820ab8bf464db",
-        "size": 30297
+        "digest": "0e08d591c0ca47dba43576b4ecc1f81bd485a3b95ec9580b5109314914a18a45",
+        "size": 33130
       },
       {
         "path": "src/editor-document.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "6a286772671384525655adbbf3bc145ee9182d176299f3e3e48ed0b110cb3897",
-        "size": 18567
+        "digest": "b8c276d14c64362ecaa0c6f15997f4ef576bf68a3304acff778a2e41576968ec",
+        "size": 17435
       },
       {
         "path": "src/editor-document.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "382b1653742ea2e559d7d88d73445a018d155028008fb3d6e91a38252b3ad562",
-        "size": 7919
+        "digest": "20ecce47380d5dd5d0bd66fd7547fcc72b3e65e3bf20c7de20b97be69bae516b",
+        "size": 9255
       },
       {
         "path": "src/editor-feedback-presenter.js",
@@ -438,99 +445,92 @@
         "path": "src/editor-session.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "3d87ea4be7365700da5b038cb4f801ee2cde415a8ff82e4f6b992d87f7fa9de7",
-        "size": 16563
+        "digest": "d14bf53dc4b47e7317a6089238d0dafa0963815a1fc220b0b4729ecaf1694060",
+        "size": 17208
       },
       {
         "path": "src/editor-session.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "10627798ed63b5daa1727320a4e4e5aa5f914bb66bbc50d606f1d7a992a5cf88",
-        "size": 34414
+        "digest": "dc330afb5b0175770bae9108960d7a8ea0de0e7bd4c9e5c032f2d3c889050f84",
+        "size": 42778
       },
       {
         "path": "src/editor-state-coordinator.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "7534585eee8bf0c0feb843cef3e1c1cab412d7d2d2daffc5479d8cfe90f985d8",
-        "size": 2459
+        "digest": "e1f614201d013741fcd59ee2459dc057be2dc427877967d21e941933963eff10",
+        "size": 2630
       },
       {
         "path": "src/editor-state-coordinator.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "69487d57539d520b2d1e85115bdc7b641dec84a809ef155f8d9d81cdf703ca2d",
-        "size": 4627
+        "digest": "f82df36704299520ee6e1ea2783d2c7c46b7c13af592fa93722241388eecc437",
+        "size": 5243
       },
       {
         "path": "src/empty-state-motion.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "08284afa7b0432c6c267a269d16b26bc74d4b0144668a4326e914ccce7a83a9d",
-        "size": 1717
+        "digest": "11274199862a85c731fb343ad6599afa447733e6819a702356aff013743bae7c",
+        "size": 1918
       },
       {
         "path": "src/empty-state-motion.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "3f4ce4079aebebb8c9540115957e7847c190e81392652e220dc9e37449a1c43c",
-        "size": 2730
+        "digest": "b3656eb27e902274dbb3c6ded0e0bbce3d5ab16a06dcd3f8a95ecb013a0f5137",
+        "size": 3026
       },
       {
         "path": "src/format-detect.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "8c9ea36ac1051ab5417ba309e9b2104c1960d9987d237e42478050d30add42e4",
-        "size": 8545
+        "digest": "b31a63645308c7ffb56606bb88dc867f4e1e80238acfc73f2afa6aff48793fbe",
+        "size": 2227
       },
       {
         "path": "src/format-detect.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "fb084554027b310b33f89c219c4b006224e84eaf80eb3b9c0351022c146a30c2",
-        "size": 4260
+        "digest": "b49139b4307a8cdfc0c0d73acb02d68516a69d4c41737a8594c09973570470ad",
+        "size": 1466
       },
       {
         "path": "src/format-readers.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "23bdf89d0fed2f5049e3a7eb4d11a0d7ec3ec6f956998d7e3addfb6ba23a009b",
-        "size": 9514
+        "digest": "cba023b21bded22d752d45f6fa504be1efc2b10b3aa1cc8caa1cdeac935028e4",
+        "size": 10296
       },
       {
         "path": "src/format-readers.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "88f6a019657dad081875663973433cd99279e0f55cdf9b0c034ceb5345f8d761",
-        "size": 2898
+        "digest": "8130ad73f14b15ee5d428761ff85a4505a429f9d4161705db33650fa8825dcd5",
+        "size": 3746
       },
       {
         "path": "src/format-registry.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "e0cf002f89bf0329597c40d22dc577633147e91492056e005ba88a7f5879cbd3",
-        "size": 6647
+        "digest": "715ba16e995e26e55a6426b89281106102aa4c9a9426cedb42bb96e147a82945",
+        "size": 6142
       },
       {
         "path": "src/format-registry.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "9ce050abfa670cfa2907abccd9cbb117c929642056e701d87aed027fa6dd05c2",
-        "size": 3372
-      },
-      {
-        "path": "src/free-port.test.js",
-        "origin": "tracked",
-        "state": "missing",
-        "digest": null,
-        "size": 0
+        "digest": "897a28afcb5c414fcf3ef3e2858b60dcc0bc06c8e0e9183c3adaf85f321270c1",
+        "size": 2903
       },
       {
         "path": "src/image-document-viewer.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "a5088cb2b5120da1d49a4f889c6088f5395a6582b5b84773884f51dd35bfae70",
-        "size": 9014
+        "digest": "c1401eef14ef9cd1d8ac4cb5c710551828fd7b3d01834ad791d1901b04750e9f",
+        "size": 9499
       },
       {
         "path": "src/image-document-viewer.test.js",
@@ -543,71 +543,71 @@
         "path": "src/image-resources.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "1864d616bff7651a51de6b43cba804bc6f8c0185cf07d5c7f343dde59f7ca8e8",
-        "size": 3535
+        "digest": "bee5221a678210d25be9516b345cc7a9a9175f9020633b3cf4abd458b2c7cf4e",
+        "size": 3647
       },
       {
         "path": "src/image-resources.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "c7dbab5df9dbfd845820da686c0ab5f3afde5f18acfe7c079c93ba339aa0438c",
-        "size": 3004
+        "digest": "13e215a2f52b63348a34001780fca47993b61c15678fa04f681961c7bb8de751",
+        "size": 3182
       },
       {
         "path": "src/json-property-editor.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "0ca43972a91dd50b337b006297c65e8f433146e85d4950fb784a58782ba6c836",
-        "size": 7710
+        "digest": "0f3bba4478a1f26345f00676bb68115b58dd1d6f72479b139712806ca451ea71",
+        "size": 10604
       },
       {
         "path": "src/json-property-model.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "50d80db5005efe75a47d71a6aa653265900461d32c498a2bbd45aa0dd27a8789",
-        "size": 8105
+        "digest": "b5a32a051476f872acb25124d188557f684918fb5368bcb97d0c983f2984e6aa",
+        "size": 9778
       },
       {
         "path": "src/json-property-model.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "e5218c1e55d116ed2991822f3669d2a2a87cd1a6e721adb96448f0aecac7e0df",
-        "size": 2331
+        "digest": "15236ed91143a9c33b05699f98bf4a55fb28cb2f8c05f93305f65f31f77d58c1",
+        "size": 4369
       },
       {
         "path": "src/main.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "dd0b0f76eb751e2f6a2c6efd0bb20700b2dc62f5e6081314b9b7ab56568ff64b",
-        "size": 39567
+        "digest": "f579213cf79467a4f282df342ec4fee2dfdf623b5ba8b72fcaf489c8d44212d2",
+        "size": 40922
       },
       {
         "path": "src/main.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "05c3b0617e585a485d1e453e02c84c9795b7092f0a437b45ceec30d2a26a80c2",
-        "size": 22371
+        "digest": "9d30016f18ba40548dbd5b09f68a6c392495c9e8740b61bbb376230ba9063d9b",
+        "size": 22609
       },
       {
         "path": "src/markdown-source.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "75458e164a0cf1bbe3a22a12bdf130ad494b8179642c4f87b22307e8410f9ebf",
-        "size": 4849
+        "digest": "d6026da96db2f112b574e748b4465bced4f332aa40a967aff466fa701b3a9369",
+        "size": 4797
       },
       {
         "path": "src/mermaid-renderer.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "d57ebf256a7e86b23dc52d8b3a6fbad94d812541352721ee5186ceb7ab0d72f2",
-        "size": 12595
+        "digest": "b02d8ed6f129949cc9303a4892dfbc8b1a6a18caa216a610f599106ea5231769",
+        "size": 12166
       },
       {
         "path": "src/mermaid-renderer.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "9d7f63a8caae016282c548ea4fbd8c55f5c1c68c8f1188ac1ce1874db51ddc90",
-        "size": 11651
+        "digest": "0b53b30534ccf0e4c8e3d2e79ee40aadf86d27dd0107276a5876e44f31bafb6d",
+        "size": 11988
       },
       {
         "path": "src/open-intent-controller.js",
@@ -655,15 +655,15 @@
         "path": "src/reader-keyboard-controller.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "b2fbb7cac2c85f97526103c6156eb988e0584ffe1982bf05092ab10437ecf427",
-        "size": 2821
+        "digest": "b43cd35589d2e96cacff6b21e0ba00743a964c6733961c119f21fc16df4b908f",
+        "size": 3386
       },
       {
         "path": "src/reader-keyboard-controller.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "103b1a6b340d205e41983c00fa83069cfc6b8590095b15ea6cb6a2cbcb544c23",
-        "size": 3995
+        "digest": "065c55ba0bd2e02363867014de181f6af8f59567d510944a713d52d5e3633cdf",
+        "size": 4932
       },
       {
         "path": "src/reader-motion.js",
@@ -690,15 +690,15 @@
         "path": "src/reader-shell.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "ddbaf485f608a435e0dfed6d9f374f50922b0fb4e60d8c38f839857cc1e10b7c",
-        "size": 3218
+        "digest": "539b9525fd68e14501c5647602aadb154c770e23007e30185296cf5cf2bcce23",
+        "size": 3426
       },
       {
         "path": "src/reader-shell.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "575ed79dfcb44b2ffb58bdca838408a383b94417e565c5e06d492d634e91c648",
-        "size": 5622
+        "digest": "868cf49945778bb78870162acb797a053b8aeeb5cb9f091a42013e69ef08d69e",
+        "size": 5695
       },
       {
         "path": "src/reader-viewport-controller.js",
@@ -718,8 +718,8 @@
         "path": "src/reader-zoom-controller.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "5a08c666b03cf5088d5e4fe48092d7d645ce22b641213011a68fbb829c11be7f",
-        "size": 1582
+        "digest": "b1743474ac3a149ec7e3db56a0297df0e5dd8693063c73ca09dc0c874e1627ab",
+        "size": 1651
       },
       {
         "path": "src/reader-zoom-controller.test.js",
@@ -739,29 +739,29 @@
         "path": "src/reading-navigation-controller.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "2799212e6c4f4594a6be9b6f10d378d8519f7922fa8017530e8e3b530122a26f",
-        "size": 30433
+        "digest": "5f9049f237bb7cde56873475138519822a25dfc26c8c286e4be2d2e62ad1f5d8",
+        "size": 34319
       },
       {
         "path": "src/reading-navigation-controller.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "2246fa3155554b46284d98972b13767ca75a1bc9fbbe9af1f49113d5a7565ea8",
-        "size": 15149
+        "digest": "d3d773867735f052c3a58c008b34c5ec0064e853296ea243834d7c3ae02fff68",
+        "size": 16652
       },
       {
         "path": "src/responsive-typography.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "3d669773c58704d05885fb0ffabc06beee502deefa3190caa1d93f8006dced92",
-        "size": 8546
+        "digest": "75571000891663c296cb3c82c57c195a38d0858cf6370558c05e7422944e76ad",
+        "size": 8860
       },
       {
         "path": "src/responsive-typography.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "8ceb9d25af28ee5d0bdbddb823d36d3017172dafe50a4c5eee1da5662e4d80b0",
-        "size": 8536
+        "digest": "05d313d3c0dbedf9b8c7fe1b8c091167aed75afffd32c6315d64911c536f1475",
+        "size": 8861
       },
       {
         "path": "src/scrollbar-visibility-controller.js",
@@ -809,29 +809,29 @@
         "path": "src/syntax-highlighter.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "59c009e2c5b438909bc63eeff3fa190072b4980e4e901adb0aa040d1c194558a",
-        "size": 3926
+        "digest": "098a77ee8dbc1961d437be6769522893d5bfbdad4c963965f4f7828df0639a90",
+        "size": 3957
       },
       {
         "path": "src/syntax-highlighter.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "dfe2154bd46630badbb09b6c947cd9d7dc47352c891496ddd6484e2ba2747613",
-        "size": 2454
+        "digest": "47188526ed16f9df2720abfe9b7c2e62b4f8f0602b19abb9789e4f6cd23b3c1a",
+        "size": 2842
       },
       {
         "path": "src/theme-coordinator.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "e3ff5075aa7ad0ef372c031faa81e22a96f5313680ba81dfb63bde3606772b45",
-        "size": 13231
+        "digest": "92f681095c516f6725271ef325bb879fe842aad9f8574f31c6d525409b58247a",
+        "size": 13753
       },
       {
         "path": "src/theme-coordinator.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "c89b4eb6cd4b1d91455daee7e643cd740835354f07ae6205d46bfd8c4a593bd9",
-        "size": 10670
+        "digest": "421706055a8301c9355d3b9f8b3892b51f66919608c03b41d82574ac302047b3",
+        "size": 11851
       },
       {
         "path": "src/theme-tokens.js",
@@ -865,8 +865,8 @@
         "path": "src/tooltip-controller.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "7db94039f7c25bef39ce87ab5b7151dccea9f7e1bb6012ab4d059533e64593b0",
-        "size": 30680
+        "digest": "b5383b1e508460d6aac791af31bbaf0b38048bcac915d0a923883c0ef1c51665",
+        "size": 30870
       },
       {
         "path": "src/tooltip-controller.test.js",
@@ -897,12 +897,12 @@
         "size": 297
       }
     ],
-    "digest": "0162b57538d155ca7c5b4f8d8f18ab190100d6e62f1f9961fe3e6f059c6c3392"
+    "digest": "efef1bd82dfbc811157de5282378831b04e93d59b065ce2ce55432bddc5c23d7"
   },
-  "source_digest": "74b526248084556f1923ce8717340ca31234bbc5c8e976f506671b29d53164fc",
+  "source_digest": "c159bda9e4a0e5b49e055f96681437febd74a64c4a58ce2766b0d5f947c45317",
   "artifact_hashes": {
-    "codemap.json": "f309ba4a24fbcd388ab7cc450117bea646db4b9e85c6991967c5ca99f3c2d914",
-    "codemap.md": "bb338134afdd870de5d221530dad715fc009adb6cb86d0170d57422e4dd3e8a3",
-    "codemap.html": "a8ffde0da0d19c5187695de3fd327d90b318e4c1ef330eb74726631feb70c87f"
+    "codemap.json": "3a164e1791797d53c61d5342de8dfcecec289027a9de7b1e0c23dd1ffe7c6591",
+    "codemap.md": "c464695531060aec5bb235128438c92db7c078ecd7c068b41f558a8f1d74f488",
+    "codemap.html": "5a2f5d17b84b0713999a96ccaa993bc15f02b5987495870e3f694ae079396c36"
   }
 }
