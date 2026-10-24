@@ -1,13 +1,13 @@
 # Code map: open.md
 
-Generated: 2026-10-24T17:55:36Z | Commit: `fb7bf7daa782` | Schema: 2
-Generation: `bbd01612dd9f9c6aab862b1f2ede1c698547f57b4d78d8c69ac4b434170ceac7`
+Generated: 2026-10-24T19:17:21Z | Commit: `e94a2df20c33` | Schema: 2
+Generation: `68cd20e175009ef906f361ab526febd4b882c89303a1be8f71c350cd1f9348e2`
 Scope: . | Inventory: working-tree
 Nodes: 143 | Edges: 477 | Flows: 1
 
 ## Coverage
 
-- Analysis: **partial**; 117 analyzed of 124 included files.
+- Analysis: **partial**; 117 analyzed of 122 included files.
 - Configuration files: 1; omitted untracked files: 0.
 - Unresolved references and analysis limits: 543.
 - Static references and call paths do not prove runtime execution or test coverage.

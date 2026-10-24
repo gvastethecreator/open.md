@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-10-24T17:55:36Z",
-  "generated_from_commit": "fb7bf7daa782ba3b0c0996ca4977f1442e93152e",
+  "generated_at": "2026-10-24T19:17:21Z",
+  "generated_from_commit": "e94a2df20c337d72face606ee17fee959046cab1",
   "scope": [
     "."
   ],
@@ -124,8 +124,8 @@
         "path": "scripts/validate-pages.mjs",
         "origin": "tracked",
         "state": "present",
-        "digest": "05d54fbd903cb4a5b475ccd684aebda2dff9a335957884dbbbaa158a828a70b2",
-        "size": 5209
+        "digest": "ae22653ca6bd8c8d04c6a310d34fe02df79386cffa4a3eb702953ba7d91ca161",
+        "size": 5210
       },
       {
         "path": "src-tauri/Cargo.toml",
@@ -262,14 +262,14 @@
       },
       {
         "path": "src/diagram-renderer.js",
-        "origin": "untracked",
+        "origin": "tracked",
         "state": "present",
         "digest": "40cdc0aa92b59be226813d002a15f7f930a5e8fcbe083623ee5e34d00122c700",
         "size": 2779
       },
       {
         "path": "src/diagram-renderer.test.js",
-        "origin": "untracked",
+        "origin": "tracked",
         "state": "present",
         "digest": "e44ab2ad69e7fc40c2da9201a41b2c9d64e8439f5145c76d57966eca74fa49fa",
         "size": 7853
@@ -611,20 +611,6 @@
         "size": 4797
       },
       {
-        "path": "src/mermaid-renderer.js",
-        "origin": "tracked",
-        "state": "missing",
-        "digest": null,
-        "size": 0
-      },
-      {
-        "path": "src/mermaid-renderer.test.js",
-        "origin": "tracked",
-        "state": "missing",
-        "digest": null,
-        "size": 0
-      },
-      {
         "path": "src/open-intent-controller.js",
         "origin": "tracked",
         "state": "present",
@@ -912,11 +898,11 @@
         "size": 297
       }
     ],
-    "digest": "68ff815079ef0d1186f9db5a12db16a7d692c37cd2695717a3689105186b4091"
+    "digest": "384220fcebe565efac1dfe740246e1de0eed82c6969732d0ba35e19b2dc9db3d"
   },
   "coverage": {
-    "discovered_files": 271,
-    "included_files": 124,
+    "discovered_files": 270,
+    "included_files": 122,
     "analyzed_files": 117,
     "configuration_files": 1,
     "file_statuses": [
@@ -1243,14 +1229,6 @@
       {
         "path": "src/markdown-source.js",
         "status": "analyzed"
-      },
-      {
-        "path": "src/mermaid-renderer.js",
-        "status": "missing"
-      },
-      {
-        "path": "src/mermaid-renderer.test.js",
-        "status": "missing"
       },
       {
         "path": "src/open-intent-controller.js",
@@ -1732,6 +1710,10 @@
       },
       {
         "path": "pnpm-lock.yaml",
+        "reason": "not-source"
+      },
+      {
+        "path": "public/licenses/pretext.txt",
         "reason": "not-source"
       },
       {
@@ -43770,7 +43752,7 @@
             "start_line": 4,
             "end_line": 4,
             "extractor": "tree-sitter-javascript",
-            "source_digest": "05d54fbd903cb4a5b475ccd684aebda2dff9a335957884dbbbaa158a828a70b2",
+            "source_digest": "ae22653ca6bd8c8d04c6a310d34fe02df79386cffa4a3eb702953ba7d91ca161",
             "kind": "definition"
           },
           {
@@ -43779,7 +43761,7 @@
             "start_line": 5,
             "end_line": 5,
             "extractor": "tree-sitter-javascript",
-            "source_digest": "05d54fbd903cb4a5b475ccd684aebda2dff9a335957884dbbbaa158a828a70b2",
+            "source_digest": "ae22653ca6bd8c8d04c6a310d34fe02df79386cffa4a3eb702953ba7d91ca161",
             "kind": "definition"
           },
           {
@@ -43788,7 +43770,7 @@
             "start_line": 6,
             "end_line": 6,
             "extractor": "tree-sitter-javascript",
-            "source_digest": "05d54fbd903cb4a5b475ccd684aebda2dff9a335957884dbbbaa158a828a70b2",
+            "source_digest": "ae22653ca6bd8c8d04c6a310d34fe02df79386cffa4a3eb702953ba7d91ca161",
             "kind": "definition"
           }
         ]
@@ -60338,7 +60320,7 @@
             "start_line": 27,
             "end_line": 27,
             "extractor": "tree-sitter-javascript",
-            "source_digest": "05d54fbd903cb4a5b475ccd684aebda2dff9a335957884dbbbaa158a828a70b2",
+            "source_digest": "ae22653ca6bd8c8d04c6a310d34fe02df79386cffa4a3eb702953ba7d91ca161",
             "kind": "call",
             "resolved_target": "external:javascript:node:fs",
             "target_symbol": "existsSync"
@@ -60349,7 +60331,7 @@
             "start_line": 30,
             "end_line": 30,
             "extractor": "tree-sitter-javascript",
-            "source_digest": "05d54fbd903cb4a5b475ccd684aebda2dff9a335957884dbbbaa158a828a70b2",
+            "source_digest": "ae22653ca6bd8c8d04c6a310d34fe02df79386cffa4a3eb702953ba7d91ca161",
             "kind": "call",
             "resolved_target": "external:javascript:node:fs",
             "target_symbol": "readFileSync"
@@ -60360,7 +60342,7 @@
             "start_line": 31,
             "end_line": 31,
             "extractor": "tree-sitter-javascript",
-            "source_digest": "05d54fbd903cb4a5b475ccd684aebda2dff9a335957884dbbbaa158a828a70b2",
+            "source_digest": "ae22653ca6bd8c8d04c6a310d34fe02df79386cffa4a3eb702953ba7d91ca161",
             "kind": "call",
             "resolved_target": "external:javascript:node:fs",
             "target_symbol": "readFileSync"
@@ -60384,7 +60366,7 @@
             "start_line": 1,
             "end_line": 1,
             "extractor": "tree-sitter-javascript",
-            "source_digest": "05d54fbd903cb4a5b475ccd684aebda2dff9a335957884dbbbaa158a828a70b2",
+            "source_digest": "ae22653ca6bd8c8d04c6a310d34fe02df79386cffa4a3eb702953ba7d91ca161",
             "kind": "import",
             "resolved_target": "external:javascript:node:fs"
           }
@@ -60407,7 +60389,7 @@
             "start_line": 2,
             "end_line": 2,
             "extractor": "tree-sitter-javascript",
-            "source_digest": "05d54fbd903cb4a5b475ccd684aebda2dff9a335957884dbbbaa158a828a70b2",
+            "source_digest": "ae22653ca6bd8c8d04c6a310d34fe02df79386cffa4a3eb702953ba7d91ca161",
             "kind": "import",
             "resolved_target": "external:javascript:node:path"
           }
@@ -74631,7 +74613,7 @@
       "handler_symbol": "main"
     }
   ],
-  "source_digest": "1f6d7398337a7eb89417d8ed0ce429a70dca106e1c573039efd19f20d1fd8706",
+  "source_digest": "2c04c5ad341a33b6799fbc9bb7c149cf940064b60b7aa1b03353b0f759a95e03",
   "changes": {
     "added_nodes": [],
     "removed_nodes": [],
@@ -74642,5 +74624,5 @@
     "changed": false,
     "changed_node_ids": []
   },
-  "generation_id": "bbd01612dd9f9c6aab862b1f2ede1c698547f57b4d78d8c69ac4b434170ceac7"
+  "generation_id": "68cd20e175009ef906f361ab526febd4b882c89303a1be8f71c350cd1f9348e2"
 }

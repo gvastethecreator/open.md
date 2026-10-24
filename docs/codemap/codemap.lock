@@ -1,9 +1,9 @@
 {
   "schema_version": 2,
-  "source_commit": "fb7bf7daa782ba3b0c0996ca4977f1442e93152e",
+  "source_commit": "e94a2df20c337d72face606ee17fee959046cab1",
   "working_tree_dirty": true,
-  "generated_at": "2026-10-24T17:55:36Z",
-  "generation_id": "bbd01612dd9f9c6aab862b1f2ede1c698547f57b4d78d8c69ac4b434170ceac7",
+  "generated_at": "2026-10-24T19:17:21Z",
+  "generation_id": "68cd20e175009ef906f361ab526febd4b882c89303a1be8f71c350cd1f9348e2",
   "analysis": {
     "version": "syntax-1",
     "digest": "96e36f012ebfed8f88e81298e738e1c64801c7245f18e598ae77c684b0b22329"
@@ -123,8 +123,8 @@
         "path": "scripts/validate-pages.mjs",
         "origin": "tracked",
         "state": "present",
-        "digest": "05d54fbd903cb4a5b475ccd684aebda2dff9a335957884dbbbaa158a828a70b2",
-        "size": 5209
+        "digest": "ae22653ca6bd8c8d04c6a310d34fe02df79386cffa4a3eb702953ba7d91ca161",
+        "size": 5210
       },
       {
         "path": "src-tauri/Cargo.toml",
@@ -261,14 +261,14 @@
       },
       {
         "path": "src/diagram-renderer.js",
-        "origin": "untracked",
+        "origin": "tracked",
         "state": "present",
         "digest": "40cdc0aa92b59be226813d002a15f7f930a5e8fcbe083623ee5e34d00122c700",
         "size": 2779
       },
       {
         "path": "src/diagram-renderer.test.js",
-        "origin": "untracked",
+        "origin": "tracked",
         "state": "present",
         "digest": "e44ab2ad69e7fc40c2da9201a41b2c9d64e8439f5145c76d57966eca74fa49fa",
         "size": 7853
@@ -610,20 +610,6 @@
         "size": 4797
       },
       {
-        "path": "src/mermaid-renderer.js",
-        "origin": "tracked",
-        "state": "missing",
-        "digest": null,
-        "size": 0
-      },
-      {
-        "path": "src/mermaid-renderer.test.js",
-        "origin": "tracked",
-        "state": "missing",
-        "digest": null,
-        "size": 0
-      },
-      {
         "path": "src/open-intent-controller.js",
         "origin": "tracked",
         "state": "present",
@@ -911,12 +897,12 @@
         "size": 297
       }
     ],
-    "digest": "68ff815079ef0d1186f9db5a12db16a7d692c37cd2695717a3689105186b4091"
+    "digest": "384220fcebe565efac1dfe740246e1de0eed82c6969732d0ba35e19b2dc9db3d"
   },
-  "source_digest": "1f6d7398337a7eb89417d8ed0ce429a70dca106e1c573039efd19f20d1fd8706",
+  "source_digest": "2c04c5ad341a33b6799fbc9bb7c149cf940064b60b7aa1b03353b0f759a95e03",
   "artifact_hashes": {
-    "codemap.json": "33c79359c2cddf57be5541293c8dbecd056f0e99f06c88740bbf2b673aa195a0",
-    "codemap.md": "30926ef0ca8e3e5728f250355c13cc12bc3956a94c1d974dae8197b8805f42fd",
-    "codemap.html": "c6925aa46d7bb584d3be447775465c3adf2b327d1dcf92483cd4569b3c23a424"
+    "codemap.json": "4b966a19b5b2194da589606d30b571717f5e6e279e5c1d5b4da12df9602d6421",
+    "codemap.md": "d3cfc469e59dd0f3fd8bca57b6c6a695acdaa633132921da9ebdfd428c05dc64",
+    "codemap.html": "3e8c328a5a505b4f4a907c929dca66107acb17d07fa4d896ffeb2d533cd0f702"
   }
 }
