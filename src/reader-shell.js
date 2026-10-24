@@ -50,14 +50,6 @@ export function mountReaderShell({ window, adapters, hooks = {} }) {
     preferences,
     ensureSourceView: () => documentSession.ensureSourceView(),
     hydrateImagePreviews: (root) => documentSession.hydrateImagePreviews(root),
-    prepareAppearance({ diagramTheme = 'default', diagramTokens = null } = {}) {
-      if (disposed) return Promise.resolve(null);
-      return documentSession.prepareDiagrams(diagramTheme, diagramTokens);
-    },
-    refreshAppearance({ diagramTheme = 'default', diagramTokens = null } = {}) {
-      if (disposed) return Promise.resolve(false);
-      return documentSession.refreshDiagrams(diagramTheme, diagramTokens);
-    },
     reload({ quiet = false } = {}) {
       if (disposed) return Promise.resolve({ status: 'disposed' });
       const current = documentSession.current();

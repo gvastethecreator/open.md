@@ -345,11 +345,6 @@ async function initThemes(own) {
         select: document.getElementById('theme-select'),
       },
       hooks: {
-        shouldPrepareDiagrams: () => Boolean(getCurrentFilePath() && ui.content?.querySelector('.mermaid')),
-        prepareDiagrams: (diagramTheme, diagramTokens) => readerShell?.prepareAppearance({
-          diagramTheme,
-          diagramTokens,
-        }),
         persist: (themeName) => pathThemePreferences.persistSelection(themeName),
         onPersistResult: reportPreferenceResult,
         notify: showToast,
@@ -475,22 +470,12 @@ function mountDocumentViewState(own) {
   }));
 }
 
-function activeDiagramTheme() {
-  return themeCoordinator?.diagramTheme() || 'default';
-}
-
-function activeDiagramTokens() {
-  return themeCoordinator?.diagramTokens?.() || null;
-}
-
 function mountApplicationReaderShell(own) {
   runtimeAdapters = createApplicationRuntimeAdapters({ window });
   readerShell = own(mountReaderShell({
     window,
     adapters: runtimeAdapters,
     hooks: {
-      getDiagramTheme: activeDiagramTheme,
-      getDiagramTokens: activeDiagramTokens,
       isSourceActive: isSourceViewActive,
       chooseAnotherFile: openFilePicker,
       onDocumentCommitted: commitDocumentViewState,

@@ -433,7 +433,7 @@ export function createReadingNavigationController({
     if (source.nodeType !== 1) return null;
     if (source.matches?.('.copy-code-btn')) return null;
     if (
-      source.matches?.('.mermaid, .openmd-mermaid-svg, svg.openmd-mermaid-svg')
+      source.matches?.('.mermaid')
       || (source.matches?.('svg') && source.closest?.('.mermaid'))
     ) {
       const placeholder = source.ownerDocument.createElement('span');

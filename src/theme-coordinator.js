@@ -42,11 +42,9 @@ function createThemeOptionContent(document, theme) {
   return { pill, label, tone, dark };
 }
 
-function applyThemeTokens(document, theme, preparedDiagrams) {
+function applyThemeTokens(document, theme) {
   const root = document.documentElement;
   const tokens = getThemeTokens(theme);
-  const diagramsCommitted = preparedDiagrams?.commit?.();
-  if (diagramsCommitted === false) throw new Error('Prepared diagrams became stale before theme commit');
   const properties = {
     '--bg-color': tokens.background,
     '--text-color': tokens.text,
@@ -180,11 +178,6 @@ export function createThemeCoordinator({
   });
 
   const commitRequest = async ({ index, theme, silent, persist, requestRevision }) => {
-    const tokens = getThemeTokens(theme);
-    const diagramTheme = isColorDark(tokens.background) ? 'dark' : 'default';
-    const prepared = hooks.shouldPrepareDiagrams?.()
-      ? await hooks.prepareDiagrams?.(diagramTheme, tokens)
-      : null;
     if (disposed || requestRevision !== revision) return false;
 
     const root = document.documentElement;
@@ -193,7 +186,7 @@ export function createThemeCoordinator({
     const commit = () => {
       if (committed || disposed || requestRevision !== revision) return;
       try {
-        applyThemeTokens(document, theme, prepared);
+        applyThemeTokens(document, theme);
         currentIndex = index;
         requestedIndex = index;
         updateCopy();
@@ -344,10 +337,6 @@ export function createThemeCoordinator({
   };
 
   const current = () => themes[currentIndex] || null;
-  const diagramTheme = () => {
-    const theme = current();
-    return theme && isColorDark(getThemeTokens(theme).background) ? 'dark' : 'default';
-  };
 
   const diagramTokens = () => {
     const theme = current();
@@ -375,7 +364,6 @@ export function createThemeCoordinator({
     applyName,
     cycle,
     current,
-    diagramTheme,
     diagramTokens,
     cancelTransition,
     dispose,

@@ -74,6 +74,18 @@ describe('Document Link Controller', () => {
     const blockedEvent = clickEvent(document.querySelector('#blocked'));
     controller.handleClick(blockedEvent);
     expect(onToast).toHaveBeenCalledWith('This link type is not supported');
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const diagramLink = document.createElementNS('http://www.w3.org/2000/svg', 'a');
+    diagramLink.setAttribute('href', '//example.com/diagram');
+    Object.defineProperty(diagramLink, 'href', { value: { baseVal: 'https://example.com/diagram' } });
+    svg.append(diagramLink);
+    document.body.append(svg);
+    const diagramEvent = clickEvent(diagramLink);
+    controller.handleClick(diagramEvent);
+    expect(diagramEvent.defaultPrevented).toBe(true);
+    await Promise.resolve();
+    expect(openExternalUrl).toHaveBeenCalledWith('https://example.com/diagram');
   });
 
   it('ignores clicks after dispose', () => {

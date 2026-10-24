@@ -128,6 +128,8 @@ stable release is cut.
 
 ### Changed
 
+- Mermaid diagrams render with Pele; colors follow the theme without re-rendering.
+- Syntax colors use Shiki with real TOML and dotenv grammars; large files highlight in chunks.
 - Editor updates avoid whole-document typography and navigation work per key.
   Source highlighting is deferred, large structured previews are bounded,
   native file commands run off the UI thread, and unused editor CSS is removed.
@@ -137,16 +139,23 @@ stable release is cut.
   and assets, and code-map-only changes no longer trigger deployment.
 
 - CI shares setup with dependency audits and no longer repeats the Windows gate in Store validation.
+- CI action pins use setup-node 7.1.0, pnpm/action-setup 6.1.0,
+  upload-artifact 7.0.2, and deploy-pages 5.0.1. The pnpm setup action now
+  supports the project's pnpm 12 runtime.
 - The full verification gate omits `cargo check`, which is covered by `cargo test`.
 - JSON previews stop generating rows at the existing value limit. Source stays complete.
 - Editing reuses the serialized document, and companion documents use one syntax pass.
-- Frontend packages: `vite` 8.3.4, `vitest` 5.0.3, `jsdom` 30.1.2, `mermaid` 12.1.0, and
-  Tauri JS 2.12 with dialog 2.8 and opener 2.7. The Cargo lockfile is refreshed.
+- Frontend packages: `vite` 8.3.5, `vitest` 5.0.5, `jsdom` 30.1.3,
+  `@chenglou/pretext` 1.0.0, `pele` 1.9.0, `shiki` 4.5.0, and Tauri JS
+  API/CLI 2.12.4, dialog 2.8.3, and opener 2.7.2. The Cargo lockfile includes
+  Tauri 2.12.5 and Tokio 1.54.1. Updated `undici` resolves three security
+  advisories in the development dependencies, including one high-severity issue.
+  The application includes Pretext's complete upstream license notices.
   The pnpm overrides are gone: they forced `picomatch` below the range Vite needs,
   and the dependents' own ranges now cover the earlier advisories.
   CI and docs now match `pnpm@12.0.0`.
-- Markdown fences are language-tagged escaped HTML. JS highlight.js is the
-  display highlighter; native Syntect HTML is gone. Editor and Mermaid
+- Markdown fences are language-tagged escaped HTML. Shiki is the
+  display highlighter; native Syntect HTML is gone. Editor and diagram
   adapter chunks stay off the empty-window boot graph. Theme option nodes
   fill when the theme control is opened. JSON Read trees cap at 2,000
   values. Minimap uses diagram placeholders instead of cloning Mermaid SVG.
@@ -227,7 +236,7 @@ stable release is cut.
 - Updated frontend dependencies and pinned patched transitive versions; CI now
   runs a pnpm audit and a pinned `cargo-audit` gate.
 - Extracted pure reader contracts from the UI composition root, deferred
-  Mermaid until a document contains a diagram, and reduced the initial
+  diagram rendering until a document contains a diagram, and reduced the initial
   JavaScript payload without removing diagram or theme support.
 - Replaced base64 image IPC with validated raw bytes and bounded Blob URLs;
   document image resources now share a 64 MiB retained-byte budget.
@@ -235,14 +244,18 @@ stable release is cut.
 ### Security
 
 - Raw HTML in Markdown is escaped instead of injected into the webview.
-- Mermaid uses strict security mode; unsafe link schemes and remote images are
-  blocked with visible feedback.
+- Diagrams do not load remote images. Link schemes are limited to http, https,
+  and mailto.
 - Embedded images are blocked, and document-relative images have explicit
   count, concurrency, per-file size, type, and directory boundaries.
 - Removed the unused broad Tauri file-system plugin permission in favour of a
   narrow Rust command for document-relative images.
 - Disabled the unused global Tauri browser object; the frontend uses explicit
   ESM APIs and the narrow command bridge.
+
+### Removed
+
+- Diagram re-render before theme changes.
 
 ## 0.1.0 development milestone - 2026-06-02
 

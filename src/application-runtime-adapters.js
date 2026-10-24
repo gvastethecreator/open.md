@@ -13,8 +13,22 @@ import {
 } from './reader-preferences.js';
 import { toUint8Array } from './image-resources.js';
 
-function loadMermaidRenderer() {
-  return import('./mermaid-renderer.js');
+let diagramModulePromise = null;
+let loadedDiagrams = null;
+
+function loadDiagramRenderer() {
+  if (!diagramModulePromise) {
+    diagramModulePromise = import('./diagram-renderer.js')
+      .then((module) => {
+        loadedDiagrams = module;
+        return module;
+      })
+      .catch((error) => {
+        diagramModulePromise = null;
+        throw error;
+      });
+  }
+  return diagramModulePromise;
 }
 
 const NATIVE_ACCESS_ERROR = 'Native file access is unavailable in this browser preview.';
@@ -69,8 +83,8 @@ export function createApplicationRuntimeAdapters({
   openUrl = null,
   syntaxLoader = () => import('./syntax-highlighter.js'),
   diagrams = {
-    prepare: (...args) => loadMermaidRenderer().then((module) => module.prepareMermaidDiagrams(...args)),
-    render: (...args) => loadMermaidRenderer().then((module) => module.renderMermaidDiagrams(...args)),
+    render: (...args) => loadDiagramRenderer().then((module) => module.renderDiagrams(...args)),
+    dispose: () => loadedDiagrams?.disposeDiagrams(),
   },
   storage,
 } = {}) {
@@ -208,7 +222,7 @@ export function createApplicationRuntimeAdapters({
     if (!isCurrent() || !container?.querySelector?.('pre code')) return false;
     const { highlightCodeBlocks } = await loadSyntax();
     if (!isCurrent()) return false;
-    return highlightCodeBlocks(container);
+    return await highlightCodeBlocks(container, { isCurrent });
   };
 
   const highlightDocument = async (container, language, { isCurrent = () => true } = {}) => {
@@ -216,7 +230,7 @@ export function createApplicationRuntimeAdapters({
     const module = await loadSyntax();
     if (!isCurrent()) return false;
     if (typeof module.highlightDocument !== 'function') return false;
-    return module.highlightDocument(container, language);
+    return await module.highlightDocument(container, language, { isCurrent });
   };
 
   const setAlwaysOnTop = native
@@ -305,8 +319,8 @@ export function createApplicationRuntimeAdapters({
   return Object.freeze({
     documents: Object.freeze({ open, save, readImage, readImageFile, downloadImage }),
     diagrams: Object.freeze({
-      prepare: diagrams.prepare,
       render: diagrams.render,
+      dispose: diagrams.dispose,
     }),
     syntax: Object.freeze({ highlight, highlightDocument }),
     dialogs: Object.freeze({ confirm }),

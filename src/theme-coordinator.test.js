@@ -134,40 +134,20 @@ describe('Theme Coordinator', () => {
     }
   });
 
-  it('coalesces rapid requests and never commits stale prepared diagrams', async () => {
+  it('applies the latest theme without a diagram prepare hook', async () => {
     const { dom, elements } = fixture();
-    const first = deferred();
-    const second = deferred();
-    const lightCommit = vi.fn();
-    const darkCommit = vi.fn();
-    const prepareDiagrams = vi.fn()
-      .mockReturnValueOnce(first.promise)
-      .mockReturnValueOnce(second.promise);
     const onCommit = vi.fn();
     const coordinator = createThemeCoordinator({
       window: dom.window,
       document: dom.window.document,
       themes: THEMES,
       elements,
-      hooks: { prepareDiagrams, shouldPrepareDiagrams: () => true, onCommit },
+      hooks: { onCommit },
     });
 
-    const light = coordinator.applyName('Light', { silent: true, persist: false });
-    await Promise.resolve();
-    expect(prepareDiagrams).toHaveBeenCalledWith('default', expect.objectContaining({
-      background: '#ffffff',
-      text: expect.any(String),
-      accent: expect.any(String),
-    }));
-    const dark = coordinator.applyName('Dark', { silent: true, persist: false });
-    first.resolve({ commit: lightCommit });
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(lightCommit).not.toHaveBeenCalled();
-    second.resolve({ commit: darkCommit });
-    await Promise.all([light, dark]);
+    await coordinator.applyName('Light', { silent: true, persist: false });
+    await coordinator.applyName('Dark', { silent: true, persist: false });
 
-    expect(darkCommit).toHaveBeenCalledOnce();
     expect(dom.window.document.documentElement.dataset.themeName).toBe('Dark');
     expect(elements.name.textContent).toBe('Dark');
     expect(onCommit).toHaveBeenLastCalledWith(THEMES[1]);
@@ -197,25 +177,16 @@ describe('Theme Coordinator', () => {
     expect(dom.window.document.documentElement.classList.contains('is-theme-wiping')).toBe(false);
   });
 
-  it('recovers after preparation failure and disposes an active transition', async () => {
+  it('skips an active theme transition when the coordinator is disposed', async () => {
     const { dom, elements, transitions } = fixture({ viewTransitions: true });
-    const onError = vi.fn();
-    const prepareDiagrams = vi.fn()
-      .mockRejectedValueOnce(new Error('diagram failed'))
-      .mockResolvedValueOnce(null);
     const coordinator = createThemeCoordinator({
       window: dom.window,
       document: dom.window.document,
       themes: THEMES,
       elements,
-      hooks: { prepareDiagrams, shouldPrepareDiagrams: () => true, onError },
     });
 
-    await coordinator.applyName('Light');
-    await coordinator.applyName('Dark');
-    expect(onError).toHaveBeenCalledOnce();
-    expect(coordinator.current().name).toBe('Dark');
-
+    await coordinator.applyName('Dark', { persist: false });
     const active = deferred();
     dom.window.document.startViewTransition = vi.fn((commit) => {
       commit();
@@ -231,43 +202,6 @@ describe('Theme Coordinator', () => {
     await pending;
   });
 
-  it('keeps confirmed theme state, copy and persistence atomic when preparation fails', async () => {
-    const { dom, elements } = fixture();
-    const persist = vi.fn(async () => ({ status: 'saved' }));
-    const onError = vi.fn();
-    const prepareDiagrams = vi.fn()
-      .mockResolvedValueOnce(null)
-      .mockRejectedValueOnce(new Error('diagram failed'))
-      .mockResolvedValueOnce(null);
-    const coordinator = createThemeCoordinator({
-      window: dom.window,
-      document: dom.window.document,
-      themes: THEMES,
-      elements,
-      hooks: { prepareDiagrams, shouldPrepareDiagrams: () => true, persist, onError },
-    });
-
-    await coordinator.start('Light');
-    coordinator.ensureCatalog();
-    expect(coordinator.current().name).toBe('Light');
-    expect(dom.window.document.documentElement.dataset.themeName).toBe('Light');
-
-    await coordinator.applyName('Dark');
-    expect(onError).toHaveBeenCalledOnce();
-    expect(coordinator.current().name).toBe('Light');
-    expect(coordinator.diagramTheme()).toBe('default');
-    expect(dom.window.document.documentElement.dataset.themeName).toBe('Light');
-    expect(elements.name.textContent).toBe('Light');
-    expect(elements.select.value).toBe('1');
-    expect(persist).not.toHaveBeenCalled();
-
-    await coordinator.applyName('Dark');
-    expect(coordinator.current().name).toBe('Dark');
-    expect(elements.name.textContent).toBe('Dark');
-    expect(persist).toHaveBeenCalledOnce();
-    expect(persist).toHaveBeenCalledWith('Dark');
-  });
-
   it('exposes diagram tokens for the confirmed theme only', async () => {
     const { dom, elements } = fixture();
     const coordinator = createThemeCoordinator({
@@ -281,6 +215,5 @@ describe('Theme Coordinator', () => {
     await coordinator.start('Dark');
     const tokens = coordinator.diagramTokens();
     expect(tokens).toMatchObject({ background: '#111827' });
-    expect(coordinator.diagramTheme()).toBe('dark');
   });
 });

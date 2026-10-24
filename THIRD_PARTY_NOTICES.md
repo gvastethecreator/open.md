@@ -3,7 +3,7 @@
 ## Tabler Icons
 
 UI category and advanced-option icons use outline SVGs from
-[`@tabler/icons`](https://github.com/tabler/tabler-icons), version `3.46.0`.
+[`@tabler/icons`](https://github.com/tabler/tabler-icons), version `3.49.0`.
 Tabler Icons are copyright 2020-2025 Paweł Kuna and contributors and are
 distributed under the MIT License. License text is available in the installed
 package at `node_modules/@tabler/icons/LICENSE`.
@@ -11,10 +11,29 @@ package at `node_modules/@tabler/icons/LICENSE`.
 ## Pretext
 
 Responsive heading fitting uses
-[`@chenglou/pretext`](https://github.com/chenglou/pretext), version `0.0.8`.
+[`@chenglou/pretext`](https://github.com/chenglou/pretext), version `1.0.0`.
 Pretext is copyright 2026 Pretext contributors and is distributed under the
 MIT License. Its license text is available in the installed package at
 `node_modules/@chenglou/pretext/LICENSE` and in the upstream repository.
+
+Pretext 1.0 also includes code and data derived from Chromium, WebKit, ICU,
+and ICU4X. The [complete upstream notices](public/licenses/pretext.txt) are
+copied without changes and included in the application at `licenses/pretext.txt`.
+
+## Pele
+
+Diagram rendering uses [`pele`](https://github.com/obsidianmd/pele), version
+`1.9.0`. Pele is copyright 2026 kepano and is distributed under the MIT
+License. License text is available in the installed package at
+`node_modules/pele/LICENSE`.
+
+## Shiki
+
+Syntax highlighting uses [`shiki`](https://github.com/shikijs/shiki), version
+`4.5.0`, and the grammar package `@shikijs/langs` at the same version. Shiki
+is copyright 2021 Pine Wu and 2023 Anthony Fu and is distributed under the
+MIT License. License text is available at
+`node_modules/shiki/LICENSE` and `node_modules/@shikijs/langs/LICENSE`.
 
 ## Inter typeface
 

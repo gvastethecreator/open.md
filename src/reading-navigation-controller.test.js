@@ -158,7 +158,7 @@ describe('Reading Navigation Controller', () => {
     const mermaid = view.document.createElement('div');
     mermaid.className = 'mermaid';
     const svg = view.document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('class', 'openmd-mermaid-svg');
+    svg.setAttribute('class', 'diagram-svg');
     mermaid.appendChild(svg);
     view.elements.readView.appendChild(mermaid);
     const viewClone = vi.spyOn(view.elements.readView, 'cloneNode');

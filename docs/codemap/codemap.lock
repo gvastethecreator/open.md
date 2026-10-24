@@ -1,9 +1,9 @@
 {
   "schema_version": 2,
-  "source_commit": "ff03d417c4771ad933ac07a23c5c6933fd3c5145",
+  "source_commit": "fb7bf7daa782ba3b0c0996ca4977f1442e93152e",
   "working_tree_dirty": true,
-  "generated_at": "2026-10-12T10:10:41Z",
-  "generation_id": "51fcd974a5428ce7f7c26b29e398769615274444abf1dac408b1685c34b04238",
+  "generated_at": "2026-10-24T17:55:36Z",
+  "generation_id": "bbd01612dd9f9c6aab862b1f2ede1c698547f57b4d78d8c69ac4b434170ceac7",
   "analysis": {
     "version": "syntax-1",
     "digest": "96e36f012ebfed8f88e81298e738e1c64801c7245f18e598ae77c684b0b22329"
@@ -67,15 +67,15 @@
         "path": "package.json",
         "origin": "tracked",
         "state": "present",
-        "digest": "bd3341c46a6db95f83709a45c4d614b5a93b93a1138a89f65d3c6954e574cca9",
-        "size": 2304
+        "digest": "a2cdd80457e1d82f4b030615086d33b74edbc8147ca4325b6eb30ad6393e6ea0",
+        "size": 2259
       },
       {
         "path": "scripts/check-bundle.mjs",
         "origin": "tracked",
         "state": "present",
-        "digest": "37cc4d643e765f15b9dd825532f619a0b1fa16df48e9b17dc5b28da06083d32e",
-        "size": 4191
+        "digest": "a9db5a81471da0eedde7e882d769924d0e18c5f620e5ee90542ab7ba129300a9",
+        "size": 4135
       },
       {
         "path": "scripts/generate-runtime-themes.mjs",
@@ -214,8 +214,8 @@
         "path": "src/application-composition.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "a6d64c7e93bb7b2b23fa105c2bca1fec9b89e7dafbcdcc0ffc31504487995f4e",
-        "size": 3165
+        "digest": "62a071c1c3f15f2b800c224ddf6418d11bf8e8116e2b9d1bcf3f3492289286c2",
+        "size": 3179
       },
       {
         "path": "src/application-lifecycle.js",
@@ -235,8 +235,8 @@
         "path": "src/application-runtime-adapters.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "fe1b8010840cb8539b8643f14093f1348f16d4971e7a728c5141d4e78bee3776",
-        "size": 11812
+        "digest": "1cde89f2585981b5bae23624ce61ffe78c345b5acbed9a43af25a6738f80e642",
+        "size": 12149
       },
       {
         "path": "src/application-runtime-adapters.test.js",
@@ -260,6 +260,20 @@
         "size": 4860
       },
       {
+        "path": "src/diagram-renderer.js",
+        "origin": "untracked",
+        "state": "present",
+        "digest": "40cdc0aa92b59be226813d002a15f7f930a5e8fcbe083623ee5e34d00122c700",
+        "size": 2779
+      },
+      {
+        "path": "src/diagram-renderer.test.js",
+        "origin": "untracked",
+        "state": "present",
+        "digest": "e44ab2ad69e7fc40c2da9201a41b2c9d64e8439f5145c76d57966eca74fa49fa",
+        "size": 7853
+      },
+      {
         "path": "src/document-content-actions.js",
         "origin": "tracked",
         "state": "present",
@@ -275,14 +289,14 @@
       },
       {
         "path": "src/document-find.js",
-        "origin": "untracked",
+        "origin": "tracked",
         "state": "present",
         "digest": "9abbdbf576c90834e937c6fe843177b9a21312af82249415eea7f090580de64d",
         "size": 4973
       },
       {
         "path": "src/document-find.test.js",
-        "origin": "untracked",
+        "origin": "tracked",
         "state": "present",
         "digest": "a96a1caf623fad5c35dea75b380f51c5815dd797bd10b4161cabfa7f425a4bd9",
         "size": 570
@@ -305,15 +319,15 @@
         "path": "src/document-link-controller.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "2a54bef09063f2ff56eca51dc216c8fae6b5c53b66107cb251ed9067f57059e9",
-        "size": 1657
+        "digest": "b9498089dde67895179b7f127fcbc6fda6f103c95e25a344e13c5190d614a46b",
+        "size": 1754
       },
       {
         "path": "src/document-link-controller.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "cef16ee849ba3f9771d3d9fcf819dee95d57c39ddce57749b29ab158067b95ae",
-        "size": 3628
+        "digest": "58292a55c26ac32705e3ccafc6182f488e447816a9efa0797f136dbe867f51d3",
+        "size": 4287
       },
       {
         "path": "src/document-mode-coordinator.js",
@@ -361,15 +375,15 @@
         "path": "src/document-session.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "e8f71f4641d22fa365a421d1074dd9e42de72e857bba7ea2c127e53fd269ccd2",
-        "size": 26651
+        "digest": "5f67fcf9ac3d28dfb630ee1831e2c133f58832caab9605f159510f5c39b90945",
+        "size": 25084
       },
       {
         "path": "src/document-session.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "2dcb5d9f88730b34ecdcc410ce21975c45d9482f5554ef478bfcc33fbc9f5712",
-        "size": 25704
+        "digest": "270308089ab73b8836c0c62595d573a50216f263f3f1ad6621df21926453a8ee",
+        "size": 25748
       },
       {
         "path": "src/document-view-state.js",
@@ -515,8 +529,8 @@
         "path": "src/format-registry.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "715ba16e995e26e55a6426b89281106102aa4c9a9426cedb42bb96e147a82945",
-        "size": 6142
+        "digest": "de2871002d395a2821bea1a7d1b00370fb31d774c7b455b69a06c7cca5b47386",
+        "size": 6139
       },
       {
         "path": "src/format-registry.test.js",
@@ -578,8 +592,8 @@
         "path": "src/main.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "f579213cf79467a4f282df342ec4fee2dfdf623b5ba8b72fcaf489c8d44212d2",
-        "size": 40922
+        "digest": "84d5c1293ec9e7f65e58400c0e32e227258236f08241d950987ece9c2a8ceac3",
+        "size": 40382
       },
       {
         "path": "src/main.test.js",
@@ -598,16 +612,16 @@
       {
         "path": "src/mermaid-renderer.js",
         "origin": "tracked",
-        "state": "present",
-        "digest": "b02d8ed6f129949cc9303a4892dfbc8b1a6a18caa216a610f599106ea5231769",
-        "size": 12166
+        "state": "missing",
+        "digest": null,
+        "size": 0
       },
       {
         "path": "src/mermaid-renderer.test.js",
         "origin": "tracked",
-        "state": "present",
-        "digest": "0b53b30534ccf0e4c8e3d2e79ee40aadf86d27dd0107276a5876e44f31bafb6d",
-        "size": 11988
+        "state": "missing",
+        "digest": null,
+        "size": 0
       },
       {
         "path": "src/open-intent-controller.js",
@@ -690,15 +704,15 @@
         "path": "src/reader-shell.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "539b9525fd68e14501c5647602aadb154c770e23007e30185296cf5cf2bcce23",
-        "size": 3426
+        "digest": "ec25cc8c1c8b016f7b77e2c3644c7cf64f3ae19befd9c9391806dd9b300fa064",
+        "size": 2991
       },
       {
         "path": "src/reader-shell.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "868cf49945778bb78870162acb797a053b8aeeb5cb9f091a42013e69ef08d69e",
-        "size": 5695
+        "digest": "8aa22d90695330f99b4dfa8f7932366088a52cfaa4078e42e99b4c11744af553",
+        "size": 4698
       },
       {
         "path": "src/reader-viewport-controller.js",
@@ -739,15 +753,15 @@
         "path": "src/reading-navigation-controller.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "5f9049f237bb7cde56873475138519822a25dfc26c8c286e4be2d2e62ad1f5d8",
-        "size": 34319
+        "digest": "a468c1974cbd35b316a37ab5c8577394dc814dd9d4738caef272507651bec8a5",
+        "size": 34274
       },
       {
         "path": "src/reading-navigation-controller.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "d3d773867735f052c3a58c008b34c5ec0064e853296ea243834d7c3ae02fff68",
-        "size": 16652
+        "digest": "6fb568694cefd4c9b6eb568ee89c77299b823a1c51be1056135cf970548cc944",
+        "size": 16645
       },
       {
         "path": "src/responsive-typography.js",
@@ -809,29 +823,29 @@
         "path": "src/syntax-highlighter.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "098a77ee8dbc1961d437be6769522893d5bfbdad4c963965f4f7828df0639a90",
-        "size": 3957
+        "digest": "3eaf182743a00834d1ab36958c4e7e656db884c24b6433f52d8b8568f82b4653",
+        "size": 9013
       },
       {
         "path": "src/syntax-highlighter.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "47188526ed16f9df2720abfe9b7c2e62b4f8f0602b19abb9789e4f6cd23b3c1a",
-        "size": 2842
+        "digest": "12bb32930317bacb68a67a5eb6d3464742dca32c3d2ce724a2f0c4a2cb486ab8",
+        "size": 5294
       },
       {
         "path": "src/theme-coordinator.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "92f681095c516f6725271ef325bb879fe842aad9f8574f31c6d525409b58247a",
-        "size": 13753
+        "digest": "40334561915f063cedbab6eacf1a7b7daf8eca5c5577458131e08ede86e055a7",
+        "size": 13131
       },
       {
         "path": "src/theme-coordinator.test.js",
         "origin": "tracked",
         "state": "present",
-        "digest": "421706055a8301c9355d3b9f8b3892b51f66919608c03b41d82574ac302047b3",
-        "size": 11851
+        "digest": "3b88d69bb406e03700e7d866ca110085b2ea2dca113a11e4a0b522e47f670aaa",
+        "size": 9029
       },
       {
         "path": "src/theme-tokens.js",
@@ -897,12 +911,12 @@
         "size": 297
       }
     ],
-    "digest": "efef1bd82dfbc811157de5282378831b04e93d59b065ce2ce55432bddc5c23d7"
+    "digest": "68ff815079ef0d1186f9db5a12db16a7d692c37cd2695717a3689105186b4091"
   },
-  "source_digest": "c159bda9e4a0e5b49e055f96681437febd74a64c4a58ce2766b0d5f947c45317",
+  "source_digest": "1f6d7398337a7eb89417d8ed0ce429a70dca106e1c573039efd19f20d1fd8706",
   "artifact_hashes": {
-    "codemap.json": "3a164e1791797d53c61d5342de8dfcecec289027a9de7b1e0c23dd1ffe7c6591",
-    "codemap.md": "c464695531060aec5bb235128438c92db7c078ecd7c068b41f558a8f1d74f488",
-    "codemap.html": "5a2f5d17b84b0713999a96ccaa993bc15f02b5987495870e3f694ae079396c36"
+    "codemap.json": "33c79359c2cddf57be5541293c8dbecd056f0e99f06c88740bbf2b673aa195a0",
+    "codemap.md": "30926ef0ca8e3e5728f250355c13cc12bc3956a94c1d974dae8197b8805f42fd",
+    "codemap.html": "c6925aa46d7bb584d3be447775465c3adf2b327d1dcf92483cd4569b3c23a424"
   }
 }

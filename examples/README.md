@@ -18,7 +18,7 @@ Start with [a-quiet-place.md](a-quiet-place.md) for Markdown reading and editing
 | [station.ini](station.ini) | INI | Sections and comments |
 | [radio.cfg](radio.cfg) | INI (`.cfg`) | Frequencies |
 | [harbor.conf](harbor.conf) | INI (`.conf`) | Pier daemon |
-| [harbor.env](harbor.env) | Env | `KEY=value` for the properties highlighter |
+| [harbor.env](harbor.env) | Env | `KEY=value` for the dotenv highlighter |
 | [tide-log.csv](tide-log.csv) | CSV | Quoted cells, unicode, a table wide enough to scroll |
 | [overnight.log](overnight.log) | Log | Levels, stack-shaped noise, Read/Source only |
 | [lumen-station.nfo](lumen-station.nfo) | NFO | UTF-8 program readme with decoration. Not XML. Not CP437. |

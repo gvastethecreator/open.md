@@ -37,7 +37,7 @@ function sessionElements() {
   };
 }
 
-function createSession({ open, readImage, readImageFile, prepare, render, highlight, resources, hooks, syntax, clipboard } = {}) {
+function createSession({ open, readImage, readImageFile, render, dispose, highlight, resources, hooks, syntax, clipboard } = {}) {
   return createDocumentSession({
     window,
     elements: sessionElements(),
@@ -48,8 +48,8 @@ function createSession({ open, readImage, readImageFile, prepare, render, highli
         readImageFile: readImageFile || vi.fn(async () => new Uint8Array([1, 2, 3])),
       },
       diagrams: {
-        prepare: prepare || vi.fn(async () => null),
         render: render || vi.fn(async () => false),
+        dispose: dispose || vi.fn(),
       },
       syntax: {
         highlight: highlight || vi.fn(async () => false),
@@ -120,14 +120,16 @@ describe('document session', () => {
     await session.open({ path: 'broken.json' });
     expect(highlight).not.toHaveBeenCalled();
     expect(fullHighlight).toHaveBeenCalledOnce();
+    await fullHighlight.mock.results[0].value;
     const code = document.querySelector('#content code');
     expect(code.textContent).toBe(source);
-    expect(code.querySelector('.hljs-attr')).not.toBeNull();
+    expect(code.querySelector('.syntax-property')).not.toBeNull();
     source = '{"after":';
     await session.open({ path: 'broken.json', quiet: true });
     expect(fullHighlight).toHaveBeenCalledTimes(2);
+    await fullHighlight.mock.results[1].value;
     expect(document.querySelector('#content code').textContent).toBe(source);
-    expect(document.querySelector('#content .hljs-attr').textContent).toContain('after');
+    expect(document.querySelector('#content .syntax-property').textContent).toContain('after');
     session.dispose();
   });
 
@@ -345,6 +347,9 @@ describe('document session', () => {
     await vi.waitFor(() => expect(image.getAttribute('src')).toBe('blob:test-image'));
     expect(readImage).toHaveBeenCalledOnce();
     expect(render).toHaveBeenCalledOnce();
+    expect(render).toHaveBeenCalledWith(document.querySelector('#content'), {
+      isCurrent: expect.any(Function),
+    });
     expect(diagram.dataset.mermaidPending).toBeUndefined();
     session.clear();
     expect(disconnect).toHaveBeenCalledOnce();
@@ -465,25 +470,25 @@ describe('document session', () => {
     expect(document.querySelector('#content .mermaid')?.textContent).toBe('graph TD');
   });
 
-  it('prepares a diagram replacement through the session without mutating the visible node', async () => {
-    const prepared = { theme: 'dark', commit: vi.fn(() => true) };
-    const prepare = vi.fn(async () => prepared);
+  it('disposes diagram mounts before the read surface is replaced', async () => {
+    const seen = [];
+    const dispose = vi.fn(() => {
+      seen.push(document.querySelector('#content .mermaid')?.textContent ?? null);
+    });
     const session = createSession({
-      open: vi.fn(async () => payload({ html: '<div class="mermaid">graph TD; A-->B</div>' })),
-      prepare,
+      open: vi.fn(async (path) => payload({
+        html: path === 'second.md' ? '<p>Next</p>' : '<div class="mermaid">graph TD</div>',
+      })),
+      dispose,
     });
-    await session.open({ path: 'diagram.md' });
-    const visibleBefore = document.querySelector('#content .mermaid')?.innerHTML;
 
-    await expect(session.prepareDiagrams('dark')).resolves.toBe(prepared);
+    await session.open({ path: 'first.md' });
+    await session.open({ path: 'second.md' });
 
-    expect(prepare).toHaveBeenCalledWith(document.querySelector('#content'), {
-      reset: true,
-      theme: 'dark',
-      isCurrent: expect.any(Function),
-    });
-    expect(document.querySelector('#content .mermaid')?.innerHTML).toBe(visibleBefore);
-    expect(prepared.commit).not.toHaveBeenCalled();
+    expect(seen).toContain('graph TD');
+    expect(document.querySelector('#content .mermaid')).toBeNull();
+    expect(document.querySelector('#content p')?.textContent).toBe('Next');
+    session.dispose();
   });
 
   it('marks the code-block copy button as copied with check feedback on success', async () => {
@@ -501,8 +506,8 @@ describe('document session', () => {
           readImageFile: vi.fn(async () => new Uint8Array([1, 2, 3])),
         },
         diagrams: {
-          prepare: vi.fn(async () => null),
           render: vi.fn(async () => false),
+          dispose: vi.fn(),
         },
         syntax: {
           highlight: vi.fn(async () => false),

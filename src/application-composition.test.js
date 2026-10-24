@@ -22,7 +22,7 @@ describe('application composition seam', () => {
     expect(ingressSource).not.toMatch(/from '@tauri-apps\//);
     expect(mainSource).not.toMatch(/from '\.\/editor-session\.js'/);
     const adapterSource = readFileSync(join(root, 'src/application-runtime-adapters.js'), 'utf8');
-    expect(adapterSource).not.toMatch(/from '\.\/mermaid-renderer\.js'/);
+    expect(adapterSource).not.toMatch(/from '\.\/diagram-renderer\.js'/);
     expect(mainSource).toMatch(/export async function startOpenMdApplication/);
     expect(mainSource).toMatch(/createDocumentLinkController/);
 

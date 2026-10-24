@@ -45,8 +45,8 @@ function createAdapters(openDocument) {
       readImage: async () => new Uint8Array(),
     },
     diagrams: {
-      prepare: async () => null,
       render: async () => false,
+      dispose: () => {},
     },
   };
 }
@@ -121,30 +121,6 @@ describe('reader shell', () => {
     expect(openDocument).toHaveBeenCalledTimes(2);
     expect(document.querySelector('#content h1')?.textContent).toBe('After');
     expect(document.activeElement).toBe(focusTarget);
-
-    shell.dispose();
-  });
-
-  it('exposes prepared appearance updates without committing them', async () => {
-    renderFixture();
-    const prepared = { theme: 'dark', commit: vi.fn(() => true) };
-    const adapters = createAdapters(async () => ({
-      ...payload('Diagram'),
-      html: '<div class="mermaid">graph TD; A-->B</div>',
-    }));
-    adapters.diagrams.prepare = vi.fn(async () => prepared);
-    const shell = mountReaderShell({ window, adapters });
-    await shell.start({ origin: 'launch', items: [{ path: 'diagram.md' }] });
-
-    const diagramTokens = { accent: '#62c6c8', background: '#111820' };
-    await expect(shell.prepareAppearance({ diagramTheme: 'dark', diagramTokens })).resolves.toBe(prepared);
-    expect(adapters.diagrams.prepare).toHaveBeenCalledWith(document.querySelector('#content'), {
-      reset: true,
-      theme: 'dark',
-      tokens: diagramTokens,
-      isCurrent: expect.any(Function),
-    });
-    expect(prepared.commit).not.toHaveBeenCalled();
 
     shell.dispose();
   });

@@ -2799,60 +2799,51 @@ pre code {
   white-space: inherit !important;
 }
 
-.hljs-comment,
-.hljs-quote {
+.syntax-comment {
   color: var(--syntax-comment);
   font-style: italic;
 }
 
-.hljs-keyword,
-.hljs-selector-tag,
-.hljs-literal,
-.hljs-section,
-.hljs-link {
+.syntax-keyword {
   color: var(--syntax-keyword);
   font-weight: 650;
 }
 
-.hljs-string,
-.hljs-regexp,
-.hljs-template-tag,
-.hljs-template-variable {
+.syntax-string {
   color: var(--syntax-string);
 }
 
-.hljs-number,
-.hljs-symbol,
-.hljs-bullet {
+.syntax-number {
   color: var(--syntax-number);
 }
 
-.hljs-title,
-.hljs-title.class_,
-.hljs-title.function_,
-.hljs-type,
-.hljs-built_in {
+.syntax-title {
   color: var(--syntax-title);
 }
 
-.hljs-attr,
-.hljs-attribute,
-.hljs-property,
-.hljs-variable,
-.hljs-params {
+.syntax-property {
   color: var(--syntax-property);
 }
 
-.hljs-meta,
-.hljs-meta .hljs-keyword,
-.hljs-doctag {
+.syntax-meta {
   color: var(--syntax-meta);
 }
 
-.hljs-addition { color: var(--syntax-addition); }
-.hljs-deletion { color: var(--syntax-deletion); }
-.hljs-emphasis { font-style: italic; }
-.hljs-strong { font-weight: 750; }
+.syntax-addition {
+  color: var(--syntax-addition);
+}
+
+.syntax-deletion {
+  color: var(--syntax-deletion);
+}
+
+.syntax-emphasis {
+  font-style: italic;
+}
+
+.syntax-strong {
+  font-weight: 750;
+}
 
 .table-scroll {
   max-width: 100%;
@@ -2944,6 +2935,35 @@ summary {
 }
 
 .mermaid {
+  /* One flat surface: Pele paints label and slice backgrounds with --pele-bg. */
+  --diagram-bg: color-mix(in srgb, var(--text-color) 3%, var(--bg-color));
+  --pele-bg: var(--diagram-bg);
+  --pele-fg: var(--text-color);
+  --pele-muted: color-mix(in srgb, var(--text-color) 62%, var(--diagram-bg));
+  --pele-line: color-mix(in srgb, var(--text-color) 52%, var(--diagram-bg));
+  --pele-surface: color-mix(in srgb, var(--accent-color) 7%, color-mix(in srgb, var(--bg-color) 55%, white));
+  --pele-surface-alt: color-mix(in srgb, var(--text-color) 4%, var(--diagram-bg));
+  --pele-border: color-mix(in srgb, var(--accent-color) 44%, var(--diagram-bg));
+  --pele-accent: var(--accent-color);
+  --pele-critical: var(--danger-color);
+  --pele-error: var(--danger-color);
+  --pele-font: var(--font-sans);
+  --pele-font-mono: var(--font-mono);
+  --pele-radius: var(--radius-md);
+  --pele-title-weight: 650;
+  --pele-heading-weight: 600;
+  /* Theme palettes often repeat hues, so series step around the accent hue
+     (135° apart, so neighbouring slices differ) at one readable lightness. */
+  --diagram-series-l: 0.56;
+  --diagram-series-c: 0.14;
+  --pele-series-1: oklch(from var(--accent-color) var(--diagram-series-l) var(--diagram-series-c) h);
+  --pele-series-2: oklch(from var(--accent-color) var(--diagram-series-l) var(--diagram-series-c) calc(h + 135));
+  --pele-series-3: oklch(from var(--accent-color) var(--diagram-series-l) var(--diagram-series-c) calc(h + 270));
+  --pele-series-4: oklch(from var(--accent-color) var(--diagram-series-l) var(--diagram-series-c) calc(h + 45));
+  --pele-series-5: oklch(from var(--accent-color) var(--diagram-series-l) var(--diagram-series-c) calc(h + 180));
+  --pele-series-6: oklch(from var(--accent-color) var(--diagram-series-l) var(--diagram-series-c) calc(h + 315));
+  --pele-series-7: oklch(from var(--accent-color) var(--diagram-series-l) var(--diagram-series-c) calc(h + 90));
+  --pele-series-8: oklch(from var(--accent-color) var(--diagram-series-l) var(--diagram-series-c) calc(h + 225));
   position: relative;
   isolation: isolate;
   max-width: 100%;
@@ -2952,20 +2972,7 @@ summary {
   overflow: auto;
   border: var(--document-line-width) solid var(--document-line-color);
   border-radius: var(--radius-md);
-  background:
-    radial-gradient(
-      circle at 14% -16%,
-      color-mix(in srgb, var(--ui-accent) 5%, transparent),
-      transparent 48%
-    ),
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--panel-bg) 66%, var(--bg-color)),
-      color-mix(in srgb, var(--bg-color) 96%, var(--panel-bg))
-    );
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--text-color) 3%, transparent),
-    inset 0 -1px 0 color-mix(in srgb, var(--bg-color) 44%, transparent);
+  background: var(--diagram-bg);
   text-align: center;
   scrollbar-gutter: stable both-edges;
   overscroll-behavior: contain;
@@ -2980,107 +2987,19 @@ summary {
   max-width: 100%;
   height: auto;
   margin-inline: auto;
-  overflow: visible;
-  color: var(--text-color);
-  font-family: var(--font-sans) !important;
-  text-rendering: geometricPrecision;
+}
+
+:root[data-theme-tone="dark"] .mermaid {
+  --diagram-bg: color-mix(in srgb, var(--text-color) 4%, var(--bg-color));
+  --pele-surface: color-mix(in srgb, var(--accent-color) 12%, var(--diagram-bg));
+  --diagram-series-l: 0.74;
+  --diagram-series-c: 0.13;
 }
 
 .mermaid:focus-visible {
   outline: none;
   border-color: color-mix(in srgb, var(--ui-accent) 18%, transparent);
-  box-shadow:
-    inset 0 0 0 var(--focus-ring-width) var(--focus-ring-color),
-    inset 0 1px 0 color-mix(in srgb, var(--text-color) 3%, transparent);
-}
-
-.mermaid svg text,
-.mermaid svg .label,
-.mermaid svg .nodeLabel,
-.mermaid svg .edgeLabel,
-.mermaid svg .messageText,
-.mermaid svg .loopText,
-.mermaid svg foreignObject > div {
-  font-family: var(--font-sans) !important;
-  font-variation-settings: "wght" 540;
-  letter-spacing: -0.005em;
-}
-
-.mermaid svg foreignObject > div,
-.mermaid svg .nodeLabel p,
-.mermaid svg .edgeLabel p {
-  line-height: 1.25;
-}
-
-.mermaid svg .nodeLabel p,
-.mermaid svg .edgeLabel p { margin: 0; }
-
-.mermaid svg :is(
-  .node > rect,
-  .node > circle,
-  .node > ellipse,
-  .node > polygon,
-  .node > path,
-  rect.actor,
-  .classGroup rect,
-  .statediagram-state rect,
-  .entityBox
-) {
-  stroke-width: 1.35px !important;
-}
-
-.mermaid svg :is(.node > rect, rect.actor, .classGroup rect, .statediagram-state rect) {
-  rx: 7px;
-  ry: 7px;
-}
-
-.mermaid svg .cluster rect {
-  rx: 10px;
-  ry: 10px;
-  stroke-width: 1.2px !important;
-  stroke-dasharray: 3 3;
-}
-
-.mermaid svg :is(.edgePath path, .flowchart-link, .messageLine0, .messageLine1, .transition) {
-  stroke-width: 1.45px !important;
-  opacity: 0.86;
-}
-
-.mermaid svg :is(.arrowheadPath, marker path) {
-  opacity: 0.9;
-}
-
-.mermaid svg .edgeLabel,
-.mermaid svg .edgeLabel rect,
-.mermaid svg .labelBkg {
-  border-radius: 4px;
-  background: var(--bg-color) !important;
-  fill: var(--bg-color) !important;
-}
-
-.mermaid svg g.edgeLabel {
-  font-size: 0.92em;
-}
-
-.mermaid svg .actor-line {
-  stroke-dasharray: 3 5;
-  opacity: 0.56;
-}
-
-.mermaid svg :is(.messageText, .loopText, .stateLabel, .relation) {
-  font-weight: 540 !important;
-}
-
-/* No filter drop-shadow on diagram nodes — SVG filters pop during theme/mode paint. */
-
-.mermaid svg .note {
-  rx: 6px;
-  ry: 6px;
-}
-
-.mermaid[data-mermaid-kind="class"] svg .classGroup line,
-.mermaid[data-mermaid-kind="entity"] svg .relationshipLine {
-  opacity: 0.58;
+  box-shadow: inset 0 0 0 var(--focus-ring-width) var(--focus-ring-color);
 }
 
 .mermaid::-webkit-scrollbar { width: 9px; height: 9px; }
@@ -4423,7 +4342,7 @@ label.appearance-theme-field.reading-tool-toggle .theme-select {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    /* Nonzero transitions distort SVG measurements during Mermaid layout. */
+    /* Nonzero transitions distort SVG measurements during diagram layout. */
     transition-duration: 0s !important;
     transition-delay: 0s !important;
   }

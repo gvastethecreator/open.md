@@ -70,7 +70,7 @@ Packaged builds register `.md`, `.markdown`, and `.txt` as viewer associations. 
 
 The theme catalog is a line-ending-normalized copy of the Gogh dataset at a fixed upstream commit. Read [Bundled themes](THEMES.md) and [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) before you change theme data. After changing `src/themes.json`, run `pnpm run generate:themes`. Frontend validation rejects a stale or incomplete runtime projection.
 
-Theme changes prepare Mermaid output before the visual commit so diagrams do not reflow mid-transition. The root wipe keeps the outgoing snapshot above the incoming snapshot while its clip path closes. Toast copy crossfades in one shared grid cell and must not use vertical transforms.
+Diagram colors follow CSS variables, so theme changes do not re-render diagrams. The root wipe keeps the outgoing snapshot above the incoming snapshot while its clip path closes. Toast copy crossfades in one shared grid cell and must not use vertical transforms.
 
 ## Release scope
 

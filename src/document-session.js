@@ -284,7 +284,11 @@ export function createDocumentSession({ window, adapters, hooks = {}, elements =
     hooks.onStateChange?.(state);
   };
   const isCurrent = (candidate) => !disposed && candidate === generation;
+  const disposeDiagrams = () => {
+    adapters.diagrams?.dispose?.();
+  };
   const clearReadSurface = () => {
+    disposeDiagrams();
     sourceRendered = false;
     imageHydrator = null;
     previewImages.clear();
@@ -525,6 +529,7 @@ export function createDocumentSession({ window, adapters, hooks = {}, elements =
         }
       }
 
+      disposeDiagrams();
       content.innerHTML = readHtml;
       if (sourceContent) sourceContent.textContent = '';
       if (!quiet) hooks.onDocumentCommitted?.({ path, document: openedDocument });
@@ -592,15 +597,12 @@ export function createDocumentSession({ window, adapters, hooks = {}, elements =
           if (renderDiagrams) {
             void (async () => {
               try {
-                const tokens = hooks.getDiagramTokens?.();
                 await adapters.diagrams?.render?.(content, {
                   isCurrent: () => isCurrent(candidate),
-                  theme: hooks.getDiagramTheme?.() || 'default',
-                  ...(tokens ? { tokens } : {}),
                 });
               } catch (error) {
                 if (!isCurrent(candidate)) return;
-                hooks.onDiagnostic?.('Mermaid render error', error);
+                hooks.onDiagnostic?.('Diagram render error', error);
                 hooks.onWarning?.('One or more diagrams could not be rendered');
               }
             })();
@@ -647,46 +649,6 @@ export function createDocumentSession({ window, adapters, hooks = {}, elements =
     }
   };
 
-  const refreshDiagrams = async (theme = 'default', tokens = null) => {
-    if (disposed || state.state !== 'ready' || !content.querySelector('.mermaid')) return false;
-    const candidate = generation;
-    try {
-      const rendered = await adapters.diagrams?.render?.(content, {
-        isCurrent: () => isCurrent(candidate),
-        reset: true,
-        theme,
-        ...(tokens ? { tokens } : {}),
-      });
-      if (!isCurrent(candidate)) return false;
-      return Boolean(rendered);
-    } catch (error) {
-      if (!isCurrent(candidate)) return false;
-      hooks.onDiagnostic?.('Mermaid theme update error', error);
-      hooks.onWarning?.('The diagram could not update for this theme');
-      return false;
-    }
-  };
-
-  const prepareDiagrams = async (theme = 'default', tokens = null) => {
-    if (disposed || state.state !== 'ready' || !content.querySelector('.mermaid')) return null;
-    const candidate = generation;
-    try {
-      const prepared = await adapters.diagrams?.prepare?.(content, {
-        isCurrent: () => isCurrent(candidate),
-        reset: true,
-        theme,
-        ...(tokens ? { tokens } : {}),
-      });
-      if (!isCurrent(candidate)) return null;
-      return prepared || null;
-    } catch (error) {
-      if (!isCurrent(candidate)) return null;
-      hooks.onDiagnostic?.('Mermaid theme preparation error', error);
-      hooks.onWarning?.('The diagram could not update for this theme');
-      return null;
-    }
-  };
-
   const applyPreferences = (snapshot) => {
     if (disposed) return;
     const previous = getPreferences()?.advanced;
@@ -701,8 +663,6 @@ export function createDocumentSession({ window, adapters, hooks = {}, elements =
   return Object.freeze({
     open,
     clear,
-    prepareDiagrams,
-    refreshDiagrams,
     ensureSourceView,
     applyPreferences,
     hydrateImagePreviews,
@@ -722,6 +682,7 @@ export function createDocumentSession({ window, adapters, hooks = {}, elements =
       if (disposed) return;
       disposed = true;
       generation += 1;
+      disposeDiagrams();
       clearReadSurface();
       disposeImageViewer();
       resources.clear();

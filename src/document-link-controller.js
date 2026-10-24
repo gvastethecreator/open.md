@@ -22,7 +22,8 @@ export function createDocumentLinkController({
       return;
     }
 
-    const action = getLinkAction(hrefAttribute, adapters.getDocumentPath?.() || null, target.href);
+    const resolvedHref = typeof target.href === 'string' ? target.href : target.href?.baseVal;
+    const action = getLinkAction(hrefAttribute, adapters.getDocumentPath?.() || null, resolvedHref);
     if (action.type === 'anchor') return;
 
     event.preventDefault();

@@ -6,7 +6,7 @@ const root = process.cwd();
 const distDirectory = path.join(root, 'dist');
 const indexPath = path.join(distDirectory, 'index.html');
 // Keep the initial reader/editor graph within budget; syntax highlighting,
-// Mermaid, image viewing, and rich format readers load on demand.
+// diagrams, image viewing, and rich format readers load on demand.
 const maxInitialJavaScriptBytes = 380_000;
 
 function listFiles(directory) {
@@ -49,14 +49,9 @@ const initialAssets = initialAssetPaths.map(readAsset);
 const initialJavaScriptAssets = initialAssets.filter((asset) => asset.relativePath.endsWith('.js'));
 const initialJavaScriptBytes = initialJavaScriptAssets.reduce((total, asset) => total + asset.rawBytes, 0);
 
-const initialMermaidAssets = initialJavaScriptAssets.filter((asset) => /mermaid/i.test(asset.relativePath));
-if (initialMermaidAssets.length > 0) {
-  throw new Error(`Mermaid assets must stay deferred, but are eager/preloaded: ${initialMermaidAssets.map((asset) => asset.relativePath).join(', ')}`);
-}
-
 const initialJavaScriptText = initialJavaScriptAssets.map((asset) => asset.bytes.toString('utf8')).join('\n');
-if (/\b(?:import\s+mermaid|from\s*["']mermaid["']|require\(\s*["']mermaid["']\s*\))/i.test(initialJavaScriptText)) {
-  throw new Error('Mermaid must be loaded through a dynamic import, never an eager import');
+if (initialJavaScriptText.includes('pele-node')) {
+  throw new Error('Pele must stay out of the initial JavaScript');
 }
 
 if (initialJavaScriptBytes > maxInitialJavaScriptBytes) {
@@ -78,7 +73,14 @@ const deferredJavaScriptAssets = allAssets.filter(
 );
 const deferredRawBytes = deferredJavaScriptAssets.reduce((total, asset) => total + asset.rawBytes, 0);
 const deferredGzipBytes = deferredJavaScriptAssets.reduce((total, asset) => total + asset.gzipBytes, 0);
+const deferredPeleAssets = deferredJavaScriptAssets.filter((asset) => {
+  const absolutePath = path.join(distDirectory, asset.relativePath);
+  return readFileSync(absolutePath, 'utf8').includes('pele-node');
+});
+if (deferredPeleAssets.length === 0) {
+  throw new Error('A deferred JavaScript asset must contain the Pele marker');
+}
 
 console.log(`Bundle total: ${totalRawBytes} B raw / ${totalGzipBytes} B gzip (${allAssets.length} assets)`);
 console.log(`Initial boot JS: ${initialJavaScriptBytes} B raw / ${initialJavaScriptAssets.reduce((total, asset) => total + asset.gzipBytes, 0)} B gzip (${initialJavaScriptAssets.length} assets)`);
-console.log(`Deferred JS (Mermaid graph): ${deferredRawBytes} B raw / ${deferredGzipBytes} B gzip (${deferredJavaScriptAssets.length} assets)`);
+console.log(`Deferred JS (on-demand graph): ${deferredRawBytes} B raw / ${deferredGzipBytes} B gzip (${deferredJavaScriptAssets.length} assets)`);
