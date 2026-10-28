@@ -131,8 +131,8 @@ importers:
         specifier: ^7.12.1
         version: 7.12.1
       pele:
-        specifier: 1.9.0
-        version: 1.9.0
+        specifier: 1.10.0
+        version: 1.10.0
       shiki:
         specifier: 4.5.0
         version: 4.5.0
@@ -823,8 +823,8 @@ packages:
   parse5@8.0.1:
     resolution: {integrity: sha512-z1e/HMG90obSGeidlli3hj7cbocou0/wa5HacvI3ASx34PecNjNQeaHNo5WIZpWofN9kgkqV1q5YvXe3F0FoPw==}
 
-  pele@1.9.0:
-    resolution: {integrity: sha512-KUmBt7P5JduVKQaP6FKfXiRgH3LBVIKsmdgPJZU7jD3ye6F+Z8fbms+OjivE7rWY09Qx+5X65VKe/9ywKFJ9Sw==}
+  pele@1.10.0:
+    resolution: {integrity: sha512-hDMEM+GQ01pZin8tst3PRXGeB/xFATvXBreHHtjx2glSNAQ7nHFq7EbMuNJGTbqkYgueWPboLjyUBsAudsb1qQ==}
     engines: {node: '>=20'}
 
   picocolors@1.1.1:
@@ -1506,7 +1506,7 @@ snapshots:
     dependencies:
       entities: 8.1.0
 
-  pele@1.9.0: {}
+  pele@1.10.0: {}
 
   picocolors@1.1.1: {}
 
