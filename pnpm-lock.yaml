@@ -128,8 +128,8 @@ importers:
         specifier: ^2.7.2
         version: 2.7.2
       iconoir:
-        specifier: ^7.12.1
-        version: 7.12.1
+        specifier: ^7.12.2
+        version: 7.12.2
       pele:
         specifier: 1.9.0
         version: 1.9.0
@@ -567,8 +567,8 @@ packages:
   html-void-elements@3.0.0:
     resolution: {integrity: sha512-bEqo66MRXsUGxWHV5IP0PUiAWwoEjba4VCzg0LjFJBpchPaTfyfCKTG6bc5F8ucKec3q5y6qOdGyYTSBEvhCrg==}
 
-  iconoir@7.12.1:
-    resolution: {integrity: sha512-7ei4jd1bss0Ukyz/bbM9Zc96aLfZuwTEkSW8u5fx5h3X9912MsnmWwPw9LyTUtcf0ShfTzQeQ9oG7IslW3hrLg==}
+  iconoir@7.12.2:
+    resolution: {integrity: sha512-epJjWmNUn0zddyShKgYPlE8m8cqwNLR5Zr2UmIHV1iZJr7uYGHDi/7dM4brOjLBXRP8lx0Q8N1gcWadizQgEMQ==}
 
   is-potential-custom-element-name@1.0.1:
     resolution: {integrity: sha512-bCYeRA2rVibKZd+s2625gGnGF/t7DSqDs4dP7CrLA1m7jKWz6pps0LpYLJN8Q64HtmPKJ1hrN3nzPNKFEKOUiQ==}
@@ -1373,7 +1373,7 @@ snapshots:
 
   html-void-elements@3.0.0: {}
 
-  iconoir@7.12.1: {}
+  iconoir@7.12.2: {}
 
   is-potential-custom-element-name@1.0.1: {}
 
